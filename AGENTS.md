@@ -22,6 +22,10 @@ Use Go standard formatting and idioms; run `make fmt` before review. Keep packag
 
 Add unit tests next to changed Go code using `*_test.go`; table-driven tests are preferred for controllers, routing, auth, and store behavior. Run `make test` for normal changes, `go test -race ./...` for concurrency-sensitive code, and `make e2e` for deployment, SDK, or sandbox lifecycle changes. Python SDK tests live in `sdk-python/tests/`; CLI tests live in `cmd/cli/tests/`.
 
+## Internship Report Guidelines
+
+When updating internship reports under `internship-reports/`, include process blockers and debugging notes, not only the final successful path. Record the command or step that failed, the observed error, the root cause if known, and the workaround or final resolution.
+
 ## Commit & Pull Request Guidelines
 
 Recent history uses scoped commits such as `docs: clarify redis password values`, `test: fix flaky router private key PEM test`, and `manifests: load REDIS_PASSWORD from Secret via secretKeyRef`. Prefer `component: imperative summary`; `feat:` and `fix:` are acceptable. PRs should explain the problem, summarize changes, link issues with `Fixes #...` or `Refs #...`, list tests run, and include logs or screenshots for user-facing behavior. Request review from relevant `OWNERS`.
