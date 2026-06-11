@@ -1,5 +1,7 @@
 # AgentCube
 
+[中文](README-ZH.md)
+
 > [!NOTE]
 > AgentCube is currently in the Proposal and Early Design Phase. Project's initial proposal can be found at <https://github.com/volcano-sh/volcano/issues/4686>. Specific feature sets and implementation details are subject to change based on community consensus and development progress.
 
