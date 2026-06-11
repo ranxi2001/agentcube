@@ -33,3 +33,14 @@ Recent history uses scoped commits such as `docs: clarify redis password values`
 ## Security & Configuration Tips
 
 Do not commit real Redis passwords, API tokens, kubeconfigs, or model credentials. Prefer Kubernetes Secrets and Helm values such as `redis.secretName` for production-style examples. Report sensitive issues privately as described in `CONTRIBUTING.md`.
+
+For local `math-agent` experiments, store OpenAI-compatible LLM settings in `cmd/cli/examples/math-agent/.env`. The root `.gitignore` ignores `.env`, but still keep the file permission restricted with `chmod 600 cmd/cli/examples/math-agent/.env` and never paste real keys into reports, docs, commits, or shell transcripts. A safe template is:
+
+```bash
+OPENAI_API_KEY=<YOUR_API_KEY>
+OPENAI_API_BASE=<YOUR_OPENAI_COMPATIBLE_BASE_URL>
+OPENAI_MODEL=<YOUR_MODEL>
+WORKLOAD_MANAGER_URL=http://localhost:18080
+ROUTER_URL=http://localhost:18081
+PORT=18082
+```
