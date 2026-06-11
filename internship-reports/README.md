@@ -7,3 +7,5 @@
 ## 日报列表
 
 - [Day 1：跟着 Getting Started 跑通 AgentCube](day1-getting-started.md)
+- [Day 2：从编程语言和技术栈理解 AgentCube 的实现](day2-implementation-tech-stack.md)
+- [Day 3：从跑通架构到运行真实 Agent 工作流](day3-real-agent-workflow.md)

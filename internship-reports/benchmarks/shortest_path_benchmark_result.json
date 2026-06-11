@@ -1,0 +1,105 @@
+{
+  "expected": {
+    "path": [
+      "A",
+      "C",
+      "B",
+      "D",
+      "E",
+      "F",
+      "H",
+      "I",
+      "J"
+    ],
+    "weight": 18
+  },
+  "results": [
+    {
+      "method": "local_python_algorithm",
+      "scope": "pure local algorithm, no LLM, no network",
+      "single_run_ms": 0.0332,
+      "mean_ms_10000_runs": 0.016,
+      "p95_ms_10000_runs": 0.018,
+      "result": {
+        "path": [
+          "A",
+          "C",
+          "B",
+          "D",
+          "E",
+          "F",
+          "H",
+          "I",
+          "J"
+        ],
+        "weight": 18
+      },
+      "accurate": true
+    },
+    {
+      "method": "direct_llm_no_tool",
+      "scope": "LLM direct answer, no AgentCube tool",
+      "total_ms": 5887.03,
+      "response": "A-C-B-D-E-F-H-I-J, total weight 18",
+      "accurate": true
+    },
+    {
+      "method": "agentcube_sdk_sandbox_python",
+      "scope": "AgentCube session create + router + sandbox Python + delete, no LLM",
+      "session_id_prefix": "18c8d331",
+      "create_session_ms": 94.22,
+      "run_code_ms": 42.69,
+      "delete_session_ms": 6.54,
+      "total_ms": 143.45,
+      "result": {
+        "path": [
+          "A",
+          "C",
+          "B",
+          "D",
+          "E",
+          "F",
+          "H",
+          "I",
+          "J"
+        ],
+        "weight": 18
+      },
+      "accurate": true
+    },
+    {
+      "method": "llm_tool_call_local_python",
+      "scope": "LLM tool decision + local Python execution + LLM final answer, no AgentCube sandbox",
+      "tool_decision_ms": 7842.66,
+      "local_tool_ms": 30.02,
+      "final_answer_ms": 1501.84,
+      "total_ms": 9374.52,
+      "tool_output": "A->C->B->D->E->F->H->I->J 18",
+      "response": "A->C->B->D->E->F->H->I->J, 18",
+      "accurate": true
+    },
+    {
+      "method": "llm_tool_call_agentcube_sdk",
+      "scope": "LLM tool decision + AgentCube sandbox Python + LLM final answer, no math-agent HTTP wrapper",
+      "tool_decision_ms": 8123.97,
+      "session_id_prefix": "ed943ad9",
+      "create_session_ms": 56.49,
+      "run_code_ms": 46.64,
+      "delete_session_ms": 7.81,
+      "agentcube_tool_ms": 110.94,
+      "final_answer_ms": 1402.99,
+      "total_ms": 9637.9,
+      "tool_output": "['A', 'C', 'B', 'D', 'E', 'F', 'H', 'I', 'J'] 18",
+      "response": "A-C-B-D-E-F-H-I-J, 18",
+      "accurate": true
+    },
+    {
+      "method": "math_agent_end_to_end_llm_tool_agentcube",
+      "scope": "HTTP math-agent + LLM tool decision + AgentCube sandbox Python",
+      "http_status": 200,
+      "total_ms": 10835.66,
+      "response": "A->C->B->D->E->F->H->I->J, total weight 18",
+      "accurate": true
+    }
+  ]
+}
