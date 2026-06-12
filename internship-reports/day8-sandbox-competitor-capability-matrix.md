@@ -46,6 +46,36 @@ KVM 是 Kernel-based Virtual Machine 的缩写，可以理解成 Linux 内核里
 - Linux KVM project：<https://www.linux-kvm.org/page/Main_Page>
 - Linux kernel KVM documentation：<https://docs.kernel.org/virt/kvm/index.html>
 
+### 补充：MicroVM 是什么
+
+MicroVM 可以理解成“轻量化的小虚拟机”。它的背景是：容器启动快、资源开销低，但共享宿主机内核；传统虚拟机隔离强，但设备模型和系统栈更重。MicroVM 试图在两者之间取一个工程折中：保留虚拟机边界和独立 guest kernel，同时去掉大量通用 VM 不需要的设备和功能，让启动速度、内存占用和运行密度更接近容器。
+
+用表格看更直观：
+
+| 形态 | 隔离边界 | 典型优点 | 典型代价 |
+| --- | --- | --- | --- |
+| 进程 | 同一宿主系统里的子进程 | 最轻、最快 | 隔离最弱 |
+| 容器 / Pod | 共享宿主 Linux 内核，靠 namespace/cgroup 隔离 | 启动快、生态成熟、适合 K8s | 仍共享内核 |
+| 传统 VM | 独立 guest OS/kernel，通用虚拟硬件 | 隔离强、兼容性好 | 启动和资源开销更高 |
+| MicroVM | 独立 guest kernel + 精简设备模型 | 比容器隔离强，比传统 VM 更轻 | 依赖 KVM/硬件虚拟化和镜像模板 |
+
+Firecracker 官方文档对 microVM 的描述正好体现了这个定位：它把 workload 放进轻量虚拟机里，用 KVM 创建和管理 microVM，并通过极简设备模型减少内存占用和攻击面。Cloud Hypervisor 这类现代 VMM 也强调面向云工作负载、紧凑 footprint 和安全性。RustVMM 则是 Rust 虚拟化组件社区，Firecracker、Cloud Hypervisor、CubeSandbox 这类项目都会和这个生态有关系。
+
+在这次竞品测试里，MicroVM 的意义是：
+
+- forkd 用 Firecracker microVM，并进一步做 warm parent + CoW fork，目标是在硬件隔离下快速 fan-out。
+- CubeSandbox 用 RustVMM/KVM microVM，强调 E2B 兼容、硬件隔离、资源池和多节点 sandbox 服务。
+- AgentCube 本次实测是普通 k3s Pod，不是 microVM；但它通过 `runtimeClassName` 可以接 Kata/Kuasar 这类更强隔离 runtime，具体能不能到 microVM 级取决于集群节点和 RuntimeClass。
+- cage-bro 自身不是 microVM，而是进程级 agent tool runtime；如果要承载强对抗代码，需要放到外层 VM/microVM/容器安全边界里。
+
+MicroVM 也不是“免费安全”。它仍然依赖宿主机是否暴露 `/dev/kvm`、CPU 是否支持硬件虚拟化、guest 镜像和网络策略是否正确配置。当前测试机没有 `/dev/kvm`，所以 forkd 和 CubeSandbox 标准 microVM 路线不能在本机直接跑出有效数据。
+
+参考：
+
+- Firecracker：<https://firecracker-microvm.github.io/>
+- Cloud Hypervisor：<https://github.com/cloud-hypervisor/cloud-hypervisor>
+- rust-vmm community：<https://github.com/rust-vmm/community>
+
 这个环境对 forkd / CubeSandbox 这类 KVM microVM 项目不友好。因此 forkd 和 CubeSandbox 的性能数字先采用官方数据，等后续换 KVM 可用机器再做同机实测。
 
 ## 隔离等级定义
