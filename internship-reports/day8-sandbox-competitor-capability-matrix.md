@@ -30,6 +30,22 @@
 | CPU 虚拟化 flags | 未暴露 `vmx` / `svm` | CPU 是否把 Intel VT-x / AMD-V 虚拟化能力暴露给当前系统；未暴露时一般无法在这台 VM 里再跑 KVM microVM |
 | Kubernetes | 本地 k3s，用于 AgentCube 实测 | 轻量级 Kubernetes 集群；本次 AgentCube 测的是 k3s Pod + warm pool 路径 |
 
+### 补充：KVM 是什么
+
+KVM 是 Kernel-based Virtual Machine 的缩写，可以理解成 Linux 内核里的硬件虚拟化能力。Linux KVM 项目主页把 KVM 定义为 Linux 在带 Intel VT 或 AMD-V 虚拟化扩展的 x86 硬件上的完整虚拟化方案，并说明它由 `kvm.ko` 这个核心内核模块和 `kvm-intel.ko` / `kvm-amd.ko` 这类 CPU 相关模块组成。Linux kernel 官方文档也把 KVM 作为内核虚拟化子系统和 API 进行维护。
+
+放到这次竞品测试里，可以这样理解：
+
+- `/dev/kvm` 是用户态虚拟机管理程序调用 KVM 的设备入口。Firecracker、RustVMM、QEMU 这类程序通常要通过它创建虚拟机或 microVM。
+- `vmx` / `svm` 是 CPU 暴露出来的硬件虚拟化能力标记，分别对应 Intel VT-x 和 AMD-V。
+- 当前机器没有 `/dev/kvm`，也没有暴露 `vmx` / `svm`，所以 forkd、CubeSandbox 这类依赖 KVM microVM 的项目不能在当前标准环境里完成有效实测。
+- AgentCube 本次走普通 k3s Pod 路径，cage-bro 走进程级 runtime，所以它们可以在这台机器上跑；但隔离等级和 KVM microVM 项目不是同一档。
+
+参考：
+
+- Linux KVM project：<https://www.linux-kvm.org/page/Main_Page>
+- Linux kernel KVM documentation：<https://docs.kernel.org/virt/kvm/index.html>
+
 这个环境对 forkd / CubeSandbox 这类 KVM microVM 项目不友好。因此 forkd 和 CubeSandbox 的性能数字先采用官方数据，等后续换 KVM 可用机器再做同机实测。
 
 ## 隔离等级定义
