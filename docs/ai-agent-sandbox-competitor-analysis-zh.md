@@ -106,6 +106,8 @@ cage-bro 是一个轻量的 agent tool runtime，单个 Rust binary 提供 shell
 
 我们在当前 CentOS 8 测试机上做过 AgentCube 和 cage-bro 的同机 benchmark。测试环境关键限制是：无 `/dev/kvm`，CPU 未暴露 `vmx` / `svm`，所以 forkd 和 CubeSandbox 标准 microVM 路线无法有效实测。
 
+这里的 AgentCube benchmark 不是端到端 AI Agent 测试，而是 CodeInterpreter sandbox 基础设施测试。它测的是 `create session -> claim/create sandbox -> Router 转发 -> picod 执行 print("ok") -> delete session` 这条最小路径，不包含 LLM 调用、Agent 规划/推理循环、工具选择、LangChain/LangGraph 流程、复杂依赖加载或任务正确率。因此这些数字只能说明“Agent 调用代码执行沙盒时，底层 sandbox session 路径有多快”，不能代表完整 Agent 应用的端到端时延。
+
 | 项目 | 测试配置 | 并发 10 p50 | 说明 |
 | --- | --- | ---: | --- |
 | AgentCube | `warmPoolSize=2`，普通 k3s Pod 路径 | `7315.21 ms` | 8 个请求发生 pool miss，主要延迟来自补池等待 |
