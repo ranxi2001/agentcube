@@ -39,6 +39,7 @@
 | KVM | Linux 内核硬件虚拟化能力 | Firecracker、RustVMM、QEMU 等 microVM 通常需要它 |
 | MicroVM | 轻量化小虚拟机 | 比容器隔离更强，比传统 VM 更轻，适合高密度沙盒 |
 | RuntimeClass | Kubernetes 选择底层运行时的机制 | AgentCube 可通过它接入 Kata/Kuasar 等更强隔离 runtime |
+| E2B 兼容 | 兼容 E2B 这类 AI code interpreter / sandbox 服务的 SDK 或 API 形态 | 现有使用 E2B SDK 的应用可以少改代码迁移到兼容实现 |
 
 ## 相关项目
 
@@ -70,7 +71,7 @@ forkd 的优势在于：
 
 ### CubeSandbox
 
-CubeSandbox 是腾讯云开源的高性能 sandbox 服务，定位是面向 AI Agent 的 E2B-compatible 硬件隔离沙盒。它基于 RustVMM 和 KVM，官方文档强调：
+CubeSandbox 是腾讯云开源的高性能 sandbox 服务，定位是面向 AI Agent 的 E2B-compatible（兼容 E2B 的 SDK/API 形态，方便已有 E2B code interpreter 应用迁移）硬件隔离沙盒。它基于 RustVMM 和 KVM，官方文档强调：
 
 - 硬件级隔离，每个 sandbox 有独立 guest kernel。
 - E2B SDK 兼容，便于迁移现有 code interpreter 应用。

@@ -76,6 +76,8 @@ MicroVM 也不是“免费安全”。它仍然依赖宿主机是否暴露 `/dev
 - Cloud Hypervisor：<https://github.com/cloud-hypervisor/cloud-hypervisor>
 - rust-vmm community：<https://github.com/rust-vmm/community>
 
+补充说明：E2B 兼容指兼容 E2B 这类 AI code interpreter / sandbox 服务的 SDK 或 API 形态，方便已有使用 E2B SDK 的应用迁移到兼容实现。它描述的是 API/生态兼容性，不代表隔离等级或安全等级。
+
 这个环境对 forkd / CubeSandbox 这类 KVM microVM 项目不友好。因此 forkd 和 CubeSandbox 的性能数字先采用官方数据，等后续换 KVM 可用机器再做同机实测。
 
 ## 隔离等级定义
