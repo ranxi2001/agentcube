@@ -5,6 +5,10 @@
 > [!NOTE]
 > AgentCube 目前仍处于提案和早期设计阶段。项目初始提案见 <https://github.com/volcano-sh/volcano/issues/4686>。具体功能范围和实现细节可能会根据社区共识和开发进展继续调整。
 
+## 延伸阅读
+
+- [AI Agent 沙盒运行环境背景与竞品分析](docs/ai-agent-sandbox-competitor-analysis-zh.md)
+
 ## 概览
 
 AgentCube 是 Volcano 社区中的一个拟议子项目，目标是扩展 Volcano 的能力，使其能够原生支持和管理 AI Agent 工作负载。AI Agent 正在生成式 AI 和大语言模型（LLM）应用中快速出现，它们对运行时基础设施提出了不同于传统任务的新要求。
