@@ -113,15 +113,15 @@ D. 当 $b=0$ 时，$s_1+s_2+s_3$ 的最大值为 $\dfrac{2\sqrt{21}}3$
 
 ### 12.
 
-双曲线 $5x^2-6y^2=1$ 的离心率为 ________。
+双曲线 $5x^2-6y^2=1$ 的离心率为 $\underline{\hspace{2cm}}$。
 
 ### 13.
 
-已知 $f(x)=2\sin(ax+\theta)\ (a\in\mathbb Z,\ 0\le \theta<2\pi)$ 是偶函数，$f(x)$ 在区间 $\left(0,\dfrac\pi2\right)$ 单调递增，则 $\theta=________$，$f\left(\frac{2\pi}{3}\right)=________$。
+已知 $f(x)=2\sin(ax+\theta)\ (a\in\mathbb Z,\ 0\le \theta<2\pi)$ 是偶函数，$f(x)$ 在区间 $\left(0,\dfrac\pi2\right)$ 单调递增，则 $\theta=\underline{\hspace{2cm}}$，$f\left(\frac{2\pi}{3}\right)=\underline{\hspace{2cm}}$。
 
 ### 14.
 
-设实数 $q$ 满足：存在数列 $\{a_n\}$，使得对于任意 $n\in\mathbb N^*$，均有 $a_1+a_2+\cdots+a_{3n}=n^2+n$，且 $\{a_n\}$ 中有某连续 $9$ 项 $a_k,a_{k+1},\cdots,a_{k+8}$ 是公比为 $q$ 的等比数列，则 $q$ 的最大值为 ________。
+设实数 $q$ 满足：存在数列 $\{a_n\}$，使得对于任意 $n\in\mathbb N^*$，均有 $a_1+a_2+\cdots+a_{3n}=n^2+n$，且 $\{a_n\}$ 中有某连续 $9$ 项 $a_k,a_{k+1},\cdots,a_{k+8}$ 是公比为 $q$ 的等比数列，则 $q$ 的最大值为 $\underline{\hspace{2cm}}$。
 
 ## 四、解答题
 

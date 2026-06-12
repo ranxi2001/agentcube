@@ -396,7 +396,7 @@ $$
 5x^2-6y^2=1
 $$
 
-的离心率为 ________。
+的离心率为 $\underline{\hspace{2cm}}$。
 
 **答案：** 待校对。
 
@@ -411,7 +411,7 @@ $$
 是偶函数，$f(x)$ 在区间 $\left(0,\dfrac\pi2\right)$ 单调递增，则
 
 $$
-\theta=________,\qquad f\left(\frac{2\pi}{3}\right)=________.
+\theta=\underline{\hspace{2cm}},\qquad f\left(\frac{2\pi}{3}\right)=\underline{\hspace{2cm}}.
 $$
 
 **答案：** $\dfrac{3\pi}{2}$；$1$。
@@ -436,7 +436,7 @@ $$
 a_k,a_{k+1},\cdots,a_{k+8}
 $$
 
-是公比为 $q$ 的等比数列，则 $q$ 的最大值为 ________。
+是公比为 $q$ 的等比数列，则 $q$ 的最大值为 $\underline{\hspace{2cm}}$。
 
 **答案：**
 
