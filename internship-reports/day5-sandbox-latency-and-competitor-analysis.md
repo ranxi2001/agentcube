@@ -566,7 +566,48 @@ curl -L https://raw.githubusercontent.com/TencentCloud/CubeSandbox/master/README
 
 最终报告中的竞品信息只采用能在公开仓库 README 或 GitHub metadata 中核验到的内容。
 
-### 问题 4：`kubectl get sandbox,sandboxclaim,pod -A` 不能完整展示 warm pool 状态
+### 问题 4：forkd 不是简单的 Python 包，复现前必须先过 KVM / 系统预检
+
+后续尝试在同一台机器上复现 forkd 时，发现不能只按“下载二进制然后跑 benchmark”的思路处理。forkd 的核心能力依赖 Firecracker microVM，所以环境要求比普通 agent 工具更强。
+
+重新阅读 forkd README 和 `scripts/setup-host.sh` 后，我的判断修正为：
+
+> 不是“CentOS 8 理论上绝对不能跑 forkd”，而是“forkd 官方支持路径不是 CentOS 8；当前这台 CentOS 8 云 VM 肯定跑不了 forkd microVM”。
+
+具体卡点有四层：
+
+| 检查项 | 当前结果 | 影响 |
+| --- | --- | --- |
+| 官方支持路径 | README 写的是 x86_64 Linux with KVM，Ubuntu 22.04 or newer；`setup-host.sh` 使用 `apt-get`，标注 tested on Ubuntu 24.04 | CentOS 8 不是官方 quickstart 路径，需要自行适配 |
+| 用户态兼容 | 当前系统 `glibc 2.28`，forkd 官方 v0.5.2 / v0.3.4 / v0.1.4 二进制运行时报 `GLIBC_2.29` 到 `GLIBC_2.39` 缺失 | 官方预编译包不能直接运行 |
+| KVM 设备 | `/dev/kvm` 不存在，CPU flags 没有 `vmx` / `svm`，`dmesg` 显示 `kvm: no hardware support` | Firecracker microVM 无法启动，这是硬 blocker |
+| 内核版本 | 当前内核 `4.18.0`，forkd live BRANCH 文档要求 Linux `>= 5.7` | 即使解决 glibc，也无法完整验证 live fork / UFFD_WP 路径 |
+
+这说明源码构建只能绕过 glibc 问题，不能绕过 `/dev/kvm` 缺失。当前机器上继续安装 Rust 编译 forkd，最多能得到一个本机可执行的 `forkd`，但无法完成 microVM sandbox 实测，也就不能得到有效竞品延迟数据。
+
+后续要复现 forkd，应该先换到满足下面条件的机器：
+
+```text
+Ubuntu 22.04/24.04
+x86_64
+/dev/kvm 可用
+CPU flags 有 vmx 或 svm
+支持 tap / netns
+root 权限或足够 capabilities
+```
+
+预检命令应先跑：
+
+```bash
+ls -l /dev/kvm
+egrep -o 'vmx|svm' /proc/cpuinfo | head
+ldd --version
+forkd doctor
+```
+
+只有这些通过后，再继续做 `forkd quickstart`、`forkd pull` 和 N 并发 fork benchmark。否则拿不到可和 AgentCube 对比的数字。
+
+### 问题 5：`kubectl get sandbox,sandboxclaim,pod -A` 不能完整展示 warm pool 状态
 
 第一次只看：
 
