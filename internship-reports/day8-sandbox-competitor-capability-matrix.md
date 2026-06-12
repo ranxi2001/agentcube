@@ -169,6 +169,8 @@ AgentCube 在这张表里要特别标注两种状态：
 
 ### 我们当前环境实测
 
+AgentCube 这里测的是 CodeInterpreter sandbox 基础设施路径，不是完整 AI Agent 端到端路径。测试步骤是 `create session -> claim/create sandbox -> Router 转发 -> picod 执行 print("ok") -> delete session`。它不包含 LLM 调用、Agent 规划/推理循环、工具选择、LangChain/LangGraph 流程、复杂依赖加载或任务正确率。
+
 | 项目 | 测试口径 | 顺序测试 | 并发测试 | 解读 |
 | --- | --- | ---: | ---: | --- |
 | AgentCube | `create session -> run print("ok") -> delete session`，`warmPoolSize=2`，普通 Pod 路径 | total p50 `177.14 ms`，min `91.95 ms` | 并发 10 total p50 `7315.21 ms`，min `188.42 ms` | warm pool 命中能到 100ms 级；并发 10 被 pool miss 和补池等待放大 |
