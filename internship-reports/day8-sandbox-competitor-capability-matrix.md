@@ -191,6 +191,8 @@ AgentCube 在这张表里要特别标注两种状态：
 
 补测后结论更清楚：`warmPoolSize=2` 时的 7 秒级并发 p50 主要来自 pool miss 和补池等待；把预热位提高到 10 后，同样并发 10 的 p50 降到 `436-565 ms`。也就是说，AgentCube 的并发突发能力和 warm pool 容量强相关，不能只拿 `warmPoolSize=2` 的并发数据代表系统上限。
 
+更完整的竞品官方数据相对值已经整理到 `docs/ai-agent-sandbox-competitor-analysis-zh.md`。其中 forkd README 的同机 N=100 fan-out 表可以计算出 forkd 相对 CubeSandbox、Firecracker cold-boot、Docker、gVisor 等 backend 的倍数；cage-bro README 和 CubeSandbox README 的自述表也可以用于判断它们在“工具密度”和“硬件隔离 sandbox platform”两个维度上的生态位置。
+
 ## 选型结论
 
 | 场景 | 优先看 | 原因 |
