@@ -20,15 +20,15 @@
 
 当前测试机环境是：
 
-| 项 | 值 |
-| --- | --- |
-| OS | CentOS Linux 8 |
-| kernel | `4.18.0-348.7.1.el8_5.x86_64` |
-| glibc | `2.28` |
-| CPU | 4 vCPU，运行在 KVM 虚拟机里 |
-| `/dev/kvm` | 不存在 |
-| CPU 虚拟化 flags | 未暴露 `vmx` / `svm` |
-| Kubernetes | 本地 k3s，用于 AgentCube 实测 |
+| 项 | 值 | 备注 |
+| --- | --- | --- |
+| OS | CentOS Linux 8 | 操作系统发行版，决定默认软件包、系统库版本和官方二进制能不能直接运行 |
+| kernel | `4.18.0-348.7.1.el8_5.x86_64` | Linux 内核版本，决定 KVM、Landlock、userfaultfd 等底层隔离能力是否可用 |
+| glibc | `2.28` | Linux C 标准库版本；forkd、cage-bro 官方二进制需要更新的 glibc，所以在本机直接运行失败 |
+| CPU | 4 vCPU，运行在 KVM 虚拟机里 | 这台机器本身是云上的虚拟机，不是裸金属；性能和虚拟化能力会受云厂商配置限制 |
+| `/dev/kvm` | 不存在 | KVM 设备入口；forkd、CubeSandbox 这类 microVM 项目通常需要它来启动硬件虚拟化沙箱 |
+| CPU 虚拟化 flags | 未暴露 `vmx` / `svm` | CPU 是否把 Intel VT-x / AMD-V 虚拟化能力暴露给当前系统；未暴露时一般无法在这台 VM 里再跑 KVM microVM |
+| Kubernetes | 本地 k3s，用于 AgentCube 实测 | 轻量级 Kubernetes 集群；本次 AgentCube 测的是 k3s Pod + warm pool 路径 |
 
 这个环境对 forkd / CubeSandbox 这类 KVM microVM 项目不友好。因此 forkd 和 CubeSandbox 的性能数字先采用官方数据，等后续换 KVM 可用机器再做同机实测。
 
