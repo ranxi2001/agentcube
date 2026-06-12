@@ -121,6 +121,83 @@ cage-bro 是一个轻量的 agent tool runtime，单个 Rust binary 提供 shell
 - 如果要比较 forkd / CubeSandbox 的 microVM 能力，需要换到有 KVM 的机器。
 - 如果要比较 Kubernetes 原生调度能力，需要看 AgentCube 与 K8s/Volcano 的整合，而不是只看单次代码执行延迟。
 
+## 相对值：用倍数理解生态位置
+
+不同项目的官方 benchmark 往往跑在不同机器上，绝对毫秒值不能直接混用。但如果某个项目已经在同一张官方竞品表里列出了多个 backend 的结果，就可以在这个表内部计算相对值。相对值不能替代真实同机测试，但能帮助判断生态位置。
+
+### forkd 官方同机 N=100 fan-out 表
+
+forkd README 给出了一组同机 benchmark：Ubuntu 24.04、Linux 6.14、20 vCPU、30 GiB、KVM；workload 是同时 spawn 100 个 sandbox，每个 sandbox 执行 `import numpy; numpy.zeros(5).tolist()`。按 forkd `101 ms` 作为 1x，得到：
+
+| Backend | 官方 wall-clock | 相对 forkd | 说明 |
+| --- | ---: | ---: | --- |
+| forkd | `101 ms` | `1x` | warm parent + snapshot CoW fork |
+| Firecracker cold-boot | `759 ms` | `7.5x` | 原始 Firecracker 冷启动，无上层编排 |
+| CubeSandbox | `1.06 s` | `10.5x` | forkd 表里的 CubeSandbox fast-path N=100 数据 |
+| BoxLite | `113.2 s` | `1121x` | KVM microVM，冷启动 OCI rootfs |
+| OpenSandbox | `122.0 s` | `1208x` | Docker/K8s/gVisor/Kata/FC 抽象层 |
+| gVisor | `288.6 s` | `2857x` | userspace kernel container |
+| Docker runc | `335.3 s` | `3320x` | 标准容器 runtime |
+
+同一张表还给了内存相对值：
+
+| Backend | 官方 memory delta / sandbox | 相对 forkd |
+| --- | ---: | ---: |
+| forkd | `0.12 MiB` | `1x` |
+| Docker runc | `4 MiB` | `33.3x` |
+| CubeSandbox | `5 MiB` | `41.7x` |
+| Firecracker cold-boot | `84 MiB` | `700x` |
+
+这个相对值说明 forkd 在“同一个预热状态 fan-out 出很多 microVM”这个细分问题上非常激进，位置更靠近 snapshot/fork primitive，而不是普通 sandbox platform。它的代价是机器要求高、当前更偏单机 daemon、生产化调度能力还在补。
+
+### CubeSandbox 官方自述表
+
+CubeSandbox README 的自述表没有给出完整同机多 backend 数字，但给了几个定位指标：
+
+| 指标 | Docker Container | CubeSandbox | 相对理解 |
+| --- | ---: | ---: | --- |
+| Boot speed | `200 ms` | `<60 ms` | CubeSandbox 至少约 `3.3x` 更快 |
+| 50 并发创建 | 未给 Docker 对照 | avg `67 ms`，P95 `90 ms`，P99 `137 ms` | 说明它关注高并发 cold start 稳定性 |
+| Memory overhead | 未给 Docker 精确值 | `<5 MB` | 说明它关注高密度 microVM |
+| Isolation | shared kernel namespace | dedicated kernel + eBPF | CubeSandbox 用更强隔离换取仍然较低的启动/内存开销 |
+
+CubeSandbox 的生态位置更像“E2B 兼容的 KVM sandbox 平台”：比单一 fork primitive 更平台化，提供 API、模板、网络隔离、集群组件和 E2B 迁移路径。
+
+### cage-bro 官方自述表
+
+cage-bro README 把自己和 Docker sandbox 做了工具层对比：
+
+| 指标 | Docker sandbox | cage-bro | 相对理解 |
+| --- | ---: | ---: | --- |
+| Memory | `~2 GB` per Chromium container | `~100 MB` per sandbox | cage-bro 约 `20x` 更省内存 |
+| Init time | seconds | `~1 ms` | cage-bro 启动开销明显更低 |
+| Density | 1 container per VM | `20+` sandboxes per 1c1g VM | 单机工具密度约 `20x+` |
+
+这个相对值说明 cage-bro 的位置不是“强隔离 microVM”，而是“轻量 agent tool runtime”。它牺牲一部分隔离边界，换取非常低的工具启动和执行开销。
+
+### 我们本机相对值
+
+我们当前测试机只能有效跑 AgentCube 普通 Pod 路径和 cage-bro 进程级 runtime。按 cage-bro 并发 10 p50 `58.48 ms` 作为对照：
+
+| 对比项 | AgentCube | cage-bro | 相对值 | 解读 |
+| --- | ---: | ---: | ---: | --- |
+| 顺序 p50 total | `177.14 ms` | `18.41 ms` | cage-bro 约 `9.6x` 快 | 只比较本机执行路径，不代表同隔离等级 |
+| 并发 10 p50 total，AgentCube `warmPoolSize=2` | `7315.21 ms` | `58.48 ms` | cage-bro 约 `125.1x` 快 | 不公平，AgentCube 8 个请求 pool miss |
+| 并发 10 p50 total，AgentCube `warmPoolSize=10` | `436.11 ms` / `565.23 ms` | `58.48 ms` | cage-bro 约 `7.5x-9.7x` 快 | 更接近“都提前准备好”的口径，但仍不是同隔离等级 |
+
+这组相对值的意义是：AgentCube 的并发突发延迟高度依赖 warm pool 容量；cage-bro 的进程级工具 runtime 在本机很快；但二者安全边界和系统目标不同。
+
+### 生态位置总结
+
+按“相对值 + 能力边界”看，可以粗略分成四类：
+
+| 生态位置 | 代表项目 | 相对特征 |
+| --- | --- | --- |
+| Snapshot/fork primitive | forkd | 在预热父 VM fan-out 场景下相对值极强，但更依赖 KVM host 和单机 daemon 能力 |
+| KVM sandbox platform | CubeSandbox | 启动和内存相对传统 VM/容器更优，同时保留硬件隔离和平台组件 |
+| Agent tool runtime | cage-bro | 相对 Docker 工具容器更轻、更快、更高密度，但自身不是 microVM |
+| Kubernetes Agent control plane | AgentCube | 绝对执行延迟受 warm pool 和底层 runtime 影响；优势在 K8s 原生生命周期、调度和资源治理 |
+
 ## 选型理解
 
 可以用一个类比理解这些项目：
