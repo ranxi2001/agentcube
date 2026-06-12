@@ -28,6 +28,39 @@ When updating internship reports under `internship-reports/`, include process bl
 
 For competitor benchmarks and sandbox/runtime comparisons, keep the raw result files under `internship-reports/benchmarks/` and reference them from the report. Separate data sources clearly as local measured data, upstream official data, and engineering inference. Record the benchmark host environment, including OS, kernel, glibc, CPU/vCPU, `/dev/kvm`, virtualization flags such as `vmx`/`svm`, and Kubernetes/runtime configuration. Add short plain-language notes for OS-level terms that affect the result, for example KVM, `/dev/kvm`, glibc, Landlock, cgroup, and RuntimeClass, so the report is readable by reviewers who are not operating-system specialists. If a test temporarily changes cluster state, such as `warmPoolSize`, port-forward sessions, or test services, restore it before finishing and state the final setting in the report or final response.
 
+## Fork Sync & Upstream PR Workflow
+
+This workspace uses two remotes:
+
+- `origin`: the personal fork, currently `https://github.com/ranxi2001/agentcube.git`.
+- `upstream`: the official project, `https://github.com/volcano-sh/agentcube.git`.
+
+Keep internship reports, local benchmark data, Chinese notes, and task tracking on the fork `main` branch. It is acceptable to rebase fork `main` onto `upstream/main` so the fork stays current while preserving internship commits after the latest official history. Before rebasing, make sure the worktree is clean by committing or stashing local edits.
+
+Use this sync flow for the fork `main` branch:
+
+```bash
+git status
+git fetch upstream main
+git rebase upstream/main
+git push --force-with-lease origin main:main
+```
+
+Use `--force-with-lease`, not plain `--force`, after a rebase. If `--force-with-lease` is rejected, fetch `origin` and inspect the difference before pushing, because someone or something may have updated the fork branch. Do not push to `upstream`; keep its push URL disabled or treat it as read-only.
+
+For official upstream PRs, do not open PRs directly from the fork `main` branch. Create a clean topic branch from the latest `upstream/main`, and include only one focused change:
+
+```bash
+git fetch upstream main
+git switch -c docs/benchmark-scope upstream/main
+# apply or cherry-pick only the minimal PR change
+git status
+make test
+git push origin docs/benchmark-scope
+```
+
+Keep official PR branches small and reviewable. Do not include internship reports, raw benchmark logs, Chinese-only notes, local environment files, or unrelated fork-main history unless the PR explicitly targets those files. Link issues with `Fixes #...` or `Refs #...`, list tests run, and mention any environment-specific limitations.
+
 ## Commit & Pull Request Guidelines
 
 Recent history uses scoped commits such as `docs: clarify redis password values`, `test: fix flaky router private key PEM test`, and `manifests: load REDIS_PASSWORD from Secret via secretKeyRef`. Prefer `component: imperative summary`; `feat:` and `fix:` are acceptable. PRs should explain the problem, summarize changes, link issues with `Fixes #...` or `Refs #...`, list tests run, and include logs or screenshots for user-facing behavior. Request review from relevant `OWNERS`.
