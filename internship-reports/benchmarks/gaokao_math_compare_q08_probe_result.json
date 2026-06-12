@@ -1,0 +1,115 @@
+{
+  "run_started_at": "2026-06-12T03:12:22.582585+00:00",
+  "cases_file": "/home/agentcube/internship-reports/benchmarks/gaokao_math_2026_cases.json",
+  "methods": [
+    "direct_llm",
+    "llm_tool_local_python",
+    "llm_tool_agentcube"
+  ],
+  "selected_case_count": 1,
+  "result_count": 3,
+  "summary": {
+    "direct_llm": {
+      "total": 1,
+      "auto_graded": 1,
+      "correct": 1,
+      "manual": 0,
+      "errors": 0,
+      "mean_ms": 4407.49,
+      "p50_ms": 4407.49,
+      "max_ms": 4407.49,
+      "accuracy": 1.0
+    },
+    "llm_tool_call_local_python": {
+      "total": 1,
+      "auto_graded": 1,
+      "correct": 1,
+      "manual": 0,
+      "errors": 0,
+      "mean_ms": 6686.5,
+      "p50_ms": 6686.5,
+      "max_ms": 6686.5,
+      "accuracy": 1.0
+    },
+    "llm_tool_agentcube": {
+      "total": 1,
+      "auto_graded": 1,
+      "correct": 0,
+      "manual": 0,
+      "errors": 1,
+      "accuracy": 0.0
+    }
+  },
+  "results": [
+    {
+      "case_id": "2026-gaokao-math-q08",
+      "question_no": "8",
+      "type": "single_choice",
+      "method": "direct_llm",
+      "scope": "LLM direct answer, no tool, no AgentCube sandbox",
+      "total_ms": 4407.49,
+      "response": "最终答案：A。理由：全集 \\(U\\) 中 \\(X=x_1+x_2+x_3\\) 的总和为 \\(0\\)，去掉点 \\(P(1,1,1)\\) 后总和变为 \\(-3\\)，样本数为 \\(63\\)，故期望为\n\\[\nE(X)=\\frac{-3}{63}=-\\frac1{21}.\n\\]",
+      "usage": {
+        "input_tokens": 272,
+        "output_tokens": 176,
+        "total_tokens": 448,
+        "input_token_details": {},
+        "output_token_details": {
+          "reasoning": 79
+        }
+      },
+      "grade": {
+        "mode": "choice",
+        "accurate": true,
+        "actual": "A",
+        "expected": "A"
+      },
+      "accurate": true
+    },
+    {
+      "case_id": "2026-gaokao-math-q08",
+      "question_no": "8",
+      "type": "single_choice",
+      "method": "llm_tool_call_local_python",
+      "scope": "LLM tool decision + local Python execution + LLM final answer",
+      "tool_decision_ms": 2996.19,
+      "local_tool_ms": 28.05,
+      "final_answer_ms": 3662.26,
+      "total_ms": 6686.5,
+      "tool_call_count": 1,
+      "tool_output": "64 63 -3 -0.047619047619047616",
+      "response": "最终答案：A。极简理由：全集对称，所有点坐标和总和为 $0$，去掉 $P(1,1,1)$ 后总和为 $-3$，样本数 $63$，故期望为 $-\\frac{3}{63}=-\\frac1{21}$。",
+      "usage": {
+        "tool_decision": {
+          "input_tokens": 381,
+          "output_tokens": 95,
+          "total_tokens": 476,
+          "input_token_details": {},
+          "output_token_details": {}
+        },
+        "final_answer": {
+          "input_tokens": 472,
+          "output_tokens": 76,
+          "total_tokens": 548,
+          "input_token_details": {},
+          "output_token_details": {}
+        }
+      },
+      "grade": {
+        "mode": "choice",
+        "accurate": true,
+        "actual": "A",
+        "expected": "A"
+      },
+      "accurate": true
+    },
+    {
+      "case_id": "2026-gaokao-math-q08",
+      "question_no": "8",
+      "type": "single_choice",
+      "method": "llm_tool_agentcube",
+      "error": "ConnectionError(MaxRetryError('HTTPConnectionPool(host=\\'localhost\\', port=18080): Max retries exceeded with url: /v1/code-interpreter (Caused by NewConnectionError(\"HTTPConnection(host=\\'localhost\\', port=18080): Failed to establish a new connection: [Errno 111] Connection refused\"))'))",
+      "accurate": false
+    }
+  ]
+}

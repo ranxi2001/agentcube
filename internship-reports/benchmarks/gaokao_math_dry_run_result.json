@@ -1,0 +1,75 @@
+{
+  "run_started_at": "2026-06-12T02:35:02.376707+00:00",
+  "cases_file": "/home/agentcube/internship-reports/benchmarks/gaokao_math_2026_cases.json",
+  "methods": [
+    "dry_run"
+  ],
+  "selected_case_count": 5,
+  "result_count": 5,
+  "summary": {
+    "dry_run_parse": {
+      "total": 5,
+      "auto_graded": 0,
+      "correct": 0,
+      "manual": 5,
+      "errors": 0
+    }
+  },
+  "results": [
+    {
+      "case_id": "2026-gaokao-math-q01",
+      "question_no": "1",
+      "type": "single_choice",
+      "method": "dry_run_parse",
+      "prompt_chars": 69,
+      "grading_mode": "choice",
+      "requires_image": false,
+      "prompt_preview": "### 1.\n\n样本数据 $6,8,4,5,12$ 的中位数为（ ）\n\nA. $5$  \nB. $6$  \nC. $8$  \nD. $9$",
+      "accurate": null
+    },
+    {
+      "case_id": "2026-gaokao-math-q02",
+      "question_no": "2",
+      "type": "single_choice",
+      "method": "dry_run_parse",
+      "prompt_chars": 146,
+      "grading_mode": "choice",
+      "requires_image": false,
+      "prompt_preview": "### 2.\n\n已知平面向量 $\\vec a,\\vec b$ 不共线，且 $2\\vec a+y\\vec b=x\\vec a-3\\vec b$，则（ ）\n\nA. $x=2,\\ y=-3$  \nB. $x=-2,\\ y=3$  \nC. $x=2,\\ y=3$  \nD. $x=-2,\\ y=-3$",
+      "accurate": null
+    },
+    {
+      "case_id": "2026-gaokao-math-q03",
+      "question_no": "3",
+      "type": "single_choice",
+      "method": "dry_run_parse",
+      "prompt_chars": 340,
+      "grading_mode": "choice",
+      "requires_image": false,
+      "prompt_preview": "### 3.\n\n已知集合 $A=\\left\\{\\sin\\frac{7\\pi}{6},\\ \\cos\\frac{5\\pi}{3},\\ \\tan\\frac{5\\pi}{4}\\right\\}$，$B=\\left\\{-\\frac{\\sqrt3}{2},\\ -\\frac12,\\ 1\\right\\}$，则 $A\\cap B=$（ ）\n\nA. $\\left\\{-\\dfrac{\\sqrt3}{2},-\\dfrac12\\right\\}$  \nB. $\\left\\{-\\dfrac{\\sqrt3}{",
+      "accurate": null
+    },
+    {
+      "case_id": "2026-gaokao-math-q04",
+      "question_no": "4",
+      "type": "single_choice",
+      "method": "dry_run_parse",
+      "prompt_chars": 100,
+      "grading_mode": "choice",
+      "requires_image": false,
+      "prompt_preview": "### 4.\n\n曲线 $y=5x+8\\ln x$ 在点 $(1,5)$ 处的切线方程为（ ）\n\nA. $y=3x+2$  \nB. $y=5x$  \nC. $y=8x-3$  \nD. $y=13x-8$",
+      "accurate": null
+    },
+    {
+      "case_id": "2026-gaokao-math-q05",
+      "question_no": "5",
+      "type": "single_choice",
+      "method": "dry_run_parse",
+      "prompt_chars": 167,
+      "grading_mode": "choice",
+      "requires_image": false,
+      "prompt_preview": "### 5.\n\n已知抛物线 $C_1:y^2=2p_1x\\ (p_1>0)$，$C_2:x^2=2p_2y\\ (p_2>0)$ 均经过点 $(4,8)$，则 $C_1$ 的焦点与 $C_2$ 的焦点之间的距离为（ ）\n\nA. $12$  \nB. $4\\sqrt5$  \nC. $6$  \nD. $\\dfrac{\\sqrt{65}}2$",
+      "accurate": null
+    }
+  ]
+}
