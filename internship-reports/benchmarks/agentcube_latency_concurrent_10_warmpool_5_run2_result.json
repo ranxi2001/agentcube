@@ -1,0 +1,152 @@
+{
+  "run_started_at": "2026-06-12T08:59:16.196095+00:00",
+  "mode": "concurrent",
+  "count": 10,
+  "concurrency": 10,
+  "namespace": "default",
+  "interpreter_name": "my-interpreter",
+  "workload_manager_url": "http://localhost:18080",
+  "router_url": "http://localhost:18081",
+  "wall_clock_ms": 120049.08,
+  "summary": {
+    "case_count": 10,
+    "successful": 9,
+    "failed": 1,
+    "create_session": {
+      "count": 9,
+      "mean_ms": 5949.79,
+      "p50_ms": 392.89,
+      "p95_ms": 16904.81,
+      "min_ms": 98.04,
+      "max_ms": 16904.81
+    },
+    "run_code": {
+      "count": 9,
+      "mean_ms": 49.83,
+      "p50_ms": 49.93,
+      "p95_ms": 83.82,
+      "min_ms": 28.06,
+      "max_ms": 83.82
+    },
+    "delete_session": {
+      "count": 9,
+      "mean_ms": 39.54,
+      "p50_ms": 35.96,
+      "p95_ms": 100.82,
+      "min_ms": 6.75,
+      "max_ms": 100.82
+    },
+    "total_latency": {
+      "count": 9,
+      "mean_ms": 6039.15,
+      "p50_ms": 528.07,
+      "p95_ms": 16943.74,
+      "min_ms": 212.64,
+      "max_ms": 16943.74
+    },
+    "errors": [
+      {
+        "index": 4,
+        "error": "HTTPError('504 Server Error: Gateway Timeout for url: http://localhost:18080/v1/code-interpreter')",
+        "success": false
+      }
+    ]
+  },
+  "results": [
+    {
+      "index": 0,
+      "session_id_prefix": "76235373",
+      "create_session_ms": 14113.19,
+      "run_code_ms": 28.33,
+      "delete_session_ms": 10.46,
+      "total_ms": 14151.99,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 1,
+      "session_id_prefix": "7ae2312b",
+      "create_session_ms": 11713.66,
+      "run_code_ms": 28.06,
+      "delete_session_ms": 6.75,
+      "total_ms": 11748.47,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 2,
+      "session_id_prefix": "739f92ec",
+      "create_session_ms": 197.22,
+      "run_code_ms": 63.27,
+      "delete_session_ms": 100.82,
+      "total_ms": 361.32,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 3,
+      "session_id_prefix": "94ffb980",
+      "create_session_ms": 98.04,
+      "run_code_ms": 78.63,
+      "delete_session_ms": 35.96,
+      "total_ms": 212.64,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 4,
+      "error": "HTTPError('504 Server Error: Gateway Timeout for url: http://localhost:18080/v1/code-interpreter')",
+      "success": false
+    },
+    {
+      "index": 5,
+      "session_id_prefix": "fe4fa4d8",
+      "create_session_ms": 148.2,
+      "run_code_ms": 51.0,
+      "delete_session_ms": 55.93,
+      "total_ms": 255.13,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 6,
+      "session_id_prefix": "8f794f7d",
+      "create_session_ms": 392.89,
+      "run_code_ms": 83.82,
+      "delete_session_ms": 51.35,
+      "total_ms": 528.07,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 7,
+      "session_id_prefix": "cbddf3c1",
+      "create_session_ms": 270.65,
+      "run_code_ms": 49.93,
+      "delete_session_ms": 79.89,
+      "total_ms": 400.48,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 8,
+      "session_id_prefix": "d5ef803e",
+      "create_session_ms": 16904.81,
+      "run_code_ms": 31.39,
+      "delete_session_ms": 7.54,
+      "total_ms": 16943.74,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 9,
+      "session_id_prefix": "91bccfbe",
+      "create_session_ms": 9709.42,
+      "run_code_ms": 34.0,
+      "delete_session_ms": 7.12,
+      "total_ms": 9750.55,
+      "output": "ok",
+      "success": true
+    }
+  ]
+}

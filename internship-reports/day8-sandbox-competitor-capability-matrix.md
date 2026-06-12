@@ -172,7 +172,9 @@ AgentCube 在这张表里要特别标注两种状态：
 | 项目 | 测试口径 | 顺序测试 | 并发测试 | 解读 |
 | --- | --- | ---: | ---: | --- |
 | AgentCube | `create session -> run print("ok") -> delete session`，`warmPoolSize=2`，普通 Pod 路径 | total p50 `177.14 ms`，min `91.95 ms` | 并发 10 total p50 `7315.21 ms`，min `188.42 ms` | warm pool 命中能到 100ms 级；并发 10 被 pool miss 和补池等待放大 |
+| AgentCube | 同样 benchmark，临时把 `warmPoolSize` 调到 5，等 warm pool READY=5 后跑两次并发 10 | 未重复顺序测试 | run1 total p50 `503.56 ms`，p95 `11924.62 ms`；run2 total p50 `528.07 ms`，p95 `16943.74 ms`，成功 `9/10` | p50 看起来不差，但后半数请求等待补池，p95 长尾明显；run2 有 1 个 504 超时 |
 | AgentCube | 同样 benchmark，临时把 `warmPoolSize` 调到 10，等 warm pool READY=10 后跑两次并发 10 | 未重复顺序测试 | run1 total p50 `436.11 ms`，p95 `803.94 ms`；run2 total p50 `565.23 ms`，p95 `932.83 ms` | 预热位足够时，并发 10 从秒级降到亚秒级；剩余开销主要在并发 claim、Router/picod 执行和删除 session |
+| AgentCube | 同样 benchmark，临时把 `warmPoolSize` 调到 20，等 warm pool READY=20 后跑两次并发 10 | 未重复顺序测试 | run1 total p50 `698.37 ms`，p95 `1025.89 ms`；run2 total p50 `671.82 ms`，p95 `996.04 ms` | 稳定成功，但没有比 `warmPoolSize=10` 更快，说明超过并发需求后收益不再线性增加 |
 | cage-bro | E2B lifecycle: `POST /sandboxes -> exec -> DELETE`，执行 `printf 'print("ok")\n' \| python3` | total p50 `18.41 ms` | 并发 10 total p50 `58.48 ms` | 很快，但隔离等级是 L1；本机 kernel 4.18 无 Landlock |
 | forkd | 预检 | 未进入 benchmark | 未进入 benchmark | glibc 2.28 不兼容官方二进制；无 `/dev/kvm`，无法测 microVM |
 | CubeSandbox | 未测 | 未测 | 未测 | 当前机器无 `/dev/kvm`，标准路径不适合；PVM 路线需要换内核 |
@@ -189,9 +191,9 @@ AgentCube 在这张表里要特别标注两种状态：
 
 这个比例有参考意义：它说明进程级工具 runtime 的管理开销非常低，也说明 AgentCube 的并发突发测试必须把 warm pool 容量纳入变量。但不能据此得出 cage-bro 比 AgentCube “整体更好”，因为它们安全边界和调度目标不同。
 
-补测后结论更清楚：`warmPoolSize=2` 时的 7 秒级并发 p50 主要来自 pool miss 和补池等待；把预热位提高到 10 后，同样并发 10 的 p50 降到 `436-565 ms`。也就是说，AgentCube 的并发突发能力和 warm pool 容量强相关，不能只拿 `warmPoolSize=2` 的并发数据代表系统上限。
+补测后结论更清楚：`warmPoolSize=2` 时的 7 秒级并发 p50 主要来自 pool miss 和补池等待；`warmPoolSize=5` 的 p50 降到 500ms 左右，但 p95 仍然 11-16s，且第二轮出现 504；把预热位提高到 10 后，同样并发 10 的 p50 降到 `436-565 ms`，p95 也稳定在 1s 内；再提高到 20 后没有继续变快，p50 反而在 `672-698 ms`。也就是说，AgentCube 的并发突发能力和 warm pool 容量强相关，但不是越大越好，要和目标突发并发量匹配。
 
-按现有三组结果计算，`warmPoolSize=10` 相对 `warmPoolSize=2` 在并发 10 下带来的提升是：total p50 约 `12.9x-16.8x`，total p95 约 `10.0x-11.6x`，create session p50 约 `19.4x-21.1x`。这说明最佳时延状态是“请求命中已有 warm pool 且没有补池等待”：顺序热池命中最小 total 是 `91.95 ms`，并发 10 预热位充足时 total p50 是 `436-565 ms`。继续优化不能只调大 pool，还要看 claim 路径、Router/picod 执行、session 删除和底层 Kubernetes 调度。
+按现有结果计算，`warmPoolSize=10` 相对 `warmPoolSize=2` 在并发 10 下带来的提升是：total p50 约 `12.9x-16.8x`，total p95 约 `10.0x-11.6x`，create session p50 约 `19.4x-21.1x`。这说明最佳时延状态是“请求命中已有 warm pool 且没有补池等待”：顺序热池命中最小 total 是 `91.95 ms`，并发 10 当前最佳档是 `warmPoolSize=10`，total p50 `436-565 ms`。继续优化不能只调大 pool，还要看 claim 路径、Router/picod 执行、session 删除和底层 Kubernetes 调度。
 
 更完整的竞品官方数据相对值已经整理到 `docs/ai-agent-sandbox-competitor-analysis-zh.md`。其中 forkd README 的同机 N=100 fan-out 表可以计算出 forkd 相对 CubeSandbox、Firecracker cold-boot、Docker、gVisor 等 backend 的倍数；cage-bro README 和 CubeSandbox README 的自述表也可以用于判断它们在“工具密度”和“硬件隔离 sandbox platform”两个维度上的生态位置。
 
@@ -206,7 +208,7 @@ AgentCube 在这张表里要特别标注两种状态：
 
 ## 当前缺口和下一步
 
-1. AgentCube 已补 `warmPoolSize=10` 的并发 10 测试，下一步可以继续扫 `warmPoolSize=5/20`，得到 pool size 和并发延迟的曲线。
+1. AgentCube 已补 `warmPoolSize=5/10/20` 的并发 10 初步曲线；下一步可以在 `8/10/12` 附近用更大样本重复，确认最佳点是否稳定。
 2. AgentCube 需要在有 Kata/Kuasar RuntimeClass 的节点上重测，得到 L3/L4 路径下的延迟和资源开销。
 3. forkd 需要换到 Ubuntu 22.04+、Linux 新内核、cgroup v2、`/dev/kvm` 可用的机器上跑官方 quick start 和我们的最小 benchmark。
 4. CubeSandbox 下一步先做 precheck：`/dev/kvm`、Docker、内存、磁盘、是否允许 PVM 换内核；如果当前云 VM 不适合，直接换 PVM/裸金属环境。
@@ -227,6 +229,10 @@ AgentCube 本地源码和文档：
 - `internship-reports/day7-cage-bro-competitor-benchmark.md`
 - `internship-reports/benchmarks/agentcube_latency_concurrent_10_warmpool_10_result.json`
 - `internship-reports/benchmarks/agentcube_latency_concurrent_10_warmpool_10_run2_result.json`
+- `internship-reports/benchmarks/agentcube_latency_concurrent_10_warmpool_5_result.json`
+- `internship-reports/benchmarks/agentcube_latency_concurrent_10_warmpool_5_run2_result.json`
+- `internship-reports/benchmarks/agentcube_latency_concurrent_10_warmpool_20_result.json`
+- `internship-reports/benchmarks/agentcube_latency_concurrent_10_warmpool_20_run2_result.json`
 
 竞品官方资料：
 
