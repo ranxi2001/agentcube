@@ -121,6 +121,31 @@ cage-bro 是一个轻量的 agent tool runtime，单个 Rust binary 提供 shell
 - 如果要比较 forkd / CubeSandbox 的 microVM 能力，需要换到有 KVM 的机器。
 - 如果要比较 Kubernetes 原生调度能力，需要看 AgentCube 与 K8s/Volcano 的整合，而不是只看单次代码执行延迟。
 
+### AgentCube warmPoolSize 对性能的影响
+
+`warmPoolSize` 的作用是提前准备一批可用 CodeInterpreter sandbox。它不能让单个 sandbox 里的 Python 执行变快，但可以显著减少并发请求因为“没有可用预热 sandbox”而等待补池的时间。
+
+在当前测试机上，并发 10 的变化非常明显：
+
+| 指标 | `warmPoolSize=2` | `warmPoolSize=10` run1 | `warmPoolSize=10` run2 | 提升幅度 |
+| --- | ---: | ---: | ---: | ---: |
+| total p50 | `7315.21 ms` | `436.11 ms` | `565.23 ms` | 约 `12.9x-16.8x` |
+| total p95 | `9299.62 ms` | `803.94 ms` | `932.83 ms` | 约 `10.0x-11.6x` |
+| total mean | `6286.63 ms` | `542.82 ms` | `601.22 ms` | 约 `10.5x-11.6x` |
+| create session p50 | `7278.76 ms` | `375.22 ms` | `344.74 ms` | 约 `19.4x-21.1x` |
+
+这说明当前 AgentCube 最主要的并发瓶颈不是 `run_code` 本身，而是 session 创建/claim sandbox 阶段。当并发量超过 warm pool 容量时，请求会等待新的 sandbox 被调度和补进池里；当 warm pool 容量覆盖突发并发量时，延迟会从秒级下降到亚秒级。
+
+目前看到的 AgentCube 最佳时延状态可以分三层理解：
+
+| 状态 | 现有数据 | 含义 |
+| --- | ---: | --- |
+| 单次热池命中 | 顺序测试最小 total `91.95 ms`，p50 `177.14 ms` | 没有明显排队时，普通 Pod 路径可以到 100ms 级 |
+| 并发 10 且预热位充足 | total p50 `436.11-565.23 ms` | 10 个请求都能命中预热池，但并发 claim、Router/picod 执行和 session 删除仍有开销 |
+| 并发 10 但预热位不足 | total p50 `7315.21 ms` | 主要是在等补池，不代表系统最佳状态 |
+
+因此，AgentCube 的“最佳时延状态”不是简单调大一个参数就无限变快，而是要让 `warmPoolSize` 覆盖目标突发并发量，并确保 sandbox 模板、镜像、Router、Workload Manager、Redis/Valkey 和底层 Kubernetes 调度都处于稳定状态。继续优化的方向应该是：测 `warmPoolSize=5/10/20` 的曲线、缩短 claim 路径、减少并发 session 删除开销、以及在 Kata/Kuasar 等 RuntimeClass 下重测强隔离路径。
+
 ## 相对值：用倍数理解生态位置
 
 不同项目的官方 benchmark 往往跑在不同机器上，绝对毫秒值不能直接混用。但如果某个项目已经在同一张官方竞品表里列出了多个 backend 的结果，就可以在这个表内部计算相对值。相对值不能替代真实同机测试，但能帮助判断生态位置。
