@@ -6,6 +6,7 @@
 
 ## 日报列表
 
+- [实习任务 TODO](todo.md)
 - [Day 1：跟着 Getting Started 跑通 AgentCube](day1-getting-started.md)
 - [Day 2：从编程语言和技术栈理解 AgentCube 的实现](day2-implementation-tech-stack.md)
 - [Day 3：从跑通架构到运行真实 Agent 工作流](day3-real-agent-workflow.md)
@@ -14,3 +15,4 @@
 - [Day 6：forkd 竞品复现预检](day6-forkd-competitor-benchmark-precheck.md)
 - [Day 7：cage-bro 竞品跑通与延迟对比](day7-cage-bro-competitor-benchmark.md)
 - [Day 8：沙箱竞品隔离能力与部署兼容性矩阵](day8-sandbox-competitor-capability-matrix.md)
+- [Day 9：开源社区动态分析与 fork 分支同步问题](day9-open-source-community-and-fork-sync.md)
