@@ -1,0 +1,194 @@
+{
+  "run_started_at": "2026-06-12T03:14:45.912871+00:00",
+  "cases_file": "/home/agentcube/internship-reports/benchmarks/gaokao_math_2026_cases.json",
+  "methods": [
+    "direct_llm",
+    "llm_tool_local_python"
+  ],
+  "selected_case_count": 2,
+  "result_count": 4,
+  "summary": {
+    "direct_llm": {
+      "total": 2,
+      "auto_graded": 2,
+      "correct": 2,
+      "manual": 0,
+      "errors": 0,
+      "mean_ms": 27220.18,
+      "p50_ms": 32752.43,
+      "max_ms": 32752.43,
+      "accuracy": 1.0
+    },
+    "llm_tool_call_local_python": {
+      "total": 2,
+      "auto_graded": 2,
+      "correct": 2,
+      "manual": 0,
+      "errors": 0,
+      "mean_ms": 34464.44,
+      "p50_ms": 40399.15,
+      "max_ms": 40399.15,
+      "accuracy": 1.0
+    }
+  },
+  "results": [
+    {
+      "case_id": "2026-gaokao-math-q13",
+      "question_no": "13",
+      "type": "fill_blank",
+      "method": "direct_llm",
+      "scope": "LLM direct answer, no tool, no AgentCube sandbox",
+      "total_ms": 21687.94,
+      "response": "最终答案：\\(\\theta=\\dfrac{3\\pi}{2}\\)，\\(f\\left(\\dfrac{2\\pi}{3}\\right)=1\\)。\n\n极简理由：  \n\\(f(x)\\) 为偶函数，故 \\(\\cos\\theta=0\\)，得 \\(\\theta=\\dfrac{\\pi}{2}\\) 或 \\(\\dfrac{3\\pi}{2}\\)。  \n若 \\(\\theta=\\dfrac{\\pi}{2}\\)，则 \\(f(x)=2\\cos ax\\)，在 \\(\\left(0,\\dfrac\\pi2\\right)\\) 不递增；  \n故 \\(\\theta=\\dfrac{3\\pi}{2}\\)，此时 \\(f(x)=-2\\cos ax\\)。单调递增可得 \\(|a|=1\\) 或 \\(2\\)。  \n于是  \n\\[\nf\\left(\\frac{2\\pi}{3}\\right)=-2\\cos\\left(a\\cdot\\frac{2\\pi}{3}\\right)=1.\n\\]",
+      "usage": {
+        "input_tokens": 186,
+        "output_tokens": 1086,
+        "total_tokens": 1272,
+        "input_token_details": {},
+        "output_token_details": {
+          "reasoning": 857
+        }
+      },
+      "grade": {
+        "mode": "math_all_contains",
+        "accurate": true,
+        "matched": {
+          "3*pi/2": "\\frac{3\\pi}{2}",
+          "1": "1"
+        },
+        "expected": [
+          "3*pi/2",
+          "1"
+        ]
+      },
+      "accurate": true
+    },
+    {
+      "case_id": "2026-gaokao-math-q13",
+      "question_no": "13",
+      "type": "fill_blank",
+      "method": "llm_tool_call_local_python",
+      "scope": "LLM tool decision + local Python execution + LLM final answer",
+      "tool_decision_ms": 14194.93,
+      "local_tool_ms": 31.66,
+      "final_answer_ms": 14303.14,
+      "total_ms": 28529.73,
+      "tool_call_count": 1,
+      "tool_output": "[(-2, 4.71238898038469, 1.0000000000000004), (-1, 4.71238898038469, 0.9999999999999999), (1, 4.71238898038469, 0.9999999999999986), (2, 4.71238898038469, 0.9999999999999996)]",
+      "response": "最终答案：$\\theta=\\dfrac{3\\pi}{2}$，$f\\left(\\dfrac{2\\pi}{3}\\right)=1$。\n\n极简理由：偶函数要求 $\\cos\\theta=0$，故 $\\theta=\\dfrac{\\pi}{2}$ 或 $\\dfrac{3\\pi}{2}$。  \n若 $\\theta=\\dfrac{\\pi}{2}$，$f(x)=2\\cos ax$，在给定区间不递增；  \n若 $\\theta=\\dfrac{3\\pi}{2}$，$f(x)=-2\\cos ax$，递增条件给出 $|a|=1$ 或 $2$。  \n此时\n\\[\nf\\left(\\frac{2\\pi}{3}\\right)=-2\\cos\\left(\\frac{2a\\pi}{3}\\right)=1.\n\\]",
+      "usage": {
+        "tool_decision": {
+          "input_tokens": 295,
+          "output_tokens": 717,
+          "total_tokens": 1012,
+          "input_token_details": {},
+          "output_token_details": {
+            "reasoning": 516
+          }
+        },
+        "final_answer": {
+          "input_tokens": 565,
+          "output_tokens": 712,
+          "total_tokens": 1277,
+          "input_token_details": {},
+          "output_token_details": {
+            "reasoning": 516
+          }
+        }
+      },
+      "grade": {
+        "mode": "math_all_contains",
+        "accurate": true,
+        "matched": {
+          "3*pi/2": "\\frac{3\\pi}{2}",
+          "1": "1"
+        },
+        "expected": [
+          "3*pi/2",
+          "1"
+        ]
+      },
+      "accurate": true
+    },
+    {
+      "case_id": "2026-gaokao-math-q14",
+      "question_no": "14",
+      "type": "fill_blank",
+      "method": "direct_llm",
+      "scope": "LLM direct answer, no tool, no AgentCube sandbox",
+      "total_ms": 32752.43,
+      "response": "最终答案：$\\sqrt[3]{\\dfrac32}$\n\n极简理由：  \n由\n\\[\nS_{3n}=n^2+n\n\\]\n得每连续一组 $3$ 项满足\n\\[\na_{3n-2}+a_{3n-1}+a_{3n}=S_{3n}-S_{3n-3}=2n.\n\\]\n\n设连续 $9$ 项为等比数列。按起始位置模 $3$ 分类：\n\n- 若正好覆盖 $3$ 个完整三项组，则需\n\\[\nq^3=\\frac{m+2}{m+1}=\\frac{m+3}{m+2},\n\\]\n矛盾。\n\n- 若覆盖其中 $2$ 个完整三项组，则有\n\\[\nq^3=\\frac{m+2}{m+1}\\quad \\text{或}\\quad q^3=\\frac{m+3}{m+2}.\n\\]\n因此\n\\[\nq^3=1+\\frac1N,\\quad N\\ge 2.\n\\]\n要使 $q$ 最大，取 $N=2$，得\n\\[\nq^3=\\frac32,\\qquad q=\\sqrt[3]{\\frac32}.\n\\]\n\n故 $q$ 的最大值为  \n\\[\n\\boxed{\\sqrt[3]{\\dfrac32}}.\n\\]",
+      "usage": {
+        "input_tokens": 207,
+        "output_tokens": 1651,
+        "total_tokens": 1858,
+        "input_token_details": {},
+        "output_token_details": {
+          "reasoning": 1348
+        }
+      },
+      "grade": {
+        "mode": "math_contains",
+        "accurate": true,
+        "matched": [
+          "\\sqrt[3]{\\frac32}"
+        ],
+        "expected": [
+          "(3/2)^(1/3)",
+          "cuberoot(3/2)",
+          "\\sqrt[3]{3/2}",
+          "\\sqrt[3]{\\frac32}"
+        ]
+      },
+      "accurate": true
+    },
+    {
+      "case_id": "2026-gaokao-math-q14",
+      "question_no": "14",
+      "type": "fill_blank",
+      "method": "llm_tool_call_local_python",
+      "scope": "LLM tool decision + local Python execution + LLM final answer",
+      "tool_decision_ms": 15609.66,
+      "local_tool_ms": 28.49,
+      "final_answer_ms": 24761.0,
+      "total_ms": 40399.15,
+      "tool_call_count": 1,
+      "tool_output": "exit_code=1\nstderr=Traceback (most recent call last):\n  File \"/tmp/agentcube-gaokao-local-tool-zir603z2/tool_code.py\", line 1, in <module>\n    import sympy as sp\nModuleNotFoundError: No module named 'sympy'",
+      "response": "最终答案：$\\sqrt[3]{\\dfrac32}$。\n\n极简理由：设\n\\[\nB_m=a_{3m-2}+a_{3m-1}+a_{3m}=2m.\n\\]\n连续 $9$ 项若从第 $3m+1$ 项开始，则恰好含 $3$ 个完整块，需同时满足\n\\[\nq^3=\\frac{m+1}{m},\\qquad q^3=\\frac{m+2}{m+1},\n\\]\n矛盾。\n\n若从第 $3m+2$ 或 $3m$ 项开始，则只强制两个完整块，得到\n\\[\nq^3=\\frac{m+2}{m+1}.\n\\]\n因此\n\\[\nq=\\sqrt[3]{\\frac{m+2}{m+1}},\n\\]\n其最大值在 $m=1$ 时取得，为\n\\[\n\\boxed{\\sqrt[3]{\\frac32}}.\n\\]",
+      "usage": {
+        "tool_decision": {
+          "input_tokens": 316,
+          "output_tokens": 796,
+          "total_tokens": 1112,
+          "input_token_details": {},
+          "output_token_details": {
+            "reasoning": 516
+          }
+        },
+        "final_answer": {
+          "input_tokens": 639,
+          "output_tokens": 1253,
+          "total_tokens": 1892,
+          "input_token_details": {},
+          "output_token_details": {
+            "reasoning": 1034
+          }
+        }
+      },
+      "grade": {
+        "mode": "math_contains",
+        "accurate": true,
+        "matched": [
+          "\\sqrt[3]{\\frac32}"
+        ],
+        "expected": [
+          "(3/2)^(1/3)",
+          "cuberoot(3/2)",
+          "\\sqrt[3]{3/2}",
+          "\\sqrt[3]{\\frac32}"
+        ]
+      },
+      "accurate": true
+    }
+  ]
+}

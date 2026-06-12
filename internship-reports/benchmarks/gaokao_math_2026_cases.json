@@ -1,0 +1,193 @@
+{
+  "dataset_id": "2026-gaokao-math",
+  "paper": "2026 年普通高等学校招生全国统一考试数学",
+  "questions_md": "../../benchmark-data/2026-gaokao-math-questions.md",
+  "notes": "Benchmark manifest only. Question text is parsed from the markdown dataset so the same runner can be reused after OCR fixes.",
+  "cases": [
+    {
+      "id": "2026-gaokao-math-q01",
+      "question_no": "1",
+      "type": "single_choice",
+      "topic": ["statistics"],
+      "difficulty": "easy",
+      "grading": {"mode": "choice", "answer": "B"}
+    },
+    {
+      "id": "2026-gaokao-math-q02",
+      "question_no": "2",
+      "type": "single_choice",
+      "topic": ["vector"],
+      "difficulty": "easy",
+      "grading": {"mode": "choice", "answer": "A"}
+    },
+    {
+      "id": "2026-gaokao-math-q03",
+      "question_no": "3",
+      "type": "single_choice",
+      "topic": ["set", "trigonometry"],
+      "difficulty": "easy",
+      "grading": {"mode": "choice", "answer": "C"}
+    },
+    {
+      "id": "2026-gaokao-math-q04",
+      "question_no": "4",
+      "type": "single_choice",
+      "topic": ["derivative", "tangent"],
+      "difficulty": "easy",
+      "grading": {"mode": "choice", "answer": "D"}
+    },
+    {
+      "id": "2026-gaokao-math-q05",
+      "question_no": "5",
+      "type": "single_choice",
+      "topic": ["conic", "parabola"],
+      "difficulty": "easy",
+      "grading": {"mode": "choice", "answer": "D"}
+    },
+    {
+      "id": "2026-gaokao-math-q06",
+      "question_no": "6",
+      "type": "single_choice",
+      "topic": ["function", "derivative"],
+      "difficulty": "medium",
+      "grading": {"mode": "choice", "answer": "B"}
+    },
+    {
+      "id": "2026-gaokao-math-q07",
+      "question_no": "7",
+      "type": "single_choice",
+      "topic": ["sequence", "combinatorics"],
+      "difficulty": "medium",
+      "grading": {"mode": "choice", "answer": "B"}
+    },
+    {
+      "id": "2026-gaokao-math-q08",
+      "question_no": "8",
+      "type": "single_choice",
+      "topic": ["probability", "expectation"],
+      "difficulty": "medium",
+      "grading": {"mode": "choice", "answer": "A"}
+    },
+    {
+      "id": "2026-gaokao-math-q09",
+      "question_no": "9",
+      "type": "multiple_choice",
+      "topic": ["complex_number"],
+      "difficulty": "easy",
+      "grading": {"mode": "choice_set", "answer": ["A", "C", "D"]}
+    },
+    {
+      "id": "2026-gaokao-math-q10",
+      "question_no": "10",
+      "type": "multiple_choice",
+      "topic": ["solid_geometry"],
+      "difficulty": "medium",
+      "grading": {"mode": "choice_set", "answer": ["B", "C"]}
+    },
+    {
+      "id": "2026-gaokao-math-q11",
+      "question_no": "11",
+      "type": "multiple_choice",
+      "topic": ["analytic_geometry", "circle"],
+      "difficulty": "hard",
+      "grading": {"mode": "choice_set", "answer": ["B", "C", "D"]}
+    },
+    {
+      "id": "2026-gaokao-math-q12",
+      "question_no": "12",
+      "type": "fill_blank",
+      "topic": ["conic", "hyperbola"],
+      "difficulty": "easy",
+      "grading": {
+        "mode": "math_contains",
+        "answers": ["sqrt(11/6)", "\\sqrt{11/6}", "\\sqrt{\\frac{11}{6}}"]
+      }
+    },
+    {
+      "id": "2026-gaokao-math-q13",
+      "question_no": "13",
+      "type": "fill_blank",
+      "topic": ["trigonometric_function"],
+      "difficulty": "medium",
+      "grading": {
+        "mode": "math_all_contains",
+        "answers": ["3*pi/2", "1"],
+        "aliases": {
+          "3*pi/2": ["\\frac{3\\pi}{2}", "3π/2", "1.5π"],
+          "1": ["1"]
+        }
+      }
+    },
+    {
+      "id": "2026-gaokao-math-q14",
+      "question_no": "14",
+      "type": "fill_blank",
+      "topic": ["sequence", "geometric_progression"],
+      "difficulty": "hard",
+      "grading": {
+        "mode": "math_contains",
+        "answers": ["(3/2)^(1/3)", "cuberoot(3/2)", "\\sqrt[3]{3/2}", "\\sqrt[3]{\\frac32}"]
+      }
+    },
+    {
+      "id": "2026-gaokao-math-q15",
+      "question_no": "15",
+      "type": "proof_or_solution",
+      "topic": ["solid_geometry"],
+      "difficulty": "medium",
+      "requires_image": true,
+      "grading": {
+        "mode": "manual",
+        "expected_summary": "证明 DE 平行平面 BCC1B1；第 2 问距离为 1。"
+      }
+    },
+    {
+      "id": "2026-gaokao-math-q16",
+      "question_no": "16",
+      "type": "solution",
+      "topic": ["trigonometry", "plane_geometry"],
+      "difficulty": "medium",
+      "grading": {
+        "mode": "math_all_contains",
+        "answers": ["1/3", "3*sqrt(5)"],
+        "aliases": {
+          "1/3": ["\\frac13", "\\frac{1}{3}", "1/3"],
+          "3*sqrt(5)": ["3\\sqrt5", "3\\sqrt{5}", "3*sqrt(5)"]
+        }
+      }
+    },
+    {
+      "id": "2026-gaokao-math-q17",
+      "question_no": "17",
+      "type": "proof_or_solution",
+      "topic": ["probability"],
+      "difficulty": "medium",
+      "grading": {
+        "mode": "manual",
+        "expected_summary": "N=4,p=1/3 时分布列为 P(X=1)=1/3, P(X=2)=2/9, P(X=3)=4/27, P(X=4)=8/27；并证明 P(X>k)=(1-p)^k。"
+      }
+    },
+    {
+      "id": "2026-gaokao-math-q18",
+      "question_no": "18",
+      "type": "solution",
+      "topic": ["analytic_geometry", "ellipse"],
+      "difficulty": "hard",
+      "grading": {
+        "mode": "manual",
+        "expected_summary": "椭圆方程为 x^2/4 + y^2/3 = 1；后续小问需人工复核。"
+      }
+    },
+    {
+      "id": "2026-gaokao-math-q19",
+      "question_no": "19",
+      "type": "proof_or_solution",
+      "topic": ["function", "proof"],
+      "difficulty": "hard",
+      "grading": {
+        "mode": "manual",
+        "expected_summary": "D(-1)=(0,3/2)；证明 D(x2) subseteq D(x1)；证明 f(0)>=1 且 f 在 (0,+infty) 单调递增。"
+      }
+    }
+  ]
+}
