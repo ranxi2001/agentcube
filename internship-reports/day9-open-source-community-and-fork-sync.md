@@ -99,27 +99,9 @@ git rebase upstream/main
 
 说明：
 
-- 用户提到的“issue 40 / PR 55”更准确地说是当前打开的 issue 和 PR 数量。
-- 编号 `#40` 本身是一个已关闭 PR，不是 issue。
-- 编号 `#55` 是一个已合并 PR。
-
-## 编号 #40 和 #55 的实际含义
-
-| 编号 | 实际类型 | 标题 | 状态 | 观察 |
-| --- | --- | --- | --- | --- |
-| [#40](https://github.com/volcano-sh/agentcube/pull/40) | PR | `init frontend` | closed，未合并 | 内容基本为空，只新增了两个空 README；review 中维护者追问是否有 proposal |
-| [#55](https://github.com/volcano-sh/agentcube/pull/55) | PR | `agent-runtime and code-interpreter delete implement` | merged | 涉及 AgentRuntime / CodeInterpreter 删除链路、Redis 存储、WorkloadManager 和 GC |
-
-`#40` 的价值主要是理解维护者对“大方向改动”的要求：不能只开一个空壳 PR，前端或大功能需要先有 proposal、边界和设计说明。
-
-`#55` 的价值更高，它说明维护者关注：
-
-- AgentRuntime 和 CodeInterpreter 的生命周期删除语义。
-- Redis 里 sandbox/session 状态的存储与删除。
-- WorkloadManager 的 handler、controller、GC 之间的职责边界。
-- RBAC 权限是否过大。
-- timeout 后 `pendingRequests` 是否可能泄漏。
-- 代码 review 里会要求错误信息、事务命名、Redis pipeline 结果检查等细节。
+- 这里的“issue 40 / PR 55”指的是当前打开的 issue 数量和 PR 数量，不是 GitHub 编号 `#40` 和 `#55`。
+- 因此后续分析重点应放在当前活跃的 open issues / open PRs，而不是固定追踪编号 40 和 55。
+- 数量会随社区活动变化，日报里需要记录统计日期和数据来源。
 
 ## 近期 open issues 主题
 
