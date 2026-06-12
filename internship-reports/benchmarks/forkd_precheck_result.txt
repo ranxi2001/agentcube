@@ -1,0 +1,54 @@
+== system ==
+Linux ecs-4b42-0001 4.18.0-348.7.1.el8_5.x86_64 #1 SMP Wed Dec 22 13:25:12 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux
+NAME="CentOS Linux"
+VERSION="8 (Core)"
+ID="centos"
+ID_LIKE="rhel fedora"
+VERSION_ID="8"
+PLATFORM_ID="platform:el8"
+PRETTY_NAME="CentOS Linux 8 (Core)"
+ANSI_COLOR="0;31"
+ldd (GNU libc) 2.28
+
+== virtualization ==
+kvm
+Architecture:        x86_64
+CPU(s):              4
+Vendor ID:           GenuineIntel
+BIOS Vendor ID:      QEMU
+BIOS Vendor ID:      QEMU
+Hypervisor vendor:   KVM
+Virtualization type: full
+NUMA node0 CPU(s):   0-3
+cpu_virtualization_flag: missing
+
+== devices ==
+ls: cannot access '/dev/kvm': No such file or directory
+crw-rw-rw- 1 root root 10, 200 Jun 10 15:25 /dev/net/tun
+
+== kernel config ==
+CONFIG_USERFAULTFD=y
+CONFIG_KVM_GUEST=y
+CONFIG_VHOST_NET=m
+CONFIG_KVM_MMIO=y
+CONFIG_KVM_ASYNC_PF=y
+CONFIG_KVM_VFIO=y
+CONFIG_KVM_GENERIC_DIRTYLOG_READ_PROTECT=y
+CONFIG_KVM_COMPAT=y
+CONFIG_KVM=m
+CONFIG_KVM_INTEL=m
+CONFIG_KVM_AMD=m
+CONFIG_KVM_AMD_SEV=y
+# CONFIG_KVM_XEN is not set
+CONFIG_KVM_MMU_AUDIT=y
+
+== commands ==
+/usr/bin/curl
+/usr/bin/tar
+/usr/sbin/ip
+/usr/sbin/iptables
+/usr/local/bin/ctr
+/usr/local/bin/kubectl
+
+== forkd ==
+forkd: not installed
