@@ -11,3 +11,4 @@
 - [Day 3：从跑通架构到运行真实 Agent 工作流](day3-real-agent-workflow.md)
 - [Day 4：用 2026 高考数学题测试 math-agent 的计划](day4-gaokao-math-benchmark-plan.md)
 - [Day 5：沙箱延迟测试与竞品分析](day5-sandbox-latency-and-competitor-analysis.md)
+- [Day 6：forkd 竞品复现预检](day6-forkd-competitor-benchmark-precheck.md)
