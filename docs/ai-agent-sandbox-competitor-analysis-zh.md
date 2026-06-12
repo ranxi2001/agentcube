@@ -127,24 +127,28 @@ cage-bro 是一个轻量的 agent tool runtime，单个 Rust binary 提供 shell
 
 在当前测试机上，并发 10 的变化非常明显：
 
-| 指标 | `warmPoolSize=2` | `warmPoolSize=10` run1 | `warmPoolSize=10` run2 | 提升幅度 |
-| --- | ---: | ---: | ---: | ---: |
-| total p50 | `7315.21 ms` | `436.11 ms` | `565.23 ms` | 约 `12.9x-16.8x` |
-| total p95 | `9299.62 ms` | `803.94 ms` | `932.83 ms` | 约 `10.0x-11.6x` |
-| total mean | `6286.63 ms` | `542.82 ms` | `601.22 ms` | 约 `10.5x-11.6x` |
-| create session p50 | `7278.76 ms` | `375.22 ms` | `344.74 ms` | 约 `19.4x-21.1x` |
+| `warmPoolSize` | run | 成功数 | total p50 | total p95 | create session p50 | 现象 |
+| ---: | --- | ---: | ---: | ---: | ---: | --- |
+| 2 | run1 | 10/10 | `7315.21 ms` | `9299.62 ms` | `7278.76 ms` | 只有 2 个预热位，8 个请求等待补池 |
+| 5 | run1 | 10/10 | `503.56 ms` | `11924.62 ms` | `341.07 ms` | 前半数命中快，后半数长尾明显 |
+| 5 | run2 | 9/10 | `528.07 ms` | `16943.74 ms` | `392.89 ms` | 1 个请求 504，说明 5 个预热位覆盖不了并发 10 |
+| 10 | run1 | 10/10 | `436.11 ms` | `803.94 ms` | `375.22 ms` | 覆盖并发 10，整体降到亚秒级 |
+| 10 | run2 | 10/10 | `565.23 ms` | `932.83 ms` | `344.74 ms` | 结果稳定，没有 pool miss 长尾 |
+| 20 | run1 | 10/10 | `698.37 ms` | `1025.89 ms` | `521.58 ms` | 稳定，但没有比 10 更快 |
+| 20 | run2 | 10/10 | `671.82 ms` | `996.04 ms` | `518.03 ms` | 说明超过并发需求后收益不再线性增加 |
 
-这说明当前 AgentCube 最主要的并发瓶颈不是 `run_code` 本身，而是 session 创建/claim sandbox 阶段。当并发量超过 warm pool 容量时，请求会等待新的 sandbox 被调度和补进池里；当 warm pool 容量覆盖突发并发量时，延迟会从秒级下降到亚秒级。
+这说明当前 AgentCube 最主要的并发瓶颈不是 `run_code` 本身，而是 session 创建/claim sandbox 阶段。当并发量超过 warm pool 容量时，请求会等待新的 sandbox 被调度和补进池里；当 warm pool 容量覆盖突发并发量时，延迟会从秒级下降到亚秒级。但 `warmPoolSize` 也不是越大越好：在并发 10 这个口径下，`warmPoolSize=10` 是当前观察到的最佳档，`warmPoolSize=20` 更稳但没有继续降延迟，反而略慢，可能是更多预热 Pod 和控制面对象带来的管理开销。
 
 目前看到的 AgentCube 最佳时延状态可以分三层理解：
 
 | 状态 | 现有数据 | 含义 |
 | --- | ---: | --- |
 | 单次热池命中 | 顺序测试最小 total `91.95 ms`，p50 `177.14 ms` | 没有明显排队时，普通 Pod 路径可以到 100ms 级 |
-| 并发 10 且预热位充足 | total p50 `436.11-565.23 ms` | 10 个请求都能命中预热池，但并发 claim、Router/picod 执行和 session 删除仍有开销 |
+| 并发 10 且预热位匹配 | `warmPoolSize=10` total p50 `436.11-565.23 ms` | 10 个请求都能命中预热池，当前口径下是最佳档 |
+| 并发 10 且预热位过量 | `warmPoolSize=20` total p50 `671.82-698.37 ms` | 稳定但没有继续变快，说明 pool 过量也可能带来额外管理开销 |
 | 并发 10 但预热位不足 | total p50 `7315.21 ms` | 主要是在等补池，不代表系统最佳状态 |
 
-因此，AgentCube 的“最佳时延状态”不是简单调大一个参数就无限变快，而是要让 `warmPoolSize` 覆盖目标突发并发量，并确保 sandbox 模板、镜像、Router、Workload Manager、Redis/Valkey 和底层 Kubernetes 调度都处于稳定状态。继续优化的方向应该是：测 `warmPoolSize=5/10/20` 的曲线、缩短 claim 路径、减少并发 session 删除开销、以及在 Kata/Kuasar 等 RuntimeClass 下重测强隔离路径。
+因此，AgentCube 的“最佳时延状态”不是简单调大一个参数就无限变快，而是要让 `warmPoolSize` 和目标突发并发量匹配，并确保 sandbox 模板、镜像、Router、Workload Manager、Redis/Valkey 和底层 Kubernetes 调度都处于稳定状态。当前并发 10 口径下，最佳观察值来自 `warmPoolSize=10`。继续优化的方向应该是：用更大样本重复 `warmPoolSize=8/10/12` 附近的测试、缩短 claim 路径、减少并发 session 删除开销、以及在 Kata/Kuasar 等 RuntimeClass 下重测强隔离路径。
 
 ## 相对值：用倍数理解生态位置
 

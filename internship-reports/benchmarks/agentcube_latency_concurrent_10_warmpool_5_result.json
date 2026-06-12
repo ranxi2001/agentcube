@@ -1,0 +1,151 @@
+{
+  "run_started_at": "2026-06-12T08:56:59.947358+00:00",
+  "mode": "concurrent",
+  "count": 10,
+  "concurrency": 10,
+  "namespace": "default",
+  "interpreter_name": "my-interpreter",
+  "workload_manager_url": "http://localhost:18080",
+  "router_url": "http://localhost:18081",
+  "wall_clock_ms": 11935.95,
+  "summary": {
+    "case_count": 10,
+    "successful": 10,
+    "failed": 0,
+    "create_session": {
+      "count": 10,
+      "mean_ms": 5245.37,
+      "p50_ms": 341.07,
+      "p95_ms": 11886.11,
+      "min_ms": 102.65,
+      "max_ms": 11886.11
+    },
+    "run_code": {
+      "count": 10,
+      "mean_ms": 48.93,
+      "p50_ms": 31.94,
+      "p95_ms": 89.38,
+      "min_ms": 26.38,
+      "max_ms": 89.38
+    },
+    "delete_session": {
+      "count": 10,
+      "mean_ms": 31.29,
+      "p50_ms": 10.74,
+      "p95_ms": 108.05,
+      "min_ms": 5.97,
+      "max_ms": 108.05
+    },
+    "total_latency": {
+      "count": 10,
+      "mean_ms": 5325.59,
+      "p50_ms": 503.56,
+      "p95_ms": 11924.62,
+      "min_ms": 178.52,
+      "max_ms": 11924.62
+    },
+    "errors": []
+  },
+  "results": [
+    {
+      "index": 0,
+      "session_id_prefix": "264c2f31",
+      "create_session_ms": 102.65,
+      "run_code_ms": 56.82,
+      "delete_session_ms": 19.05,
+      "total_ms": 178.52,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 1,
+      "session_id_prefix": "349a51e2",
+      "create_session_ms": 7893.38,
+      "run_code_ms": 29.48,
+      "delete_session_ms": 7.11,
+      "total_ms": 7929.97,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 2,
+      "session_id_prefix": "8c46dc9a",
+      "create_session_ms": 206.82,
+      "run_code_ms": 89.38,
+      "delete_session_ms": 49.17,
+      "total_ms": 345.36,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 3,
+      "session_id_prefix": "359c1110",
+      "create_session_ms": 10680.38,
+      "run_code_ms": 31.94,
+      "delete_session_ms": 8.22,
+      "total_ms": 10720.55,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 4,
+      "session_id_prefix": "9e21e28b",
+      "create_session_ms": 11080.92,
+      "run_code_ms": 26.38,
+      "delete_session_ms": 7.16,
+      "total_ms": 11114.46,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 5,
+      "session_id_prefix": "d7a1c990",
+      "create_session_ms": 134.47,
+      "run_code_ms": 59.5,
+      "delete_session_ms": 41.53,
+      "total_ms": 235.5,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 6,
+      "session_id_prefix": "5d3f9ca1",
+      "create_session_ms": 9881.32,
+      "run_code_ms": 26.43,
+      "delete_session_ms": 5.97,
+      "total_ms": 9913.72,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 7,
+      "session_id_prefix": "f44edef6",
+      "create_session_ms": 11886.11,
+      "run_code_ms": 27.77,
+      "delete_session_ms": 10.74,
+      "total_ms": 11924.62,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 8,
+      "session_id_prefix": "6ed48fa7",
+      "create_session_ms": 246.57,
+      "run_code_ms": 87.18,
+      "delete_session_ms": 55.86,
+      "total_ms": 389.61,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 9,
+      "session_id_prefix": "4d9aecb9",
+      "create_session_ms": 341.07,
+      "run_code_ms": 54.44,
+      "delete_session_ms": 108.05,
+      "total_ms": 503.56,
+      "output": "ok",
+      "success": true
+    }
+  ]
+}
