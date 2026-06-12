@@ -1,0 +1,179 @@
+{
+  "run_started_at": "2026-06-12T06:59:57.794157Z",
+  "mode": "concurrent",
+  "count": 10,
+  "concurrency": 10,
+  "url": "http://127.0.0.1:18090",
+  "template_id": "base",
+  "memory_mb": 512,
+  "command": "printf 'print(\"ok\")\\n' | python3",
+  "wall_clock_ms": 71.91,
+  "summary": {
+    "case_count": 10,
+    "successful": 10,
+    "failed": 0,
+    "create_session": {
+      "count": 10,
+      "mean_ms": 7.03,
+      "p50_ms": 4.69,
+      "p95_ms": 13.27,
+      "min_ms": 2.72,
+      "max_ms": 13.27
+    },
+    "run_code": {
+      "count": 10,
+      "mean_ms": 45.08,
+      "p50_ms": 49.16,
+      "p95_ms": 54.75,
+      "min_ms": 20.42,
+      "max_ms": 54.75
+    },
+    "reported_exec_duration": {
+      "count": 10,
+      "mean_ms": 37.0,
+      "p50_ms": 41.0,
+      "p95_ms": 47.0,
+      "min_ms": 17.0,
+      "max_ms": 47.0
+    },
+    "delete_session": {
+      "count": 10,
+      "mean_ms": 7.13,
+      "p50_ms": 3.71,
+      "p95_ms": 14.47,
+      "min_ms": 2.2,
+      "max_ms": 14.47
+    },
+    "total_latency": {
+      "count": 10,
+      "mean_ms": 59.24,
+      "p50_ms": 58.48,
+      "p95_ms": 67.6,
+      "min_ms": 39.34,
+      "max_ms": 67.6
+    },
+    "errors": []
+  },
+  "results": [
+    {
+      "index": 0,
+      "sandbox_id_prefix": "6f2a3b51",
+      "create_session_ms": 13.27,
+      "run_code_ms": 49.16,
+      "reported_exec_duration_ms": 41,
+      "delete_session_ms": 3.4,
+      "total_ms": 65.83,
+      "output": "ok",
+      "exit_code": 0,
+      "success": true
+    },
+    {
+      "index": 1,
+      "sandbox_id_prefix": "509977b8",
+      "create_session_ms": 7.02,
+      "run_code_ms": 20.42,
+      "reported_exec_duration_ms": 17,
+      "delete_session_ms": 11.9,
+      "total_ms": 39.34,
+      "output": "ok",
+      "exit_code": 0,
+      "success": true
+    },
+    {
+      "index": 2,
+      "sandbox_id_prefix": "89ea2fdb",
+      "create_session_ms": 11.81,
+      "run_code_ms": 53.58,
+      "reported_exec_duration_ms": 41,
+      "delete_session_ms": 2.2,
+      "total_ms": 67.6,
+      "output": "ok",
+      "exit_code": 0,
+      "success": true
+    },
+    {
+      "index": 3,
+      "sandbox_id_prefix": "68b5599d",
+      "create_session_ms": 8.84,
+      "run_code_ms": 54.75,
+      "reported_exec_duration_ms": 43,
+      "delete_session_ms": 3.24,
+      "total_ms": 66.83,
+      "output": "ok",
+      "exit_code": 0,
+      "success": true
+    },
+    {
+      "index": 4,
+      "sandbox_id_prefix": "aaf2a9ce",
+      "create_session_ms": 10.93,
+      "run_code_ms": 49.76,
+      "reported_exec_duration_ms": 41,
+      "delete_session_ms": 5.09,
+      "total_ms": 65.78,
+      "output": "ok",
+      "exit_code": 0,
+      "success": true
+    },
+    {
+      "index": 5,
+      "sandbox_id_prefix": "3cc5afc9",
+      "create_session_ms": 4.69,
+      "run_code_ms": 52.23,
+      "reported_exec_duration_ms": 43,
+      "delete_session_ms": 3.71,
+      "total_ms": 60.63,
+      "output": "ok",
+      "exit_code": 0,
+      "success": true
+    },
+    {
+      "index": 6,
+      "sandbox_id_prefix": "81694957",
+      "create_session_ms": 4.69,
+      "run_code_ms": 40.94,
+      "reported_exec_duration_ms": 34,
+      "delete_session_ms": 12.85,
+      "total_ms": 58.48,
+      "output": "ok",
+      "exit_code": 0,
+      "success": true
+    },
+    {
+      "index": 7,
+      "sandbox_id_prefix": "6aa2a09e",
+      "create_session_ms": 2.72,
+      "run_code_ms": 51.82,
+      "reported_exec_duration_ms": 47,
+      "delete_session_ms": 3.35,
+      "total_ms": 57.89,
+      "output": "ok",
+      "exit_code": 0,
+      "success": true
+    },
+    {
+      "index": 8,
+      "sandbox_id_prefix": "514fd84e",
+      "create_session_ms": 3.45,
+      "run_code_ms": 37.41,
+      "reported_exec_duration_ms": 31,
+      "delete_session_ms": 14.47,
+      "total_ms": 55.33,
+      "output": "ok",
+      "exit_code": 0,
+      "success": true
+    },
+    {
+      "index": 9,
+      "sandbox_id_prefix": "d587a1da",
+      "create_session_ms": 2.85,
+      "run_code_ms": 40.71,
+      "reported_exec_duration_ms": 32,
+      "delete_session_ms": 11.13,
+      "total_ms": 54.68,
+      "output": "ok",
+      "exit_code": 0,
+      "success": true
+    }
+  ]
+}
