@@ -1,0 +1,91 @@
+{
+  "run_started_at": "2026-06-12T03:17:16.716442+00:00",
+  "cases_file": "/home/agentcube/internship-reports/benchmarks/gaokao_math_2026_cases.json",
+  "methods": [
+    "llm_tool_agentcube"
+  ],
+  "selected_case_count": 2,
+  "result_count": 2,
+  "summary": {
+    "llm_tool_call_agentcube": {
+      "total": 1,
+      "auto_graded": 1,
+      "correct": 1,
+      "manual": 0,
+      "errors": 0,
+      "mean_ms": 36469.45,
+      "p50_ms": 36469.45,
+      "max_ms": 36469.45,
+      "accuracy": 1.0
+    },
+    "llm_tool_agentcube": {
+      "total": 1,
+      "auto_graded": 1,
+      "correct": 0,
+      "manual": 0,
+      "errors": 1,
+      "accuracy": 0.0
+    }
+  },
+  "results": [
+    {
+      "case_id": "2026-gaokao-math-q13",
+      "question_no": "13",
+      "type": "fill_blank",
+      "method": "llm_tool_call_agentcube",
+      "scope": "LLM tool decision + AgentCube sandbox Python + LLM final answer",
+      "tool_decision_ms": 17977.92,
+      "session_id_prefix": "304ba9f0",
+      "create_session_ms": 69.02,
+      "run_code_ms": 51.39,
+      "delete_session_ms": 12.16,
+      "agentcube_tool_ms": 132.56,
+      "final_answer_ms": 18358.97,
+      "total_ms": 36469.45,
+      "tool_call_count": 1,
+      "tool_output": "[(-2, '3pi/2', 1.0000000000000004), (-1, '3pi/2', 0.9999999999999999), (1, '3pi/2', 0.9999999999999986), (2, '3pi/2', 0.9999999999999996)]",
+      "response": "最终答案：$\\theta=\\dfrac{3\\pi}{2}$，$f\\left(\\dfrac{2\\pi}{3}\\right)=1$。\n\n极简理由：  \n$f(x)$ 为偶函数，故 $\\cos\\theta=0$，即 $\\theta=\\dfrac\\pi2$ 或 $\\dfrac{3\\pi}{2}$。  \n若 $\\theta=\\dfrac\\pi2$，$f(x)=2\\cos ax$，不满足在 $\\left(0,\\dfrac\\pi2\\right)$ 单调递增；  \n故 $\\theta=\\dfrac{3\\pi}{2}$，$f(x)=-2\\cos ax$。单调递增可得 $|a|=1$ 或 $2$，于是  \n\\[\nf\\left(\\frac{2\\pi}{3}\\right)=-2\\cos\\left(\\frac{2a\\pi}{3}\\right)=1.\n\\]",
+      "usage": {
+        "tool_decision": {
+          "input_tokens": 294,
+          "output_tokens": 696,
+          "total_tokens": 990,
+          "input_token_details": {},
+          "output_token_details": {
+            "reasoning": 516
+          }
+        },
+        "final_answer": {
+          "input_tokens": 538,
+          "output_tokens": 926,
+          "total_tokens": 1464,
+          "input_token_details": {},
+          "output_token_details": {
+            "reasoning": 715
+          }
+        }
+      },
+      "grade": {
+        "mode": "math_all_contains",
+        "accurate": true,
+        "matched": {
+          "3*pi/2": "\\frac{3\\pi}{2}",
+          "1": "1"
+        },
+        "expected": [
+          "3*pi/2",
+          "1"
+        ]
+      },
+      "accurate": true
+    },
+    {
+      "case_id": "2026-gaokao-math-q14",
+      "question_no": "14",
+      "type": "fill_blank",
+      "method": "llm_tool_agentcube",
+      "error": "CommandExecutionError('Command failed (exit 1): Traceback (most recent call last):\\n  File \"/root/script_1781234236674.py\", line 1, in <module>\\n    import sympy as sp\\nModuleNotFoundError: No module named \\'sympy\\'\\n')",
+      "accurate": false
+    }
+  ]
+}

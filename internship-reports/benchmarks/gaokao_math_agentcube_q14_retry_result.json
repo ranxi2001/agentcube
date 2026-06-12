@@ -1,0 +1,76 @@
+{
+  "run_started_at": "2026-06-12T03:19:48.489700+00:00",
+  "cases_file": "/home/agentcube/internship-reports/benchmarks/gaokao_math_2026_cases.json",
+  "methods": [
+    "llm_tool_agentcube"
+  ],
+  "selected_case_count": 1,
+  "result_count": 1,
+  "summary": {
+    "llm_tool_call_agentcube": {
+      "total": 1,
+      "auto_graded": 1,
+      "correct": 1,
+      "manual": 0,
+      "errors": 0,
+      "mean_ms": 57442.16,
+      "p50_ms": 57442.16,
+      "max_ms": 57442.16,
+      "accuracy": 1.0
+    }
+  },
+  "results": [
+    {
+      "case_id": "2026-gaokao-math-q14",
+      "question_no": "14",
+      "type": "fill_blank",
+      "method": "llm_tool_call_agentcube",
+      "scope": "LLM tool decision + AgentCube sandbox Python + LLM final answer",
+      "tool_decision_ms": 19682.05,
+      "session_id_prefix": "54ea93cd",
+      "create_session_ms": 81.34,
+      "run_code_ms": 38.2,
+      "delete_session_ms": 6.92,
+      "agentcube_tool_ms": 126.47,
+      "final_answer_ms": 37633.64,
+      "total_ms": 57442.16,
+      "tool_call_count": 1,
+      "tool_output": "('r2', 1, 1.1447142425533319)\n1.1447142425533319 1.2599210498948732\naligned impossible: diff numerator 1",
+      "response": "最终答案：$\\sqrt[3]{\\dfrac32}$\n\n极简理由：令每个三项块和  \n\\[\na_{3n-2}+a_{3n-1}+a_{3n}=2n.\n\\]\n若连续 $9$ 项从某三项块首项开始，则三块和应成公比 $q^3$ 的等比数列，但 $2m,2(m+1),2(m+2)$ 不成等比，矛盾。\n\n若从第二项或第三项开始，则其中包含两个完整三项块，故\n\\[\nq^3=\\frac{2(m+2)}{2(m+1)}=\\frac{m+2}{m+1}\\le \\frac32,\n\\]\n所以\n\\[\nq\\le \\sqrt[3]{\\frac32}.\n\\]\n取 $m=1$ 可构造满足条件的数列，故最大值为  \n\\[\n\\boxed{\\sqrt[3]{\\frac32}}.\n\\]",
+      "usage": {
+        "tool_decision": {
+          "input_tokens": 315,
+          "output_tokens": 867,
+          "total_tokens": 1182,
+          "input_token_details": {},
+          "output_token_details": {
+            "reasoning": 516
+          }
+        },
+        "final_answer": {
+          "input_tokens": 695,
+          "output_tokens": 1776,
+          "total_tokens": 2471,
+          "input_token_details": {},
+          "output_token_details": {
+            "reasoning": 1552
+          }
+        }
+      },
+      "grade": {
+        "mode": "math_contains",
+        "accurate": true,
+        "matched": [
+          "\\sqrt[3]{\\frac32}"
+        ],
+        "expected": [
+          "(3/2)^(1/3)",
+          "cuberoot(3/2)",
+          "\\sqrt[3]{3/2}",
+          "\\sqrt[3]{\\frac32}"
+        ]
+      },
+      "accurate": true
+    }
+  ]
+}

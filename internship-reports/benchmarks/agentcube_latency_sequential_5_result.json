@@ -1,0 +1,101 @@
+{
+  "run_started_at": "2026-06-12T03:50:31.205932+00:00",
+  "mode": "sequential",
+  "count": 5,
+  "concurrency": 1,
+  "namespace": "default",
+  "interpreter_name": "my-interpreter",
+  "workload_manager_url": "http://localhost:18080",
+  "router_url": "http://localhost:18081",
+  "wall_clock_ms": 3606.48,
+  "summary": {
+    "case_count": 5,
+    "successful": 5,
+    "failed": 0,
+    "create_session": {
+      "count": 5,
+      "mean_ms": 671.79,
+      "p50_ms": 100.22,
+      "p95_ms": 2617.17,
+      "min_ms": 59.29,
+      "max_ms": 2617.17
+    },
+    "run_code": {
+      "count": 5,
+      "mean_ms": 41.11,
+      "p50_ms": 40.33,
+      "p95_ms": 66.85,
+      "min_ms": 25.99,
+      "max_ms": 66.85
+    },
+    "delete_session": {
+      "count": 5,
+      "mean_ms": 8.38,
+      "p50_ms": 6.93,
+      "p95_ms": 11.32,
+      "min_ms": 6.67,
+      "max_ms": 11.32
+    },
+    "total_latency": {
+      "count": 5,
+      "mean_ms": 721.28,
+      "p50_ms": 177.14,
+      "p95_ms": 2652.83,
+      "min_ms": 91.95,
+      "max_ms": 2652.83
+    },
+    "errors": []
+  },
+  "results": [
+    {
+      "index": 0,
+      "session_id_prefix": "23da5454",
+      "create_session_ms": 66.04,
+      "run_code_ms": 43.62,
+      "delete_session_ms": 6.93,
+      "total_ms": 116.58,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 1,
+      "session_id_prefix": "fdde4eea",
+      "create_session_ms": 100.22,
+      "run_code_ms": 66.85,
+      "delete_session_ms": 10.08,
+      "total_ms": 177.14,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 2,
+      "session_id_prefix": "151b250b",
+      "create_session_ms": 516.23,
+      "run_code_ms": 40.33,
+      "delete_session_ms": 11.32,
+      "total_ms": 567.88,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 3,
+      "session_id_prefix": "1c8177bb",
+      "create_session_ms": 2617.17,
+      "run_code_ms": 28.76,
+      "delete_session_ms": 6.91,
+      "total_ms": 2652.83,
+      "output": "ok",
+      "success": true
+    },
+    {
+      "index": 4,
+      "session_id_prefix": "c307d8b9",
+      "create_session_ms": 59.29,
+      "run_code_ms": 25.99,
+      "delete_session_ms": 6.67,
+      "total_ms": 91.95,
+      "output": "ok",
+      "success": true
+    }
+  ]
+}

@@ -1,0 +1,149 @@
+{
+  "run_started_at": "2026-06-12T02:38:14.011248+00:00",
+  "cases_file": "/home/agentcube/internship-reports/benchmarks/gaokao_math_2026_cases.json",
+  "methods": [
+    "direct_llm"
+  ],
+  "selected_case_count": 5,
+  "result_count": 5,
+  "summary": {
+    "direct_llm": {
+      "total": 5,
+      "auto_graded": 5,
+      "correct": 5,
+      "manual": 0,
+      "errors": 0,
+      "mean_ms": 4812.92,
+      "p50_ms": 4314.58,
+      "max_ms": 6497.57,
+      "accuracy": 1.0
+    }
+  },
+  "results": [
+    {
+      "case_id": "2026-gaokao-math-q01",
+      "question_no": "1",
+      "type": "single_choice",
+      "method": "direct_llm",
+      "scope": "LLM direct answer, no tool, no AgentCube sandbox",
+      "total_ms": 2960.87,
+      "response": "最终答案：B。将数据从小到大排列为 $4,5,6,8,12$，中间数为 $6$。",
+      "usage": {
+        "input_tokens": 129,
+        "output_tokens": 58,
+        "total_tokens": 187,
+        "input_token_details": {},
+        "output_token_details": {
+          "reasoning": 19
+        }
+      },
+      "grade": {
+        "mode": "choice",
+        "accurate": true,
+        "actual": "B",
+        "expected": "B"
+      },
+      "accurate": true
+    },
+    {
+      "case_id": "2026-gaokao-math-q02",
+      "question_no": "2",
+      "type": "single_choice",
+      "method": "direct_llm",
+      "scope": "LLM direct answer, no tool, no AgentCube sandbox",
+      "total_ms": 6497.57,
+      "response": "最终答案：A。理由：\\(\\vec a,\\vec b\\) 不共线，所以对应系数相等，得 \\(x=2,\\ y=-3\\)。",
+      "usage": {
+        "input_tokens": 173,
+        "output_tokens": 102,
+        "total_tokens": 275,
+        "input_token_details": {},
+        "output_token_details": {
+          "reasoning": 59
+        }
+      },
+      "grade": {
+        "mode": "choice",
+        "accurate": true,
+        "actual": "A",
+        "expected": "A"
+      },
+      "accurate": true
+    },
+    {
+      "case_id": "2026-gaokao-math-q03",
+      "question_no": "3",
+      "type": "single_choice",
+      "method": "direct_llm",
+      "scope": "LLM direct answer, no tool, no AgentCube sandbox",
+      "total_ms": 4254.81,
+      "response": "最终答案：C。  \n理由：$\\sin\\dfrac{7\\pi}{6}=-\\dfrac12$，$\\cos\\dfrac{5\\pi}{3}=\\dfrac12$，$\\tan\\dfrac{5\\pi}{4}=1$，故 $A\\cap B=\\left\\{-\\dfrac12,1\\right\\}$。",
+      "usage": {
+        "input_tokens": 255,
+        "output_tokens": 173,
+        "total_tokens": 428,
+        "input_token_details": {},
+        "output_token_details": {
+          "reasoning": 89
+        }
+      },
+      "grade": {
+        "mode": "choice",
+        "accurate": true,
+        "actual": "C",
+        "expected": "C"
+      },
+      "accurate": true
+    },
+    {
+      "case_id": "2026-gaokao-math-q04",
+      "question_no": "4",
+      "type": "single_choice",
+      "method": "direct_llm",
+      "scope": "LLM direct answer, no tool, no AgentCube sandbox",
+      "total_ms": 4314.58,
+      "response": "最终答案：D。  \n理由：$y'=5+\\frac{8}{x}$，在 $x=1$ 处斜率为 $13$，切线为 $y-5=13(x-1)$，即 $y=13x-8$。",
+      "usage": {
+        "input_tokens": 156,
+        "output_tokens": 139,
+        "total_tokens": 295,
+        "input_token_details": {},
+        "output_token_details": {
+          "reasoning": 73
+        }
+      },
+      "grade": {
+        "mode": "choice",
+        "accurate": true,
+        "actual": "D",
+        "expected": "D"
+      },
+      "accurate": true
+    },
+    {
+      "case_id": "2026-gaokao-math-q05",
+      "question_no": "5",
+      "type": "single_choice",
+      "method": "direct_llm",
+      "scope": "LLM direct answer, no tool, no AgentCube sandbox",
+      "total_ms": 6036.76,
+      "response": "最终答案：D。极简理由：由 $(4,8)$ 代入得 $p_1=8,\\ p_2=1$，两焦点分别为 $(4,0)$、$(0,\\frac12)$，距离为 $\\sqrt{4^2+(\\frac12)^2}=\\frac{\\sqrt{65}}2$。",
+      "usage": {
+        "input_tokens": 201,
+        "output_tokens": 248,
+        "total_tokens": 449,
+        "input_token_details": {},
+        "output_token_details": {
+          "reasoning": 166
+        }
+      },
+      "grade": {
+        "mode": "choice",
+        "accurate": true,
+        "actual": "D",
+        "expected": "D"
+      },
+      "accurate": true
+    }
+  ]
+}
