@@ -12,3 +12,4 @@
 - [Day 4：用 2026 高考数学题测试 math-agent 的计划](day4-gaokao-math-benchmark-plan.md)
 - [Day 5：沙箱延迟测试与竞品分析](day5-sandbox-latency-and-competitor-analysis.md)
 - [Day 6：forkd 竞品复现预检](day6-forkd-competitor-benchmark-precheck.md)
+- [Day 7：cage-bro 竞品跑通与延迟对比](day7-cage-bro-competitor-benchmark.md)
