@@ -3,6 +3,11 @@
 
 This benchmark intentionally avoids LLM calls. It measures the infrastructure
 path only: create session, run a tiny Python snippet, and delete session.
+
+It is not an end-to-end AI Agent benchmark. It does not measure model
+latency, planning/reasoning loops, tool selection, LangChain/LangGraph
+execution, large dependency imports, or task success quality. The goal is to
+isolate the CodeInterpreter sandbox path used underneath agent code execution.
 """
 
 import argparse
