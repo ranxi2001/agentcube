@@ -13,3 +13,4 @@
 - [Day 5：沙箱延迟测试与竞品分析](day5-sandbox-latency-and-competitor-analysis.md)
 - [Day 6：forkd 竞品复现预检](day6-forkd-competitor-benchmark-precheck.md)
 - [Day 7：cage-bro 竞品跑通与延迟对比](day7-cage-bro-competitor-benchmark.md)
+- [Day 8：沙箱竞品隔离能力与部署兼容性矩阵](day8-sandbox-competitor-capability-matrix.md)
