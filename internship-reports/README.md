@@ -20,3 +20,4 @@
 - [Day 7：cage-bro 竞品跑通与延迟对比](day7-cage-bro-competitor-benchmark.md)
 - [Day 8：沙箱竞品隔离能力与部署兼容性矩阵](day8-sandbox-competitor-capability-matrix.md)
 - [Day 9：开源社区动态分析与 fork 分支同步问题](day9-open-source-community-and-fork-sync.md)
+- [Day 10：从 #265 开始做 WarmPoolAvailable PoC](day10-warmpoolavailable-poc.md)

@@ -1,6 +1,10 @@
 ---
 name: agentcube-issue-discussion
-description: Use when working with AgentCube GitHub issues, discussions, proposals, or issue comments: fetch full issue/PR conversation context, summarize community discussion in Chinese, draft English replies, cross-link related issues/PRs, and prepare benchmark/proposal comments that follow AgentCube community format.
+description: >-
+  Use when working with AgentCube GitHub issues, discussions, proposals, or
+  issue comments: fetch full issue/PR conversation context, summarize community
+  discussion in Chinese, draft English replies, cross-link related issues/PRs,
+  and prepare benchmark/proposal comments that follow AgentCube community format.
 ---
 
 # AgentCube Issue Discussion Skill
@@ -10,6 +14,7 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
 ## Required Context
 
 - Follow `internship-reports/open-source-contribution-format-standard.md` before drafting upstream-facing text.
+- Use its “社区角色与评论权重” section to classify human maintainers, contributors, automation bots, merge gates, CI bots, and AI reviewers.
 - Upstream comments must be in English.
 - Chinese analysis belongs in `internship-reports/`.
 - Search for related issues/PRs before proposing a new direction.
@@ -20,18 +25,21 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
 1. Identify target issue/PR numbers and related links.
 2. Fetch full thread context:
    - issue/PR title, body, state, labels, assignees
+   - `/assign` comments and current `PR 认领 @` owner
    - all issue comments
    - if PR: review comments, changed files, commits
 3. Extract:
    - problem statement
    - proposed solutions
+   - participant roles and comment weight
    - maintainer guidance
    - open questions
    - blocked/duplicate/conflicting work
    - related issue/PR graph
-4. Produce Chinese internal summary first when the user is planning or discussing.
-5. Produce English upstream comment only when asked to draft or post.
-6. Include cross-links using GitHub `#123` references and short context.
+4. If an issue has an active assignee or linked open PR, recommend review/testing feedback instead of duplicate implementation.
+5. Produce Chinese internal summary first when the user is planning or discussing.
+6. Produce English upstream comment only when asked to draft or post.
+7. Include cross-links using GitHub `#123` references and short context.
 
 ## Fetching Thread Context
 
@@ -64,11 +72,20 @@ https://api.github.com/repos/volcano-sh/agentcube/pulls/<number>/commits
 - 标题：
 - 状态：
 - 标签：
+- PR 认领 @：
 - 相关链接：
 
 ## 讨论脉络
 
 1. ...
+
+## 参与者与评论权重
+
+- 真人维护者 / reviewer：
+- PR 作者 / issue 作者：
+- 其他贡献者：
+- 自动化 bot / CI：
+- AI reviewer：
 
 ## 维护者明确意见
 
@@ -168,5 +185,7 @@ Summarize as:
 
 - Never claim we will implement something unless user asks to commit to it.
 - Do not post comments without explicit user instruction.
+- Do not treat automation bot or AI reviewer comments as maintainer consensus.
+- Always report assignee state as `PR 认领 @` in planning tables or summaries.
 - If someone is assigned or an active PR exists, recommend review/test feedback instead of duplicate implementation.
 - Mention AI assistance in PR reviewer notes when used for upstream PR prep.
