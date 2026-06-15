@@ -303,6 +303,26 @@ NONE
 | 安全 | 不提交 token、password、kubeconfig、真实 `.env` |
 | AI 披露 | 使用 Codex / ChatGPT 辅助时，在 reviewer notes 中披露 |
 
+## 自动化 Bot / CI 反馈处理
+
+PR 提交后要先读自动化反馈，再等真人 review。不同 bot 的权重不同：
+
+| 类型 | 示例 | 含义 | 处理方式 |
+| --- | --- | --- | --- |
+| 流程 bot | `volcano-sh-bot` | 加 label、请求 reviewer、提示 OWNERS / approval 状态 | 按提示补 label、等 reviewer，或请求合适 approver |
+| 合并门禁 | `tide` | 检查是否满足 `lgtm`、`approved`、CI 通过等条件 | 不直接回复，先解决缺失条件 |
+| CI checks | GitHub Actions | build、lint、codegen、e2e、DCO 等结果 | 失败要打开具体 job log，定位是代码问题还是环境问题 |
+| 覆盖率 bot | `codecov-commenter` | 报告 project coverage、patch coverage、missing lines | 重点看 patch coverage 和 missing lines；仓库安装提示通常不是 PR 作者能修 |
+| AI reviewer | Copilot / Gemini | 自动指出潜在问题 | 当作检查清单，采纳前要人工验证 |
+
+Codecov 处理原则：
+
+1. `Patch coverage` 低或有 missing lines 时，优先补小范围单测覆盖新增逻辑、错误分支和边界行为。
+2. `Project coverage` 只是全仓覆盖率，不一定要求本 PR 独立修复。
+3. `Please install Codecov app`、报告落后 main 等提示通常是仓库配置或基准报告问题，不要误判成代码 bug。
+4. 本地不能跑完整 e2e 时，要在 PR 描述中明确说明环境缺口，例如缺少 kubeconfig、router / workload-manager 未启动。
+5. 补测试后推到同一个 PR 分支，并在实习记录中保存 commit、测试命令和 bot 反馈。
+
 ## Reviewer / OWNER 规则
 
 根据改动目录查 `OWNERS`：
