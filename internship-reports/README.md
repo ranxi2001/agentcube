@@ -7,6 +7,10 @@
 ## 日报列表
 
 - [实习任务 TODO](todo.md)
+- [开源贡献与社区讨论格式标准](open-source-contribution-format-standard.md)
+- [本地 Codex Skills：Issue 讨论与 PR 管理](../skills)
+- [Week 1 周会汇报：AgentCube 调研、测评与 Codex 协作](week1-summary-brief.md)
+- [Week 2 工作计划：从社区 issue / PR 出发选择开发任务](week2-work-plan.md)
 - [Day 1：跟着 Getting Started 跑通 AgentCube](day1-getting-started.md)
 - [Day 2：从编程语言和技术栈理解 AgentCube 的实现](day2-implementation-tech-stack.md)
 - [Day 3：从跑通架构到运行真实 Agent 工作流](day3-real-agent-workflow.md)
