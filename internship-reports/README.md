@@ -21,4 +21,4 @@
 - [Day 8：沙箱竞品隔离能力与部署兼容性矩阵](day8-sandbox-competitor-capability-matrix.md)
 - [Day 9：开源社区动态分析与 fork 分支同步问题](day9-open-source-community-and-fork-sync.md)
 - [Day 10：从 #265 开始做 WarmPoolAvailable PoC](day10-warmpoolavailable-poc.md)
-- [Day 11：云厂商 Agent 沙箱项目名称确认](day11-cloud-agent-sandbox-projects.md)
+- [Day 11：云厂商 Agent 沙箱与 CubeSandbox 深入调研](day11-cloud-agent-sandbox-projects.md)
