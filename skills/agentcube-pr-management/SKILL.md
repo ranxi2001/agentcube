@@ -1,6 +1,11 @@
 ---
 name: agentcube-pr-management
-description: Use when preparing, validating, submitting, updating, or reviewing AgentCube upstream pull requests: enforce fork/upstream branch hygiene, fill the official PR template, map files to OWNERS, run appropriate tests, disclose AI assistance, track review state, and avoid mixing internship reports with upstream PR branches.
+description: >-
+  Use when preparing, validating, submitting, updating, or reviewing AgentCube
+  upstream pull requests: enforce fork/upstream branch hygiene, fill the official
+  PR template, map files to OWNERS, run appropriate tests, disclose AI
+  assistance, track review state, and avoid mixing internship reports with
+  upstream PR branches.
 ---
 
 # AgentCube PR Management Skill
@@ -11,6 +16,7 @@ Use this skill for AgentCube upstream PR work: branch prep, template filling, is
 
 - Follow `AGENTS.md` fork/upstream workflow.
 - Follow `internship-reports/open-source-contribution-format-standard.md`.
+- Use the community role table there to separate human reviewer guidance from automation bot, CI, merge gate, and AI reviewer comments.
 - Upstream PRs must use English.
 - Use clean topic branches from `upstream/main`; do not open PRs from fork `main`.
 - Keep internship reports, raw benchmark results, and Chinese-only notes out of upstream PRs unless explicitly intended.
@@ -44,7 +50,8 @@ Do not push to `upstream`.
 Before editing code:
 
 - Identify issue number or discussion link.
-- Check if issue has assignee or active PR.
+- Check if issue has assignee, `/assign` comment, or active PR; record it as `PR 认领 @`.
+- If the issue is actively assigned to someone else, do not start an overlapping PR; choose review/testing feedback, ask whether help is needed, or pick another issue.
 - Check whether change touches API/CRD/generated code.
 - Check whether change touches Helm, SDK, docs, tests, or e2e.
 - Pick one PR kind:
@@ -139,10 +146,13 @@ Keep a local record in internship reports:
 When review comments arrive:
 
 1. Read all comments first.
-2. Group by category: correctness, tests, style, docs, generated code, scope.
-3. Apply fixes in small commits.
-4. Reply directly and specifically.
-5. Do not use AI-generated reviewer replies verbatim; author should respond.
+2. Classify commenters by role: human maintainer/reviewer, PR author, contributor, automation bot, CI bot, merge gate, or AI reviewer.
+3. Group actionable comments by category: correctness, tests, style, docs, generated code, scope.
+4. Prioritize human maintainer/reviewer comments; use AI reviewer comments as a checklist only after validating the issue yourself.
+5. Treat bot comments as process or validation state, such as missing `approved`, `lgtm`, failed CI, or OWNER requirements.
+6. Apply fixes in small commits.
+7. Reply directly and specifically.
+8. Do not use AI-generated reviewer replies verbatim; author should respond.
 
 Useful response format:
 
@@ -183,4 +193,6 @@ It prints title, state, labels, files, commits, comments count, and review comme
 - Do not add new dependencies casually.
 - Do not change CRDs without generated files.
 - Do not mark an issue fixed unless the PR fully addresses it.
+- Do not duplicate work on an issue with an active `PR 认领 @`; record the owner and switch to review/test feedback unless the maintainer asks for a separate PR.
+- Do not treat AI reviewer or automation bot comments as maintainer consensus.
 - If a first-time contributor workflow needs `ok-to-test`, mention it in local notes; do not spam maintainers.

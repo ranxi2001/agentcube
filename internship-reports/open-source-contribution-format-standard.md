@@ -18,12 +18,36 @@
 ## 总原则
 
 - upstream issue、PR、proposal、review comment 使用英文；中文分析和实习过程记录放在 `internship-reports/`。
-- 先搜索已有 issue / PR / discussion，避免重复提案或重复实现。
+- 先搜索已有 issue / PR / discussion，并记录 `PR 认领 @`，避免重复提案或重复实现。
 - 大功能先讨论设计，小修复直接走 issue + PR。
 - PR 必须来自干净 topic 分支，不从 fork `main` 直接提交。
 - 每个 PR 只做一个主题，避免把实习报告、原始 benchmark 日志、中文-only 笔记混进 upstream PR。
 - 使用 AI 工具辅助可以，但作者必须理解每一处改动，并在 PR 的 `Special notes for your reviewer` 中披露。
 - 回复 review comment 时应由作者自己直接回复，不依赖 AI 生成回复。
+
+## 社区角色与评论权重
+
+读长 issue / PR 时，先判断说话者角色，不要把 bot 提示或 AI review 当成维护者结论。以下是 #366 中观察到的 AgentCube 社区运行方式：
+
+| 类型 | 常见账号 / 标识 | 真人/自动化 | 作用 | 阅读方式 |
+| --- | --- | --- | --- | --- |
+| PR 作者 | @lyuyun | 真人 | 提案、解释设计、按 review 修改分支 | 代表当前 PR 方案，不等于维护者最终共识 |
+| 贡献者 | @Abhinav-kodes、@HarshitPal25、@Sanchit2662 | 真人 | 提 issue、认领任务、补充方案或复现 | 可作为上下文和协作信号；先查是否已 `/assign` |
+| 维护者 / reviewer | @acsoto、@RainbowMango、@hzxuzhonghu | 真人 | 提架构、正确性、范围和社区方向意见 | 权重高；明确技术意见应优先进入我们的总结 |
+| approver | 例如 bot 提示 docs/OWNERS 需要 @kevin-wangzefeng | 真人 | 用 `/approve` 满足 OWNER 审批 | 需要按 bot 提示等待或请求，不要随意打扰 |
+| 社区流程 bot | @volcano-sh-bot | 自动化 | 请求 reviewer、加 label、提示 OWNER 审批状态 | 流程信号；不是技术判断 |
+| merge gate | `tide` check | 自动化 | 检查是否具备 `approved`、`lgtm`、CI 通过等合并条件 | 合并门禁；不是 reviewer 意见 |
+| CI / 覆盖率 bot | @codecov-commenter、GitHub Actions checks | 自动化 | 报告 coverage、lint、test、e2e、codegen 状态 | 当作验证证据；失败要看具体日志 |
+| AI reviewer | @gemini-code-assist[bot]、@copilot-pull-request-reviewer[bot] / Copilot | AI 自动化 | 自动审查文档/代码，指出潜在问题 | 可作为检查清单；不能当作维护者共识，采纳前必须人工验证 |
+
+评论权重建议：
+
+1. 真人维护者 / reviewer 的明确意见最高。
+2. OWNER approve、`/lgtm`、`/approve` 和 `tide` 状态决定能否合并。
+3. PR 作者回复说明当前方案如何调整。
+4. 其他贡献者评论说明社区需求和协作关系。
+5. 自动化 bot 说明流程状态。
+6. AI reviewer 只作为辅助发现问题。
 
 ## 选择正确的社区入口
 
@@ -269,6 +293,7 @@ NONE
 | 分支 | 基于最新 `upstream/main` 的干净 topic 分支 |
 | 范围 | 一个 PR 一个主题，不混入实习报告 |
 | Issue | 有对应 issue 时写 `Fixes #...`；讨论或部分工作写 `Refs #...` |
+| PR 认领 @ | PR 前确认 issue assignee、`/assign` 评论和已打开 PR；如果已有活跃认领人，优先做 review / 复现反馈，不重复实现 |
 | 测试 | bugfix / feature 必须有单测或说明为什么无法加 |
 | Go 格式 | 运行 `make fmt` 或相关 gofmt |
 | 单测 | 至少跑相关包测试；通用命令是 `make test` |
@@ -331,6 +356,7 @@ Would it be better to ... because ...?
 
 - issue 没有已打开的重复 PR。
 - issue 没有活跃 assignee 正在做。
+- 本地任务表已经记录 `PR 认领 @`；无人认领写 `待认领`，已有认领写具体 GitHub 用户名。
 - 自己能在 1-3 天内给出初版。
 
 评论格式：

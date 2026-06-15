@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | SnapStart / 快速恢复 | [#365](https://github.com/volcano-sh/agentcube/issues/365)、[#366](https://github.com/volcano-sh/agentcube/pull/366)、[#379](https://github.com/volcano-sh/agentcube/pull/379) | 社区正在把快速启动方向收敛到 Kubernetes-native / Kuasar SnapStart，而不是单独走 Firecracker 后端 |
 | warm pool 可观测性 | [#265](https://github.com/volcano-sh/agentcube/issues/265)、[#305](https://github.com/volcano-sh/agentcube/issues/305) | CodeInterpreter 目前 Ready 状态不能反映 warm pool 是否真的可用，和我们上周并发 pool miss 观察直接相关 |
-| 认证和安全 | [#375](https://github.com/volcano-sh/agentcube/issues/375)、[#367](https://github.com/volcano-sh/agentcube/pull/367) | TokenCache、Keycloak、RBAC、OIDC 是社区重要方向，但 Keycloak PR 范围很大 |
+| 认证和安全 | [#375](https://github.com/volcano-sh/agentcube/issues/375)、[#367](https://github.com/volcano-sh/agentcube/pull/367) | TokenCache、Keycloak、RBAC、OIDC 是社区重要方向；#375 已由 @HarshitPal25 认领，Keycloak PR 范围很大 |
 | 可观测性 | [#333](https://github.com/volcano-sh/agentcube/issues/333)、[#331](https://github.com/volcano-sh/agentcube/pull/331)、[#353](https://github.com/volcano-sh/agentcube/pull/353) | 社区希望增加 session observability、Prometheus metrics 和更清楚的运行状态 |
 | 测试和开发体验 | [#383](https://github.com/volcano-sh/agentcube/pull/383)、[#384](https://github.com/volcano-sh/agentcube/pull/384)、[#371](https://github.com/volcano-sh/agentcube/pull/371) | 最近合入和打开的 PR 很多都在补 test、lint、Helm 校验和本地验证目标 |
 
@@ -39,23 +39,23 @@
 
 ## 本周可做开发任务候选
 
-| 优先级 | 任务 | 来源 | 开发范围 | 难度 | Token/API 成本 | 预计时间 | 产出 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| P0 | 修复 `TokenCache` 不检查 JWT `exp` 的问题 | [#375](https://github.com/volcano-sh/agentcube/issues/375) | `pkg/workloadmanager/client_cache.go`、`client_cache_test.go` | 中 | 低 | 0.5-1 天 | 一个小型 bugfix PR，含单测 |
-| P0 | 对齐 SnapStart benchmark 口径 | [#365](https://github.com/volcano-sh/agentcube/issues/365)、[#366](https://github.com/volcano-sh/agentcube/pull/366) | 整理 benchmark 场景、补脚本/文档、在 issue 里提供我们已有数据和环境限制 | 中 | 低 | 1 天 | issue 评论或 benchmark 草案 PR |
-| P1 | 给 CodeInterpreter 增加 WarmPoolAvailable 状态设计 / PoC | [#265](https://github.com/volcano-sh/agentcube/issues/265) | `codeinterpreter_controller.go`、`codeinterpreter_controller_test.go`，可能涉及 event recorder | 中高 | 低 | 1-2 天 | PoC 分支或 PR，至少形成设计评论 |
-| P1 | 补 AgentCube sandbox benchmark p99、冷启动、资源残留检查 | [#365](https://github.com/volcano-sh/agentcube/issues/365)、[#333](https://github.com/volcano-sh/agentcube/issues/333) | `internship-reports/benchmarks/` 脚本和结果 | 中 | 中 | 1 天 | 本地 benchmark 数据，可用于社区讨论 |
-| P1 | 阅读并 review SnapStart 实现 PR | [#379](https://github.com/volcano-sh/agentcube/pull/379) | 看 CRD、agentd driver、Kuasar driver、fallback 逻辑 | 高 | 低 | 0.5-1 天 | review 笔记，选择是否评论 |
-| P2 | 跟进 session observability / Prometheus metrics | [#331](https://github.com/volcano-sh/agentcube/pull/331)、[#353](https://github.com/volcano-sh/agentcube/pull/353) | 主要读 PR 和跑测试，避免重复实现 | 中 | 低 | 0.5 天 | review 笔记或测试反馈 |
+| 优先级 | 任务 | 来源 | PR 认领 @ | 开发范围 | 难度 | Token/API 成本 | 预计时间 | 产出 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| P0 | 跟进 `TokenCache` 不检查 JWT `exp` 的问题 | [#375](https://github.com/volcano-sh/agentcube/issues/375) | @HarshitPal25 | `pkg/workloadmanager/client_cache.go`、`client_cache_test.go` | 中 | 低 | 0.5 天 | 已有人认领，先做复现、单测思路或后续 PR review，不重复开 PR |
+| P0 | 对齐 SnapStart benchmark 口径 | [#365](https://github.com/volcano-sh/agentcube/issues/365)、[#366](https://github.com/volcano-sh/agentcube/pull/366) | #365 无 assignee；#366 @lyuyun | 整理 benchmark 场景、补脚本/文档、在 issue 里提供我们已有数据和环境限制 | 中 | 低 | 1 天 | issue 评论或 benchmark 草案 PR |
+| P1 | 给 CodeInterpreter 增加 WarmPoolAvailable 状态设计 / PoC | [#265](https://github.com/volcano-sh/agentcube/issues/265) | 无 assignee；未见直接 PR | `codeinterpreter_controller.go`、`codeinterpreter_controller_test.go`，可能涉及 event recorder | 中高 | 低 | 1-2 天 | PoC 分支或 PR，至少形成设计评论 |
+| P1 | 补 AgentCube sandbox benchmark p99、冷启动、资源残留检查 | [#365](https://github.com/volcano-sh/agentcube/issues/365)、[#333](https://github.com/volcano-sh/agentcube/issues/333) | 不适用 | `internship-reports/benchmarks/` 脚本和结果 | 中 | 中 | 1 天 | 本地 benchmark 数据，可用于社区讨论 |
+| P1 | 阅读并 review SnapStart 实现 PR | [#379](https://github.com/volcano-sh/agentcube/pull/379) | @lyuyun | 看 CRD、agentd driver、Kuasar driver、fallback 逻辑 | 高 | 低 | 0.5-1 天 | review 笔记，选择是否评论 |
+| P2 | 跟进 session observability / Prometheus metrics | [#331](https://github.com/volcano-sh/agentcube/pull/331)、[#353](https://github.com/volcano-sh/agentcube/pull/353) | @Abhinav-kodes | 主要读 PR 和跑测试，避免重复实现 | 中 | 低 | 0.5 天 | review 笔记或测试反馈 |
 
 ## 推荐本周主线
 
 建议本周采用“一小 PR + 一条 benchmark/社区参与线”的组合：
 
-1. **主开发 PR：TokenCache JWT 过期修复**
+1. **主开发 PR 候选：TokenCache JWT 过期修复**
    - 范围小，问题清楚，容易写单测。
-   - 和安全认证方向相关，但不需要直接卷入 Keycloak 大 PR。
-   - 注意先看 issue 是否已有活跃 assignee，避免重复抢工作；可以先准备本地分支和测试，再在 issue 里说明愿意补 PR。
+   - 但 #375 已由 @HarshitPal25 认领，当前不重复开 PR。
+   - 我们可以先做复现、单测思路和后续 PR review；如果该任务长期无进展，再先在 issue 里询问是否需要协助。
 
 2. **主社区参与：SnapStart benchmark 口径对齐**
    - 和我们上周 warm pool、forkd、CubeSandbox 调研高度相关。
@@ -63,7 +63,7 @@
    - 可以把我们的测试拆成：N-way session creation、cold start vs warm pool、失败 fallback、p50/p95/p99、资源残留、机器环境说明。
 
 3. **备选开发 PR：WarmPoolAvailable 状态**
-   - 如果 TokenCache 已被别人处理，可以转向 #265。
+   - 因为 TokenCache 已有人认领，可以优先转向 #265。
    - 这个任务和我们上周实测最贴近，但控制器、status、event、watch 逻辑比 TokenCache 更复杂，适合作为第二个 PR 或 PoC。
 
 ## 本周排期建议
@@ -71,8 +71,8 @@
 | 时间 | 工作 |
 | --- | --- |
 | 周一 | 完成 Week 2 计划；固定贡献和讨论格式标准；同步 fork；阅读 #375、#365、#366、#379、#265；选定第一 PR 方向 |
-| 周二 | 基于 `upstream/main` 创建干净分支，实现 TokenCache 修复和单测；跑 `go test ./pkg/workloadmanager` |
-| 周三 | 根据 issue 状态决定是否提交 TokenCache PR；同时整理 SnapStart benchmark 场景和已有 warm pool 数据 |
+| 周二 | 检查 #375 是否已有关联 PR；若仍由 @HarshitPal25 认领，则只做本地复现/测试记录，开发方向切到 #265 或 benchmark 草案 |
+| 周三 | 根据 issue 认领状态决定是否参与 TokenCache review；同时整理 SnapStart benchmark 场景和已有 warm pool 数据 |
 | 周四 | 评估 WarmPoolAvailable PoC，确认是否能在本周形成第二个小 PR 或至少形成设计评论 |
 | 周五 | 收尾：跟进 PR review、补测试记录、更新 Day 报告和 TODO，整理本周成果 |
 
