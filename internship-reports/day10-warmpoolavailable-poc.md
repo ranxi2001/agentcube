@@ -500,11 +500,12 @@ The current approach reuses CodeInterpreterStatus.Conditions and adds a WarmPool
 One behavior I would like to confirm before opening the PR: the current low watermark is ceil(warmPoolSize / 2), and a newly created warm pool with ReadyReplicas=0 emits one WarmPoolEmpty warning. If maintainers prefer warning only after a previously ready pool degrades, I can adjust that event policy.
 ```
 
-## 更新后的下一步
+## 后续追踪
 
-- 先让同事/mentor 看 `/home/agentcube-pr265` 的 diff 和本文件的 PR 草案。
-- 如果接受“初始 ReadyReplicas=0 也发 warning”的口径，就可以 push `feat/warmpool-available-condition` 并开 upstream PR。
+- 已成功提交 upstream PR [#385](https://github.com/volcano-sh/agentcube/pull/385)，本阶段目标从“准备 PR”切换为“追踪 review / CI / bot 反馈”。
+- 继续观察 coverage、e2e、tide、reviewer 评论和 maintainer 是否要求调整 condition / Event 语义。
 - 如果维护者希望更保守，就把 Event 策略改成只在从 `WarmPoolReady` 退化到 false 时发 warning，condition 仍然照常更新。
+- 后续所有修改继续推到 `ranxi2001:feat/warmpool-available-condition`，不要混入 fork `main` 的实习报告改动。
 
 ## PR 提交结果
 
@@ -514,6 +515,7 @@ One behavior I would like to confirm before opening the PR: the current low wate
 PR: https://github.com/volcano-sh/agentcube/pull/385
 branch: ranxi2001:feat/warmpool-available-condition
 commit: 809214d feat: expose codeinterpreter warm pool health
+follow-up commit: 8344a9f test: cover warm pool status edge cases
 ```
 
 提交时使用了 DCO sign-off：
@@ -522,7 +524,95 @@ commit: 809214d feat: expose codeinterpreter warm pool health
 Signed-off-by: ranxi2001 <ranxi169@163.com>
 ```
 
-PR 创建后，社区 bot 已自动识别 `/kind enhancement`，并请求 `acsoto` 和 `LiZhenCheng9527` review。当前状态是等待 CI 和 reviewer 反馈。
+PR 创建后，社区 bot 已自动识别 `/kind enhancement`，并请求 `acsoto` 和 `LiZhenCheng9527` review。当前状态是已经成功提交 PR，后续继续追踪 CI、coverage、e2e、tide 和 reviewer 反馈。
+
+## Codecov bot 反馈与处理
+
+PR 创建后，`codecov-commenter` 自动评论：
+
+```text
+Patch coverage is 83.33333% with 13 lines in your changes missing coverage.
+Files with missing lines: pkg/workloadmanager/codeinterpreter_controller.go
+```
+
+这类评论是覆盖率 bot 的自动检查，不是真人 reviewer 结论。它的作用是提醒新增代码的测试覆盖率是否足够，和 `volcano-sh-bot`、`tide` 一样属于 PR 流程信号；需要看具体缺失行，而不是只看红叉。
+
+本次判断：
+
+- `Please install the codecov app` 是仓库/组织级配置提示，不是本 PR 能修的代码问题。
+- `Report is 125 commits behind head on main` 是 Codecov 基准报告滞后提示，也不是本 PR 代码错误。
+- `Patch coverage 83.33%` 和 `13 missing lines` 是需要处理的有效反馈，因为它指出了新增代码中缺少测试覆盖的分支。
+
+本地复现覆盖率：
+
+```bash
+/tmp/go-toolchain/go/bin/go test -coverprofile=/tmp/agentcube-pr385-workloadmanager.cover ./pkg/workloadmanager
+/tmp/go-toolchain/go/bin/go tool cover -func=/tmp/agentcube-pr385-workloadmanager.cover | rg 'codeinterpreter_controller.go|total'
+```
+
+初始主要缺口：
+
+| 函数 | 初始覆盖率 | 缺口 |
+| --- | ---: | --- |
+| `updateStatus` | 81.2% | status 未变化直接返回、status update error |
+| `warmPoolAvailableCondition` | 94.4% | `Get` 返回非 NotFound 错误 |
+| `shouldRecordWarmPoolWarningEvent` | 80.0% | unrelated false reason 不发 event |
+| `recordEvent` | 66.7% | nil recorder 保护分支 |
+| `deleteSandboxWarmPool` / `deleteSandboxTemplate` | 0% | warm pool disabled 时删除资源路径 |
+
+补充测试后推送了第二个 commit：
+
+```text
+8344a9f test: cover warm pool status edge cases
+```
+
+新增测试覆盖：
+
+| 测试 | 覆盖点 |
+| --- | --- |
+| `TestUpdateStatusSkipsUnchangedStatus` | status 已经最新时不重复 update |
+| `TestUpdateStatusReturnsStatusUpdateError` | status subresource update 失败时返回错误 |
+| `TestWarmPoolAvailableConditionReturnsGetError` | 获取 `SandboxWarmPool` 出现非 NotFound 错误时返回包装错误 |
+| `TestShouldRecordWarmPoolWarningEvent/does_not_record_unrelated_false_reason` | 非 warm pool warning reason 不发 Event |
+| `TestRecordEventSkipsNilRecorder` | `Recorder == nil` 时安全跳过 |
+| `TestReconcileDeletesWarmPoolWhenDisabled` | warm pool disabled 后删除 `SandboxWarmPool` / `SandboxTemplate` 路径 |
+
+补充后的本地验证：
+
+```bash
+/tmp/go-toolchain/go/bin/go test ./cmd/workload-manager ./pkg/workloadmanager
+```
+
+结果：
+
+```text
+?   	github.com/volcano-sh/agentcube/cmd/workload-manager	[no test files]
+ok  	github.com/volcano-sh/agentcube/pkg/workloadmanager	0.268s
+```
+
+补充后的覆盖率变化：
+
+| 函数 | 补充后覆盖率 |
+| --- | ---: |
+| `updateStatus` | 93.8% |
+| `warmPoolAvailableCondition` | 100.0% |
+| `shouldRecordWarmPoolWarningEvent` | 100.0% |
+| `recordEvent` | 100.0% |
+| `deleteSandboxWarmPool` / `deleteSandboxTemplate` | 63.6% |
+
+剩余 `SetupWithManager` 覆盖率仍为 0%，这是 controller builder 注册路径，通常更适合由集成测试或 envtest 覆盖；本次为了回应 patch coverage，先补业务逻辑和错误路径单测，不为覆盖率强行 mock controller-runtime builder。
+
+## PR 规范补充
+
+这次 #385 暴露出一个实际 PR 规范：提交后不能只等真人 review，也要及时阅读自动化 bot 的反馈。
+
+处理顺序：
+
+1. 先区分 bot 类型：流程 bot、CI bot、coverage bot、AI reviewer、真人 reviewer。
+2. 对 coverage bot，不要把仓库配置提示当成代码问题，但要处理 `Patch coverage` 和 missing lines。
+3. 如果本地无法跑完整 `make test`，必须在 PR 描述中说明失败原因，例如本机缺少 router / workload-manager / kubeconfig 导致 e2e 失败。
+4. 补测试后用新 commit 推到同一个 PR 分支，保留 review 过程，除非维护者要求 squash 或 rebase。
+5. 每次推送后记录 commit、测试命令和 bot 反馈变化，方便实习报告复盘。
 
 ## 一句话总结
 

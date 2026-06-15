@@ -17,7 +17,7 @@
 
 | 优先级 | 任务 | 状态 | PR 认领 @ | 难度 | 成本 | 预计时间 | 产出/证据 | 下一步 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| P0 | 准备一个低争议 upstream PR 或 issue | REVIEW | #265 无 assignee；PR #385 | 中 | 低 | 0.5-1 天 | [Day 10](day10-warmpoolavailable-poc.md) 已提交 upstream PR [#385](https://github.com/volcano-sh/agentcube/pull/385) | 等待维护者 review，按反馈调整 |
+| P0 | 准备一个低争议 upstream PR 或 issue | REVIEW | #265 无 assignee；PR #385 | 中 | 低 | 0.5-1 天 | [Day 10](day10-warmpoolavailable-poc.md) 已成功提交 upstream PR [#385](https://github.com/volcano-sh/agentcube/pull/385)，并已按 Codecov 反馈补测试 | 持续追踪 CI、coverage、e2e、tide 和 reviewer 反馈 |
 | P0 | 固定开源贡献和社区讨论格式标准 | DONE | 不适用 | 中 | 低 | 0.5 天 | [格式标准](open-source-contribution-format-standard.md) 已整理官方 issue / PR / proposal / benchmark / review 格式 | 后续 issue、proposal、PR 前按 checklist 检查 |
 | P0 | 建立 issue 讨论和 PR 管理本地 skills | DONE | 不适用 | 中 | 低 | 0.5 天 | [issue skill](../skills/agentcube-issue-discussion/SKILL.md)、[PR skill](../skills/agentcube-pr-management/SKILL.md) 已创建 | 后续社区讨论和 PR 准备用对应 skill 工作流 |
 | P0 | 建立干净 upstream PR 分支 | DONE | 不适用 | 中 | 低 | 0.5 天 | [Day 10](day10-warmpoolavailable-poc.md) 已在 `/home/agentcube-pr265` 基于 `upstream/main` 创建 `feat/warmpool-available-condition` | fork `main` 保留实习报告；PR 分支只放 #265 代码改动 |
@@ -33,7 +33,7 @@
 | P1 | 构建数学 benchmark 专用镜像 | TODO | 不适用 | 中 | 中 | 1-2 天 | 高考数学测试已暴露 `sympy/numpy/scipy/pandas` 依赖问题 | 构建包含常用数学库的 sandbox 镜像，并复测高考数学题 |
 | P1 | 拆分 Workload Manager 内部阶段耗时 | TODO | 不适用 | 高 | 中 | 1-2 天 | 当前只记录 create/run/delete 总耗时 | 拆 API 接收、SandboxClaim、调度、Pod Ready、Router 更新、Redis 写入 |
 | P1 | 形成官方 benchmark suite 草案 | TODO | 待查 | 中 | 低 | 1 天 | 已有多个本地 benchmark 脚本和结果 | 整理脚本接口、环境记录、输出 JSON schema 和 README |
-| P1 | 评估 `WarmPoolAvailable` 状态 PoC | REVIEW | #265 无 assignee；PR #385 | 中高 | 低 | 1-2 天 | [Day 10](day10-warmpoolavailable-poc.md) 已完成 PoC 并提交 upstream PR [#385](https://github.com/volcano-sh/agentcube/pull/385)；focused tests 通过 | 跟进 CI 和 reviewer 对 condition/event 语义的反馈 |
+| P1 | 评估 `WarmPoolAvailable` 状态 PoC | REVIEW | #265 无 assignee；PR #385 | 中高 | 低 | 1-2 天 | [Day 10](day10-warmpoolavailable-poc.md) 已完成 PoC 并提交 upstream PR [#385](https://github.com/volcano-sh/agentcube/pull/385)；focused tests 通过；已补 coverage 边界测试 | 跟进 CI 和 reviewer 对 condition/event 语义的反馈 |
 | P2 | 深读 `agentd`、`picod`、`router` 链路 | TODO | 不适用 | 中 | 低 | 1 天 | Day 2 已完成项目结构初读 | 形成代码阅读笔记，重点解释 session 到 sandbox exec 的调用路径 |
 | P2 | 梳理 CRD / DeepCopy / client-go 生成链路 | TODO | 不适用 | 中 | 低 | 0.5 天 | 暂无单独文档 | 读 `make gen-all` 相关脚本和 API type，写一页说明 |
 | P2 | 跑通 `browser-agent` 或 `pcap-analyzer` demo | BLOCKED | 不适用 | 高 | 中 | 1-2 天 | 第一周记录过 Docker/镜像环境限制 | 等待可用镜像构建路径或 containerd/registry 方案 |
