@@ -430,7 +430,39 @@ dial tcp [::1]:8081: connect: connection refused
 failed to get kubeconfig: invalid configuration: no configuration has been provided
 ```
 
-前面的普通 Go package 测试已经跑到并通过 `pkg/workloadmanager`；这次 `make test` 失败属于本地 e2e 环境缺失，需要在 PR 中如实说明，不应解读为 #265 PoC 的单元测试失败。
+后续复查发现，这个问题不是当前机器无法满足，而是测试命令当时没有显式配置 e2e 所需入口。当前机器上 k3s、AgentCube workloadmanager、router、redis 都已经在运行，kubeconfig 位于：
+
+```text
+/etc/rancher/k3s/k3s.yaml
+```
+
+已经验证的修复方式：
+
+```bash
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+kubectl -n agentcube port-forward svc/workloadmanager 8080:8080
+kubectl -n agentcube port-forward svc/agentcube-router 8081:8080
+export WORKLOAD_MANAGER_URL=http://localhost:8080
+export ROUTER_URL=http://localhost:8081
+```
+
+实际验证时为了避免占用默认端口，临时使用了 18080 / 18081：
+
+```bash
+KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n agentcube port-forward svc/workloadmanager 18080:8080
+KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n agentcube port-forward svc/agentcube-router 18081:8080
+curl -fsS http://127.0.0.1:18080/health
+curl -fsS http://127.0.0.1:18081/health/live
+```
+
+验证结果：
+
+```text
+workloadmanager health: {"status":"healthy"}
+router health: {"status":"alive"}
+```
+
+因此更准确的结论是：前面的普通 Go package 测试已经跑到并通过 `pkg/workloadmanager`；`make test` 失败属于当时没有为 e2e 提供 kubeconfig 和本地 port-forward，不应解读为 #265 PoC 的单元测试失败。这个环境问题可以解决，但完整 e2e 仍要注意测试 fixture、token、namespace 和运行时资源状态，不能直接等同于所有 e2e 都一定通过。
 
 当前代码分支状态：
 
