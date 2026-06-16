@@ -213,12 +213,12 @@ AgentCube 这里测的是 CodeInterpreter sandbox 基础设施路径，不是完
 
 ## 当前缺口和下一步
 
-1. AgentCube 已补 `warmPoolSize=5/10/20` 的并发 10 初步曲线；下一步可以在 `8/10/12` 附近用更大样本重复，确认最佳点是否稳定。
+1. AgentCube 的 `warmPoolSize=10` 当前表现最好；下一步可以在 `8/10/12` 附近用更大样本重复，确认最佳点是否稳定。
 2. AgentCube 需要在有 Kata/Kuasar RuntimeClass 的节点上重测，得到 L3/L4 路径下的延迟和资源开销。
 3. forkd 需要换到 Ubuntu 22.04+、Linux 新内核、cgroup v2、`/dev/kvm` 可用的机器上跑官方 quick start 和我们的最小 benchmark。
-4. CubeSandbox 当前已做低风险 precheck 和 CubeAPI-only 验证；完整实测需要换 PVM/裸金属环境，并准备 `/dev/kvm` 或 PVM kernel、glibc ≥ 2.31、XFS `/data/cubelet`、Docker 和可用模板。
+4. CubeSandbox 完整实测需要换 PVM/裸金属环境，并准备 `/dev/kvm` 或 PVM kernel、glibc ≥ 2.31、XFS `/data/cubelet`、Docker 和可用模板。
 5. cage-bro 需要在 Linux kernel >= 5.13 的机器上重测，确认 Landlock 生效时的延迟变化；如果用于强风险代码，应放进 VM/microVM 内再测。
-6. 后续补新竞品时沿用这张表的列：定位、隔离等级、OS/云支持、部署难度、安全边界、K8s/集群、API 兼容、性能、我们当前状态。
+6. 后续补新竞品时沿用这张表的列：定位、隔离等级、OS/云支持、部署难度、安全边界、K8s/集群、API 兼容、性能、我们当前状态；不要把已完成补表事项继续留在下一步。
 
 ## 资料来源
 

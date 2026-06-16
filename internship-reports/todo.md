@@ -1,6 +1,6 @@
 # 实习任务 TODO
 
-更新时间：2026-06-15
+更新时间：2026-06-16
 
 这个文档用于管理实习期间的后续任务。日报记录每天做了什么，TODO 记录“现在还要做什么、优先级是什么、做到哪里、卡在哪里”。
 
@@ -22,7 +22,7 @@
 | P0 | 建立 issue 讨论和 PR 管理本地 skills | DONE | 不适用 | 中 | 低 | 0.5 天 | [issue skill](../skills/agentcube-issue-discussion/SKILL.md)、[PR skill](../skills/agentcube-pr-management/SKILL.md) 已创建 | 后续社区讨论和 PR 准备用对应 skill 工作流 |
 | P0 | 建立干净 upstream PR 分支 | DONE | 不适用 | 中 | 低 | 0.5 天 | [Day 10](day10-warmpoolavailable-poc.md) 已在 `/home/agentcube-pr265` 基于 `upstream/main` 创建 `feat/warmpool-available-condition` | fork `main` 保留实习报告；PR 分支只放 #265 代码改动 |
 | P0 | 跟进 `TokenCache` 不检查 JWT `exp` 的问题 | WATCH | @HarshitPal25 | 中 | 低 | 0.5 天 | [Week 2](week2-work-plan.md) 已列为跟进项；来源 #375 | 已有人认领，先不重复开 PR；跟踪其 PR，必要时做 review / 复现测试 |
-| P0 | 对齐 SnapStart / warm pool benchmark 口径 | TODO | 待查 | 中 | 低 | 1 天 | [Week 2](week2-work-plan.md) 已列为主社区参与线；来源 #365/#366/#379 | 整理已有 warm pool 数据、环境限制和 benchmark 指标，在 issue 或草案文档中反馈 |
+| P0 | 对齐 SnapStart / warm pool benchmark 口径 | DOING | #365 无 assignee；#366/#379 @lyuyun | 中 | 低 | 1 天 | [Week 2](week2-work-plan.md) 已列为主社区参与线；[Day 12](day12-agentcube-roadmap-from-cubesandbox.md) 已整理 benchmark 口径草案；来源 #365/#366/#379 | 整理成英文 issue/PR 评论，先和 mentor 对齐后再发 |
 | P0 | 分析社区 issue / PR 动态 | DOING | 按 issue 逐项记录 | 中 | 中 | 0.5-1 天 | [Day 9](day9-open-source-community-and-fork-sync.md) 和 [Week 2](week2-work-plan.md) 已完成两轮统计 | 重点跟进 #375、#365、#366、#379、#265，选择可参与点 |
 | P0 | 补 Agent 端到端 benchmark | TODO | 不适用 | 中 | 中 | 1-2 天 | 已有 shortest path 单次结果和 sandbox benchmark | 重复测试 LLM + Agent planning + tool call + AgentCube sandbox 的完整链路 |
 | P0 | 补多轮 p50/p95/p99 benchmark | DOING | 不适用 | 中 | 低 | 0.5-1 天 | 已有 AgentCube sandbox p50/p95 和 warmPoolSize 曲线 | 增加 p99；统一输出格式；补 Agent/math-agent 多轮统计 |
