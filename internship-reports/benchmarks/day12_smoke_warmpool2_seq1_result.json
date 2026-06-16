@@ -1,0 +1,61 @@
+{
+  "run_started_at": "2026-06-16T02:53:43.262313+00:00",
+  "mode": "sequential",
+  "count": 1,
+  "concurrency": 1,
+  "namespace": "default",
+  "interpreter_name": "my-interpreter",
+  "workload_manager_url": "http://localhost:18080",
+  "router_url": "http://localhost:18081",
+  "wall_clock_ms": 148.09,
+  "summary": {
+    "case_count": 1,
+    "successful": 1,
+    "failed": 0,
+    "create_session": {
+      "count": 1,
+      "mean_ms": 84.43,
+      "p50_ms": 84.43,
+      "p95_ms": 84.43,
+      "min_ms": 84.43,
+      "max_ms": 84.43
+    },
+    "run_code": {
+      "count": 1,
+      "mean_ms": 55.4,
+      "p50_ms": 55.4,
+      "p95_ms": 55.4,
+      "min_ms": 55.4,
+      "max_ms": 55.4
+    },
+    "delete_session": {
+      "count": 1,
+      "mean_ms": 8.24,
+      "p50_ms": 8.24,
+      "p95_ms": 8.24,
+      "min_ms": 8.24,
+      "max_ms": 8.24
+    },
+    "total_latency": {
+      "count": 1,
+      "mean_ms": 148.07,
+      "p50_ms": 148.07,
+      "p95_ms": 148.07,
+      "min_ms": 148.07,
+      "max_ms": 148.07
+    },
+    "errors": []
+  },
+  "results": [
+    {
+      "index": 0,
+      "session_id_prefix": "c8f2fe17",
+      "create_session_ms": 84.43,
+      "run_code_ms": 55.4,
+      "delete_session_ms": 8.24,
+      "total_ms": 148.07,
+      "output": "ok",
+      "success": true
+    }
+  ]
+}
