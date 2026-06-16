@@ -338,10 +338,19 @@ If this direction makes sense, I’d be happy to help turn the benchmark matrix 
 | 安全边界 | 明确 plain Pod、Kuasar/Kata/gVisor、MicroVM 不能混为一个隔离等级 |
 | 下一步 | 评论末尾可以问维护者是否希望把 benchmark matrix 整理成 proposal patch / docs PR |
 
+## #366 评论发布记录
+
+2026-06-16 已把 “Benchmark and Validation Plan” 建议发布到 [#366](https://github.com/volcano-sh/agentcube/pull/366)：
+
+- 最新评论链接：<https://github.com/volcano-sh/agentcube/pull/366#issuecomment-4714615902>
+- 评论性质：补充 benchmark / validation plan，不提出 competing backend，不认领 #379 主实现。
+- 内容边界：本机数据只作为 plain Pod / warm-pool path-label evidence，不作为 Kuasar/KVM SnapStart 实测。
+- 待处理：GitHub API 显示同账号在 2026-06-16 03:33:43 UTC 和 03:34:26 UTC 各发了一条内容相同的评论；需要在页面上确认是否保留最新一条、删除重复旧评论。
+
 ## Day12 后续执行顺序
 
-1. 先把 #366 的实验验证评论和 mentor 对齐，因为它直接服务 SnapStart proposal review。
-2. 如果只发一条，优先发 #366；如果维护者希望 benchmark tracker 承接细节，再把更完整矩阵发 #365。
+1. 检查 #366 是否有重复评论；如确认重复，保留最新一条并删除旧的重复评论。
+2. 跟踪 #366 维护者是否认可 benchmark 口径；如维护者希望 benchmark tracker 承接细节，再把更完整矩阵发 #365。
 3. 如果维护者反馈认可 benchmark 口径，再考虑把场景矩阵整理成 proposal patch / 英文 docs PR。
 4. 同步跟进 #385，若 reviewer 对 WarmPoolAvailable condition / event 语义有意见，优先处理已有 PR。
 5. 不在当前机器继续尝试 Kuasar/KVM/CubeSandbox 完整实测，避免把环境 blocker 变成无效时间消耗。
@@ -351,4 +360,4 @@ If this direction makes sense, I’d be happy to help turn the benchmark matrix 
 1. Day12 文档：明确从 CubeSandbox 反推 AgentCube 的开发方向。
 2. 两份英文社区评论草稿：一份面向 #365 benchmark issue，一份面向 #366 proposal 实验验证补充。
 3. 本机 plain Pod / warm pool 补跑数据：用来说明为什么 #366 benchmark 必须拆分 startup path。
-4. 发帖前 checklist 和后续执行顺序，避免直接把未确认内容发到社区。
+4. #366 评论已发布，并记录后续跟踪点。
