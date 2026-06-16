@@ -4,8 +4,9 @@ description: >-
   Use when preparing, validating, submitting, updating, or reviewing AgentCube
   upstream pull requests: enforce fork/upstream branch hygiene, fill the official
   PR template, map files to OWNERS, run appropriate tests, disclose AI
-  assistance, track review state, and avoid mixing internship reports with
-  upstream PR branches.
+  assistance, track review state, read other contributors' PR code/proposals
+  before commenting, and avoid mixing internship reports with upstream PR
+  branches.
 ---
 
 # AgentCube PR Management Skill
@@ -20,6 +21,7 @@ Use this skill for AgentCube upstream PR work: branch prep, template filling, is
 - Upstream PRs must use English.
 - Use clean topic branches from `upstream/main`; do not open PRs from fork `main`.
 - Keep internship reports, raw benchmark results, and Chinese-only notes out of upstream PRs unless explicitly intended.
+- For other contributors' PRs, do not draft comments, conclusions, or review suggestions until you have read the PR body, changed files, proposal/design docs, key implementation/tests, and existing human review discussion.
 
 ## Branch Workflow
 
@@ -61,6 +63,35 @@ Before editing code:
   - `/kind security`
   - `/kind documentation`
   - `/kind feature`
+
+## Read-Before-Reply Workflow For Existing PRs
+
+Use this workflow before analyzing, reviewing, replying to, or building on someone else's PR.
+
+1. Read the PR body and identify the stated scope, linked issues, PR kind, author, assignees, reviewers, labels, and CI / merge-gate state.
+2. Read the full proposal or design document if the PR adds one. For long proposals, first map section headings, then read the sections relevant to the user's question end to end before drawing conclusions.
+3. Read `Files changed`, not only the conversation. For code PRs, inspect the implementation files, API/CRD changes, generated files, tests, and manifests touched by the PR.
+4. Read human review comments and author replies before bot comments. Distinguish maintainer decisions from AI reviewer suggestions, CI noise, Codecov output, and approval-gate messages.
+5. Check whether later commits or force-pushes already addressed an earlier review comment. Do not repeat stale feedback.
+6. Compare the PR's actual text/code against any proposed comment. If our comment conflicts with the PR's current wording, update our comment first.
+7. Record the evidence locally before posting: PR number, commit SHA, files/sections read, key observations, unresolved questions, and whether the comment is a review suggestion, benchmark evidence, or implementation request.
+
+Useful commands:
+
+```bash
+git fetch upstream pull/<pr-number>/head:refs/remotes/upstream/pr-<pr-number>
+git show --stat --oneline upstream/pr-<pr-number>
+git show upstream/pr-<pr-number>:<path-to-file> | sed -n '<start>,<end>p'
+git diff upstream/main...upstream/pr-<pr-number> -- <path>
+```
+
+For GitHub metadata, prefer the local PR script when available:
+
+```bash
+python3 .agents/skills/agentcube-pr-management/scripts/pr_status.py <pr-number>
+```
+
+If the script is insufficient, use the GitHub UI/API, but still read the changed files locally when possible.
 
 ## Test Selection
 
@@ -181,7 +212,7 @@ Would you prefer ...?
 Use the script to inspect a PR:
 
 ```bash
-python3 skills/agentcube-pr-management/scripts/pr_status.py 379
+python3 .agents/skills/agentcube-pr-management/scripts/pr_status.py 379
 ```
 
 It prints title, state, labels, files, commits, comments count, and review comments summary.
