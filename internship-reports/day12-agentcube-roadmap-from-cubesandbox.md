@@ -342,18 +342,17 @@ If this direction makes sense, I’d be happy to help turn the benchmark matrix 
 
 2026-06-16 已把 “Benchmark and Validation Plan” 建议发布到 [#366](https://github.com/volcano-sh/agentcube/pull/366)：
 
-- 最新评论链接：<https://github.com/volcano-sh/agentcube/pull/366#issuecomment-4714615902>
+- 保留评论链接：<https://github.com/volcano-sh/agentcube/pull/366#issuecomment-4714612811>
 - 评论性质：补充 benchmark / validation plan，不提出 competing backend，不认领 #379 主实现。
 - 内容边界：本机数据只作为 plain Pod / warm-pool path-label evidence，不作为 Kuasar/KVM SnapStart 实测。
-- 待处理：GitHub API 显示同账号在 2026-06-16 03:33:43 UTC 和 03:34:26 UTC 各发了一条内容相同的评论；需要在页面上确认是否保留最新一条、删除重复旧评论。
+- 重复评论处理：GitHub API 曾显示同账号在 2026-06-16 03:33:43 UTC 和 03:34:26 UTC 各发了一条内容相同的评论；现已删除重复项，保留 03:33:43 UTC 的评论。
 
 ## Day12 后续执行顺序
 
-1. 检查 #366 是否有重复评论；如确认重复，保留最新一条并删除旧的重复评论。
-2. 跟踪 #366 维护者是否认可 benchmark 口径；如维护者希望 benchmark tracker 承接细节，再把更完整矩阵发 #365。
-3. 如果维护者反馈认可 benchmark 口径，再考虑把场景矩阵整理成 proposal patch / 英文 docs PR。
-4. 同步跟进 #385，若 reviewer 对 WarmPoolAvailable condition / event 语义有意见，优先处理已有 PR。
-5. 不在当前机器继续尝试 Kuasar/KVM/CubeSandbox 完整实测，避免把环境 blocker 变成无效时间消耗。
+1. 跟踪 #366 维护者是否认可 benchmark 口径；如维护者希望 benchmark tracker 承接细节，再把更完整矩阵发 #365。
+2. 如果维护者反馈认可 benchmark 口径，再考虑把场景矩阵整理成 proposal patch / 英文 docs PR。
+3. 同步跟进 #385，若 reviewer 对 WarmPoolAvailable condition / event 语义有意见，优先处理已有 PR。
+4. 不在当前机器继续尝试 Kuasar/KVM/CubeSandbox 完整实测，避免把环境 blocker 变成无效时间消耗。
 
 ## 今天结束时希望产出
 
