@@ -16,6 +16,8 @@
 - #386 评论已发布：https://github.com/volcano-sh/agentcube/issues/386#issuecomment-4725375092；当前暂无 maintainer 回复。
 - 已固化“issue/PR 分析优先脚本化”的偏好：`AGENTS.md`、`agentcube-issue-discussion`、`agentcube-pr-management` 都已加入脚本优先和持续优化 skill 的规则。
 - 新增 `.agents/skills/agentcube-issue-discussion/scripts/thread_brief.py`，用于输出 compact Markdown 版 issue/PR 摘要；已用 #386 和 #385 验证，能捕捉 PR review 中的 `/assign` 信号。
+- 已对 #386 中 FAUST-BENCHOU 的 Sandbox Sleep/Resume 提案做代码级分析并写入 Day15：当前实现是 idle/TTL 直接删除式 GC，不是 Ready -> Paused -> Ready；最小实现也要跨 API/CRD、store state、GC、WorkloadManager pause/resume、Router resume-before-proxy、agent-sandbox replicas=0/1 语义和 e2e。
+- 已补充 #386 两个提案关系：agent-sandbox 适配是 Sleep/Resume 的底层兼容性 foundation；如果先按 v0.1.1 实现 Sleep/Resume，后续升级到 v0.3.10+/v0.4.6 可能因 SandboxClaim / warm pool / Ready condition 语义变化返工。
 - PR #385 已按 Gemini 建议更新：`WarmPoolNotFound` condition 保留，但不再记录 Warning Event。
 - PR #385 最新 commit `d885b4e` 已 push，DCO 漏签已用 `git commit --amend --no-edit --signoff` 修复。
 - PR #385 Gemini thread 已回复，附了 focused tests、`go test ./pkg/workloadmanager` 和 `git diff --check`。
@@ -37,6 +39,8 @@
 ## Next
 
 - 2026-06-17 14:30 参加线上会议前，整理 #386 中文内部总结：当前 v0.2.0 proposal、FAUST-BENCHOU 的 Sandbox Sleep/Resume、agent-sandbox 适配提案、可承担产出。
+- 与 FAUST-BENCHOU 讨论 Sleep/Resume 时优先确认第一版语义：是否接受基于 `Sandbox.spec.replicas=0/1` 的 stop/recreate，`context` 是否仅指 workspace/PVC，是否新增 `pauseTimeout`，warm-pool-backed CodeInterpreter 是否纳入第一版。
+- 建议把 #386 两个方向作为同一 v0.2.0 epic 的两个子任务讨论：先定 agent-sandbox target version / compatibility foundation，再做 AgentCube Sleep/Resume lifecycle。
 - 跟踪 #386 maintainer 是否 triage agent-sandbox 适配为 dedicated sub-issue；有明确方向后再准备 compatibility audit PR 或最小修复 PR。
 - 后续看 issue/PR 时先跑 `thread_brief.py <number>`；看 PR 再配合 `pr_status.py <number>`，如果流程重复就继续补脚本而不是手工重做。
 - 优先把 #379 的 `ReadyAt` status equality 评论发到 PR，或先在临时分支补最小 controller unit test 验证。

@@ -12,6 +12,7 @@
 - benchmark 任务必须说明测试口径：本机环境、是否包含 LLM、是否包含 Agent、是否只是 sandbox 基础设施链路。
 - `难度` 主要指技术不确定性；`成本` 主要看 token / LLM API 消耗，只有机器环境、镜像构建、review 沟通等明显影响任务时才额外备注；`预计时间` 是当前粗估，实际执行后要更新。
 - 任务完成后保留在“已完成里程碑”里，方便周报和 mentor 同步。
+- 每次新的 Agent 工作循环先读根目录 [PROGRESS.md](../PROGRESS.md)，结束时只更新关键状态：上一轮做了什么、当前卡点、已排除项、下一步、停止条件；不要把它写成长日报。
 
 ## 当前优先级
 
@@ -23,9 +24,12 @@
 | P0 | 建立干净 upstream PR 分支 | DONE | 不适用 | 中 | 低 | 0.5 天 | [Day 10](day10-warmpoolavailable-poc.md) 已在 `/home/agentcube-pr265` 基于 `upstream/main` 创建 `feat/warmpool-available-condition` | fork `main` 保留实习报告；PR 分支只放 #265 代码改动 |
 | P0 | 跟进 `TokenCache` 不检查 JWT `exp` 的问题 | WATCH | @HarshitPal25 | 中 | 低 | 0.5 天 | [Week 2](week2-work-plan.md) 已列为跟进项；来源 #375 | 已有人认领，先不重复开 PR；跟踪其 PR，必要时做 review / 复现测试 |
 | P0 | 对齐 SnapStart / warm pool benchmark 口径 | WATCH | #365 无 assignee；#366/#379 @lyuyun | 中 | 低 | 1 天 | [Day 12](day12-agentcube-roadmap-from-cubesandbox.md) 已整理 #366 实验验证矩阵、补跑 plain Pod / warm pool 本机数据，并在 [#366](https://github.com/volcano-sh/agentcube/pull/366#issuecomment-4714612811) 发布评论；来源 #365/#366/#379 | 重复评论已删除；跟踪维护者是否希望整理 proposal patch / docs PR |
-| P0 | 学习 Karmada Kubernetes-native 控制面设计 | DOING | 不适用 | 中 | 低 | 1 天 | [Day 13](day13-karmada-project-study.md) 已开始：项目定位、组件、核心资源链路、Binding/Work 控制器初读 | 继续深读 scheduler / status aggregation / proposal 模板，提炼 AgentCube 可借鉴设计 |
+| P0 | 学习 Karmada Kubernetes-native 控制面设计 | DONE | 不适用 | 中 | 低 | 1 天 | [Day 13](day13-karmada-project-study.md) 已完成：项目定位、组件、核心资源链路、Binding/Work 控制器初读、成功原因和 AgentCube 对比 | 后续如继续学习，再单独开 scheduler / status aggregation 深读任务 |
 | P0 | 建立更完整 Kubernetes 测试环境 | BLOCKED | 不适用 | 中高 | 低 | 1-2 天 | [Day 14](day14-kubernetes-environment-and-test-plan.md) 已制定 L0/L1/L2/L3 环境分层；KWOK 已跑通 1 个真实节点 + 3 个 fake nodes；Docker `26.1.3` 和 kind `v0.32.0` 已安装，但 kind 标准 K8s 在 kubelet cgroup/QoS 初始化处失败 | 本机继续硬调收益低；下一步换 cgroup v2 / 新内核机器，或使用云厂商标准 K8s / 新 VM 跑 L1；KWOK 仅保留为调度语义环境 |
 | P0 | 分析社区 issue / PR 动态 | DOING | 按 issue 逐项记录 | 中 | 中 | 0.5-1 天 | [Day 9](day9-open-source-community-and-fork-sync.md) 和 [Week 2](week2-work-plan.md) 已完成两轮统计 | 重点跟进 #375、#365、#366、#379、#265，选择可参与点 |
+| P0 | 跟进 PR #385 review 反馈 | DOING | PR #385；assignee @RainbowMango | 中 | 低 | 0.5 天 | [Day 15](day15-upstream-pr-review-and-snapstart-implementation.md) 已处理 Gemini 关于 `WarmPoolNotFound` warning event 噪音的建议，commit `d885b4e` 已 push；DCO signoff 已修复并通过 | 等待 CI、Codecov、tide、maintainer review；当前 tide 主要等待 `approved` / `lgtm` |
+| P0 | 阅读 SnapStart 实现 PR #379 | DOING | PR #379 @lyuyun | 高 | 低 | 1 天 | [Day 15](day15-upstream-pr-review-and-snapstart-implementation.md) 已完成代码范围初读，并找到一个非重复 review 点：promotion 重置 `ReadyAt` 后可能因 `snapshotStatusEqual` 不比较 `ReadyAt` 而没有持久化 | 将 `ReadyAt` status equality 评论发到 #379，或先在本地临时分支补最小 controller unit test 验证 |
+| P0 | 讨论 AgentCube v0.2.0 下一步计划 | TODO | #386 无 assignee；`FAUST-BENCHOU` 已提 Sandbox Sleep/Resume | 中 | 低 | 0.5 天 | [Day 15](day15-upstream-pr-review-and-snapstart-implementation.md) 已记录 2026-06-17 14:30 线上会议任务；重点围绕 [#386](https://github.com/volcano-sh/agentcube/issues/386) 的 v0.2.0 proposal、Sandbox Sleep/Resume 和 agent-sandbox 适配 | 会前整理 #386 中文内部总结；会上明确会后是否发英文 proposal / review / test plan |
 | P0 | 补 Agent 端到端 benchmark | TODO | 不适用 | 中 | 中 | 1-2 天 | 已有 shortest path 单次结果和 sandbox benchmark | 重复测试 LLM + Agent planning + tool call + AgentCube sandbox 的完整链路 |
 | P0 | 补多轮 p50/p95/p99 benchmark | DOING | 不适用 | 中 | 低 | 0.5-1 天 | 已有 AgentCube sandbox p50/p95 和 warmPoolSize 曲线 | 增加 p99；统一输出格式；补 Agent/math-agent 多轮统计 |
 | P0 | 补冷启动 vs warm pool 对比 | TODO | 不适用 | 中 | 低 | 0.5 天 | 已测 warmPoolSize=2/5/10/20 | 增加 `warmPoolSize=0` 或无 warm pool 场景 |

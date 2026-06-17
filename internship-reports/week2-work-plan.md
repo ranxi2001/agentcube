@@ -15,6 +15,31 @@
 
 上周我们已经完成了部署、benchmark、warm pool 实测、竞品矩阵和社区初步分析。本周应该从“调研和测评”进入“参与社区开发和提交 PR”。格式标准见：[开源贡献与社区讨论格式标准](open-source-contribution-format-standard.md)。
 
+## 当前进展（截至 2026-06-16）
+
+Week 2 已经从“看 issue / 选方向”推进到“提交 PR、参与社区讨论、补齐环境能力边界”的阶段。当前进展如下：
+
+| 方向 | 状态 | 进展 |
+| --- | --- | --- |
+| 贡献格式和社区规则 | DONE | 已整理 AgentCube issue / PR 讨论格式、PR 管理规范、fork 同步规范，并沉淀为 `.agents/skills/agentcube-issue-discussion` 和 `.agents/skills/agentcube-pr-management` 两个技能 |
+| #265 WarmPoolAvailable | REVIEW | 已基于 #265 做 CodeInterpreter warm pool 可用性 PoC，提交 upstream PR [#385](https://github.com/volcano-sh/agentcube/pull/385)，并按 Codecov 提示补充覆盖 warm pool 边界的单测 |
+| SnapStart / benchmark | DONE / WATCH | 已仔细阅读 #365、#366、#379，确认本地数据不能证明 Kuasar SnapStart，但可以证明 warm pool 命中 / miss 对延迟影响极大；已将可直接发社区的观测数据评论到 PR #366 |
+| CubeSandbox 调研 | DONE | 已完成 Day11 深入调研，覆盖架构图、RustVMM/KVM、PVM、CubeEgress/eBPF、CubeCoW、E2B 兼容、Go/Python SDK 和 benchmark 口径 |
+| Karmada 学习 | DONE | 已完成 Day13 学习记录，理解 Karmada 的 Kubernetes-native 多集群控制面、组件式开发方式，以及它成功的核心痛点 |
+| Kubernetes 测试环境 | PARTIAL / BLOCKED | 已在现有 k3s 上补 KWOK 伪节点环境，可测调度 / placement / controller 语义；已安装 Docker 和 kind，但标准 kind 集群被当前 CentOS 8、kernel 4.18、cgroup v1、kubelet QOS 初始化问题卡住 |
+| 本地硬隔离 / MicroVM | BLOCKED | 当前机器无 `/dev/kvm`，CPU 未暴露 `vmx/svm`，无法直接验证 KVM / Kuasar / Firecracker / CubeSandbox PVM 相关真实隔离路径 |
+
+当前可汇报的 Week 2 结果是：我们已经完成一个真实 upstream PR、一次有数据支撑的社区设计评论、一个云厂商沙箱深度调研、一个成熟 Kubernetes 项目学习记录，并把本地测试环境从单节点 k3s 扩展到了“k3s + KWOK fake nodes”。主要卡点不是代码推进，而是当前机器无法提供标准 kind/kubeadm 集群和 KVM/MicroVM 能力。
+
+后续优先级：
+
+| 优先级 | 下一步 | 原因 |
+| --- | --- | --- |
+| P0 | 跟进 PR #385 review / CI / maintainer 反馈 | 这是 Week 2 最具体的 upstream 代码产出 |
+| P0 | 申请或准备一台 cgroup v2 / 新内核 / 标准 Kubernetes 环境 | 当前机器已证明不适合继续硬调 kind，继续投入性价比低 |
+| P1 | 继续读 #379 SnapStart 实现 PR | #366 是设计，#379 才是落地实现，可以判断后续是否能参与测试或补小修 |
+| P1 | 在当前 k3s + KWOK 上补 controller / placement 级别验证 | 这类测试不依赖真实 sandbox，可以继续产出有效数据 |
+
 ## 社区当前关注方向
 
 | 方向 | 代表 issue / PR | 观察 |
