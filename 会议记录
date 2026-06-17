@@ -1,0 +1,133 @@
+Agentcube 例会6.17
+
+
+
+**社区例会策划**：双周、周四下午两点半
+
+
+
+记录会议：
+
+zhouben 研0 同济大学
+
+kamada社区
+
+ranxi 国科大研二
+
+应届生1 实习生2
+
+
+
+agentcube
+
+zhouchenghu casino 
+
+
+
+内部讨论 独立
+
+管控面 运行时部分 补充进来 不适合放到volcano社区里面
+
+独立项目 kamana 运作
+
+jingyu： 项目 e2b  客户面 agent沙盒 协议 sdk api 从市场传导信息 你的agent服务也需要支持 api 
+
+api支持 就需要架构顺便更新
+
+运行时 codeinterpreter 
+
+小的字段
+
+独立api template
+
+模板独立
+
+尽可能像e2b 兼容sdk 写了一堆agent 云厂商 销售 跑在我们的云上 能不能让我们的agent不改代码就能够跑起来 url 只改一个域名就能搞跑起来
+
+声明支持 有限度的支持 不能一模一样
+
+设计agentcube 具体的工作安排
+
+内部的讨论也在进行中
+
+同步 最新消息 关于这个方向：
+
+考虑一个场景 用户的agent 原来是基于e2b写的 能不能不修改直接跑在我们的系统上
+
+e2b 部分开源 模板和
+
+有点像docker 一个创业公司 准备做一个云厂商 成为一个agent的aws
+
+你想当年docker的目标也是做了镜像标准以后 也开始镜像编排 google绞杀 
+
+反而大厂去兼容e2b 搞得他还像老大 好多项目都兼容e2b 现象级 实际上的标准 
+
+抢客户就需要兼容e2b 阿里云 腾讯云
+
+
+
+下面可以看看具体能做的事情：
+
+
+
+看看社区有没有提案
+
+一个session 一个pod 快照 oss 保存 大部分时间都在思考和等待 
+
+也即是现在ac只有一个控制器去增加删除 重建 session不访问就删除
+
+没有快照能力
+
+sleep resume pause 暂停 pod是否支持
+
+substrate支持 microvm 虚拟机关机拉起虚拟机快照是可以实现的
+
+准备放在哪个api上面 准备放在code interpreter 还是agent runtime上面
+
+
+
+我觉得这两个东西最后都会保留的
+
+暂停恢复能力肯定是需要的
+
+
+
+
+
+两种思路做适配  【我负责】
+
+分析升级历史和变动 分析驱动适配
+
+直接升级编译跑通修改 测试驱动适配
+
+
+
+
+
+网页做hash转换 ci加固 具体commit
+
+
+
+加固workflow 使用hash
+
+app.stepsecurity.io/secureworkflow
+
+
+
+实现api接口 pico相对路径 提供运行时 根目录 相对路径问题 去掉相对路径 写死根目录 langchain适配实现方案
+
+langchain文档 use sandboxes
+
+openjiuwen
+
+编排接口
+
+继承适配很多
+
+mcp打通协议 cursur claudecode 打通到claudecode里面 
+
+部署一套agentcube 然后预热部署 pod 然后其他agent就会把代码放进去泡
+
+session id 对话复用session 才能复用沙箱
+
+llm api 和 prompt写死才会调用相同的session id 不然又是一个全新的沙箱
