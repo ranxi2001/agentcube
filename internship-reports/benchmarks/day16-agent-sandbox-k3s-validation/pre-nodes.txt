@@ -1,0 +1,5 @@
+NAME            STATUS   ROLES                  AGE    VERSION         INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION                CONTAINER-RUNTIME
+kwok-node-1     Ready    agent                  24h    fake            10.42.0.188     <none>        kwok                    kwok                          kwok
+kwok-node-3     Ready    agent                  24h    fake            10.42.0.188     <none>        kwok                    kwok                          kwok
+kwok-node-2     Ready    agent                  24h    fake            10.42.0.188     <none>        kwok                    kwok                          kwok
+ecs-4b42-0001   Ready    control-plane,master   6d5h   v1.24.17+k3s1   192.168.2.115   <none>        CentOS Linux 8 (Core)   4.18.0-348.7.1.el8_5.x86_64   containerd://1.7.3-k3s1

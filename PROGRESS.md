@@ -18,6 +18,18 @@
 - 新增 `.agents/skills/agentcube-issue-discussion/scripts/thread_brief.py`，用于输出 compact Markdown 版 issue/PR 摘要；已用 #386 和 #385 验证，能捕捉 PR review 中的 `/assign` 信号。
 - 已对 #386 中 FAUST-BENCHOU 的 Sandbox Sleep/Resume 提案做代码级分析并写入 Day15：当前实现是 idle/TTL 直接删除式 GC，不是 Ready -> Paused -> Ready；最小实现也要跨 API/CRD、store state、GC、WorkloadManager pause/resume、Router resume-before-proxy、agent-sandbox replicas=0/1 语义和 e2e。
 - 已补充 #386 两个提案关系：agent-sandbox 适配是 Sleep/Resume 的底层兼容性 foundation；如果先按 v0.1.1 实现 Sleep/Resume，后续升级到 v0.3.10+/v0.4.6 可能因 SandboxClaim / warm pool / Ready condition 语义变化返工。
+- 已将 `/home/agentcube/会议记录` 中 2026-06-17 AgentCube 例会整理进 Day15：会后方向扩展为 agent-sandbox compatibility、Sleep/Resume lifecycle、E2B-compatible API/SDK/template、SnapStart/MicroVM snapshot/runtime 能力四层关系。
+- Day16 已创建 `internship-reports/day16-agent-sandbox-latest-adaptation.md`，记录 `agent-sandbox` 适配任务由 ranxi 独立负责，并按“两条腿走路”拆成升级历史/行为审计与直接升级/测试驱动适配两条路线。
+- 已创建 clean code worktree `/home/agentcube-agent-sandbox-latest`，分支 `feat/agent-sandbox-latest`，基线 `upstream/main` commit `0fd9151`；主目录继续保留实习报告，不把中文记录混入 upstream PR 分支。
+- 在 feature 分支中 `go get sigs.k8s.io/agent-sandbox@v0.4.6` 已复现：该版本要求 Go `>=1.26.2`，并带动 K8s/controller-runtime 等依赖升级；随后 `go test ./pkg/workloadmanager ./cmd/workload-manager ./cmd/agentd` 失败在 `controllers.SandboxPodNameAnnotation` 未定义。
+- 已确认 `v0.5.0rc1` Git tag 存在且可由 Go 解析为 pseudo-version `v0.4.7-0.20260608211546-6af1bbd0cf64`，但 `go list -m ...@latest` 仍是 `v0.4.6`，PR 是否依赖 rc/pseudo-version 需维护者确认。
+- `/home/agentcube-agent-sandbox-latest` Day16 适配已推进到真实运行验证：升级 `agent-sandbox v0.4.6`，移除 `controllers` 内部包依赖，SandboxClaim 路径等待 `claim.Status.SandboxStatus.Name` 指向的 adopted Sandbox，store 仍保存 claim 名用于 delete/GC；另发现并修复 v0.4.6 `SandboxTemplate` 默认 Managed NetworkPolicy 阻断 AgentCube Router/WorkloadManager 的问题，当前显式设 `networkPolicyManagement: Unmanaged`。
+- Day16 验证已通过：`go test ./pkg/workloadmanager`、`go test -race ./pkg/workloadmanager`、非 e2e Go 全量、`make build-all`、Docker build 三镜像、Helm template/lint、k3s direct CodeInterpreter e2e、warm pool e2e、warm pool load 100/100、Python SDK、LangChain sandbox、MCP HTTP/stdio、math-agent LLM e2e（OpenAI-compatible base URL 需带 `/v1`）。
+- 新增 `.agents/skills/llm-e2e-test/SKILL.md`，用于复用 AgentCube math-agent / OpenAI-compatible LLM 端到端测试流程；已通过 `quick_validate.py`。
+- Day16 `agent-sandbox v0.4.6` 适配代码已提交并 push：`/home/agentcube-agent-sandbox-latest` branch `feat/agent-sandbox-latest` commit `5316358`，DCO signoff 已包含，origin 分支已存在。Upstream PR 已创建：#387 `https://github.com/volcano-sh/agentcube/pull/387`。第一次 token API 创建返回 `401 Bad credentials`；第二次 token 创建成功。token 未落盘，临时 body 已删除，workspace 文件中未发现 GitHub token pattern；用户应 revoke / rotate 明文暴露过的 token。
+- PR #387 初始状态：open、非 draft、labels `kind/bug` / `size/XL`，DCO success；部分 CI 已成功，coverage / golangci-lint / build / e2e-test / codegen check 仍在跑，tide pending；bot 提示 review 获得 `lgtm` 后再 assign `hzxuzhonghu` approval。
+- 用户要求后续 GitHub API/PR 操作不再重复索要 token；本地 token 已保存到 git-ignored `.agents/.env`，变量名 `GITHUB_TOKEN` / `GH_TOKEN`，权限 `600`。只记录位置和变量名，不记录密钥值。
+- Day16 提交前新发现并修复 codegen 问题：旧 `hack/update-codegen.sh` 固定 `code-generator v0.34.1` 且用 `go get -d`，会在生成过程中把 `agent-sandbox` 降级；当前 PR 已对齐 `code-generator v0.35.4` 并改用 `go mod download`。commit 后 `make gen-check` 已通过。
 - PR #385 已按 Gemini 建议更新：`WarmPoolNotFound` condition 保留，但不再记录 Warning Event。
 - PR #385 最新 commit `d885b4e` 已 push，DCO 漏签已用 `git commit --amend --no-edit --signoff` 修复。
 - PR #385 Gemini thread 已回复，附了 focused tests、`go test ./pkg/workloadmanager` 和 `git diff --check`。
@@ -28,6 +40,7 @@
 
 - 当前机器没有 `/dev/kvm`，CPU 虚拟化 flags 未暴露，不能实测 Kuasar / MicroVM / forkd / CubeSandbox 的真实虚拟化路径。
 - kind 标准 Kubernetes 在本机 kubelet cgroup/QoS 初始化处失败；KWOK 只能用于调度语义，不等同完整 K8s 实测。
+- kind 标准集群创建仍在本机 kubelet/cgroup 环境处失败；Day16 真实 runtime 验证改用已有 k3s。不能把 kind 失败描述成 AgentCube 代码失败。
 - PR #385 当前主要等待 maintainer review、`/lgtm`、`/approve` 和 tide 合并门禁。
 
 ## Ruled Out
@@ -38,7 +51,8 @@
 
 ## Next
 
-- 2026-06-17 14:30 参加线上会议前，整理 #386 中文内部总结：当前 v0.2.0 proposal、FAUST-BENCHOU 的 Sandbox Sleep/Resume、agent-sandbox 适配提案、可承担产出。
+- 优先跟踪 PR #387 的 CI、review comments、Codecov / golangci-lint / e2e / codegen check 和 bot 流程；有失败先读日志定位，不急着回复。获得 `lgtm` 后再按 bot 提示 assign `hzxuzhonghu` approval。
+- 根据 2026-06-17 例会纪要，把 `Sleep/Resume`、E2B-compatible API / SDK / template 分别拆成可公开讨论的英文 proposal / issue comment；`agent-sandbox` 适配已进入代码分支推进。
 - 与 FAUST-BENCHOU 讨论 Sleep/Resume 时优先确认第一版语义：是否接受基于 `Sandbox.spec.replicas=0/1` 的 stop/recreate，`context` 是否仅指 workspace/PVC，是否新增 `pauseTimeout`，warm-pool-backed CodeInterpreter 是否纳入第一版。
 - 建议把 #386 两个方向作为同一 v0.2.0 epic 的两个子任务讨论：先定 agent-sandbox target version / compatibility foundation，再做 AgentCube Sleep/Resume lifecycle。
 - 跟踪 #386 maintainer 是否 triage agent-sandbox 适配为 dedicated sub-issue；有明确方向后再准备 compatibility audit PR 或最小修复 PR。

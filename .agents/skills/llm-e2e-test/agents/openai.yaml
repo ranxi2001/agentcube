@@ -1,0 +1,4 @@
+interface:
+  display_name: "LLM E2E Test"
+  short_description: "Run OpenAI-compatible LLM e2e checks"
+  default_prompt: "Use $llm-e2e-test to validate an AgentCube math-agent or OpenAI-compatible LLM end-to-end flow."
