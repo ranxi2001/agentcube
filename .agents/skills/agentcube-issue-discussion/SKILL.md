@@ -23,12 +23,13 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
 ## Workflow
 
 1. Identify target issue/PR numbers and related links.
-2. Fetch full thread context:
+2. Fetch compact thread context first:
    - issue/PR title, body, state, labels, assignees
    - `/assign` comments and current `PR 认领 @` owner
-   - all issue comments
+   - issue comments
    - if PR: review comments, changed files, commits
-3. Extract:
+3. Fetch full JSON only when the compact brief is insufficient for quoting, code review, or exact timeline checks.
+4. Extract:
    - problem statement
    - proposed solutions
    - participant roles and comment weight
@@ -36,18 +37,28 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
    - open questions
    - blocked/duplicate/conflicting work
    - related issue/PR graph
-4. If an issue has an active assignee or linked open PR, recommend review/testing feedback instead of duplicate implementation.
-5. Produce Chinese internal summary first when the user is planning or discussing.
-6. Produce English upstream comment only when asked to draft or post.
-7. Include cross-links using GitHub `#123` references and short context.
+5. If an issue has an active assignee or linked open PR, recommend review/testing feedback instead of duplicate implementation.
+6. Produce Chinese internal summary first when the user is planning or discussing.
+7. Produce English upstream comment only when asked to draft or post.
+8. Include cross-links using GitHub `#123` references and short context.
+9. If the same issue/PR analysis requires repeated API calls, version matrices, log extraction, or manual filtering, add or improve a script under this skill before the next similar run.
 
 ## Fetching Thread Context
 
-Use the script when possible:
+Use the compact briefing script first:
 
 ```bash
-python3 skills/agentcube-issue-discussion/scripts/fetch_thread.py 365
-python3 skills/agentcube-issue-discussion/scripts/fetch_thread.py 366 --repo volcano-sh/agentcube
+python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 386
+python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 379 --repo volcano-sh/agentcube
+```
+
+It prints a token-efficient Markdown brief with metadata, assignees, `/assign` signals, body snippet, issue comments, and PR files/commits/review comments when applicable.
+
+Use the full JSON script when exact raw context is needed:
+
+```bash
+python3 .agents/skills/agentcube-issue-discussion/scripts/fetch_thread.py 365
+python3 .agents/skills/agentcube-issue-discussion/scripts/fetch_thread.py 366 --repo volcano-sh/agentcube
 ```
 
 The script prints JSON with the issue/PR object, comments, PR files, PR commits, and PR review comments.

@@ -26,6 +26,20 @@ Add unit tests next to changed Go code using `*_test.go`; table-driven tests are
 
 When updating internship reports under `internship-reports/`, include process blockers and debugging notes, not only the final successful path. Record the command or step that failed, the observed error, the root cause if known, and the workaround or final resolution.
 
+At the start of each new Agent work loop, read root `PROGRESS.md` before diving into reports or code. At the end of the loop, update it only with short state needed for the next run: last work, current blockers, ruled-out paths, next step, and stop conditions. Keep long-form daily records in `internship-reports/` and task inventory in `internship-reports/todo.md`; do not let `PROGRESS.md` become a second report.
+
+## Knowledge Capture Guidelines
+
+At the end of each task, classify any useful conversation outcome before stopping:
+
+- Stable project rules, user preferences, repo conventions, environment facts, and recurring constraints go into `AGENTS.md`.
+- Temporary loop state that only helps the next few runs goes into root `PROGRESS.md`.
+- Evidence, debugging process, benchmark context, community analysis, and mentor-facing records go into `internship-reports/` or `internship-reports/todo.md`.
+- Repeatable workflows with five or more steps, or workflows likely to be reused for issues, PRs, benchmarks, deployments, or reviews, go into `.agents/skills/<skill-name>/SKILL.md`.
+- For repeated issue/PR analysis, prefer adding or improving scripts under `.agents/skills/<skill-name>/scripts/` and updating the skill workflow, so future runs can fetch compact evidence instead of redoing long manual analysis.
+
+Do not store everything. Avoid copying raw chat history into long-term files. If a fact is one-off, speculative, already obsolete, or only useful inside the current turn, leave it out. If an existing skill or rule is contradicted by a new verified workflow, patch the old rule immediately instead of letting the next run repeat the same mistake.
+
 When a discussion reaches a concrete conclusion, design decision, testing limitation, environment requirement, community-analysis result, or next-step plan, proactively add a concise summary to the relevant internship report, learning record, or TODO file. Do not wait for the user to explicitly ask to "write this into the report" when the content is clearly part of the internship record. If no suitable report exists yet, create or propose a new day-specific report under `internship-reports/` and link it from `internship-reports/todo.md`.
 
 For competitor benchmarks and sandbox/runtime comparisons, keep the raw result files under `internship-reports/benchmarks/` and reference them from the report. Separate data sources clearly as local measured data, upstream official data, and engineering inference. Record the benchmark host environment, including OS, kernel, glibc, CPU/vCPU, `/dev/kvm`, virtualization flags such as `vmx`/`svm`, and Kubernetes/runtime configuration. Add short plain-language notes for OS-level terms that affect the result, for example KVM, `/dev/kvm`, glibc, Landlock, cgroup, and RuntimeClass, so the report is readable by reviewers who are not operating-system specialists. If a test temporarily changes cluster state, such as `warmPoolSize`, port-forward sessions, or test services, restore it before finishing and state the final setting in the report or final response.
@@ -58,10 +72,11 @@ git switch -c docs/benchmark-scope upstream/main
 # apply or cherry-pick only the minimal PR change
 git status
 make test
+git commit -s -m "docs: ..."
 git push origin docs/benchmark-scope
 ```
 
-Keep official PR branches small and reviewable. Do not include internship reports, raw benchmark logs, Chinese-only notes, local environment files, or unrelated fork-main history unless the PR explicitly targets those files. Link issues with `Fixes #...` or `Refs #...`, list tests run, and mention any environment-specific limitations.
+Keep official PR branches small and reviewable. Do not include internship reports, raw benchmark logs, Chinese-only notes, local environment files, or unrelated fork-main history unless the PR explicitly targets those files. Link issues with `Fixes #...` or `Refs #...`, list tests run, and mention any environment-specific limitations. Upstream PR commits must include DCO signoff; use `git commit -s` by default. If a PR branch commit is missing signoff and the branch is only yours, repair it with `git commit --amend --no-edit --signoff` or `git rebase HEAD~N --signoff`, then push with `git push --force-with-lease`.
 
 Before drafting or submitting upstream-facing issues, proposal comments, benchmark feedback, or PRs, follow `internship-reports/open-source-contribution-format-standard.md`. Upstream-facing content should be in English, use the official issue/PR templates, disclose AI assistance in PR reviewer notes, and keep Chinese analysis in internship reports.
 

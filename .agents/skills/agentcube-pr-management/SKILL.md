@@ -22,6 +22,7 @@ Use this skill for AgentCube upstream PR work: branch prep, template filling, is
 - Use clean topic branches from `upstream/main`; do not open PRs from fork `main`.
 - Keep internship reports, raw benchmark results, and Chinese-only notes out of upstream PRs unless explicitly intended.
 - For other contributors' PRs, do not draft comments, conclusions, or review suggestions until you have read the PR body, changed files, proposal/design docs, key implementation/tests, and existing human review discussion.
+- Prefer script-first PR analysis. If status checks, file summaries, review comment filtering, CI state, or branch hygiene checks are repeated across PRs, improve `.agents/skills/agentcube-pr-management/scripts/` and update this skill instead of redoing the same manual analysis.
 
 ## Branch Workflow
 
@@ -42,10 +43,13 @@ After changes:
 ```bash
 git status
 git diff --stat
+git commit -s -m "<kind>: <summary>"
 git push origin <branch>
 ```
 
 Do not push to `upstream`.
+
+All upstream PR commits must satisfy DCO. Use `git commit -s` by default. If a commit is missing `Signed-off-by` and the branch is only used by the author, repair it with `git commit --amend --no-edit --signoff` for the latest commit or `git rebase HEAD~N --signoff` for multiple commits, then update the PR branch with `git push --force-with-lease`.
 
 ## PR Planning Checklist
 
@@ -213,9 +217,10 @@ Use the script to inspect a PR:
 
 ```bash
 python3 .agents/skills/agentcube-pr-management/scripts/pr_status.py 379
+python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 379
 ```
 
-It prints title, state, labels, files, commits, comments count, and review comments summary.
+`pr_status.py` prints title, state, labels, files, commits, comments count, and review comments summary. `thread_brief.py` gives the broader discussion timeline, assignee signals, body snippet, and PR review surface. Use both before manual review when the question depends on conversation context.
 
 ## Guardrails
 
