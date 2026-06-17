@@ -88,6 +88,8 @@ Recent history uses scoped commits such as `docs: clarify redis password values`
 
 Do not commit real Redis passwords, API tokens, kubeconfigs, or model credentials. Prefer Kubernetes Secrets and Helm values such as `redis.secretName` for production-style examples. Report sensitive issues privately as described in `CONTRIBUTING.md`.
 
+For local GitHub PR/API automation, a personal token may be stored in `.agents/.env` as `GITHUB_TOKEN` / `GH_TOKEN`. This file is ignored by git and must stay `chmod 600`. Load it only for API/CLI calls, never print the value, paste it into reports, or include it in commits/log transcripts.
+
 For local `math-agent` experiments, store OpenAI-compatible LLM settings in `cmd/cli/examples/math-agent/.env`. The root `.gitignore` ignores `.env`, but still keep the file permission restricted with `chmod 600 cmd/cli/examples/math-agent/.env` and never paste real keys into reports, docs, commits, or shell transcripts. A safe template is:
 
 ```bash

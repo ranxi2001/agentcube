@@ -1,0 +1,12 @@
+NAMESPACE              NAME                                      READY   STATUS    RESTARTS   AGE    IP            NODE            NOMINATED NODE   READINESS GATES
+kube-system            local-path-provisioner-597bc7dccd-d2gpp   1/1     Running   0          6d5h   10.42.0.2     ecs-4b42-0001   <none>           <none>
+kube-system            coredns-74448699cf-tw84c                  1/1     Running   0          6d5h   10.42.0.4     ecs-4b42-0001   <none>           <none>
+kube-system            metrics-server-749b574fc-dk2l2            1/1     Running   0          6d5h   10.42.0.3     ecs-4b42-0001   <none>           <none>
+agent-sandbox-system   agent-sandbox-controller-0                1/1     Running   0          6d5h   10.42.0.6     ecs-4b42-0001   <none>           <none>
+agentcube              redis-8456b6957d-ppt9f                    1/1     Running   0          6d5h   10.42.0.7     ecs-4b42-0001   <none>           <none>
+agentcube              agentcube-router-69db9687b9-vtflm         1/1     Running   0          6d4h   10.42.0.11    ecs-4b42-0001   <none>           <none>
+agentcube              workloadmanager-697f9fc656-kgbjl          1/1     Running   0          6d4h   10.42.0.10    ecs-4b42-0001   <none>           <none>
+default                my-interpreter-4gvd7                      1/1     Running   0          6d4h   10.42.0.13    ecs-4b42-0001   <none>           <none>
+default                my-interpreter-lgfgx                      1/1     Running   0          29h    10.42.0.187   ecs-4b42-0001   <none>           <none>
+default                my-interpreter-pw5hf                      1/1     Running   0          29h    10.42.0.186   ecs-4b42-0001   <none>           <none>
+kube-system            kwok-controller-58596cfbd7-24qvc          1/1     Running   0          24h    10.42.0.188   ecs-4b42-0001   <none>           <none>

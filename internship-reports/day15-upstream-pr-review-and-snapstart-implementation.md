@@ -803,9 +803,122 @@ warm pool / SandboxClaim 路径也要单独设计：
 
 会议讨论时可以把两者表述为同一个 v0.2.0 epic 下的两个子任务：`agent-sandbox compatibility foundation` 和 `AgentCube Sleep/Resume lifecycle`。前者不直接提供用户可见能力，但可以降低后者实现后的返工风险。
 
+## 2026-06-17 社区例会纪要（会后整理）
+
+来源：`/home/agentcube/会议记录` 原始会议记录。以下是结构化整理，主要用于实习记录和后续任务拆分；内部讨论内容不应原样贴到 upstream issue，需要先整理成明确的英文 proposal、review 或 test plan。
+
+### 基本信息
+
+| 项目 | 内容 |
+| --- | --- |
+| 会议 | AgentCube 6.17 例会 |
+| 时间 | 2026-06-17 下午，围绕 14:30 线上讨论 |
+| 后续例会节奏 | 计划双周一次，周四下午 14:30 |
+| 会议性质 | 社区维护者 / mentor / 领导 / 实习生之间的方向同步和任务拆分 |
+| 记录来源 | 原始记录中包含 `zhouben`、`ranxi`、应届生 / 实习生、`jingyu` 等；部分人名或组织缩写需要后续确认 |
+
+### 总体方向
+
+1. AgentCube 后续不只是跟随 Volcano 大仓里的零散 issue，而是要按相对独立项目来运作。
+2. 控制面和运行时能力都需要继续补齐，尤其是 Agent sandbox 对外 API、SDK、template、runtime 这些用户直接接触的层。
+3. 对外社区讨论要分层处理：内部战略讨论可以更宽，但发到 upstream 时应收敛成具体 issue / proposal / PR，不适合把内部原话直接放到公开社区。
+
+### E2B 兼容与 API 方向
+
+会议中反复提到的一个核心场景是：用户已有基于 E2B 写好的 agent，能不能尽量少改代码，甚至只改 endpoint / base URL，就跑到 AgentCube 或云厂商的 Agent sandbox 服务上。
+
+这背后的判断是：
+
+- E2B 已经在 agent sandbox 生态里形成了事实上的接口影响力，很多上层项目、SDK、agent 框架会优先适配 E2B。
+- 如果云厂商或 AgentCube 想承接已有 agent workload，就需要考虑 E2B-compatible API / SDK / template 能力。
+- 兼容要有边界：可以声明支持常用 API 子集和迁移路径，但不能承诺和 E2B 行为完全一模一样。
+- API 兼容会反过来影响 AgentCube 架构：不仅是 runtime 能跑代码，还要能表达 template、session、filesystem、CodeInterpreter、entrypoint、SDK 行为等对外契约。
+
+可继续调研的子方向：
+
+- E2B SDK / API 的最小兼容面。
+- CodeInterpreter runtime 和独立 template API 的边界。
+- LangChain 等上层框架中 sandbox 接口的调用方式。
+- MCP、Cursor、Claude Code 等工具链接入 AgentCube sandbox 的可能路径。
+
+### Sandbox 生命周期与快照方向
+
+会议中对当前 AgentCube 生命周期能力的判断和 #386 分析一致：
+
+- 当前 AgentCube 大体还是“一个 session 对应一个 sandbox / Pod”，控制器负责创建、删除和重建。
+- session 长时间不访问时，现有实现更接近删除式 GC；还没有真正的 snapshot、pause、resume 能力。
+- 用户 agent 大部分时间可能在思考、等待外部输入或等待下一轮请求，因此一直运行会浪费资源，直接删除又会损失上下文。
+- `Sleep / Resume / Pause` 是长期必须保留的能力。
+
+需要继续明确的 API 设计问题：
+
+- Pause / Resume 放在 `CodeInterpreter` API，还是放在更通用的 `AgentRuntime` API。
+- 第一版 pause 是否接受 `Sandbox.spec.replicas=0/1` 这种 scale-to-zero / scale-from-zero 语义。
+- 如果强调真正的快照恢复，底层就可能需要 MicroVM / substrate / Kuasar / SnapStart 一类能力，而不是普通 Pod 删除重建。
+- 文档里说的 context 需要明确范围：只保留 `/workspace` 文件，还是保留进程内存、Python kernel、临时变量和打开连接。
+
+会议中的一个重要判断是：snapshot 和 pause/resume 两个方向最后大概率都会保留。前者偏底层 runtime 能力，后者偏 AgentCube session lifecycle 和用户体验。
+
+### `agent-sandbox` 适配任务
+
+会议中明确提到可以沿两条思路推进 `agent-sandbox` 适配，和本报告前面对 `#386` 的核查可以直接衔接：
+
+1. 分析升级历史和行为变动，先做 compatibility audit。
+2. 直接升级依赖、编译跑通、做最小代码修改，再用测试驱动确认适配范围。
+
+这与今天已经完成的本地验证一致：
+
+- 当前 AgentCube 依赖 `agent-sandbox v0.1.1`。
+- `v0.3.10+` 起直接升级会在 `controllers.SandboxPodNameAnnotation` 处编译失败。
+- 最小常量替换可以让 `v0.3.10` / `v0.4.6` 的非 e2e 测试通过。
+- 但 warm pool 从 bare Pod adoption 变成 full Sandbox CR adoption 后，运行语义仍需要继续验证，尤其是 `SandboxClaim` adopted sandbox name 和 AgentCube watcher key 是否一致。
+
+因此这个任务不应只做“升级 go.mod”，而应拆成 compatibility matrix、最小编译修复、warm-pool-backed CodeInterpreter 运行语义验证、e2e helper 更新和最终依赖升级 PR。
+
+### CI / Workflow 加固方向
+
+会议中还提到一个相对独立的小任务：对 workflow 做安全加固，例如使用 hash / commit pin 固定 action 版本，并参考 `app.stepsecurity.io/secureworkflow` 这类工具检查 GitHub Actions 配置。
+
+这个方向和 #386 主线关系不大，但适合拆成低风险 contributor task：
+
+- 扫描现有 `.github/workflows` 是否使用未 pin 的第三方 action。
+- 评估是否改为 commit SHA pin。
+- 生成最小 PR，避免和 AgentCube runtime / API 大改混在一起。
+
+### Pico / API / 上层框架适配方向
+
+原始记录里还提到 `pico` 相对路径、运行时根目录、LangChain `use sandboxes`、编排接口、MCP / Cursor / Claude Code 打通等内容。当前可以先整理成一个待调研方向：
+
+- AgentCube 对外 API 需要稳定表达运行时根目录和 workspace 语义，避免依赖不稳定的相对路径。
+- 上层框架适配不是只改 SDK wrapper，还要保证 session id、workspace、entrypoint、文件上传 / 下载、命令执行等语义一致。
+- 如果部署一套 AgentCube 并预热 sandbox，只有上层 agent 能稳定复用同一个 `session id`，才能真正复用同一个沙箱；否则每轮请求仍可能创建新的 sandbox。
+- 因此 E2B 兼容、LangChain 适配、MCP 接入都需要把 session id 生成和传递策略作为核心设计点。
+
+### 会后可执行工作项
+
+| 优先级 | 工作项 | 说明 |
+| --- | --- | --- |
+| P0 | 继续推进 `agent-sandbox` compatibility audit | 已有编译失败溯源和最小修复验证，下一步是补运行语义验证和 e2e helper 差异清单 |
+| P0 | 把 #386 拆成更清晰的子任务 | 建议至少拆出 `agent-sandbox compatibility foundation`、`AgentCube Sleep/Resume lifecycle`、`E2B-compatible API / SDK / template` |
+| P0 | 明确 Sleep/Resume 第一版语义 | 先确认是 scale-to-zero / recreate，还是要承诺真正 snapshot / memory resume |
+| P1 | 调研 E2B API / SDK 最小兼容面 | 目标是找到 AgentCube 需要优先兼容的 endpoint、session、filesystem、command、template 语义 |
+| P1 | 调研 LangChain / MCP / Cursor / Claude Code 接入方式 | 先看调用模型和 session 复用方式，再决定 AgentCube API 需要补什么 |
+| P2 | 做 GitHub Actions workflow 加固小任务 | 可作为独立低风险 PR，不和 runtime 大改混合 |
+
+### 与今天 #386 分析的关系
+
+会前我们已经把 `Sandbox Sleep/Resume` 和 `agent-sandbox` 适配看成同一个 v0.2.0 epic 下的两个子任务。会后可以把视野再扩大一层：
+
+- `agent-sandbox` 适配是底层 compatibility foundation。
+- `Sleep/Resume` 是用户可见的 session lifecycle 能力。
+- E2B-compatible API / SDK / template 是更上层的产品与生态兼容能力。
+- SnapStart / MicroVM / snapshot 是底层 runtime acceleration 和 context preservation 能力。
+
+这几个方向不是互相替代，而是上下游关系：底层 sandbox 能力决定 AgentCube 能提供什么生命周期语义；AgentCube API 决定上层 agent / SDK 能不能无痛迁移；E2B / LangChain / MCP 等生态适配决定这些能力能否被真实用户使用。
+
 ## 后续 TODO
 
 - 持续跟进 PR #385 的 CI、Codecov、tide、maintainer review。
 - 将 #379 的 `ReadyAt` status equality 评论发到 PR，或先在本地临时分支补一个最小 unit test 验证。
-- 2026-06-17 14:30 参加线上会议，和 `FAUST-BENCHOU` 讨论 AgentCube 下一步计划，重点围绕 `#386` 的 v0.2.0 proposal、`Sandbox Sleep/Resume`、`agent-sandbox` 适配和可承担产出。
+- 根据本次 6.17 例会纪要，把 `agent-sandbox` 适配、`Sleep/Resume`、E2B-compatible API / SDK / template 方向拆成可公开讨论的英文 proposal / issue comment。
 - 如果本机环境继续限制 KVM/kind，就只做 unit test / controller fake client 层面的验证，不声称测过真实 SnapStart。

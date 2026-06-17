@@ -1,0 +1,115 @@
+apiVersion: v1
+items:
+- apiVersion: extensions.agents.x-k8s.io/v1alpha1
+  kind: SandboxWarmPool
+  metadata:
+    creationTimestamp: "2026-06-16T02:56:46Z"
+    generation: 1
+    name: my-interpreter
+    namespace: default
+    ownerReferences:
+    - apiVersion: runtime.agentcube.volcano.sh/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: CodeInterpreter
+      name: my-interpreter
+      uid: be82ad1c-bbff-43ab-9b31-d3de9f92341c
+    resourceVersion: "92968"
+    uid: ff8826c0-edb6-497e-83a1-a58787e5935d
+  spec:
+    replicas: 2
+    sandboxTemplateRef:
+      name: my-interpreter
+  status:
+    readyReplicas: 2
+    replicas: 2
+- apiVersion: extensions.agents.x-k8s.io/v1alpha1
+  kind: SandboxTemplate
+  metadata:
+    creationTimestamp: "2026-06-16T02:56:46Z"
+    generation: 1
+    name: my-interpreter
+    namespace: default
+    ownerReferences:
+    - apiVersion: runtime.agentcube.volcano.sh/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: CodeInterpreter
+      name: my-interpreter
+      uid: be82ad1c-bbff-43ab-9b31-d3de9f92341c
+    resourceVersion: "92934"
+    uid: c18821ff-d680-4710-982f-ae80ac682f5e
+  spec:
+    podTemplate:
+      metadata: {}
+      spec:
+        containers:
+        - args:
+          - --workspace=/root
+          env:
+          - name: PICOD_AUTH_PUBLIC_KEY
+            value: |
+              -----BEGIN PUBLIC KEY-----
+              MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyykRRrb9+1y8BDwMoKsH
+              YGCicudpVZiI/XwAvDKSiP6XawlkLyiMbKJTdWSdRr7CeTCVUJAh1apYpAzIhXCC
+              KQEpRJqLXLl8EVJnubJvXRBs+VDP2HJNc+N2H1pylpULmIvtpLU8BYDjw+eVHdpN
+              0Wfgj+etwu9vQl2IFdiw+hwFd2/cxmIs3cdsRanOXvEbWa6/8pddJxjJxZPPBCS0
+              ImZb2FAd6QZub3lOGKm0gXYijff9MTXt0NrTwc4kAEjLRhG5LgZsWnB/34dA3riV
+              hyG1jd6IZiXjdkkX2Mf+LzQitzo5vO4Pp9rpDTYA+c+EK8+4aKPZ+qyCJZp8DvhC
+              hQIDAQAB
+              -----END PUBLIC KEY-----
+          image: ghcr.io/volcano-sh/picod:latest
+          imagePullPolicy: IfNotPresent
+          name: codeinterpreter
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+- apiVersion: runtime.agentcube.volcano.sh/v1alpha1
+  kind: CodeInterpreter
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"runtime.agentcube.volcano.sh/v1alpha1","kind":"CodeInterpreter","metadata":{"annotations":{},"name":"my-interpreter","namespace":"default"},"spec":{"maxSessionDuration":"8h","ports":[{"pathPrefix":"/","port":8080,"protocol":"HTTP"}],"sessionTimeout":"15m","template":{"args":["--workspace=/root"],"image":"ghcr.io/volcano-sh/picod:latest","imagePullPolicy":"IfNotPresent","resources":{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}},"warmPoolSize":2}}
+    creationTimestamp: "2026-06-11T03:57:11Z"
+    generation: 8
+    name: my-interpreter
+    namespace: default
+    resourceVersion: "92937"
+    uid: be82ad1c-bbff-43ab-9b31-d3de9f92341c
+  spec:
+    authMode: picod
+    maxSessionDuration: 8h
+    ports:
+    - pathPrefix: /
+      port: 8080
+      protocol: HTTP
+    sessionTimeout: 15m
+    template:
+      args:
+      - --workspace=/root
+      image: ghcr.io/volcano-sh/picod:latest
+      imagePullPolicy: IfNotPresent
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+    warmPoolSize: 2
+  status:
+    conditions:
+    - lastTransitionTime: "2026-06-11T03:57:11Z"
+      message: CodeInterpreter is ready
+      observedGeneration: 8
+      reason: Reconciled
+      status: "True"
+      type: Ready
+    ready: true
+kind: List
+metadata:
+  resourceVersion: ""

@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"StatefulSet","metadata":{"annotations":{},"labels":{"app":"agent-sandbox-controller"},"name":"agent-sandbox-controller","namespace":"agent-sandbox-system"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"agent-sandbox-controller"}},"serviceName":"agent-sandbox-controller","template":{"metadata":{"labels":{"app":"agent-sandbox-controller"}},"spec":{"containers":[{"args":["--extensions"],"image":"registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.1.1","name":"agent-sandbox-controller"}],"serviceAccountName":"agent-sandbox-controller"}}}}
+  creationTimestamp: "2026-06-11T03:53:17Z"
+  generation: 2
+  labels:
+    app: agent-sandbox-controller
+  name: agent-sandbox-controller
+  namespace: agent-sandbox-system
+  resourceVersion: "539"
+  uid: da5946a1-7a8a-42ae-90db-2a8a5379747c
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: agent-sandbox-controller
+  serviceName: agent-sandbox-controller
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: agent-sandbox-controller
+    spec:
+      containers:
+      - args:
+        - --extensions
+        image: registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.1.1
+        imagePullPolicy: IfNotPresent
+        name: agent-sandbox-controller
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: agent-sandbox-controller
+      serviceAccountName: agent-sandbox-controller
+      terminationGracePeriodSeconds: 30
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
+status:
+  availableReplicas: 1
+  collisionCount: 0
+  currentReplicas: 1
+  currentRevision: agent-sandbox-controller-659df6759f
+  observedGeneration: 2
+  readyReplicas: 1
+  replicas: 1
+  updateRevision: agent-sandbox-controller-659df6759f
+  updatedReplicas: 1

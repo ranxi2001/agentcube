@@ -1,0 +1,8 @@
+NAME                                                          AGE
+codeinterpreter.runtime.agentcube.volcano.sh/my-interpreter   6d4h
+
+NAME                                                        AGE
+sandboxtemplate.extensions.agents.x-k8s.io/my-interpreter   29h
+
+NAME                                                        READY   AGE
+sandboxwarmpool.extensions.agents.x-k8s.io/my-interpreter   2       29h
