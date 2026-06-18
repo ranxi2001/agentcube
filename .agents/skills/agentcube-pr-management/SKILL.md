@@ -305,6 +305,8 @@ Before editing code:
 - If the issue is actively assigned to someone else, do not start an overlapping PR; choose review/testing feedback, ask whether help is needed, or pick another issue.
 - Check whether change touches API/CRD/generated code.
 - Check whether change touches Helm, SDK, docs, tests, or e2e.
+- For feature PRs or dependency-compatibility PRs, prepare a code rationale matrix before review. Every touched file needs a one-line reason, the upstream/dependency behavior that required it, and the test that covers it. Small files with only a few changed lines still need an explanation, because reviewers often ask why those isolated changes were necessary.
+- Do not rely only on existing CI for feature validation. Design feature-specific tests for the behavior introduced or changed by the PR, including the negative/failure path when relevant, and record why the chosen tests cover the risk.
 - Pick one PR kind:
   - `/kind bug`
   - `/kind cleanup`
@@ -312,6 +314,27 @@ Before editing code:
   - `/kind security`
   - `/kind documentation`
   - `/kind feature`
+
+### Code Rationale Matrix
+
+Before asking for maintainer review, prepare a local table that the author can use to explain the PR live:
+
+| File / area | Why it changed | Evidence | Test coverage | Reviewer explanation |
+| --- | --- | --- | --- | --- |
+| `go.mod` / `go.sum` | Dependency stack required by the target compatibility change | `go mod graph`, upstream module `go.mod`, compile failure, release notes | build, unit, codegen, e2e | Explain what is prerequisite vs feature-scope dependency change |
+| Small isolated file changes | Exact API/name/import or behavior drift that forced the edit | Source diff or compiler error | Targeted unit/e2e check | Explain why a small change is not drive-by cleanup |
+
+Use this matrix for dependency and lifecycle work such as agent-sandbox adaptation, where review questions often focus on why a file was touched at all.
+
+### Feature Test Plan
+
+For a feature PR, add or update tests that validate the feature's new behavior directly. Existing CI passing is necessary but not sufficient.
+
+- Identify the behavior change and its failure mode.
+- Add focused unit tests for local controller/router/store logic when possible.
+- Add e2e or integration tests for cross-component behavior, such as CRD/controller/runtime compatibility.
+- Include at least one cleanup/delete or error-path check when the feature changes lifecycle semantics.
+- Keep a local mapping from risk to test command so the PR author can explain why the test set is complete enough for review.
 
 ## Read-Before-Reply Workflow For Existing PRs
 

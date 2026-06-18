@@ -56,6 +56,7 @@
 - Day18 `agent-sandbox v0.5.0rc1` 前沿适配已完成真实 runtime 和 fork CI 验证：`/home/agentcube-agent-sandbox-latest` fork branch `test/agent-sandbox-v05-forward` 当前 head `c0122da`，包含最小 v1beta1/API 迁移 commit `ee1aecf` 和 e2e manifest 版本对齐 commit `c0122da`。Fork PR `https://github.com/ranxi2001/agentcube/pull/5`，base `release-agent-sandbox-v05-base` -> `5867183`，head `test/agent-sandbox-v05-forward` -> `c0122da`，所有 checks 全绿：approve workflows、codespell、Codegen、Python Lint、两个 build、coverage、e2e-test、golangci-lint、python-sdk-tests。第一次 fork CI 失败根因是 e2e setup 仍安装旧 agent-sandbox manifest，集群无 v1beta1 CRD，workloadmanager 报 `no matches for kind "SandboxWarmPool" in version "extensions.agents.x-k8s.io/v1beta1"`；`c0122da` 已将 `make e2e` / `run_e2e.sh` 默认 agent-sandbox manifest 对齐到 `v0.5.0rc1`。未更新 #387，未创建 upstream PR。
 - Day18 runtime 关键发现：当前默认 k3s 的 agent-sandbox CRD 仍是 `v1alpha1` storedVersions；rc1 manifest 是 v1beta1-only，`kubectl apply --dry-run=server` 会因 `status.storedVersions[0]: "v1alpha1" must appear in spec.versions` 拒绝原地 apply。干净 k3d 集群可直接安装 rc1。后续不能把“代码能跑”说成“现有集群可无缝升级”，需要单独处理 CRD migration / clean install 口径。
 - 已更新 PR skill / AGENTS：完整 GitHub Actions CI 通常由 `pull_request` 事件触发，单纯 push fork branch 不会跑全量 checks；需要 fork CI 时创建 fork PR，base 用 `main` 或 `release-*` 以匹配 workflow branch filters。
+- 已记录 #387 下周 review 准备要求：不能只说“代码能跑/CI 过了”。需要整理 code rationale matrix，逐文件解释修改依据，尤其是只改几行的孤立文件；同时为 feature PR 设计新增/扩展测试，覆盖新行为、失败路径和生命周期清理，不能只依赖原始 CI。
 
 ## Current Blockers
 
@@ -75,7 +76,7 @@
 
 ## Next
 
-- Go/toolchain prerequisite #391 has merged and upstream PR #387 has been updated to rebased head `5867183`; all automated checks are green. PR body target-version note has been updated and labels are now `kind/feature` / `size/XL`. Next for #387: user will reply to `zhzhuang-zju`; do not post explanation comments unless the user asks.
+- Go/toolchain prerequisite #391 has merged and upstream PR #387 has been updated to rebased head `5867183`; all automated checks are green. PR body target-version note has been updated and labels are now `kind/feature` / `size/XL`. Next for #387: prepare a per-file code rationale matrix and feature-specific test plan for next week's maintainer review; user will reply to `zhzhuang-zju`; do not post explanation comments unless the user asks.
 - Day18 `agent-sandbox v0.5.x` next step: decide follow-up packaging. Runtime evidence is now strong on clean rc1/v1beta1 install, but no upstream PR should be opened until official `v0.5.0` release or explicit maintainer request for rc support. If preparing PR material, include the clean-install limitation and do not claim in-place upgrade from existing v1alpha1 CRDs.
 - 根据 2026-06-17 例会纪要，把 `Sleep/Resume`、E2B-compatible API / SDK / template 分别拆成可公开讨论的英文 proposal / issue comment；`agent-sandbox` 适配已进入代码分支推进。
 - 与 FAUST-BENCHOU 讨论 Sleep/Resume 时优先确认第一版语义：是否接受基于 `Sandbox.spec.replicas=0/1` 的 stop/recreate，`context` 是否仅指 workspace/PVC，是否新增 `pauseTimeout`，warm-pool-backed CodeInterpreter 是否纳入第一版。
