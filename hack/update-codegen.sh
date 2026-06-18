@@ -24,7 +24,7 @@ else
 	CODEGEN_JSON=$(go mod download -json "k8s.io/code-generator@${CODEGEN_VERSION}")
 	
 	# Find code-generator in module cache
-	CODEGEN_PKG=$(printf '%s\n' "${CODEGEN_JSON}" | sed -n 's/^[[:space:]]*"Dir": "\(.*\)",$/\1/p')
+	CODEGEN_PKG=$(printf '%s\n' "${CODEGEN_JSON}" | sed -n 's/^[[:space:]]*"Dir": "\([^"]*\)".*/\1/p')
 	
 	if [ -z "${CODEGEN_PKG}" ] || [ ! -d "${CODEGEN_PKG}" ]; then
 		# Try GOPATH/pkg/mod as fallback
