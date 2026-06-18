@@ -1013,7 +1013,26 @@ So I agree that once `agent-sandbox v0.5.0` is officially released, AgentCube wi
 
 ### PR Body Update
 
-用户确认“回复我自己发，改说明可以更新”后，只更新 PR body，不发评论，不改 label。
+用户确认“回复我自己发，改说明可以更新”后，先只更新 PR body 的 target-version note，不发解释性评论。后续用户又要求同步修正 PR template 顶部文案，因此继续把 `What type of PR is this?` 和 `What this PR does / why we need it` 改成 feature / compatibility 口径。
+
+当前 PR body 顶部已改为：
+
+```md
+**What type of PR is this?**
+
+/kind feature
+
+**What this PR does / why we need it**:
+
+This PR adds compatibility with the current stable `sigs.k8s.io/agent-sandbox` Go module release, `v0.4.6`, for AgentCube's CodeInterpreter warm pool integration.
+
+AgentCube's existing CodeInterpreter warm pool path was built against `agent-sandbox v0.1.1`. Since then, agent-sandbox has changed both its public API surface and its warm-pool adoption behavior. Supporting the current stable release requires AgentCube to handle these compatibility changes:
+```
+
+更新结果：
+
+- PR body updated_at：`2026-06-18T08:13:36Z`
+- Labels：`kind/feature`、`size/XL`
 
 旧 PR body note：
 
