@@ -104,6 +104,7 @@ Local subprocess MCP tests use **Streamable HTTP** at `/mcp` on `127.0.0.1:19245
 | `E2E_CLUSTER_NAME` | `agentcube-e2e` | Kind cluster name |
 | `E2E_CLEAN_CLUSTER` | `true` | Delete and recreate cluster before tests |
 | `E2E_SKIP_SETUP` | `false` | Skip all setup steps (cluster creation, image building, deployments) and run tests directly against existing cluster |
+| `AGENT_SANDBOX_VERSION` | `v0.5.0rc1` | agent-sandbox release manifest version installed by the e2e setup |
 | `AGENTCUBE_NAMESPACE` | `agentcube` | Kubernetes namespace for deployments |
 | `E2E_VENV_DIR` | `/tmp/agentcube-e2e-venv` | Python virtual environment path |
 | `WORKLOAD_MANAGER_LOCAL_PORT` | `8080` | Local port for WorkloadManager |
