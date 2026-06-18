@@ -1052,3 +1052,34 @@ Target version: `agent-sandbox v0.4.6`, which is the current Go module `@latest`
 - GitHub API `updated_at`：`2026-06-18T08:07:46Z`
 - Body 更新时 Labels 未改；随后按用户确认通过 bot 命令改为 `kind/feature`、`size/XL`
 - 只发布了 label bot 命令评论；未发布解释性 issue comment / review comment，`zhzhuang-zju` 的技术回复由用户自己发。
+
+### Follow-up Plan For agent-sandbox v0.5.x / v1beta1
+
+当前建议把 `agent-sandbox` 适配拆成两条线：
+
+1. **Track A：当前 stable `@latest`，即 `v0.4.6`。** 这就是 #387 的范围：让 AgentCube 当前 CodeInterpreter warm-pool 链路兼容最新稳定 Go module，并用 fork CI、upstream CI、k3s、SDK、MCP、math-agent 端到端材料证明可运行。这个 PR 不继续扩展到 rc1。
+2. **Track B：下一轮 `v0.5.x` / `v1beta1` 迁移。** 这应该是 #387 之后的单独 follow-up。除非 maintainer 明确要求支持 rc，否则先等正式 `v0.5.0` canonical Go module release 和对应 release manifests；如果需要提前验证，只在 fork-only / local branch 做 rc1 预研，不打扰 upstream。
+
+Track B 的最小适配清单：
+
+- Dependency / release target：用 `audit_go_module_version.py` 固化 `@latest`、目标 tag、package presence、CRD/controller manifests 是否匹配。不要只因为 tag 存在就把它当稳定 module target。
+- Imports / scheme / GVR：从 `sigs.k8s.io/agent-sandbox/api/v1alpha1` 和 `extensions/api/v1alpha1` 迁到 `v1beta1`，同步 `SandboxGVR`、`SandboxClaimGVR` 和 `TypeMeta.APIVersion`。
+- Direct Sandbox path：把 `SandboxSpec.Replicas = 1` 改为 `SandboxSpec.OperatingMode = Running`。这也是后续 Sleep/Resume 用 `Running/Suspended` 的基础。
+- Warm-pool claim path：把 `SandboxClaimSpec.TemplateRef` 改为 required `WarmPoolRef`。因为 AgentCube 当前创建的 `SandboxWarmPool` 名称与 `CodeInterpreter` 名称一致，最小迁移很可能是 `WarmPoolRef.Name = codeInterpreter.Name`，但必须验证 pool empty / cold fallback 行为。
+- Claim result path：继续优先通过 `claim.Status.SandboxStatus.Name` 找 adopted Sandbox；同时检查 rc1 中 assigned sandbox annotation / legacy label 的兼容影响。
+- No-warm-pool path：`warmPoolSize == nil/0` 时继续走 direct `Sandbox`，不要强行创建 `SandboxClaim`，因为 v1beta1 claim 已变成“从指定 warm pool checkout”语义。
+- NetworkPolicy / shutdown / GC：保留当前显式 `NetworkPolicyManagementUnmanaged`，并验证 v1beta1 下 claim 删除是否仍能清理 underlying sandbox；再确认 session store 保存 claim name 是否仍适合 GC/delete。
+- Test matrix：先跑 `pkg/workloadmanager` focused/unit、race、coverage、non-e2e Go tests、`make gen-check`、`make build-all`；再用真实 v0.5.x CRD/controller manifests 跑 direct CodeInterpreter、warm pool、warm-pool load、Python SDK、MCP、math-agent LLM e2e。
+
+和 Sleep/Resume 的关系：
+
+- v0.5.x 的 `OperatingMode: Running/Suspended` 是 Sleep/Resume 更自然的底层接口。
+- 兼容性 PR 只负责让现有 lifecycle 正常工作；不要在同一个 PR 里顺手实现 AgentCube session `Ready/Paused/Deleted` 状态机。
+- Sleep/Resume 后续需要单独设计：idle 后 patch Sandbox 为 `Suspended`，请求到来前 patch 回 `Running`，store 增加 `PausedAt` / `pauseTimeout`，router 在 proxy 前 resume。特别要测试 warm-pool claimed sandbox suspend/resume 后 claim ownership、workspace、pod-name annotation 和 Ready condition 是否稳定。
+
+当前执行顺序：
+
+1. 先推进 #387 review / merge，目标是稳定 `v0.4.6`。
+2. #387 合并后，从最新 `upstream/main` 开 `feat/agent-sandbox-v05` 或类似干净分支。
+3. 如果 `v0.5.0` 尚未正式发布，只做 fork-only rc1 validation 分支，记录编译和运行证据，不开 upstream PR。
+4. 等正式 release 或 maintainer 明确接受 rc target 后，再按官方 PR template 准备单独 PR，并在 PR body 中说明它是 `v1beta1` semantic migration，不是 #387 的补丁。
