@@ -416,6 +416,14 @@ commit: ee1aecf test: adapt agent-sandbox v05 rc api
 remote: https://github.com/ranxi2001/agentcube/tree/test/agent-sandbox-v05-forward
 ```
 
+Fork CI validation PR：
+
+```text
+PR: https://github.com/ranxi2001/agentcube/pull/5
+base: release-agent-sandbox-v05-base -> 5867183
+head: test/agent-sandbox-v05-forward -> c0122da
+```
+
 构建镜像：
 
 ```bash
@@ -702,6 +710,57 @@ Ran 1 test in 2.731s
 OK
 ```
 
+## Fork PR CI Validation
+
+只 push `test/agent-sandbox-v05-forward` 分支不会触发仓库里按 `pull_request` 配置的完整 CI。为了让 fork 仓库跑完整 checks，本轮创建了 fork-only PR：
+
+```text
+PR: https://github.com/ranxi2001/agentcube/pull/5
+base: release-agent-sandbox-v05-base -> 5867183
+head: test/agent-sandbox-v05-forward -> c0122da
+```
+
+第一次 CI（head `ee1aecf`）结果：
+
+- 通过：approve workflows、codespell、Codegen Check、Python Lint、两个 build、coverage、golangci-lint、python-sdk-tests。
+- 失败：`Agentcube E2E Tests / e2e-test`。
+
+失败根因不是 v1beta1 代码编译问题，而是 CI e2e setup 仍默认安装旧 agent-sandbox manifest。workloadmanager 日志显示：
+
+```text
+unable to retrieve the complete list of server APIs: agents.x-k8s.io/v1beta1: no matches for agents.x-k8s.io/v1beta1
+failed to get SandboxWarmPool: no matches for kind "SandboxWarmPool" in version "extensions.agents.x-k8s.io/v1beta1"
+```
+
+Router 随后在 AgentRuntime invocation 中收到 workloadmanager 500：
+
+```text
+Failed to get or create sandbox info: Internal error occurred: workload manager returned status 500
+```
+
+修复：
+
+```text
+c0122da test: align e2e agent-sandbox version with v05
+```
+
+该 commit 将 `make e2e` / `test/e2e/run_e2e.sh` 默认安装的 agent-sandbox release manifest 对齐到 `v0.5.0rc1`，并更新 `test/e2e/README.md` 的环境变量说明。
+
+第二次 CI（head `c0122da`）全绿：
+
+```text
+Approve workflows based on contributor status: success
+Check for spelling errors: success
+Codegen Check: success
+Python Lint: success
+build: success
+build: success
+coverage: success
+e2e-test: success
+golangci-lint: success
+python-sdk-tests: success
+```
+
 ### 清理
 
 已执行：
@@ -725,6 +784,7 @@ Ctrl-C workloadmanager/router port-forward sessions
 `v0.5.0rc1` 适配从代码和 runtime 看都比预期可控：
 
 - 必要代码迁移集中在 API version、GVR、direct Sandbox `OperatingMode`、warm-pool claim `WarmPoolRef`。
+- e2e/CI 安装的 agent-sandbox manifest 版本也必须随依赖升级同步，否则集群没有 v1beta1 CRD，会在 runtime 阶段返回 500。
 - `SandboxWarmPoolSpec.Replicas` / `SandboxWarmPoolSpec.TemplateRef` 在 rc1 仍可沿用。
 - 在干净 `v1beta1` agent-sandbox controller 上，direct / warm-pool / delete / SDK / MCP / math-agent 都跑通。
 
