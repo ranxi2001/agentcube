@@ -53,6 +53,7 @@
 - 用户确认后更新了 PR #387 body：`What type of PR is this?` 已从 `/kind bug` 改为 `/kind feature`，`What this PR does / why we need it` 已改为 current stable `agent-sandbox v0.4.6` compatibility feature 口径，target-version note 也说明 `v0.5.0rc1` 不只是 pseudo-version 问题，更涉及 `v1alpha1` -> `v1beta1`、`TemplateRef` -> required `WarmPoolRef`、`Replicas` -> `OperatingMode` 的语义迁移。随后按用户要求改 label；直接 Labels API 因无 admin 权限返回 403，已用 bot 命令评论 `/remove-kind bug` + `/kind feature` 完成，当前 labels 为 `kind/feature` / `size/XL`。未发布解释性技术回复。
 - 已形成 `agent-sandbox v0.5.x` follow-up 计划并写入 Day17/TODO：#387 保持 current stable `v0.4.6` 兼容范围；`v0.5.x`/`v1beta1` 迁移另开干净 follow-up，核心改动包括 imports/scheme/GVR v1beta1、direct Sandbox `Replicas -> OperatingMode`、warm-pool claim `TemplateRef -> WarmPoolRef`、真实 v0.5.x manifests/e2e/math-agent 验证，并把 Sleep/Resume 作为后续状态机设计而非混入兼容 PR。
 - 用户确认将 `agent-sandbox v0.5.x` 前沿适配测试拆出 #387；已新增 Day18 `internship-reports/day18-agent-sandbox-v05-forward-adaptation.md`，并把 TODO 拆成 stable `v0.4.6` review 任务和 `v0.5.x/v1beta1` fork-only validation 任务。
+- Day18 已开始编译测试驱动适配：在 `/home/agentcube-agent-sandbox-latest` local-only branch `test/agent-sandbox-v05-forward` 基于 #387 head `5867183` 创建实验 commit `ee1aecf test: adapt agent-sandbox v05 rc api`。实际最小改动为 imports/scheme/GVR 迁到 `v1beta1`、direct Sandbox `Replicas -> OperatingMode=Running`、SandboxClaim `TemplateRef -> WarmPoolRef`。本地通过 `go test ./pkg/workloadmanager`、cmd/agentd/workload-manager/pkg/agentd、e2e 空编译、非 e2e Go 全量、`make build-all`、race、lint、`make gen-check`、coverage exact command；尚未做真实 rc1 runtime/e2e。
 
 ## Current Blockers
 
@@ -73,7 +74,7 @@
 ## Next
 
 - Go/toolchain prerequisite #391 has merged and upstream PR #387 has been updated to rebased head `5867183`; all automated checks are green. PR body target-version note has been updated and labels are now `kind/feature` / `size/XL`. Next for #387: user will reply to `zhzhuang-zju`; do not post explanation comments unless the user asks.
-- Day18 `agent-sandbox v0.5.x` next step: local/fork-only validation first. Audit module/release/CRD differences, then create a separate test branch for v1beta1 migration. Do not open upstream PR until official `v0.5.0` release or explicit maintainer request for rc support.
+- Day18 `agent-sandbox v0.5.x` next step: runtime-driven validation. Confirm rc1 release manifests/CRDs, install real agent-sandbox controller in k3s, then run direct/warm-pool e2e, GC cleanup, SDK/MCP/math-agent. Do not open upstream PR until official `v0.5.0` release or explicit maintainer request for rc support.
 - 根据 2026-06-17 例会纪要，把 `Sleep/Resume`、E2B-compatible API / SDK / template 分别拆成可公开讨论的英文 proposal / issue comment；`agent-sandbox` 适配已进入代码分支推进。
 - 与 FAUST-BENCHOU 讨论 Sleep/Resume 时优先确认第一版语义：是否接受基于 `Sandbox.spec.replicas=0/1` 的 stop/recreate，`context` 是否仅指 workspace/PVC，是否新增 `pauseTimeout`，warm-pool-backed CodeInterpreter 是否纳入第一版。
 - 建议把 #386 两个方向作为同一 v0.2.0 epic 的两个子任务讨论：先定 agent-sandbox target version / compatibility foundation，再做 AgentCube Sleep/Resume lifecycle。

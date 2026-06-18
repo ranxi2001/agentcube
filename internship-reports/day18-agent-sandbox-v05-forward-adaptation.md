@@ -164,3 +164,135 @@ Day18 的阶段性产出不是 upstream PR，而是：
 - 如果 `v0.5.0` 尚未正式发布，且 rc1 行为仍可能变化，则不向 upstream 提交正式 PR。
 - 如果 runtime 失败来自 release manifests / controller 与 Go module 不匹配，先记录并等待正式 release 或 maintainer 指示。
 - 如果连续三次卡在同一个环境问题，例如 cluster / CRD 安装 / kind cgroup，则停止硬调，改为记录 BLOCKED 和所需环境。
+
+## 编译测试驱动适配记录
+
+本轮不再只做源码分析，而是在 `/home/agentcube-agent-sandbox-latest` 上创建 local-only 实验分支做最小编译适配：
+
+```bash
+git switch -C test/agent-sandbox-v05-forward HEAD
+```
+
+基线：
+
+- Branch：`test/agent-sandbox-v05-forward`
+- Base：#387 当前验证 head `5867183`
+- 实验 commit：`ee1aecf test: adapt agent-sandbox v05 rc api`
+- 目标 dependency：`sigs.k8s.io/agent-sandbox v0.4.7-0.20260608211546-6af1bbd0cf64`，即 `v0.5.0rc1` 的 Go pseudo-version。
+- 分支状态：local-only，未 push，未更新 #387，未创建 upstream PR。
+
+### 实际遇到的问题
+
+第一步直接升级：
+
+```bash
+go get sigs.k8s.io/agent-sandbox@v0.5.0rc1
+go mod tidy
+go test ./pkg/workloadmanager -count=1
+```
+
+失败点 1：`v1alpha1` 包已经不存在。
+
+```text
+package sigs.k8s.io/agent-sandbox/api/v1alpha1 provided by sigs.k8s.io/agent-sandbox at latest version v0.4.6 but not at required version v0.4.7-0.20260608211546-6af1bbd0cf64
+package sigs.k8s.io/agent-sandbox/extensions/api/v1alpha1 provided by sigs.k8s.io/agent-sandbox at latest version v0.4.6 but not at required version v0.4.7-0.20260608211546-6af1bbd0cf64
+```
+
+处理：把 agent-sandbox imports 机械迁移到：
+
+```text
+sigs.k8s.io/agent-sandbox/api/v1beta1
+sigs.k8s.io/agent-sandbox/extensions/api/v1beta1
+```
+
+失败点 2：机械 import 迁移后，`pkg/workloadmanager` 编译只剩 3 类真实 API 差异：
+
+```text
+unknown field Replicas in .../api/v1beta1.SandboxSpec
+unknown field TemplateRef in .../extensions/api/v1beta1.SandboxClaimSpec
+claim.Spec.TemplateRef undefined
+```
+
+处理：
+
+- direct `Sandbox` path：`SandboxSpec.Replicas = ptr.To[int32](1)` 改为 `SandboxSpec.OperatingMode = SandboxOperatingModeRunning`。
+- `SandboxClaim` path：`SandboxClaimSpec.TemplateRef{Name: ...}` 改为 `SandboxClaimSpec.WarmPoolRef{Name: ...}`。
+- dynamic GVR：`SandboxGVR` / `SandboxClaimGVR` 的 version 从 `v1alpha1` 改为 `v1beta1`。
+- tests：`claim.Spec.TemplateRef.Name` 断言改为 `claim.Spec.WarmPoolRef.Name`。
+
+一个重要发现：`SandboxWarmPoolSpec.Replicas` 和 `SandboxWarmPoolSpec.TemplateRef` 在 rc1 的 `extensions/api/v1beta1` 中仍然存在，所以 `CodeInterpreterReconciler.ensureSandboxWarmPool()` 不需要因为 rc1 做字段级改动。真正变化的是 `SandboxClaim` checkout 语义和 direct `Sandbox` lifecycle 字段。
+
+### 当前通过的本地测试
+
+本轮最小适配后，以下命令通过：
+
+```bash
+go test ./pkg/workloadmanager -count=1
+go test ./cmd/workload-manager ./cmd/agentd ./pkg/agentd -count=1
+go test ./test/e2e -run '^$' -count=1
+go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+make build-all
+go test -race ./pkg/workloadmanager -count=1
+make lint
+make gen-check
+go test -race -v -coverprofile=coverage.out -coverpkg=./pkg/... ./pkg/...
+git diff --check
+```
+
+结果：
+
+- `pkg/workloadmanager`：通过。
+- `cmd/workload-manager` / `cmd/agentd` / `pkg/agentd`：通过。
+- `test/e2e` 空编译检查：通过。
+- 非 e2e Go 全量测试：通过。
+- `make build-all`：通过。
+- `go test -race ./pkg/workloadmanager`：通过。
+- `make lint`：通过。
+- `make gen-check`：通过，没有 AgentCube 自身 generated code drift。
+- race coverage 命令：通过，`pkg/workloadmanager` coverage `26.3%`。
+
+一个命令错误也记录下来：第一次跑非 e2e 全量测试时用了：
+
+```bash
+PATH=/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.4.linux-amd64/bin:$PATH go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+```
+
+失败：
+
+```text
+xargs: go: No such file or directory
+```
+
+原因是 `PATH=...` 只作用在管道左侧的 `go list`，没有传给 `xargs go test`。修正为：
+
+```bash
+export PATH=/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.4.linux-amd64/bin:$PATH
+go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+```
+
+### 当前结论
+
+从编译和本地单测角度看，`v0.5.0rc1` 的最小 API 迁移比最初担心的范围更窄：
+
+- import / scheme / GVR 必须迁到 `v1beta1`。
+- direct sandbox 必须切到 `OperatingMode=Running`。
+- warm-pool claim 必须切到 `WarmPoolRef`。
+- warm pool controller 的 `SandboxWarmPoolSpec.Replicas` / `TemplateRef` 暂时还能沿用。
+
+但这还不能说明 runtime 完成。最大未验证点仍然是 controller 行为：
+
+- `SandboxClaimSpec.WarmPoolRef` 现在要求引用一个具体 `SandboxWarmPool`，claim controller 会先取 warm pool，再从 warm pool 取 template。
+- pool empty 时是否能 cold create、如何 cold create，需要真实 rc1 controller / CRD 验证。
+- claim delete / GC 是否仍能按 AgentCube 当前“store 保存 claim name”模型清理 underlying sandbox，需要 e2e 验证。
+- `OperatingMode=Running` 编译通过，但后续 Sleep/Resume 的 `Suspended` 语义、Ready condition、pod annotation 和 router 连通性还没有测。
+
+### 下一步
+
+下一步进入 runtime-driven validation：
+
+1. 确认 `v0.5.0rc1` 是否有匹配的 release manifests / CRDs，不能只用 Go module。
+2. 在 k3s 环境安装 rc1 agent-sandbox controller / CRDs。
+3. 用实验分支镜像跑 direct CodeInterpreter e2e。
+4. 跑 warm pool e2e，重点观察 `SandboxClaim.spec.warmPoolRef`、`status.sandbox.name`、assigned sandbox annotation、underlying sandbox ownership。
+5. 验证 session delete / GC 是否清理 claim 和 adopted sandbox。
+6. 再跑 SDK / MCP / math-agent LLM e2e。
