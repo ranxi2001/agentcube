@@ -22,6 +22,7 @@ Use this skill for AgentCube upstream PR work: branch prep, template filling, is
 - Use clean topic branches from `upstream/main`; do not open PRs from fork `main`.
 - Do not open an upstream PR, draft PR, WIP PR, issue, or upstream review/comment without explicit user confirmation immediately before posting. Prepare the branch, diff, tests, and exact body/comment locally first, then ask for approval.
 - Prefer fork-only validation for CI experiments. Use fork branches, fork PRs, local Actions, or local tests to validate uncertain fixes before involving `volcano-sh/agentcube`.
+- For GitHub Actions configured on `pull_request`, pushing a fork branch is not enough to run the full CI matrix. Create a fork PR against `main` or a `release-*` base branch to trigger workflows that filter pull request base branches.
 - Open upstream PRs only when the change is ready for community review or the user explicitly asks to involve upstream. Do not create upstream PRs merely to trigger CI for a private validation path.
 - Keep internship reports, raw benchmark results, and Chinese-only notes out of upstream PRs unless explicitly intended.
 - For other contributors' PRs, do not draft comments, conclusions, or review suggestions until you have read the PR body, changed files, proposal/design docs, key implementation/tests, and existing human review discussion.
@@ -128,6 +129,26 @@ git push --force-with-lease origin <original-pr-branch>
 For prerequisite upgrades, keep the branch minimal. Example: if `agent-sandbox` requires a newer Go version, first create a standalone Go/toolchain upgrade branch from `upstream/main`, update only the project/toolchain files needed for the original project to build and test, and prove the unmodified original project works with the new Go version. Do not inherit the dependency-upgrade feature branch just to test the prerequisite. Once the prerequisite PR merges, rebase the dependency-upgrade PR onto `main`.
 
 For open-source review hygiene, prefer smaller, focused PRs over one long-running PR that accumulates review fixes, CI infrastructure changes, unrelated cleanup, and follow-up features. If a fix is only used to validate a path before rebasing back into the original PR, keep the validation in the fork and record it in the local internship report so later reviewers can reconstruct why the branch existed.
+
+### Fork CI Validation PRs
+
+Use a fork PR when the goal is to run GitHub Actions without notifying upstream maintainers.
+
+- Push the validation head branch to `origin`.
+- If the desired diff is stacked on top of another local or fork branch, create a fork-only base branch that points at that baseline commit.
+- Name the base branch `release-<topic>` when the repository workflows filter `pull_request.branches` to `main` and `release-*`; otherwise only unfiltered workflows may run.
+- Open the PR in `ranxi2001/agentcube`, not `volcano-sh/agentcube`, and use the official PR template even for validation PRs.
+- Use `[WIP]` in the title if the fork PR is only for validation and should not be merged.
+- State clearly in the body that the PR is fork-only CI validation and not an upstream review request.
+- Watch the PR head SHA checks, not only branch push status. If CI fails, inspect the job logs and uploaded artifacts before changing code.
+
+Example:
+
+```bash
+git push origin <baseline-sha>:refs/heads/release-<topic>-base
+git push origin <head-branch>:<head-branch>
+# Create a fork PR: base release-<topic>-base, head <head-branch>.
+```
 
 ### Open PR Rebase Validation
 
