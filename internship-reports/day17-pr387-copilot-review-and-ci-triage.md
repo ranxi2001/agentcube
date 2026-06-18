@@ -574,3 +574,34 @@ fork CI 最终结果：
 - `Copilot`：建议顺手把 `build-push-release.yml` 中 `actions/checkout@v3`、`actions/setup-go@v4` 升到当前 major 版本，避免 Node16 action deprecation。当前判断：这是 GitHub Actions runtime modernization，不是 Go version drift 的必要修复；#391 已通过 CI，暂不直接扩大 PR 范围，后续如 maintainer 认可可作为 follow-up 或在用户确认后追加。
 
 已回复 Copilot：同意 action runtime modernization 有价值，但本 PR 保持聚焦于 Go toolchain 和 `go.mod` 作为 Go version source of truth；`checkout` / `setup-go` major version 升级可作为独立 cleanup follow-up。
+
+## PR #391 Merged
+
+PR #391 已合并，这是本阶段一个关键里程碑：AgentCube upstream `main` 已接受独立 Go/toolchain 前置升级，后续 `agent-sandbox v0.4.6` 适配可以基于新的 Go 1.26.4 baseline rebase，而不需要在 #387 中混入通用工具链升级。
+
+合并信息：
+
+- PR：[volcano-sh/agentcube#391](https://github.com/volcano-sh/agentcube/pull/391)
+- State：closed / merged
+- Merged at：`2026-06-18T06:37:52Z`
+- Merged by：`volcano-sh-bot`
+- Approved by：`RainbowMango`
+- Review command：`/lgtm /approve`
+- Merge commit：`a31651e5aba6ab0ce6ef854ffdb724146b40af5b`
+- Original head commit：`3f1a82379b02d7d1acd6d0f94ecfa7f496c0cb9a`
+- Final labels：`lgtm`、`approved`、`kind/cleanup`、`size/S`
+
+维护者评价：
+
+```text
+/lgtm
+/approve
+
+Good job! Thanks.
+```
+
+后续影响：
+
+1. `agent-sandbox v0.4.6` 适配 PR #387 可以在修复自身 review comments 后 rebase 到包含 #391 的 upstream `main`。
+2. #387 中不再需要承担通用 Go/toolchain 升级职责，scope 可以回到 agent-sandbox compatibility 本身。
+3. Copilot 提到的 GitHub Actions runtime modernization 仍是可选独立 cleanup，不应自动追加到已合并的 #391。
