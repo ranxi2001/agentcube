@@ -937,7 +937,7 @@ pkg/workloadmanager/workload_builder_test.go:680:16: claim.Spec.TemplateRef unde
 
 这说明 `v0.5.0rc1` 适配不是“把 import 从 v1alpha1 改成 v1beta1”就能完成。最小实现也需要改 AgentCube 对 direct Sandbox lifecycle 和 CodeInterpreter warm-pool claim 的语义建模。
 
-### Label Judgment
+### Label Judgment And Update
 
 `zhzhuang-zju` 认为 #387 更像 feature。结合代码实际范围，这个判断合理：
 
@@ -946,11 +946,25 @@ pkg/workloadmanager/workload_builder_test.go:680:16: claim.Spec.TemplateRef unde
 
 建议把 PR kind 从 `/kind bug` 改为 `/kind feature`。如果社区更偏好“兼容性增强”而不是新功能，也可以用 `/kind enhancement`；但 reviewer 明确说 feature，因此优先用 `/kind feature`。
 
-需要注意：改 label 是 upstream-facing action。应等用户确认后再通过评论命令发布：
+用户后续确认“label改一下”后，先尝试 GitHub Issues Labels API 直接改 label，失败：
+
+```text
+403 Must have admin rights to Repository.
+```
+
+随后按社区 bot 命令发布最小评论：
 
 ```text
 /remove-kind bug
 /kind feature
+```
+
+评论链接：[#387 issuecomment-4739536274](https://github.com/volcano-sh/agentcube/pull/387#issuecomment-4739536274)
+
+确认结果：
+
+```text
+labels: kind/feature, size/XL
 ```
 
 ### Suggested Scope Decision
@@ -997,16 +1011,25 @@ In rc1, `SandboxSpec` uses `operatingMode: Running/Suspended` instead of `replic
 So I agree that once `agent-sandbox v0.5.0` is officially released, AgentCube will likely need another compatibility pass. My suggestion is to keep this PR focused on the current stable Go module `@latest` (`v0.4.6`) and track the `v0.5.x` / `v1beta1` migration as a separate follow-up, because it changes the API version and the warm-pool claim semantics rather than being a small incremental patch on top of this PR.
 ```
 
-### PR Body Update Suggestion
+### PR Body Update
 
-当前 PR body 的 note：
+用户确认“回复我自己发，改说明可以更新”后，只更新 PR body，不发评论，不改 label。
+
+旧 PR body note：
 
 ```text
 Target version: `agent-sandbox v0.4.6`, which is the current Go module `@latest`. I did not target `v0.5.0rc1` because Go resolves that tag to a pseudo-version rather than the stable latest release.
 ```
 
-建议用户确认后改为：
+更新后的 PR body note：
 
 ```text
 Target version: `agent-sandbox v0.4.6`, which is the current Go module `@latest`. I did not include `v0.5.0rc1` in this PR because it is not listed as a canonical Go module release and, more importantly, it has already moved the APIs AgentCube uses from `v1alpha1` to `v1beta1` (`SandboxClaimSpec.TemplateRef` -> required `WarmPoolRef`, `SandboxSpec.Replicas` -> `OperatingMode`). I will track the `v0.5.x` / `v1beta1` migration as a separate follow-up because it changes warm-pool claim semantics rather than being a small patch on top of the current v0.4.6 adaptation.
 ```
+
+结果：
+
+- PR body 更新成功：`https://github.com/volcano-sh/agentcube/pull/387`
+- GitHub API `updated_at`：`2026-06-18T08:07:46Z`
+- Body 更新时 Labels 未改；随后按用户确认通过 bot 命令改为 `kind/feature`、`size/XL`
+- 只发布了 label bot 命令评论；未发布解释性 issue comment / review comment，`zhzhuang-zju` 的技术回复由用户自己发。
