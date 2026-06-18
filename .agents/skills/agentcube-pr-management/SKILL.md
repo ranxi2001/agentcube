@@ -227,6 +227,54 @@ go test ./<affected-package> -count=1
 6. Separate "current stable latest compatibility" from "future RC / beta API compatibility" in PR scope. A current PR may target `@latest` while a follow-up tracks a prerelease API migration, especially when the newer tag changes CRD versions, required spec fields, or runtime lifecycle semantics.
 7. If the PR body mentions why a newer tag is not targeted, keep the wording precise: pseudo-version resolution is only one reason. State the concrete incompatibility step, such as `go mod tidy` missing packages, removed fields, changed GVR versions, or changed controller behavior.
 
+### Agent-Sandbox Runtime Validation
+
+For agent-sandbox dependency updates, compile-only validation is not enough. Prefer a clean, isolated runtime cluster before touching the long-lived local k3s cluster:
+
+```bash
+GOBIN=/root/go/bin go install github.com/k3d-io/k3d/v5@latest
+/root/go/bin/k3d cluster create agentcube-sandbox-test \
+  --servers 1 \
+  --agents 0 \
+  --wait \
+  --timeout 180s \
+  --k3s-arg '--disable=traefik@server:0' \
+  --kubeconfig-update-default=false \
+  --kubeconfig-switch-context=false
+/root/go/bin/k3d kubeconfig get agentcube-sandbox-test > /tmp/agentcube-sandbox-test-kubeconfig.yaml
+```
+
+Use `KUBECONFIG=/tmp/agentcube-sandbox-test-kubeconfig.yaml` explicitly for every command. Do not rely on the default context. Delete the cluster at the end:
+
+```bash
+/root/go/bin/k3d cluster delete agentcube-sandbox-test
+```
+
+Before installing a prerelease manifest over an existing cluster, always check CRD served/storage versions and storedVersions:
+
+```bash
+kubectl get crd sandboxes.agents.x-k8s.io sandboxclaims.extensions.agents.x-k8s.io \
+  sandboxtemplates.extensions.agents.x-k8s.io sandboxwarmpools.extensions.agents.x-k8s.io \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .spec.versions[*]}{.name}:{.served}:{.storage}{","}{end}{"\tstored="}{.status.storedVersions}{"\n"}{end}'
+```
+
+If a v1beta1-only CRD manifest is applied to a cluster whose CRD status still has `storedVersions=["v1alpha1"]`, the apiserver can reject it with:
+
+```text
+status.storedVersions[0]: Invalid value: "v1alpha1": must appear in spec.versions
+```
+
+Treat that as an upgrade-path / CRD migration finding, not as an AgentCube code failure. Validate clean-install behavior separately, and do not claim in-place upgrade support unless the migration path was actually tested.
+
+For runtime evidence, capture more than "e2e passed":
+
+- Direct CodeInterpreter creates `agents.x-k8s.io/v1beta1` Sandbox with `spec.operatingMode=Running`.
+- Warm-pool CodeInterpreter creates `extensions.agents.x-k8s.io/v1beta1` SandboxClaim with `spec.warmPoolRef.name=<CodeInterpreter name>`.
+- Claim `status.sandbox.name` points to the adopted Sandbox.
+- Pod owner chain is `Pod -> Sandbox -> SandboxClaim` for warm-pool sessions.
+- DELETE session removes direct Sandbox or SandboxClaim, and warm pool refills to the configured size.
+- Python SDK, LangChain sandbox, MCP streamable HTTP, MCP stdio, and math-agent should be rerun when the dependency changes runtime semantics.
+
 ## PR Planning Checklist
 
 Before editing code:

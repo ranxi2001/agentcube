@@ -78,6 +78,14 @@ Expected output: `42`.
 
 2. math-agent tool layer:
 
+Important: `cmd/cli/examples/math-agent/main.py` currently calls `CodeInterpreterClient()` without arguments. The SDK default target is `default/my-interpreter`; `CODE_INTERPRETER_NAME` and `CODE_INTERPRETER_NAMESPACE` environment variables do not change that default unless the example code is modified. Before running the tool layer unchanged, ensure this CR exists:
+
+```bash
+kubectl get codeinterpreter my-interpreter -n default
+```
+
+If the intended target is different, either create a temporary `default/my-interpreter` fixture in the test cluster or patch the example code in a local-only validation branch. A 404 response like `{"message":"code interpreter not found"}` from `POST /v1/code-interpreter` is an example wiring/precondition problem, not evidence that AgentCube sandbox creation is broken.
+
 ```bash
 set +x
 TOKEN=$(KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl create token e2e-test -n agentcube --duration=24h)
