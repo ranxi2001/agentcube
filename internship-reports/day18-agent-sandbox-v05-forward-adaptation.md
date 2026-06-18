@@ -296,3 +296,445 @@ go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go 
 4. 跑 warm pool e2e，重点观察 `SandboxClaim.spec.warmPoolRef`、`status.sandbox.name`、assigned sandbox annotation、underlying sandbox ownership。
 5. 验证 session delete / GC 是否清理 claim 和 adopted sandbox。
 6. 再跑 SDK / MCP / math-agent LLM e2e。
+
+## Runtime-driven validation 记录
+
+本轮在编译适配通过后继续做真实 controller/runtime 验证。结论先写在前面：
+
+- 在干净 `v1beta1` 集群上，`v0.5.0rc1` 最小适配可以运行。
+- direct CodeInterpreter、warm-pool CodeInterpreter、session delete/cleanup、Python SDK、LangChain sandbox、MCP HTTP/stdio、math-agent LLM e2e 都通过。
+- 现有已安装 `v1alpha1` agent-sandbox CRD 的集群不能直接 apply rc1 manifest；这是 CRD 存储版本升级路径问题，不是 AgentCube Go 代码编译问题。
+
+### Release manifest 和现有集群预检
+
+下载的 rc1 release manifest：
+
+```text
+/tmp/agent-sandbox-v050rc1/manifest.yaml
+/tmp/agent-sandbox-v050rc1/extensions.yaml
+```
+
+manifest 里只包含 `v1beta1` CRD 版本，controller image 为：
+
+```text
+registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.5.0rc1
+```
+
+当前默认 k3s 集群的 agent-sandbox 仍是旧状态：
+
+```text
+sandboxes.agents.x-k8s.io                         v1alpha1:true:true  stored=["v1alpha1"]
+sandboxclaims.extensions.agents.x-k8s.io          v1alpha1:true:true  stored=["v1alpha1"]
+sandboxtemplates.extensions.agents.x-k8s.io       v1alpha1:true:true  stored=["v1alpha1"]
+sandboxwarmpools.extensions.agents.x-k8s.io       v1alpha1:true:true  stored=["v1alpha1"]
+agent-sandbox-controller image: registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.1.1
+```
+
+先备份了当前资源：
+
+```text
+/tmp/agent-sandbox-v050rc1/current-agentcube-agent-sandbox-backup.yaml
+```
+
+没有把备份内容写入 repo，因为里面包含运行时环境生成的身份材料。
+
+server dry-run 失败：
+
+```bash
+kubectl apply --dry-run=server \
+  -f /tmp/agent-sandbox-v050rc1/manifest.yaml \
+  -f /tmp/agent-sandbox-v050rc1/extensions.yaml
+```
+
+关键错误：
+
+```text
+CustomResourceDefinition.apiextensions.k8s.io "sandboxtemplates.extensions.agents.x-k8s.io" is invalid:
+status.storedVersions[0]: Invalid value: "v1alpha1": must appear in spec.versions
+
+CustomResourceDefinition.apiextensions.k8s.io "sandboxwarmpools.extensions.agents.x-k8s.io" is invalid:
+status.storedVersions[0]: Invalid value: "v1alpha1": must appear in spec.versions
+```
+
+client dry-run 可以通过，说明 YAML 本身可解析；server dry-run 失败说明阻塞点是 apiserver 对现有 CRD `status.storedVersions` 的校验。也就是说，当前集群不能把只声明 `v1beta1` 的 rc1 CRD 原地覆盖到仍记录 `v1alpha1` storedVersions 的 CRD 上。
+
+这条证据很重要：后续如果要支持从 AgentCube 已有部署升级到 `agent-sandbox v0.5.x`，需要单独考虑 CRD migration / 清理重装 / conversion strategy，而不是只改 Go imports。
+
+### 隔离集群方案
+
+为了不破坏当前默认 k3s，先尝试 `kind create cluster --name agentcube-v05-rc1 --wait 120s`，但仍卡在本机 kubeadm / cgroup 环境，失败后自动删除节点，没有残留。
+
+随后安装并使用 `k3d` 创建隔离 k3s 集群：
+
+```bash
+GOBIN=/root/go/bin go install github.com/k3d-io/k3d/v5@latest
+/root/go/bin/k3d cluster create agentcube-v05-rc1 \
+  --servers 1 \
+  --agents 0 \
+  --wait \
+  --timeout 180s \
+  --k3s-arg '--disable=traefik@server:0' \
+  --kubeconfig-update-default=false \
+  --kubeconfig-switch-context=false
+/root/go/bin/k3d kubeconfig get agentcube-v05-rc1 > /tmp/agentcube-v05-rc1-kubeconfig.yaml
+```
+
+验证环境：
+
+```text
+Node: k3d-agentcube-v05-rc1-server-0
+Kubernetes: v1.32.5+k3s1
+Kernel: 4.18.0-348.7.1.el8_5.x86_64
+Container runtime: containerd://2.0.5-k3s1.32
+```
+
+在隔离集群 apply rc1 manifest 成功：
+
+```bash
+KUBECONFIG=/tmp/agentcube-v05-rc1-kubeconfig.yaml kubectl apply \
+  -f /tmp/agent-sandbox-v050rc1/manifest.yaml \
+  -f /tmp/agent-sandbox-v050rc1/extensions.yaml
+```
+
+CRD 状态：
+
+```text
+sandboxes.agents.x-k8s.io                         v1beta1:true:true  stored=["v1beta1"]
+sandboxclaims.extensions.agents.x-k8s.io          v1beta1:true:true  stored=["v1beta1"]
+sandboxtemplates.extensions.agents.x-k8s.io       v1beta1:true:true  stored=["v1beta1"]
+sandboxwarmpools.extensions.agents.x-k8s.io       v1beta1:true:true  stored=["v1beta1"]
+```
+
+### AgentCube 实验镜像和部署
+
+实验分支：
+
+```text
+repo: /home/agentcube-agent-sandbox-latest
+branch: test/agent-sandbox-v05-forward
+commit: ee1aecf test: adapt agent-sandbox v05 rc api
+```
+
+构建镜像：
+
+```bash
+make docker-build WORKLOAD_MANAGER_IMAGE=workloadmanager:v05-rc1
+make docker-build-router ROUTER_IMAGE=agentcube-router:v05-rc1
+make docker-build-picod PICOD_IMAGE=picod:v05-rc1
+docker tag picod:v05-rc1 picod:latest
+```
+
+导入 k3d：
+
+```bash
+/root/go/bin/k3d image import \
+  workloadmanager:v05-rc1 \
+  agentcube-router:v05-rc1 \
+  picod:v05-rc1 \
+  picod:latest \
+  -c agentcube-v05-rc1
+```
+
+部署方式：
+
+- Helm 部署 AgentCube 到 `agentcube` namespace。
+- `spire.enabled=false`，先验证非 mTLS 的 sandbox control/data path。
+- Redis 使用 `redis:7-alpine`，由 k3d 集群直接拉取。
+- WorkloadManager 和 Router 分别用本地实验镜像 `workloadmanager:v05-rc1`、`agentcube-router:v05-rc1`。
+
+端口转发：
+
+```bash
+KUBECONFIG=/tmp/agentcube-v05-rc1-kubeconfig.yaml \
+  kubectl port-forward svc/workloadmanager -n agentcube 18080:8080
+
+KUBECONFIG=/tmp/agentcube-v05-rc1-kubeconfig.yaml \
+  kubectl port-forward svc/agentcube-router -n agentcube 18081:8080
+```
+
+health check：
+
+```text
+http://127.0.0.1:18080/health       -> {"status":"healthy"}
+http://127.0.0.1:18081/health/live  -> {"status":"alive"}
+```
+
+一个调试失误也记录下来：第一次 port-forward 用后台 `&` 放在一次性 shell 里，shell 退出后转发进程也没稳定保留，Go e2e 报 `connect: connection refused`。后续改成长期 exec session 保持 port-forward，问题消失。
+
+### Go e2e 结果
+
+direct CodeInterpreter：
+
+```bash
+KUBECONFIG=/tmp/agentcube-v05-rc1-kubeconfig.yaml \
+WORKLOAD_MANAGER_URL=http://127.0.0.1:18080 \
+ROUTER_URL=http://127.0.0.1:18081 \
+MTLS_ENABLED=false \
+API_TOKEN=<created serviceaccount token> \
+AGENTCUBE_NAMESPACE=agentcube \
+WORKLOAD_NAMESPACE=agentcube \
+go test -v ./test/e2e/... -run '^TestCodeInterpreterBasicInvocation$' -count=1
+```
+
+结果：
+
+```text
+PASS
+ok github.com/volcano-sh/agentcube/test/e2e 2.514s
+```
+
+warm-pool CodeInterpreter：
+
+```bash
+KUBECONFIG=/tmp/agentcube-v05-rc1-kubeconfig.yaml \
+WORKLOAD_MANAGER_URL=http://127.0.0.1:18080 \
+ROUTER_URL=http://127.0.0.1:18081 \
+MTLS_ENABLED=false \
+API_TOKEN=<created serviceaccount token> \
+AGENTCUBE_NAMESPACE=agentcube \
+WORKLOAD_NAMESPACE=agentcube \
+go test -v ./test/e2e/... -run '^TestCodeInterpreterWarmPool$' -count=1
+```
+
+结果：
+
+```text
+PASS
+ok github.com/volcano-sh/agentcube/test/e2e 7.115s
+```
+
+说明：
+
+- 原始 warm-pool YAML 默认 namespace 是 `default`；Go e2e helper 会按 `WORKLOAD_NAMESPACE` 渲染 namespace。
+- 手工 apply 原始 YAML 时曾落到 `default`，这不是测试失败，而是需要区分“e2e 渲染资源”和“手工验证资源”。
+
+### 留存式字段检查
+
+普通 e2e 会自动删除 session，所以测试结束后看不到 Sandbox。为了证明 v1beta1 字段真的生效，额外做了留存式手工 session 检查。
+
+direct session 创建返回：
+
+```text
+kind=Sandbox
+sessionId=a054e5b0-1a90-41dd-a3c5-0f27121629c6
+sandboxName=e2e-code-interpreter-epwdb3ar
+entryPoint=10.42.0.17:8080
+```
+
+对应 Sandbox：
+
+```text
+apiVersion=agents.x-k8s.io/v1beta1
+name=e2e-code-interpreter-epwdb3ar
+spec.operatingMode=Running
+Ready=True, reason=DependenciesReady
+metadata.annotations["agents.x-k8s.io/pod-name"]=e2e-code-interpreter-epwdb3ar
+pod owner=Sandbox/e2e-code-interpreter-epwdb3ar
+pod image=picod:v05-rc1
+```
+
+warm-pool session 创建返回：
+
+```text
+kind=SandboxClaim
+sessionId=040b553e-d842-405f-99e3-0cba78bba224
+sandboxName=e2e-code-interpreter-warmpool-ttim9uzq
+entryPoint=10.42.0.15:8080
+```
+
+对应 SandboxClaim / Sandbox / Pod：
+
+```text
+SandboxClaim apiVersion=extensions.agents.x-k8s.io/v1beta1
+SandboxClaim spec.warmPoolRef.name=e2e-code-interpreter-warmpool
+SandboxClaim status.sandbox.name=e2e-code-interpreter-warmpool-fxzth
+SandboxClaim owner=CodeInterpreter/e2e-code-interpreter-warmpool
+SandboxClaim labels.runtime.agentcube.io/session-id=040b553e-d842-405f-99e3-0cba78bba224
+
+Sandbox apiVersion=agents.x-k8s.io/v1beta1
+Sandbox name=e2e-code-interpreter-warmpool-fxzth
+Sandbox Ready=True, reason=DependenciesReady
+Sandbox annotation agents.x-k8s.io/pod-name=e2e-code-interpreter-warmpool-fxzth
+Sandbox owner=SandboxClaim/e2e-code-interpreter-warmpool-ttim9uzq
+
+Pod name=e2e-code-interpreter-warmpool-fxzth
+Pod ready=true
+Pod owner=Sandbox/e2e-code-interpreter-warmpool-fxzth
+```
+
+delete/cleanup 验证：
+
+```text
+DELETE /v1/code-interpreter/sessions/a054e5b0-1a90-41dd-a3c5-0f27121629c6
+-> {"message":"Sandbox deleted successfully"}
+
+DELETE /v1/code-interpreter/sessions/040b553e-d842-405f-99e3-0cba78bba224
+-> {"message":"Sandbox deleted successfully"}
+```
+
+后置检查：
+
+```text
+direct session leftovers: No resources found
+warm-pool claim leftover: NotFound
+warm-pool pool after delete: READY=2
+```
+
+这证明当前 store 仍保存 claim name 的 delete 模型在 rc1 下可以工作；delete claim 后，agent-sandbox 会释放 claimed sandbox，并由 warm pool controller refilling 到 2 个 warm sandbox。
+
+### SDK / LangChain / MCP / math-agent
+
+Python 环境：
+
+```text
+Python: /root/.local/bin/python3.11
+Venv: /tmp/agentcube-v05-rc1-llm-e2e-venv
+Installed: sdk-python, integrations/code-interpreter-mcp, integrations/langchain-agentcube, math-agent requirements
+```
+
+SDK direct：
+
+```bash
+WORKLOAD_MANAGER_URL=http://127.0.0.1:18080 \
+ROUTER_URL=http://127.0.0.1:18081 \
+API_TOKEN=<created serviceaccount token> \
+/tmp/agentcube-v05-rc1-llm-e2e-venv/bin/python - <<'PY'
+from agentcube import CodeInterpreterClient
+import os
+with CodeInterpreterClient(
+    name="e2e-code-interpreter",
+    namespace="agentcube",
+    workload_manager_url=os.environ["WORKLOAD_MANAGER_URL"],
+    router_url=os.environ["ROUTER_URL"],
+    auth_token=os.environ.get("API_TOKEN"),
+) as client:
+    print(client.run_code("python", "print(6*7)").strip())
+PY
+```
+
+结果：
+
+```text
+42
+```
+
+math-agent tool layer 初次失败：
+
+```text
+404 Client Error: Not Found for url: http://127.0.0.1:18080/v1/code-interpreter
+Server response: {"message":"code interpreter not found"}
+```
+
+根因：`cmd/cli/examples/math-agent/main.py` 里的 `run_python_code()` 当前直接调用 `CodeInterpreterClient()`，SDK 默认目标是 `default/my-interpreter`。`CODE_INTERPRETER_NAME` / `CODE_INTERPRETER_NAMESPACE` 这类环境变量不会自动改变 SDK 默认值。
+
+处理：在隔离集群创建 `default/my-interpreter` CodeInterpreter 后重跑 tool layer。
+
+结果：
+
+```text
+42
+```
+
+完整 math-agent HTTP LLM e2e：
+
+```text
+Provider base URL: https://api.ai.tosky.top/v1
+Model: gpt-5.5
+Secret handling: OPENAI_API_KEY 只从进程环境读取，未写入 repo / 报告 / 日志
+```
+
+请求：
+
+```bash
+curl --max-time 240 -sS \
+  -X POST http://127.0.0.1:18082/ \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"Use the run_python_code tool to calculate 6*7. Return only the final number.","thread_id":"v05-rc1-llm-e2e"}'
+```
+
+结果：
+
+```json
+{
+  "response": "42",
+  "thread_id": "v05-rc1-llm-e2e",
+  "agent": "math-agent"
+}
+```
+
+Python SDK e2e：
+
+```bash
+WORKLOAD_MANAGER_URL=http://127.0.0.1:18080 \
+ROUTER_URL=http://127.0.0.1:18081 \
+MTLS_ENABLED=false \
+API_TOKEN=<created serviceaccount token> \
+AGENTCUBE_NAMESPACE=agentcube \
+/tmp/agentcube-v05-rc1-llm-e2e-venv/bin/python test/e2e/test_codeinterpreter.py
+```
+
+结果：
+
+```text
+Ran 3 tests in 3.339s
+OK
+```
+
+LangChain sandbox e2e：
+
+```text
+Ran 4 tests in 3.744s
+OK
+```
+
+MCP streamable HTTP e2e：
+
+```text
+Ran 5 tests in 5.919s
+OK
+```
+
+MCP stdio e2e：
+
+```text
+Ran 1 test in 2.731s
+OK
+```
+
+### 清理
+
+已执行：
+
+```bash
+kill <math-agent pid>
+DELETE /v1/code-interpreter/sessions/<math-agent session>
+Ctrl-C workloadmanager/router port-forward sessions
+/root/go/bin/k3d cluster delete agentcube-v05-rc1
+```
+
+最终状态：
+
+- k3d `agentcube-v05-rc1` 集群已删除。
+- 当前默认 Kubernetes context 仍是 `default`。
+- 当前默认 k3s 没有被清理、重装或升级 agent-sandbox CRD。
+- 临时 kubeconfig、manifest、venv、日志仍在 `/tmp`，不写入 repo。
+
+## Day18 当前结论
+
+`v0.5.0rc1` 适配从代码和 runtime 看都比预期可控：
+
+- 必要代码迁移集中在 API version、GVR、direct Sandbox `OperatingMode`、warm-pool claim `WarmPoolRef`。
+- `SandboxWarmPoolSpec.Replicas` / `SandboxWarmPoolSpec.TemplateRef` 在 rc1 仍可沿用。
+- 在干净 `v1beta1` agent-sandbox controller 上，direct / warm-pool / delete / SDK / MCP / math-agent 都跑通。
+
+但还有两个不能忽视的 PR 边界：
+
+- rc1 不是当前 `go list -m @latest`，正式 upstream PR 最好等 `v0.5.0` release 或 maintainer 明确要求 rc support。
+- 现有 `v1alpha1` CRD 集群不能原地 apply v1beta1-only manifest，后续如果要宣称“升级兼容”，必须补 CRD migration / clean-install 说明；不能只说 AgentCube 代码已适配。
+
+未覆盖范围：
+
+- 没测 `OperatingMode=Suspended` / Sleep-Resume 语义。
+- 没测从已有 `v1alpha1` CRD 和资源到 `v1beta1` 的正式迁移流程。
+- 没测 rc1 warm pool 为空时 claim 是否 cold create；本轮验证的是 warm pool ready 后 checkout/refill。
+- 没测 SPIRE/mTLS 模式；本轮为非 mTLS runtime 验证。
