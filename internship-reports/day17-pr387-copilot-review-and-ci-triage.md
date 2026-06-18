@@ -605,3 +605,115 @@ Good job! Thanks.
 1. `agent-sandbox v0.4.6` 适配 PR #387 可以在修复自身 review comments 后 rebase 到包含 #391 的 upstream `main`。
 2. #387 中不再需要承担通用 Go/toolchain 升级职责，scope 可以回到 agent-sandbox compatibility 本身。
 3. Copilot 提到的 GitHub Actions runtime modernization 仍是可选独立 cleanup，不应自动追加到已合并的 #391。
+
+## PR #387 Rebase Validation After #391
+
+目的：验证 #391 合并后，#387 是否只需要 rebase 到最新 `upstream/main` 就能自然解决 CI / review 问题。
+
+本地验证分支：
+
+- Worktree：`/home/agentcube-agent-sandbox-latest`
+- Branch：`rebase/pr387-on-go1264`
+- Base：`upstream/main a31651e`，即 #391 merge commit
+- 原始 PR branch：`origin/feat/agent-sandbox-latest`
+- Rebased adaptation commit：`9c6dff6 fix: adapt code interpreter warm pool to agent-sandbox v0.4.6`
+
+直接 rebase 过程：
+
+```bash
+git switch -C rebase/pr387-on-go1264 origin/feat/agent-sandbox-latest
+git rebase upstream/main
+```
+
+冲突只发生在 Go/toolchain 相关文件：
+
+- `go.mod`
+- `docker/Dockerfile`
+- `docker/Dockerfile.router`
+- `docker/Dockerfile.picod`
+
+解决方式：保留 upstream #391 的 Go `1.26.4` / Docker builder `1.26.4` 基线，不回退到 #387 原始试验里的 `1.26.2`。
+
+直接 rebase 后验证结果：
+
+```bash
+go version
+go test ./pkg/workloadmanager -count=1
+make lint
+go test -race -v -coverprofile=coverage.out -coverpkg=./pkg/... ./pkg/...
+```
+
+结果：
+
+- `go version`：`go version go1.26.4 linux/amd64`
+- `go test ./pkg/workloadmanager -count=1`：通过
+- coverage exact command：通过，`pkg/workloadmanager` summary coverage `25.9%`
+- `make lint`：失败
+
+`make lint` 失败点：
+
+```text
+pkg/workloadmanager/handlers.go:85:1: cyclomatic complexity 16 of func `(*Server).handleSandboxCreate` is high (> 15)
+pkg/workloadmanager/handlers_test.go:112:27: Error return value of `f.fakeStore.UpdateSandbox` is not checked
+pkg/workloadmanager/handlers_test.go:348:16: forcetypeassert: unchecked type assertion
+test/e2e/e2e_test.go:1212:1: cyclomatic complexity 16 of func `(*e2eTestContext).listWarmPoolPods` is high (> 15)
+```
+
+结论：#391 / rebase 已经解决 Go toolchain mismatch 和 workflow baseline 问题；但不能自动解决 #387 自身代码质量和 review feedback。#387 仍需要一个 review-fix commit。
+
+本地补丁 commit：
+
+- Commit：`5867183 fix: address agent-sandbox adaptation review feedback`
+- DCO：已包含 `Signed-off-by`
+- 当前仅存在于本地验证分支，尚未 push，也没有更新 #387
+
+补丁内容：
+
+- 拆出 `respondSandboxCreateError`，降低 `handleSandboxCreate` cyclomatic complexity。
+- `waitForDirectSandboxReady` 增加 nil watcher、closed channel、nil sandbox 防护，并把这些内部错误对外统一隐藏为 `internal server error`。
+- `waitForClaimSandboxReady` 遇到 `context.Canceled` / `context.DeadlineExceeded` 立即返回，不再等到下一轮 select。
+- `recordingStore.UpdateSandbox` 正确检查 fake store error，并 deep copy `EntryPoints`。
+- fake dynamic client reactor 使用 checked type assertion。
+- e2e warm-pool pod matching 改为用 Sandbox UID 识别 Sandbox-owned Pod，避免只按 name 匹配。
+- `hack/update-codegen.sh` 的 `sed` 解析不再依赖 `"Dir"` 行尾必须有逗号。
+
+修复后验证：
+
+```bash
+go test ./pkg/workloadmanager -count=1
+make lint
+go test -race ./pkg/workloadmanager -count=1
+go test -race -v -coverprofile=coverage.out -coverpkg=./pkg/... ./pkg/...
+go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+make gen-check
+go test ./test/e2e -run '^$' -count=1
+make build-all
+git diff --check
+git diff --exit-code
+```
+
+结果：
+
+- `go test ./pkg/workloadmanager -count=1`：通过
+- `make lint`：通过
+- `go test -race ./pkg/workloadmanager -count=1`：通过
+- coverage exact command：通过，`pkg/workloadmanager` summary coverage `26.3%`
+- 非 e2e Go packages：通过
+- `make gen-check`：提交后通过，无生成漂移
+- `go test ./test/e2e -run '^$' -count=1`：通过，只验证 e2e package 编译
+- `make build-all`：通过
+- `git diff --check` / `git diff --exit-code`：通过，工作区干净
+
+一次中间现象：
+
+```bash
+make gen-check
+```
+
+在本地 fix commit 前返回 exit code 2，因为 `gen-check` 最后执行 `git diff --exit-code`，会把 4 个尚未提交的计划内修复文件视为失败。提交 `5867183` 后重跑通过，说明没有额外 CRD / client-go / go.mod 生成漂移。
+
+当前判断：
+
+1. 可以把 #387 原始分支 rebase 到 `upstream/main a31651e`，但 rebase 本身只解决工具链基线，不足以让 PR 全绿。
+2. 正确回灌路径是把 `9c6dff6` 和 `5867183` 整理为 clean history 后，在用户确认后更新 `origin/feat/agent-sandbox-latest`，从而更新 upstream PR #387。
+3. 在用户确认前，不 push 本地验证分支，也不 force-push 打开的 #387 分支，避免不必要地打扰维护者。
