@@ -799,3 +799,59 @@ Ctrl-C workloadmanager/router port-forward sessions
 - 没测从已有 `v1alpha1` CRD 和资源到 `v1beta1` 的正式迁移流程。
 - 没测 rc1 warm pool 为空时 claim 是否 cold create；本轮验证的是 warm pool ready 后 checkout/refill。
 - 没测 SPIRE/mTLS 模式；本轮为非 mTLS runtime 验证。
+
+## 下周 #387 Review 准备
+
+下周回到 upstream PR #387 时，不能只说“CI 过了”或“代码能跑”。需要先准备两份材料。
+
+### 1. Code Rationale Matrix
+
+目标：自己能够解释每一个代码修改，review 时能清楚回答维护者“为什么要改这个文件/这几行”。
+
+要求：
+
+- 对 #387 的所有 touched files 做逐文件说明。
+- 每个文件至少记录：
+  - 改动目的。
+  - 对应的 agent-sandbox / controller-runtime / Kubernetes client 行为变化。
+  - 是否由编译错误、运行失败、测试缺口、review comment 或依赖链要求驱动。
+  - 哪个测试覆盖了它。
+  - review 时的一句话解释。
+- 特别注意“单独文件只改几行”的情况。这类改动看起来最像 drive-by cleanup，必须单独解释为什么必要。
+- `go.mod` / `go.sum` 要明确分开解释：
+  - Go toolchain upgrade 已由 #391 独立 PR 完成。
+  - #387 留下的是 `agent-sandbox v0.4.6` 兼容所需的 dependency stack，包括 `controller-runtime v0.23.3` 和 `k8s.io/* v0.35.4`。
+
+建议表格：
+
+```md
+| File / area | Why it changed | Evidence | Test coverage | Review explanation |
+| --- | --- | --- | --- | --- |
+| go.mod / go.sum | agent-sandbox v0.4.6 dependency stack | go mod graph / compile and codegen behavior | gen-check, build, unit, e2e | Go toolchain was split to #391; this PR only keeps feature-scope dependency alignment |
+| pkg/workloadmanager/... | ... | ... | ... | ... |
+```
+
+### 2. Feature-Specific Test Plan
+
+目标：发布 feature PR 时，测试设计要覆盖 feature 自身，而不是只依赖原始 CI。
+
+要求：
+
+- 明确 #387 的行为变化：
+  - `SandboxPodNameAnnotation` 从内部 controller 包迁移到公开 API 包。
+  - warm-pool session 需要等待 `SandboxClaim.status.sandbox.name` 指向 adopted Sandbox，而不是假设 claim name 就是 sandbox name。
+  - `SandboxTemplate` 默认 Managed NetworkPolicy 会阻断 AgentCube Router / WorkloadManager，因此需要显式 Unmanaged。
+  - delete / GC 仍应按 AgentCube store 中保存的 claim or sandbox name 清理资源。
+- 为每个行为变化设计对应测试，不只写“make test / CI passed”。
+- 最低测试材料应包含：
+  - focused unit tests：workload builder、wait/watch 逻辑、store / recordingStore error path、nil/closed watcher path。
+  - e2e：direct CodeInterpreter、warm-pool CodeInterpreter、warm-pool refill、delete cleanup。
+  - SDK/integration：Python SDK、LangChain、MCP HTTP/stdio、math-agent LLM e2e。
+  - generated/codegen：`make gen-check` 证明 client-go / code-generator 版本对齐。
+- 对新增或修过的测试，记录它覆盖的风险。没有覆盖的风险要明确列入 follow-up，而不是隐含在“CI 过了”里。
+
+### 下周停止条件
+
+- 如果无法解释某个 touched file 的必要性，先不要催 review，回到源码/测试补证据。
+- 如果某个 feature 行为没有对应测试，优先补测试或记录明确限制。
+- 如果发现改动其实属于独立 prerequisite 或 follow-up feature，不继续堆在 #387，按当前 PR workflow 拆分。
