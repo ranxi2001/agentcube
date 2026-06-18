@@ -717,3 +717,46 @@ make gen-check
 1. 可以把 #387 原始分支 rebase 到 `upstream/main a31651e`，但 rebase 本身只解决工具链基线，不足以让 PR 全绿。
 2. 正确回灌路径是把 `9c6dff6` 和 `5867183` 整理为 clean history 后，在用户确认后更新 `origin/feat/agent-sandbox-latest`，从而更新 upstream PR #387。
 3. 在用户确认前，不 push 本地验证分支，也不 force-push 打开的 #387 分支，避免不必要地打扰维护者。
+
+## Fork CI Validation For PR #387 Rebase Path
+
+目的：先在自己的 fork 仓库验证 `rebase/pr387-on-go1264`，不直接更新 upstream PR #387。
+
+Fork PR：
+
+- PR：[ranxi2001/agentcube#4](https://github.com/ranxi2001/agentcube/pull/4)
+- Title：`test: validate PR 387 rebase on Go 1.26.4`
+- Base：`release-pr387-go1264`，指向 `a31651e5aba6ab0ce6ef854ffdb724146b40af5b`
+- Head：`ci/pr387-rebase-go1264`，指向 `58671839c80bb3716146c88de0b5f7ab119b749f`
+- Mergeable state：`clean`
+- Scope：fork-only CI validation，不请求 upstream review，不更新 #387
+
+一次流程修正：
+
+最初 fork PR 的 base 是 `ci/pr387-base-go1264`。这只触发了没有 branch filter 的 `Test Coverage` 和 `Python SDK Tests`。原因是 AgentCube 多数 PR workflow 只匹配 base branch `main` 或 `release-*`：
+
+- `Agentcube CI Workflow`
+- `Agentcube E2E Tests`
+- `Lint`
+- `Codegen Check`
+- `Codespell`
+- `Copyright Check`
+- `Python Lint`
+
+为了在 fork 内跑完整 CI，又不污染 fork `main`，改用 base branch `release-pr387-go1264`，仍指向同一个 upstream #391 merge commit。`build-push-release.yml` 只在 push `main` 或 tag 时运行，因此这个 `release-*` base 不会触发发布镜像流程。修改 base 后 close/reopen fork PR 触发完整 `pull_request` workflow。
+
+最终 fork CI 结果：
+
+| Workflow / Check | Result |
+| --- | --- |
+| `Codespell` / `Check for spelling errors` | success |
+| `Python SDK Tests` / `python-sdk-tests` | success |
+| `Python Lint` | success |
+| `Copyright Check` | success |
+| `Codegen Check` | success |
+| `Agentcube CI Workflow` / two `build` jobs | success |
+| `Lint` / `golangci-lint` | success |
+| `Test Coverage` / `coverage` | success |
+| `Agentcube E2E Tests` / `e2e-test` | success |
+
+结论：`upstream/main a31651e` + #387 rebased adaptation + `5867183` review-fix commit 已在 fork CI 中完整通过，包括 e2e、coverage、golangci-lint、codegen、build 和 spelling checks。下一步可以准备在用户确认后 clean-update upstream PR #387。
