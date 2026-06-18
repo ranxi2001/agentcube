@@ -44,6 +44,8 @@
 - PR #385 Gemini thread 已回复，附了 focused tests、`go test ./pkg/workloadmanager` 和 `git diff --check`。
 - PR #379 已读实现范围：CRD、controller、agentd Kuasar driver、artifact store、CodeInterpreter restore intent。
 - PR #379 找到一个非重复 review 点：promotion 重置 `ReadyAt` 后，可能因 `snapshotStatusEqual` 不比较 `ReadyAt` 而没有持久化，导致 `RebuildAfter` 继续触发 rebuild。
+- #391 合并后已在 `/home/agentcube-agent-sandbox-latest` 创建本地验证分支 `rebase/pr387-on-go1264`：从 `origin/feat/agent-sandbox-latest` rebase 到 `upstream/main a31651e`，冲突仅为 Go/toolchain 文件并保留 Go `1.26.4`。直接 rebase 后 `go test ./pkg/workloadmanager` 和 coverage exact command 通过，但 `make lint` 仍失败，说明 #391 只解决工具链基线，不能自动修复 #387 自身代码问题。
+- `rebase/pr387-on-go1264` 已补本地 commit `5867183 fix: address agent-sandbox adaptation review feedback`，处理 direct watcher nil/closed/nil sandbox、claim context error、lint complexity、recordingStore、e2e warm-pool UID matching、codegen sed 解析；验证通过：`go test ./pkg/workloadmanager -count=1`、`make lint`、`go test -race ./pkg/workloadmanager -count=1`、coverage exact command、非 e2e Go tests、`make gen-check`、`go test ./test/e2e -run '^$' -count=1`、`make build-all`、`git diff --check`、`git diff --exit-code`。该分支尚未 push，也未更新 #387。
 
 ## Current Blockers
 
@@ -61,7 +63,7 @@
 
 ## Next
 
-- Go/toolchain prerequisite #391 has merged. Next for agent-sandbox: fix the 3 valid Gemini comments found on #390, then rebase #387 onto upstream `main` containing #391 and clean-update #387 after user confirmation. Copilot's Node action modernization suggestion remains a possible separate cleanup PR, not part of #391.
+- Go/toolchain prerequisite #391 has merged. Next for agent-sandbox: ask user whether to clean-update upstream PR #387 by porting local validation branch `rebase/pr387-on-go1264` back to `origin/feat/agent-sandbox-latest` and pushing with `--force-with-lease`. Do not push/update #387 before explicit confirmation. Copilot's Node action modernization suggestion remains a possible separate cleanup PR, not part of #391 or #387.
 - 根据 2026-06-17 例会纪要，把 `Sleep/Resume`、E2B-compatible API / SDK / template 分别拆成可公开讨论的英文 proposal / issue comment；`agent-sandbox` 适配已进入代码分支推进。
 - 与 FAUST-BENCHOU 讨论 Sleep/Resume 时优先确认第一版语义：是否接受基于 `Sandbox.spec.replicas=0/1` 的 stop/recreate，`context` 是否仅指 workspace/PVC，是否新增 `pauseTimeout`，warm-pool-backed CodeInterpreter 是否纳入第一版。
 - 建议把 #386 两个方向作为同一 v0.2.0 epic 的两个子任务讨论：先定 agent-sandbox target version / compatibility foundation，再做 AgentCube Sleep/Resume lifecycle。

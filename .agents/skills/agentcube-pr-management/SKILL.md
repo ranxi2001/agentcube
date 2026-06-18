@@ -129,6 +129,42 @@ For prerequisite upgrades, keep the branch minimal. Example: if `agent-sandbox` 
 
 For open-source review hygiene, prefer smaller, focused PRs over one long-running PR that accumulates review fixes, CI infrastructure changes, unrelated cleanup, and follow-up features. If a fix is only used to validate a path before rebasing back into the original PR, keep the validation in the fork and record it in the local internship report so later reviewers can reconstruct why the branch existed.
 
+### Open PR Rebase Validation
+
+When a prerequisite PR has merged and an open dependent PR needs rebasing, do not immediately force-push the open PR branch. First create a local or fork-only validation branch from the current PR head and test the rebased result:
+
+```bash
+git fetch origin upstream main
+git switch -C rebase/<pr-number>-on-main origin/<original-pr-branch>
+git rebase upstream/main
+# Resolve conflicts in favor of the merged prerequisite when appropriate.
+```
+
+Classify the outcome before updating the open PR:
+
+- If conflicts only remove prerequisite drift and tests pass, the original PR branch can be rebased cleanly after user approval.
+- If rebase fixes toolchain or baseline failures but lint/tests still fail on code introduced by the PR, add a local validation fix commit and test it before asking to update the original PR branch.
+- If rebase exposes a new independent repo issue, split it into a separate branch from `upstream/main` instead of hiding it inside the dependent PR.
+
+Recommended validation sequence for a dependency or sandbox lifecycle PR after rebase:
+
+```bash
+go test ./pkg/workloadmanager -count=1
+make lint
+go test -race ./pkg/workloadmanager -count=1
+go test -race -v -coverprofile=coverage.out -coverpkg=./pkg/... ./pkg/...
+go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+make gen-check
+go test ./test/e2e -run '^$' -count=1
+make build-all
+git diff --check
+git diff --exit-code
+```
+
+`make gen-check` intentionally fails on any uncommitted diff because it ends with `git diff --exit-code`. If the only diff is the intended local fix, commit it on the validation branch first, then rerun `make gen-check` to detect real generator drift.
+
+Only after validation is complete and the user approves the exact upstream-facing update should you rebase/squash/cherry-pick the cleaned commits back onto the original PR branch and push with `--force-with-lease`.
+
 ### Go / Toolchain Upgrade Pattern
 
 For Go version upgrades, do not blindly choose the minimum version required by a dependency. Check the current stable Go release from the official Go release feed, then choose a stable patch version that is defensible for the project.
