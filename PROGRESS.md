@@ -48,6 +48,8 @@
 - `rebase/pr387-on-go1264` 已补本地 commit `5867183 fix: address agent-sandbox adaptation review feedback`，处理 direct watcher nil/closed/nil sandbox、claim context error、lint complexity、recordingStore、e2e warm-pool UID matching、codegen sed 解析；验证通过：`go test ./pkg/workloadmanager -count=1`、`make lint`、`go test -race ./pkg/workloadmanager -count=1`、coverage exact command、非 e2e Go tests、`make gen-check`、`go test ./test/e2e -run '^$' -count=1`、`make build-all`、`git diff --check`、`git diff --exit-code`。该分支尚未 push，也未更新 #387。
 - Fork CI validation PR 已创建并全绿：`https://github.com/ranxi2001/agentcube/pull/4`，base `release-pr387-go1264` -> `a31651e`，head `ci/pr387-rebase-go1264` -> `5867183`，mergeable clean。完整通过 Codespell、Python SDK Tests、Python Lint、Copyright Check、Codegen Check、Agentcube CI Workflow build jobs、Lint/golangci-lint、Test Coverage、Agentcube E2E Tests。注意：fork PR base 需用 `release-*` 或 `main` 才会触发完整 PR workflows；普通 `ci/*` base 只触发无 branch filter 的 coverage / python-sdk-tests。
 - 用户确认后已更新 upstream PR #387：`ranxi2001:feat/agent-sandbox-latest` force-with-lease 从 `5316358` 更新到 `5867183`，PR body 已去掉旧 Go 1.26.2 / Go 版本前置问题描述，保留 dependency stack 说明和 fork CI evidence。Upstream checks 全绿：DCO、Approve workflows、codespell、Codegen、Python Lint、两个 build、coverage、e2e-test、golangci-lint、python-sdk-tests。当前 `mergeable_state=unstable` 预计是等待 maintainer review / lgtm / approve / tide，不是测试失败。
+- 已按源码方式分析 #387 中 `zhzhuang-zju` 对 label 和 `v0.5.0rc1` 的评论。结论：#387 更适合 `/kind feature`；`v0.5.0rc1` 不是当前 Go module `@latest`，会解析为 pseudo-version，且源码已从 `api/v1alpha1` / `extensions/api/v1alpha1` 迁到 `v1beta1`。本地试验显示 `go mod tidy` 先因 v1alpha1 package 缺失失败；机械改 import 后又失败在 `SandboxSpec.Replicas` 被 `OperatingMode` 替换、`SandboxClaimSpec.TemplateRef` 被 required `WarmPoolRef` 替换。Day17 已记录完整源码证据和英文回复草稿。
+- 新增 `.agents/skills/agentcube-pr-management/scripts/audit_go_module_version.py`，并补充 PR skill 的 Dependency Release / RC Triage 流程，用于复用 `go list @latest/@tag/-versions`、package presence 和最小 bump 实验。
 
 ## Current Blockers
 
@@ -55,6 +57,7 @@
 - kind 标准 Kubernetes 在本机 kubelet cgroup/QoS 初始化处失败；KWOK 只能用于调度语义，不等同完整 K8s 实测。
 - kind 标准集群创建仍在本机 kubelet/cgroup 环境处失败；Day16 真实 runtime 验证改用已有 k3s。不能把 kind 失败描述成 AgentCube 代码失败。
 - PR #385 当前主要等待 maintainer review、`/lgtm`、`/approve` 和 tide 合并门禁。
+- PR #387 当前不应直接把 `v0.5.0rc1` 扩入同一 PR；它需要 v1beta1 API / claim warmPoolRef / Sandbox operatingMode 语义迁移，应作为后续 follow-up。任何 label/body/comment 更新都是 upstream-facing action，需用户确认 exact 内容后再执行。
 - 当前 Codex shell 默认 `PATH` 里没有 `go`，但可通过 `/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.2.linux-amd64/bin` 使用 Go 1.26.2。全量 `go test ./...` 会因本机未启动 Router/WorkloadManager、无 kubeconfig 而在 `test/e2e` 失败；排除 e2e 的全量 Go 测试已通过。
 
 ## Ruled Out
@@ -62,10 +65,11 @@
 - 不再把 `WarmPoolNotFound` 当成需要 Warning Event 的稳定故障；它可能只是 controller 创建 warm pool 后 cache 尚未同步。
 - 不重复评论 #379 里 Copilot 已经指出的 `ctrl.SetupSignalHandler()` 双调用问题。
 - 不声称本机跑通过真实 SnapStart restore；当前只能做代码阅读、controller/unit test 级验证。
+- 不把 `v0.5.0rc1` 不适配的原因简化成“pseudo-version”。真实阻塞是 `v1alpha1` package 缺失、direct Sandbox `Replicas` 字段移除、SandboxClaim `TemplateRef` 语义改成 required `WarmPoolRef`。
 
 ## Next
 
-- Go/toolchain prerequisite #391 has merged and upstream PR #387 has been updated to rebased head `5867183`; all automated checks are green. Next for #387: monitor maintainer review / `lgtm` / `approve` / tide, and do not add more commits unless review requires it and user confirms. Copilot's Node action modernization suggestion remains a possible separate cleanup PR, not part of #391 or #387.
+- Go/toolchain prerequisite #391 has merged and upstream PR #387 has been updated to rebased head `5867183`; all automated checks are green. Next for #387: ask user whether to update label/body and post the prepared reply to `zhzhuang-zju`. Recommended upstream-facing actions are `/remove-kind bug`, `/kind feature`, update the PR body target-version note to explain `v0.5.0rc1` as separate v1beta1 follow-up, then reply with the source/compile evidence. Do not push/comment/update PR #387 until the user confirms the exact content.
 - 根据 2026-06-17 例会纪要，把 `Sleep/Resume`、E2B-compatible API / SDK / template 分别拆成可公开讨论的英文 proposal / issue comment；`agent-sandbox` 适配已进入代码分支推进。
 - 与 FAUST-BENCHOU 讨论 Sleep/Resume 时优先确认第一版语义：是否接受基于 `Sandbox.spec.replicas=0/1` 的 stop/recreate，`context` 是否仅指 workspace/PVC，是否新增 `pauseTimeout`，warm-pool-backed CodeInterpreter 是否纳入第一版。
 - 建议把 #386 两个方向作为同一 v0.2.0 epic 的两个子任务讨论：先定 agent-sandbox target version / compatibility foundation，再做 AgentCube Sleep/Resume lifecycle。

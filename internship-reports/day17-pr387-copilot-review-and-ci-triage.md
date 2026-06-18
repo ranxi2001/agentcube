@@ -796,3 +796,217 @@ PR body 已按用户要求编辑：
 | `python-sdk-tests` | success |
 
 当前状态：测试和自动检查已全绿；GitHub API `mergeable_state` 仍显示 `unstable`，预期是因为还需要 maintainer review / `lgtm` / `approve` / tide 门禁，不是测试失败。
+
+## PR #387 Human Comment: Label And v0.5.0rc1 Scope
+
+评论链接：[#387 comment 4739375180](https://github.com/volcano-sh/agentcube/pull/387#issuecomment-4739375180)
+
+评论者：`zhzhuang-zju`
+
+评论核心问题：
+
+1. #387 看起来更像 feature，而不是 bug fix，需要确认并更新 label。
+2. PR body 中写到“不适配 `v0.5.0rc1` 是因为 Go resolves that tag to a pseudo-version rather than the stable latest release”，需要解释具体在哪一步会成为问题。
+3. `agent-sandbox v0.5.0rc1` 引入了 substantial changes；如果未来正式发布 `v0.5.0`，可能又需要新一轮适配。
+
+### AgentCube Source Dependency Points
+
+本轮按源码阅读，不只从版本号推断。
+
+AgentCube 当前 #387 head `5867183` 的关键依赖点：
+
+- `pkg/workloadmanager/workload_builder.go:175-204`：direct `Sandbox` 创建使用 `agents.x-k8s.io/v1alpha1`，并设置 `SandboxSpec.Replicas = 1`。
+- `pkg/workloadmanager/workload_builder.go:214-234`：warm-pool `SandboxClaim` 创建使用 `extensions.agents.x-k8s.io/v1alpha1`，并设置 `SandboxClaimSpec.TemplateRef.Name = CodeInterpreter name`。
+- `pkg/workloadmanager/informers.go:42-50`：dynamic client GVR 固定为 `sandboxes` / `sandboxclaims` 的 `v1alpha1`。
+- `pkg/workloadmanager/codeinterpreter_controller.go:154-162`：CodeInterpreter controller 创建 `SandboxTemplate`，并显式设 `networkPolicyManagement: Unmanaged`。
+- `pkg/workloadmanager/codeinterpreter_controller.go:212-222`：CodeInterpreter controller 创建 `SandboxWarmPool`，`TemplateRef.Name = CodeInterpreter name`。
+- `pkg/workloadmanager/handlers.go:257-274`：创建 claim 后轮询 `SandboxClaim.Status.SandboxStatus.Name`，再 fetch adopted Sandbox 并等待 Ready。
+- `pkg/workloadmanager/handlers.go:327-336`：通过 `sandboxv1alpha1.SandboxPodNameAnnotation` 找 warm pool adopted Pod name，再探测 Pod IP / entrypoint。
+
+这说明 #387 的 v0.4.6 适配依赖的是 `v1alpha1 SandboxClaim -> TemplateRef -> controller adopt/cold-create -> Status.SandboxStatus.Name` 这条链路。
+
+### Module Resolution Evidence
+
+新脚本：
+
+```bash
+python3 .agents/skills/agentcube-pr-management/scripts/audit_go_module_version.py \
+  sigs.k8s.io/agent-sandbox latest v0.5.0rc1 \
+  --show-versions \
+  --packages api/v1alpha1 extensions/api/v1alpha1 api/v1beta1 extensions/api/v1beta1
+```
+
+结果摘要：
+
+```text
+go list -m -versions sigs.k8s.io/agent-sandbox
+=> ... v0.4.5 v0.4.6
+
+sigs.k8s.io/agent-sandbox@latest
+=> Version: v0.4.6
+=> api/v1alpha1: present
+=> extensions/api/v1alpha1: present
+=> api/v1beta1: missing
+=> extensions/api/v1beta1: missing
+
+sigs.k8s.io/agent-sandbox@v0.5.0rc1
+=> Version: v0.4.7-0.20260608211546-6af1bbd0cf64
+=> Origin hash: 6af1bbd0cf64256ddf099e5a6ee1cbed17298057
+=> api/v1alpha1: missing
+=> extensions/api/v1alpha1: missing
+=> api/v1beta1: present
+=> extensions/api/v1beta1: present
+```
+
+补充确认：
+
+```bash
+git ls-remote --tags https://github.com/kubernetes-sigs/agent-sandbox.git 'refs/tags/v0.5.0rc1*'
+```
+
+输出显示 `v0.5.0rc1` 是一个 Git tag，peeled commit 是 `6af1bbd0cf64256ddf099e5a6ee1cbed17298057`。但它不是 Go canonical prerelease tag 形式（例如 `v0.5.0-rc.1`），所以 Go module 解析为 pseudo-version，并且不出现在 `go list -m -versions` 列表中。
+
+结论：pseudo-version 不是唯一阻塞点，只是说明它不是当前稳定 `@latest` 的 Go module release。更重要的是 rc1 源码已经迁到 `v1beta1`，移除了 AgentCube 当前依赖的 `v1alpha1` package。
+
+### API Shape Differences
+
+`agent-sandbox v0.4.6`:
+
+- `api/v1alpha1/sandbox_types.go:132-139`：`SandboxSpec` 有 `Replicas *int32`，只允许 `0/1`。
+- `extensions/api/v1alpha1/sandboxclaim_types.go:125-140`：`SandboxClaimSpec` 有 required `TemplateRef`，同时有 optional `WarmPool *WarmPoolPolicy`，可表达 `none/default/specific pool`。
+
+`agent-sandbox v0.5.0rc1` resolved pseudo-version:
+
+- `api/v1beta1/sandbox_types.go:139-173`：`Replicas` 被移除，替换为 `OperatingMode`，取值 `Running` / `Suspended`。
+- `extensions/api/v1beta1/sandboxclaim_types.go:84-111`：`SandboxClaimSpec` 不再有 `TemplateRef` / `WarmPoolPolicy`，改为 required `WarmPoolRef`。
+
+这会直接影响 AgentCube 两条创建路径：
+
+1. Direct AgentRuntime / no-warm-pool CodeInterpreter sandbox：不能继续设置 `Spec.Replicas = 1`，需要改成 `OperatingMode: Running`，同时 GVR / TypeMeta / scheme 都要迁到 `v1beta1`。
+2. Warm-pool CodeInterpreter claim：不能继续只把 `SandboxTemplate` 名称写入 `SandboxClaim.Spec.TemplateRef`，必须改成引用一个具体 `SandboxWarmPool`。
+
+### Controller Behavior Differences
+
+`v0.4.6` 的 claim controller 行为：
+
+- `extensions/controllers/sandboxclaim_controller.go:1146-1170`：先根据 `WarmPoolPolicy` 尝试 warm pool adoption；如果没有候选 sandbox，返回 nil，让 caller 继续 cold create。
+- `extensions/controllers/sandboxclaim_controller.go:1173-1188`：`getTemplate()` 直接按 `claim.Spec.TemplateRef.Name` 获取 `SandboxTemplate`。
+
+`v0.5.0rc1` 的 claim controller 行为：
+
+- `extensions/controllers/sandboxclaim_controller.go:1406-1429`：`getTemplate()` 先按 `claim.Spec.WarmPoolRef.Name` 获取 `SandboxWarmPool`，再从 warm pool 的 `Spec.TemplateRef.Name` 找 `SandboxTemplate`。
+- 如果 warm pool 不存在，返回 `ErrWarmPoolNotFound`，并在 controller 上层作为 dependency missing 处理。
+- 这意味着 rc1 语义是“claim checkout from a specific warm pool”。它不再是 #387 依赖的“claim references template, optionally adopt from matching/default warm pool, otherwise cold create”模型。
+
+### Local rc1 Bump Experiment
+
+实验分支：`analysis/pr387-agent-sandbox-v050rc1`，未 push，实验后已恢复工作区。
+
+直接升级并 tidy：
+
+```bash
+go get sigs.k8s.io/agent-sandbox@v0.5.0rc1
+go mod tidy
+```
+
+失败：
+
+```text
+go: upgraded sigs.k8s.io/agent-sandbox v0.4.6 => v0.4.7-0.20260608211546-6af1bbd0cf64
+go: github.com/volcano-sh/agentcube/cmd/agentd imports
+    sigs.k8s.io/agent-sandbox/api/v1alpha1: package .../api/v1alpha1 provided by sigs.k8s.io/agent-sandbox at latest version v0.4.6 but not at required version v0.4.7-0.20260608211546-6af1bbd0cf64
+go: github.com/volcano-sh/agentcube/cmd/workload-manager imports
+    sigs.k8s.io/agent-sandbox/extensions/api/v1alpha1: package .../extensions/api/v1alpha1 provided by sigs.k8s.io/agent-sandbox at latest version v0.4.6 but not at required version v0.4.7-0.20260608211546-6af1bbd0cf64
+```
+
+继续做机械 import 迁移（仅实验，不保留）：
+
+```bash
+perl -pi -e 's#sigs\.k8s\.io/agent-sandbox/api/v1alpha1#sigs.k8s.io/agent-sandbox/api/v1beta1#g; s#sigs\.k8s\.io/agent-sandbox/extensions/api/v1alpha1#sigs.k8s.io/agent-sandbox/extensions/api/v1beta1#g' $(rg -l 'sigs.k8s.io/agent-sandbox/(api|extensions/api)/v1alpha1' cmd pkg test)
+go test ./pkg/workloadmanager -count=1
+```
+
+失败：
+
+```text
+pkg/workloadmanager/workload_builder.go:203:4: unknown field Replicas in struct literal of type ".../api/v1beta1".SandboxSpec
+pkg/workloadmanager/workload_builder.go:231:4: unknown field TemplateRef in struct literal of type ".../extensions/api/v1beta1".SandboxClaimSpec
+pkg/workloadmanager/workload_builder_test.go:185:17: claim.Spec.TemplateRef undefined
+pkg/workloadmanager/workload_builder_test.go:680:16: claim.Spec.TemplateRef undefined
+```
+
+这说明 `v0.5.0rc1` 适配不是“把 import 从 v1alpha1 改成 v1beta1”就能完成。最小实现也需要改 AgentCube 对 direct Sandbox lifecycle 和 CodeInterpreter warm-pool claim 的语义建模。
+
+### Label Judgment
+
+`zhzhuang-zju` 认为 #387 更像 feature。结合代码实际范围，这个判断合理：
+
+- #387 修复了 AgentCube 对当前 stable `agent-sandbox @latest` 的不兼容，但形式上是在增加对新的外部 dependency API / controller 行为的兼容能力。
+- 它不仅修一个崩溃点，还改变 warm-pool session 创建等待逻辑、session store 资源名选择、NetworkPolicy 兼容策略、e2e warm-pool discovery 和 codegen stack。
+
+建议把 PR kind 从 `/kind bug` 改为 `/kind feature`。如果社区更偏好“兼容性增强”而不是新功能，也可以用 `/kind enhancement`；但 reviewer 明确说 feature，因此优先用 `/kind feature`。
+
+需要注意：改 label 是 upstream-facing action。应等用户确认后再通过评论命令发布：
+
+```text
+/remove-kind bug
+/kind feature
+```
+
+### Suggested Scope Decision
+
+不建议在 #387 里继续扩展到 `v0.5.0rc1`：
+
+1. #387 当前目标是 current stable Go module `@latest`，也就是 `v0.4.6`。
+2. #387 已经较大，且已有完整 fork CI / upstream CI / k3s / SDK / MCP / math-agent 验证材料。
+3. rc1 引入 `v1beta1` API、`OperatingMode`、required `WarmPoolRef`、launch type labels 和 suspend/resume 语义，和 #386 的 Sleep/Resume 方向存在直接关联，应该作为 follow-up compatibility/design task 单独追踪。
+4. 如果未来 `agent-sandbox v0.5.0` 正式发布，AgentCube 可能确实需要第二轮适配；但这轮适配应以正式 release tag / CRD / controller manifests 为目标，而不是混入当前 v0.4.6 stable compatibility PR。
+
+### English Reply Draft
+
+不要直接发布；先让用户确认。
+
+```md
+Thanks for raising this.
+
+For the PR kind, I agree this is better classified as a feature/compatibility PR than a bug fix. It adds support for a newer `agent-sandbox` API/controller behavior rather than only fixing an internal AgentCube regression.
+
+/remove-kind bug
+/kind feature
+
+For `v0.5.0rc1`, I rechecked this from the source instead of relying only on the tag name. The pseudo-version resolution is only one signal: `go list -m -json sigs.k8s.io/agent-sandbox@v0.5.0rc1` resolves it to `v0.4.7-0.20260608211546-6af1bbd0cf64`, and it is not listed by `go list -m -versions`. The more important blocker is that the rc1 source has already moved the APIs used by AgentCube from `v1alpha1` to `v1beta1`.
+
+A trial bump fails before compilation because the current imports no longer exist:
+
+```text
+sigs.k8s.io/agent-sandbox/api/v1alpha1
+sigs.k8s.io/agent-sandbox/extensions/api/v1alpha1
+```
+
+After a mechanical import migration to `v1beta1`, the next compile errors are structural:
+
+```text
+unknown field Replicas in .../api/v1beta1.SandboxSpec
+unknown field TemplateRef in .../extensions/api/v1beta1.SandboxClaimSpec
+```
+
+Those fields are part of the current AgentCube integration path. Direct Sandbox creation currently sets `SandboxSpec.Replicas = 1`, while CodeInterpreter warm-pool sessions create a `SandboxClaim` with `Spec.TemplateRef` and then wait for `Status.SandboxStatus.Name`.
+
+In rc1, `SandboxSpec` uses `operatingMode: Running/Suspended` instead of `replicas`, and `SandboxClaimSpec` requires `warmPoolRef` instead of `sandboxTemplateRef` / `WarmPoolPolicy`. The claim controller also resolves the template through the referenced warm pool, so the behavior is no longer the same "claim references template, optionally adopt from a matching/default warm pool, otherwise cold create" model used by the v0.4.6 adaptation.
+
+So I agree that once `agent-sandbox v0.5.0` is officially released, AgentCube will likely need another compatibility pass. My suggestion is to keep this PR focused on the current stable Go module `@latest` (`v0.4.6`) and track the `v0.5.x` / `v1beta1` migration as a separate follow-up, because it changes the API version and the warm-pool claim semantics rather than being a small incremental patch on top of this PR.
+```
+
+### PR Body Update Suggestion
+
+当前 PR body 的 note：
+
+```text
+Target version: `agent-sandbox v0.4.6`, which is the current Go module `@latest`. I did not target `v0.5.0rc1` because Go resolves that tag to a pseudo-version rather than the stable latest release.
+```
+
+建议用户确认后改为：
+
+```text
+Target version: `agent-sandbox v0.4.6`, which is the current Go module `@latest`. I did not include `v0.5.0rc1` in this PR because it is not listed as a canonical Go module release and, more importantly, it has already moved the APIs AgentCube uses from `v1alpha1` to `v1beta1` (`SandboxClaimSpec.TemplateRef` -> required `WarmPoolRef`, `SandboxSpec.Replicas` -> `OperatingMode`). I will track the `v0.5.x` / `v1beta1` migration as a separate follow-up because it changes warm-pool claim semantics rather than being a small patch on top of the current v0.4.6 adaptation.
+```

@@ -192,6 +192,41 @@ docker build -f docker/Dockerfile.picod -t agentcube-go<version>-picod:test .
 
 Validate the branch in the fork first. If replacing an earlier trial PR, open a new clean fork PR and mark the old fork PR as superseded so reviewers and CI evidence do not point at the wrong Go patch version.
 
+### Dependency Release / RC Triage
+
+When a reviewer asks why a PR targets one dependency version instead of a newer tag, answer from source and module evidence, not from memory.
+
+1. Check Go module resolution for both the stable target and the requested tag:
+
+```bash
+go list -m -json <module>@latest
+go list -m -json <module>@<tag>
+go list -m -versions <module>
+```
+
+For repeated checks, use:
+
+```bash
+python3 .agents/skills/agentcube-pr-management/scripts/audit_go_module_version.py \
+  sigs.k8s.io/agent-sandbox latest v0.5.0rc1 \
+  --show-versions \
+  --packages api/v1alpha1 extensions/api/v1alpha1 api/v1beta1 extensions/api/v1beta1
+```
+
+2. If a tag resolves to a pseudo-version, do not stop there. Treat it as a module-version signal and then inspect the actual source API and controller behavior.
+3. Compare the exact source definitions used by the PR: public API structs, CRD group versions, generated clients, GVR constants, controller state transitions, and e2e install manifests.
+4. Run a minimal local bump experiment before claiming incompatibility:
+
+```bash
+go get <module>@<tag>
+go mod tidy
+go test ./<affected-package> -count=1
+```
+
+5. If the first failure is missing packages, confirm whether they moved to a new API version. If a mechanical import migration then fails on removed fields, record the exact field errors; they are stronger evidence than a broad "large refactor" statement.
+6. Separate "current stable latest compatibility" from "future RC / beta API compatibility" in PR scope. A current PR may target `@latest` while a follow-up tracks a prerelease API migration, especially when the newer tag changes CRD versions, required spec fields, or runtime lifecycle semantics.
+7. If the PR body mentions why a newer tag is not targeted, keep the wording precise: pseudo-version resolution is only one reason. State the concrete incompatibility step, such as `go mod tidy` missing packages, removed fields, changed GVR versions, or changed controller behavior.
+
 ## PR Planning Checklist
 
 Before editing code:
