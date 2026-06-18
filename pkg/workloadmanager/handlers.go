@@ -35,8 +35,19 @@ import (
 	"github.com/volcano-sh/agentcube/pkg/store"
 )
 
-// errSandboxCreationTimeout is returned when the internal sandbox-ready wait exceeds the 2-minute deadline.
-var errSandboxCreationTimeout = errors.New("sandbox creation timed out")
+var (
+	// errSandboxCreationTimeout is returned when the internal sandbox-ready wait exceeds the 2-minute deadline.
+	errSandboxCreationTimeout = errors.New("sandbox creation timed out")
+
+	// errSandboxReadyWatcherNotRegistered is returned when direct sandbox creation starts without a readiness watcher.
+	errSandboxReadyWatcherNotRegistered = errors.New("sandbox ready watcher not registered")
+
+	// errSandboxReadyWatcherClosed is returned when the readiness watcher closes before a sandbox becomes ready.
+	errSandboxReadyWatcherClosed = errors.New("sandbox ready watcher closed before sandbox was ready")
+
+	// errSandboxReadyWatcherMissingSandbox is returned when the readiness watcher reports readiness without a sandbox object.
+	errSandboxReadyWatcherMissingSandbox = errors.New("sandbox ready watcher returned empty sandbox")
+)
 
 // storeCleanupTimeout is the maximum duration allowed to clean up a store placeholder.
 const storeCleanupTimeout = 30 * time.Second
@@ -145,36 +156,43 @@ func (s *Server) handleSandboxCreate(c *gin.Context, kind string) {
 
 	response, err := s.createSandbox(c.Request.Context(), dynamicClient, sandbox, sandboxClaim, sandboxEntry, resultChan)
 	if err != nil {
-		// Client disconnected — abort with 499 so logs/metrics reflect the cancellation.
-		if errors.Is(err, context.Canceled) {
-			klog.Warningf("create sandbox aborted %s/%s: client disconnected", sandbox.Namespace, sandbox.Name)
-			c.AbortWithStatus(499)
-			return
-		}
-		// Deadline exceeded — client may still be connected; return 504 so they get a meaningful response.
-		if errors.Is(err, context.DeadlineExceeded) {
-			klog.Warningf("create sandbox timed out %s/%s: request deadline exceeded", sandbox.Namespace, sandbox.Name)
-			respondError(c, http.StatusGatewayTimeout, "request timed out")
-			return
-		}
-		// Internal sandbox-ready wait timed out; surface as 504 rather than a generic 500.
-		if errors.Is(err, errSandboxCreationTimeout) {
-			klog.Warningf("create sandbox timed out %s/%s: sandbox did not become ready within deadline", sandbox.Namespace, sandbox.Name)
-			respondError(c, http.StatusGatewayTimeout, err.Error())
-			return
-		}
-		klog.Errorf("create sandbox failed %s/%s: %v", sandbox.Namespace, sandbox.Name, err)
-		// Internal errors (store, K8s API) must not leak system details to callers;
-		// sandbox-level failures (terminal pod state, timeout) are safe to surface.
-		msg := err.Error()
-		if apierrors.IsInternalError(err) {
-			msg = "internal server error"
-		}
-		respondError(c, http.StatusInternalServerError, msg)
+		s.respondSandboxCreateError(c, sandbox, err)
 		return
 	}
 
 	respondJSON(c, http.StatusOK, response)
+}
+
+func (s *Server) respondSandboxCreateError(c *gin.Context, sandbox *sandboxv1alpha1.Sandbox, err error) {
+	if errors.Is(err, context.Canceled) {
+		klog.Warningf("create sandbox aborted %s/%s: client disconnected", sandbox.Namespace, sandbox.Name)
+		c.AbortWithStatus(499)
+		return
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		klog.Warningf("create sandbox timed out %s/%s: request deadline exceeded", sandbox.Namespace, sandbox.Name)
+		respondError(c, http.StatusGatewayTimeout, "request timed out")
+		return
+	}
+	if errors.Is(err, errSandboxCreationTimeout) {
+		klog.Warningf("create sandbox timed out %s/%s: sandbox did not become ready within deadline", sandbox.Namespace, sandbox.Name)
+		respondError(c, http.StatusGatewayTimeout, err.Error())
+		return
+	}
+
+	klog.Errorf("create sandbox failed %s/%s: %v", sandbox.Namespace, sandbox.Name, err)
+	msg := err.Error()
+	if isInternalSandboxCreateError(err) {
+		msg = "internal server error"
+	}
+	respondError(c, http.StatusInternalServerError, msg)
+}
+
+func isInternalSandboxCreateError(err error) bool {
+	return apierrors.IsInternalError(err) ||
+		errors.Is(err, errSandboxReadyWatcherNotRegistered) ||
+		errors.Is(err, errSandboxReadyWatcherClosed) ||
+		errors.Is(err, errSandboxReadyWatcherMissingSandbox)
 }
 
 // createK8sResources creates the K8s sandbox or sandbox claim resource.
@@ -198,14 +216,26 @@ func (s *Server) createK8sResources(ctx context.Context, dynamicClient dynamic.I
 }
 
 func (s *Server) waitForDirectSandboxReady(ctx context.Context, sandbox *sandboxv1alpha1.Sandbox, resultChan <-chan SandboxStatusUpdate) (*sandboxv1alpha1.Sandbox, error) {
+	if resultChan == nil {
+		return nil, errSandboxReadyWatcherNotRegistered
+	}
+
 	// Use NewTimer so we can stop it explicitly when another branch wins,
 	// preventing the runtime from retaining the timer until it fires.
 	timer := time.NewTimer(2 * time.Minute) // consistent with router settings
 	defer timer.Stop()
 
 	select {
-	case result := <-resultChan:
+	case result, ok := <-resultChan:
+		if !ok {
+			klog.Warningf("sandbox %s/%s ready watcher closed before ready", sandbox.Namespace, sandbox.Name)
+			return nil, errSandboxReadyWatcherClosed
+		}
 		createdSandbox := result.Sandbox
+		if createdSandbox == nil {
+			klog.Warningf("sandbox %s/%s ready watcher returned empty sandbox", sandbox.Namespace, sandbox.Name)
+			return nil, errSandboxReadyWatcherMissingSandbox
+		}
 		klog.V(2).Infof("sandbox %s/%s reported ready, verifying entrypoints", createdSandbox.Namespace, createdSandbox.Name)
 		return createdSandbox, nil
 	case <-ctx.Done():
@@ -225,7 +255,10 @@ func (s *Server) waitForClaimSandboxReady(ctx context.Context, dynamicClient dyn
 
 	for {
 		claim, err := getSandboxClaim(ctx, dynamicClient, sandboxClaim.Namespace, sandboxClaim.Name)
-		if err != nil && !isContextError(err) {
+		if err != nil {
+			if isContextError(err) {
+				return nil, err
+			}
 			klog.V(2).Infof("waiting for sandbox claim %s/%s status: %v", sandboxClaim.Namespace, sandboxClaim.Name, err)
 		}
 		if err == nil {
