@@ -155,7 +155,7 @@ Sleep/Resume 后续应单独设计：
 Day18 的阶段性产出不是 upstream PR，而是：
 
 - 一份 v0.5.x 适配差异表。
-- 一个 fork-only 编译适配分支。
+- 一个已推送到 fork 的编译适配分支。
 - 一组本地和 e2e 测试结果。
 - 一个后续独立 upstream PR 的英文材料草稿。
 
@@ -167,7 +167,7 @@ Day18 的阶段性产出不是 upstream PR，而是：
 
 ## 编译测试驱动适配记录
 
-本轮不再只做源码分析，而是在 `/home/agentcube-agent-sandbox-latest` 上创建 local-only 实验分支做最小编译适配：
+本轮不再只做源码分析，而是在 `/home/agentcube-agent-sandbox-latest` 上创建 fork-only 实验分支做最小编译适配：
 
 ```bash
 git switch -C test/agent-sandbox-v05-forward HEAD
@@ -179,7 +179,7 @@ git switch -C test/agent-sandbox-v05-forward HEAD
 - Base：#387 当前验证 head `5867183`
 - 实验 commit：`ee1aecf test: adapt agent-sandbox v05 rc api`
 - 目标 dependency：`sigs.k8s.io/agent-sandbox v0.4.7-0.20260608211546-6af1bbd0cf64`，即 `v0.5.0rc1` 的 Go pseudo-version。
-- 分支状态：local-only，未 push，未更新 #387，未创建 upstream PR。
+- 分支状态：已推送到 fork `origin/test/agent-sandbox-v05-forward`，未更新 #387，未创建 upstream PR。
 
 ### 实际遇到的问题
 
@@ -413,6 +413,7 @@ sandboxwarmpools.extensions.agents.x-k8s.io       v1beta1:true:true  stored=["v1
 repo: /home/agentcube-agent-sandbox-latest
 branch: test/agent-sandbox-v05-forward
 commit: ee1aecf test: adapt agent-sandbox v05 rc api
+remote: https://github.com/ranxi2001/agentcube/tree/test/agent-sandbox-v05-forward
 ```
 
 构建镜像：
