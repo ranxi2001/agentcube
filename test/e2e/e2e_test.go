@@ -56,6 +56,7 @@ const (
 
 	// ownerKindSandboxWarmPool is the owner reference kind for SandboxWarmPool resources
 	ownerKindSandboxWarmPool = "SandboxWarmPool"
+	ownerKindSandbox         = "Sandbox"
 
 	e2eCodeInterpreterName = "e2e-code-interpreter"
 )
@@ -1181,57 +1182,95 @@ func (ctx *e2eTestContext) countSandboxClaims(namespace, codeInterpreterName str
 
 // countWarmPoolPods counts the number of warmpool pods for a given CodeInterpreter
 func (ctx *e2eTestContext) countWarmPoolPods(namespace, codeInterpreterName string) (int, error) {
-	listCtx := context.Background()
-
-	// List all pods in namespace
-	podList, err := ctx.kubeClient.CoreV1().Pods(namespace).List(
-		listCtx,
-		metav1.ListOptions{},
-	)
+	pods, err := ctx.listWarmPoolPods(namespace, codeInterpreterName)
 	if err != nil {
-		return 0, fmt.Errorf("failed to list pods: %w", err)
+		return 0, err
 	}
 
-	count := 0
-	for _, pod := range podList.Items {
-		for _, owner := range pod.OwnerReferences {
-			if owner.Kind == ownerKindSandboxWarmPool && owner.Name == codeInterpreterName {
-				count++
-				break
-			}
-		}
-	}
-
-	return count, nil
+	return len(pods), nil
 }
 
 // getWarmPoolPodNames returns the names of warmpool pods for a given CodeInterpreter
 func (ctx *e2eTestContext) getWarmPoolPodNames(namespace, codeInterpreterName string) ([]string, error) {
+	pods, err := ctx.listWarmPoolPods(namespace, codeInterpreterName)
+	if err != nil {
+		return nil, err
+	}
+
+	podNames := make([]string, 0, len(pods))
+	for _, pod := range pods {
+		podNames = append(podNames, pod.Name)
+	}
+
+	return podNames, nil
+}
+
+// listWarmPoolPods returns pods that still belong to the warm pool.
+//
+// agent-sandbox v0.3+ models the pool as SandboxWarmPool -> Sandbox -> Pod,
+// while older releases used direct Pod ownership in some paths. Keep both
+// checks so this e2e helper can validate either controller shape.
+func (ctx *e2eTestContext) listWarmPoolPods(namespace, codeInterpreterName string) ([]corev1.Pod, error) {
 	listCtx := context.Background()
 
-	podList, err := ctx.kubeClient.CoreV1().Pods(namespace).List(
-		listCtx,
-		metav1.ListOptions{},
-	)
+	sandboxList := &sandboxv1alpha1.SandboxList{}
+	if err := ctx.ctrlClient.List(listCtx, sandboxList, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list sandboxes: %w", err)
+	}
+
+	warmPoolSandboxUIDs := make(map[string]struct{}, len(sandboxList.Items))
+	for _, sandbox := range sandboxList.Items {
+		if isWarmPoolSandbox(sandbox, codeInterpreterName) {
+			warmPoolSandboxUIDs[string(sandbox.UID)] = struct{}{}
+		}
+	}
+
+	podList, err := ctx.kubeClient.CoreV1().Pods(namespace).List(listCtx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", err)
 	}
 
-	podNames := make([]string, 0, len(podList.Items))
+	pods := make([]corev1.Pod, 0, len(podList.Items))
+	seen := make(map[string]struct{}, len(podList.Items))
 	for _, pod := range podList.Items {
-		isWarmPool := false
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
 		for _, owner := range pod.OwnerReferences {
-			if owner.Kind == ownerKindSandboxWarmPool && owner.Name == codeInterpreterName {
-				isWarmPool = true
+			if isWarmPoolPodOwner(owner, codeInterpreterName, warmPoolSandboxUIDs) {
+				if _, ok := seen[pod.Name]; !ok {
+					pods = append(pods, pod)
+					seen[pod.Name] = struct{}{}
+				}
 				break
 			}
 		}
-		if isWarmPool {
-			podNames = append(podNames, pod.Name)
-		}
 	}
 
-	return podNames, nil
+	return pods, nil
+}
+
+func isWarmPoolSandbox(sandbox sandboxv1alpha1.Sandbox, codeInterpreterName string) bool {
+	if sandbox.DeletionTimestamp != nil || sandbox.UID == "" {
+		return false
+	}
+	for _, owner := range sandbox.OwnerReferences {
+		if owner.Kind == ownerKindSandboxWarmPool && owner.Name == codeInterpreterName {
+			return true
+		}
+	}
+	return false
+}
+
+func isWarmPoolPodOwner(owner metav1.OwnerReference, codeInterpreterName string, sandboxUIDs map[string]struct{}) bool {
+	if owner.Kind == ownerKindSandboxWarmPool && owner.Name == codeInterpreterName {
+		return true
+	}
+	if owner.Kind != ownerKindSandbox {
+		return false
+	}
+	_, ok := sandboxUIDs[string(owner.UID)]
+	return ok
 }
 
 // waitForWarmPoolReady waits for the warmpool to have the expected number of ready pods
@@ -1263,34 +1302,19 @@ func (ctx *e2eTestContext) waitForWarmPoolReady(namespace, codeInterpreterName s
 
 // arePodsReady checks if warmpool pods are ready
 func (ctx *e2eTestContext) arePodsReady(namespace, codeInterpreterName string) (bool, error) {
-	listCtx := context.Background()
-
-	podList, err := ctx.kubeClient.CoreV1().Pods(namespace).List(
-		listCtx,
-		metav1.ListOptions{},
-	)
+	pods, err := ctx.listWarmPoolPods(namespace, codeInterpreterName)
 	if err != nil {
-		return false, fmt.Errorf("failed to list pods: %w", err)
+		return false, err
 	}
 
 	warmPoolPods := 0
 	readyPods := 0
-	for _, pod := range podList.Items {
-		isWarmPool := false
-		for _, owner := range pod.OwnerReferences {
-			if owner.Kind == "SandboxWarmPool" && owner.Name == codeInterpreterName {
-				isWarmPool = true
+	for _, pod := range pods {
+		warmPoolPods++
+		for _, condition := range pod.Status.Conditions {
+			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+				readyPods++
 				break
-			}
-		}
-
-		if isWarmPool {
-			warmPoolPods++
-			for _, condition := range pod.Status.Conditions {
-				if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
-					readyPods++
-					break
-				}
 			}
 		}
 	}
