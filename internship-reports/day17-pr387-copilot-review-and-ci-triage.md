@@ -760,3 +760,39 @@ Fork PR：
 | `Agentcube E2E Tests` / `e2e-test` | success |
 
 结论：`upstream/main a31651e` + #387 rebased adaptation + `5867183` review-fix commit 已在 fork CI 中完整通过，包括 e2e、coverage、golangci-lint、codegen、build 和 spelling checks。下一步可以准备在用户确认后 clean-update upstream PR #387。
+
+## Upstream PR #387 Updated
+
+用户确认后，已更新 upstream PR #387：
+
+- PR：[volcano-sh/agentcube#387](https://github.com/volcano-sh/agentcube/pull/387)
+- Branch：`ranxi2001:feat/agent-sandbox-latest`
+- Old head：`531635840f56845c4dc1435e9f3f2849e9287077`
+- New head：`58671839c80bb3716146c88de0b5f7ab119b749f`
+- Base：`a31651e5aba6ab0ce6ef854ffdb724146b40af5b`，即 #391 合并后的 Go 1.26.4 baseline
+- Push command：`git push --force-with-lease=refs/heads/feat/agent-sandbox-latest:531635840f56845c4dc1435e9f3f2849e9287077 origin HEAD:refs/heads/feat/agent-sandbox-latest`
+
+PR body 已按用户要求编辑：
+
+- 删除旧的 `Go 1.26.2` / “requires Go 1.26.2” / Docker builder Go 版本问题描述。
+- 保留 agent-sandbox / Kubernetes / controller-runtime dependency stack 影响说明。
+- 加入 fork CI validation PR #4 和本地验证命令。
+- 保持官方 PR template 结构和 release-note block。
+
+最终 upstream checks：
+
+| Check | Result |
+| --- | --- |
+| `DCO` | success |
+| `Approve workflows based on contributor status` | success |
+| `Check for spelling errors` | success |
+| `Codegen Check` | success |
+| `Python Lint` | success |
+| `build` | success |
+| `build` | success |
+| `coverage` | success |
+| `e2e-test` | success |
+| `golangci-lint` | success |
+| `python-sdk-tests` | success |
+
+当前状态：测试和自动检查已全绿；GitHub API `mergeable_state` 仍显示 `unstable`，预期是因为还需要 maintainer review / `lgtm` / `approve` / tide 门禁，不是测试失败。
