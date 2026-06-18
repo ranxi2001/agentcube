@@ -20,9 +20,32 @@ Use this skill for AgentCube upstream PR work: branch prep, template filling, is
 - Use the community role table there to separate human reviewer guidance from automation bot, CI, merge gate, and AI reviewer comments.
 - Upstream PRs must use English.
 - Use clean topic branches from `upstream/main`; do not open PRs from fork `main`.
+- Do not open an upstream PR, draft PR, WIP PR, issue, or upstream review/comment without explicit user confirmation immediately before posting. Prepare the branch, diff, tests, and exact body/comment locally first, then ask for approval.
+- Prefer fork-only validation for CI experiments. Use fork branches, fork PRs, local Actions, or local tests to validate uncertain fixes before involving `volcano-sh/agentcube`.
+- Open upstream PRs only when the change is ready for community review or the user explicitly asks to involve upstream. Do not create upstream PRs merely to trigger CI for a private validation path.
 - Keep internship reports, raw benchmark results, and Chinese-only notes out of upstream PRs unless explicitly intended.
 - For other contributors' PRs, do not draft comments, conclusions, or review suggestions until you have read the PR body, changed files, proposal/design docs, key implementation/tests, and existing human review discussion.
+- For read-only analysis of another PR or issue, keep notes local unless a maintainer response is genuinely needed and the user approves posting.
 - Prefer script-first PR analysis. If status checks, file summaries, review comment filtering, CI state, or branch hygiene checks are repeated across PRs, improve `.agents/skills/agentcube-pr-management/scripts/` and update this skill instead of redoing the same manual analysis.
+
+## Upstream Posting Gate
+
+Before any upstream-facing action, stop and ask the user to approve the exact action:
+
+- Creating an upstream PR, including draft or WIP PRs.
+- Opening an issue or proposal.
+- Posting an issue comment, PR comment, review comment, `/assign`, `/lgtm`, reviewer request, or maintainer mention.
+- Pushing to an upstream-facing PR branch when the push will notify reviewers or update an open upstream PR.
+
+Approval request must include:
+
+- Target repo and branch.
+- Whether it is upstream-facing or fork-only.
+- Title and full body/comment, using the official template when applicable.
+- Diff summary and tests run.
+- Why upstream attention is needed now.
+
+If the goal is only to run CI, use fork CI first. Do not ask maintainers to validate work that can be validated in the fork.
 
 ## Branch Workflow
 
@@ -50,6 +73,88 @@ git push origin <branch>
 Do not push to `upstream`.
 
 All upstream PR commits must satisfy DCO. Use `git commit -s` by default. If a commit is missing `Signed-off-by` and the branch is only used by the author, repair it with `git commit --amend --no-edit --signoff` for the latest commit or `git rebase HEAD~N --signoff` for multiple commits, then update the PR branch with `git push --force-with-lease`.
+
+## Follow-up Fix Branching
+
+When an open PR receives CI failures, AI review comments, or maintainer feedback, do not automatically keep adding commits to that PR branch. First classify the requested change by dependency direction and repository cleanliness. The goal is not to avoid all updates to an existing PR; the goal is to keep the upstream branch graph clean and prove independent prerequisites on `upstream/main` before feature branches depend on them.
+
+| Feedback type | Preferred action |
+| --- | --- |
+| Fixes code introduced by the current PR and is required for that PR to be correct | Create a temporary fork validation branch from the PR head, implement and validate there, then port the cleaned fix back into the original PR branch with a rebase/squash/cherry-pick after tests pass and the user approves updating the upstream PR. |
+| Independent prerequisite or repository-level compatibility change that the original project should support on its own, such as a Go/toolchain upgrade required before a dependency upgrade | Create a pure branch from latest `upstream/main` containing only that prerequisite. Prove the original project builds/tests under the new prerequisite. After that focused PR merges, rebase the dependent feature PR onto the updated `main`. |
+| Exposes a general repo issue not caused by the PR, such as CI toolchain drift, flaky shared test infrastructure, or unrelated cleanup | Validate in the fork first. Create a separate focused upstream PR from `upstream/main` only after the user approves that upstream review is needed; after it merges, rebase the original PR. |
+| Adds a new feature, broad refactor, or follow-up improvement beyond the PR scope | Open a new issue/PR or record as follow-up; do not expand the existing PR. |
+| Human maintainer explicitly asks for a change inside the current PR | Follow the maintainer request, but still keep commits clean and avoid unrelated work. |
+
+Validation branch flow for fixes that belong to the current PR:
+
+```bash
+git fetch origin upstream main
+git switch <original-pr-branch>
+git pull --ff-only origin <original-pr-branch>
+git switch -c fix/<pr-number>-review-feedback
+# edit and test on the temporary branch
+git commit -s -m "fix: address <pr-number> review feedback"
+```
+
+Only after the fix is validated, update the original PR branch in a clean way:
+
+```bash
+git switch <original-pr-branch>
+# port the validated fix commit(s), then squash/rebase as appropriate for review clarity
+git cherry-pick <validated-fix-commit>
+git push --force-with-lease origin <original-pr-branch>
+```
+
+Separate PR flow for fixes that should stand on their own:
+
+```bash
+git fetch upstream main
+git switch -c fix/<short-independent-issue> upstream/main
+# apply only the independent fix
+git commit -s -m "fix: <summary>"
+git push origin fix/<short-independent-issue>
+```
+
+After the separate PR merges:
+
+```bash
+git switch <original-pr-branch>
+git fetch upstream main
+git rebase upstream/main
+git push --force-with-lease origin <original-pr-branch>
+```
+
+For prerequisite upgrades, keep the branch minimal. Example: if `agent-sandbox` requires a newer Go version, first create a standalone Go/toolchain upgrade branch from `upstream/main`, update only the project/toolchain files needed for the original project to build and test, and prove the unmodified original project works with the new Go version. Do not inherit the dependency-upgrade feature branch just to test the prerequisite. Once the prerequisite PR merges, rebase the dependency-upgrade PR onto `main`.
+
+For open-source review hygiene, prefer smaller, focused PRs over one long-running PR that accumulates review fixes, CI infrastructure changes, unrelated cleanup, and follow-up features. If a fix is only used to validate a path before rebasing back into the original PR, keep the validation in the fork and record it in the local internship report so later reviewers can reconstruct why the branch existed.
+
+### Go / Toolchain Upgrade Pattern
+
+For Go version upgrades, do not blindly choose the minimum version required by a dependency. Check the current stable Go release from the official Go release feed, then choose a stable patch version that is defensible for the project.
+
+Keep the Go version source centralized:
+
+- Prefer `go.mod` as the source of truth for GitHub Actions Go setup.
+- In workflows, use `actions/setup-go` with `go-version-file: go.mod` instead of repeating `go-version: "..."` across multiple files.
+- Keep Docker builder image tags aligned with the chosen Go version, because Dockerfiles cannot read `go.mod` automatically.
+- Run `go mod tidy` with the target Go version and keep its normalization result unless it introduces unrelated dependency drift.
+
+Recommended validation for a pure Go/toolchain prerequisite PR:
+
+```bash
+export GOTOOLCHAIN=go<version>
+go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+go test -race -v -coverprofile=coverage.out -coverpkg=./pkg/... ./pkg/...
+make build-all
+make lint
+make gen-check
+docker build -f docker/Dockerfile -t agentcube-go<version>-workloadmanager:test .
+docker build -f docker/Dockerfile.router -t agentcube-go<version>-router:test .
+docker build -f docker/Dockerfile.picod -t agentcube-go<version>-picod:test .
+```
+
+Validate the branch in the fork first. If replacing an earlier trial PR, open a new clean fork PR and mark the old fork PR as superseded so reviewers and CI evidence do not point at the wrong Go patch version.
 
 ## PR Planning Checklist
 
@@ -131,7 +236,7 @@ Let the bot guide exact approval requirements; do not over-tag reviewers unless 
 
 ## PR Template
 
-Use this structure:
+Always use the repository's official `.github/PULL_REQUEST_TEMPLATE.md` exactly as the base for upstream PRs, including draft and WIP PRs. Do not replace it with a self-designed style. Fill every section; use `NONE` inside the release-note block when there is no user-facing change.
 
 ````md
 **What type of PR is this?**
@@ -160,6 +265,8 @@ NONE
 
 For partial work use `Refs #<issue>` instead of `Fixes #<issue>`.
 
+If a PR is intentionally unfinished, use the community-conventional title prefix `[WIP]`, not `[DO NOT MERGE]`. A WIP PR still needs user approval before creation and must still use the official PR template. Prefer fork-only PRs for WIP validation unless upstream maintainers explicitly need to see the work.
+
 ## Local Validation Record
 
 Keep a local record in internship reports:
@@ -185,9 +292,10 @@ When review comments arrive:
 3. Group actionable comments by category: correctness, tests, style, docs, generated code, scope.
 4. Prioritize human maintainer/reviewer comments; use AI reviewer comments as a checklist only after validating the issue yourself.
 5. Treat bot comments as process or validation state, such as missing `approved`, `lgtm`, failed CI, or OWNER requirements.
-6. Apply fixes in small commits.
-7. Reply directly and specifically.
-8. Do not use AI-generated reviewer replies verbatim; author should respond.
+6. Decide whether each fix belongs in the current PR, a temporary validation branch, or a separate PR from `upstream/main`; do not keep stacking unrelated fixes onto the open PR branch.
+7. Apply fixes in small local commits on the chosen branch, validate them, then update the PR with a clean history.
+8. Reply directly and specifically.
+9. Do not use AI-generated reviewer replies verbatim; author should respond.
 
 Useful response format:
 
@@ -224,7 +332,15 @@ python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 379
 
 ## Guardrails
 
+- Do not create upstream PRs, draft PRs, WIP PRs, issues, or comments without immediate user approval of the exact title/body/comment.
+- Do not use upstream PRs as disposable CI runners. Validate in the fork first when maintainer review is not needed.
+- Do not ignore the official PR template, even for draft or WIP PRs.
+- Use `[WIP]` for unfinished upstream PRs when the user approves posting one; do not use `[DO NOT MERGE]`.
+- Do not comment on or mention maintainers in read-only PR analysis unless the user approves and upstream input is genuinely needed.
 - Do not merge unrelated formatting with behavior changes.
+- Do not treat "avoid updating one PR forever" as a blanket rule. Update the existing PR for fixes that belong to that PR; split out independent prerequisites or repository-wide compatibility changes from `upstream/main`.
+- Do not let one upstream PR accumulate unrelated review fixes, independent prerequisites, CI/toolchain repairs, broad cleanup, and new feature work.
+- Do not patch an open PR branch directly for every comment by default; use a temporary fix branch or separate PR when that keeps review scope clearer.
 - Do not include benchmark raw JSON unless upstream asked for it.
 - Do not add new dependencies casually.
 - Do not change CRDs without generated files.

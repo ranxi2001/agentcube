@@ -27,9 +27,18 @@
 - Day16 验证已通过：`go test ./pkg/workloadmanager`、`go test -race ./pkg/workloadmanager`、非 e2e Go 全量、`make build-all`、Docker build 三镜像、Helm template/lint、k3s direct CodeInterpreter e2e、warm pool e2e、warm pool load 100/100、Python SDK、LangChain sandbox、MCP HTTP/stdio、math-agent LLM e2e（OpenAI-compatible base URL 需带 `/v1`）。
 - 新增 `.agents/skills/llm-e2e-test/SKILL.md`，用于复用 AgentCube math-agent / OpenAI-compatible LLM 端到端测试流程；已通过 `quick_validate.py`。
 - Day16 `agent-sandbox v0.4.6` 适配代码已提交并 push：`/home/agentcube-agent-sandbox-latest` branch `feat/agent-sandbox-latest` commit `5316358`，DCO signoff 已包含，origin 分支已存在。Upstream PR 已创建：#387 `https://github.com/volcano-sh/agentcube/pull/387`。第一次 token API 创建返回 `401 Bad credentials`；第二次 token 创建成功。token 未落盘，临时 body 已删除，workspace 文件中未发现 GitHub token pattern；用户应 revoke / rotate 明文暴露过的 token。
-- PR #387 初始状态：open、非 draft、labels `kind/bug` / `size/XL`，DCO success；部分 CI 已成功，coverage / golangci-lint / build / e2e-test / codegen check 仍在跑，tide pending；bot 提示 review 获得 `lgtm` 后再 assign `hzxuzhonghu` approval。
+- PR #387 初始状态已更新：open、非 draft、labels `kind/bug` / `size/XL`，commit `5316358`。当前 DCO、build、e2e-test、Codegen Check、python-sdk-tests、Python Lint、codespell 已通过；失败 check 为 `coverage` 和 `golangci-lint`；bot 提示 review 获得 `lgtm` 后再 assign `hzxuzhonghu` approval。
 - 用户要求后续 GitHub API/PR 操作不再重复索要 token；本地 token 已保存到 git-ignored `.agents/.env`，变量名 `GITHUB_TOKEN` / `GH_TOKEN`，权限 `600`。只记录位置和变量名，不记录密钥值。
 - Day16 提交前新发现并修复 codegen 问题：旧 `hack/update-codegen.sh` 固定 `code-generator v0.34.1` 且用 `go get -d`，会在生成过程中把 `agent-sandbox` 降级；当前 PR 已对齐 `code-generator v0.35.4` 并改用 `go mod download`。commit 后 `make gen-check` 已通过。
+- Day17 已创建 `internship-reports/day17-pr387-copilot-review-and-ci-triage.md`：Copilot 7 条评论合并为 4 类（direct wait nil channel guard、annotation comment、e2e warm-pool UID 匹配、recordingStore 错误传播和 slice deep copy）；`golangci-lint` 失败根因初判为 workflow 用 Go 1.24 构建 linter，而 PR `go.mod` target 为 Go 1.26.2；`coverage` 失败发生在 `go test -race -coverprofile=coverage.out -coverpkg=./pkg/... ./pkg/...`，日志可见 package summary 均为 `ok`，需要 exact command 复现。
+- Mentor 建议已固化到 `.agents/skills/agentcube-pr-management/SKILL.md` 和 Day17：不要默认在已打开的 upstream PR 上不断累积 review/CI 修复；先用临时 fix branch 或独立小 PR 验证，属于原 PR 范围的再 clean rebase/squash/cherry-pick 回原 PR，通用 CI/toolchain 修复应从 `upstream/main` 单独提 PR，合并后再让原 PR rebase。
+- `/home/agentcube-agent-sandbox-latest` 已从 #387 head 创建验证分支 `fix/pr387-review-feedback`，commit `13f19e3 fix: address agent-sandbox adaptation review feedback`，并推送 fork stacked PR `https://github.com/ranxi2001/agentcube/pull/1`（base `feat/agent-sandbox-latest`，head `fix/pr387-review-feedback`）。该 commit 修复 lint/coverage workflow Go 版本、Copilot 指出的 nil watcher guard、annotation comment、warm-pool e2e UID 匹配、recordingStore error/deep copy，并降低两个 gocyclo 报警点。
+- 已按用户确认创建 upstream CI 验证 PR #390：`https://github.com/volcano-sh/agentcube/pull/390`，标题 `[DO NOT MERGE] validation for PR #387 with review fixes`，分支 `test/pr387-with-review-fixes` 基于 `upstream/main`，包含两个 commit：`2c93451`（#387 原始适配）和 `6f94052`（review/CI 修复）。该 PR 只用于跑 upstream bot/CI，不作为最终合并目标。#390 最新 CI 已全绿，包括 `coverage`、`golangci-lint` 和 `e2e-test`。
+- #390 新增 AI review 已 triage 并写入 Day17：Gemini 关于 `client-go` fake client WatchList 方法名的 `critical` 评论是误报，`client-go@v0.35.4` 和 `code-generator@v0.35.4` 实际接口/生成器均使用 `IsWatchListSemanticsUnSupported()`；Copilot 的生成代码注释评论不应在 AgentCube PR 手改。有效评论是 3 条：`waitForDirectSandboxReady` 需要处理 closed channel / nil sandbox，`waitForClaimSandboxReady` 遇到 context error 应立即返回，`hack/update-codegen.sh` 的 `sed` 解析不应依赖尾随逗号。暂不回灌 #390 到 #387。
+- #390 暴露的 upstream 协作流程问题已固化为规则：提交任何 upstream PR/draft/WIP、issue、comment、review comment、`/assign`、request review 或 mention 维护者之前必须先让用户确认完整内容；upstream PR 必须使用官方 `.github/PULL_REQUEST_TEMPLATE.md`，draft/WIP 也不能自拟风格；未完成 upstream PR 用 `[WIP]`，不用 `[DO NOT MERGE]`；只为跑 CI 时优先用 fork branch / fork PR / fork Actions / 本地测试；阅读分析别人的 PR 默认写本地报告，不需要维护者验证就不发社区。
+- 已更正“不要在一个 PR 反复更新”的理解：这不是机械禁止更新 PR。当前 PR 引入的问题可以验证后 clean update 当前 PR；需要拆出去的是独立前置条件或仓库级兼容性变化。Go/toolchain 升级属于 `agent-sandbox` 适配的独立前置条件，正确路径是从 `upstream/main` 做纯净 Go/toolchain upgrade 分支，先证明原始 AgentCube 项目在新 Go 下 build/test/lint/e2e 能跑，再让 #387 rebase 到合入后的 `main`。
+- 纯净 Go/toolchain 前置分支已按 mentor 建议重做：官方 Go feed 当前稳定版本为 `go1.26.4`，workflow 改用 `go-version-file: go.mod`，Docker builder 镜像显式对齐到 `1.26.4`。`/home/agentcube-go-toolchain-upgrade` branch `chore/go-stable-toolchain`，base `upstream/main 0fd9151`，commit `3f1a823 chore: update Go toolchain to 1.26.4`。本地验证通过：非 e2e Go tests、race coverage、`make build-all`、`make lint`、提交后 `make gen-check`、三 Docker builds、`git diff --check`。fork validation PR `https://github.com/ranxi2001/agentcube/pull/3` CI 全绿：codespell、Codegen Check、Python Lint、两个 build、coverage、e2e-test、golangci-lint、python-sdk-tests。旧 1.26.2 fork PR #2 已关闭为 superseded。
+- 用户确认后已创建 upstream Go/toolchain PR #391：`https://github.com/volcano-sh/agentcube/pull/391`，title `chore: update Go toolchain to 1.26.4`，branch `ranxi2001:chore/go-stable-toolchain` -> `volcano-sh:main`，label `kind/cleanup`。所有 checks 已成功：DCO、workflow approval、codespell、Codegen、Python Lint、两个 build、coverage、e2e-test、golangci-lint、python-sdk-tests。新增 Copilot 评论建议把 `build-push-release.yml` 的 Node16 actions (`checkout@v3`/`setup-go@v4`) 升级；已回复说明本 PR 暂不扩大范围，action runtime modernization 可另做 follow-up。
 - PR #385 已按 Gemini 建议更新：`WarmPoolNotFound` condition 保留，但不再记录 Warning Event。
 - PR #385 最新 commit `d885b4e` 已 push，DCO 漏签已用 `git commit --amend --no-edit --signoff` 修复。
 - PR #385 Gemini thread 已回复，附了 focused tests、`go test ./pkg/workloadmanager` 和 `git diff --check`。
@@ -42,6 +51,7 @@
 - kind 标准 Kubernetes 在本机 kubelet cgroup/QoS 初始化处失败；KWOK 只能用于调度语义，不等同完整 K8s 实测。
 - kind 标准集群创建仍在本机 kubelet/cgroup 环境处失败；Day16 真实 runtime 验证改用已有 k3s。不能把 kind 失败描述成 AgentCube 代码失败。
 - PR #385 当前主要等待 maintainer review、`/lgtm`、`/approve` 和 tide 合并门禁。
+- 当前 Codex shell 默认 `PATH` 里没有 `go`，但可通过 `/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.2.linux-amd64/bin` 使用 Go 1.26.2。全量 `go test ./...` 会因本机未启动 Router/WorkloadManager、无 kubeconfig 而在 `test/e2e` 失败；排除 e2e 的全量 Go 测试已通过。
 
 ## Ruled Out
 
@@ -51,7 +61,7 @@
 
 ## Next
 
-- 优先跟踪 PR #387 的 CI、review comments、Codecov / golangci-lint / e2e / codegen check 和 bot 流程；有失败先读日志定位，不急着回复。获得 `lgtm` 后再按 bot 提示 assign `hzxuzhonghu` approval。
+- 纯净 Go/toolchain upgrade upstream PR #391 已创建且 CI 全绿。下一步等待 maintainer review / `lgtm` / approval；如要处理 Copilot 的 Node16 action modernization 建议，先让用户确认是否追加到 #391 或另开后续 PR。不要未经用户确认继续发评论或改 upstream PR。#390 中 3 条有效 Gemini 评论后续作为 #387 自身修复项处理。
 - 根据 2026-06-17 例会纪要，把 `Sleep/Resume`、E2B-compatible API / SDK / template 分别拆成可公开讨论的英文 proposal / issue comment；`agent-sandbox` 适配已进入代码分支推进。
 - 与 FAUST-BENCHOU 讨论 Sleep/Resume 时优先确认第一版语义：是否接受基于 `Sandbox.spec.replicas=0/1` 的 stop/recreate，`context` 是否仅指 workspace/PVC，是否新增 `pauseTimeout`，warm-pool-backed CodeInterpreter 是否纳入第一版。
 - 建议把 #386 两个方向作为同一 v0.2.0 epic 的两个子任务讨论：先定 agent-sandbox target version / compatibility foundation，再做 AgentCube Sleep/Resume lifecycle。
