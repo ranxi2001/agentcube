@@ -284,7 +284,9 @@ git diff --check
 ```
 
 6. Run `make gen-check` in a temporary detached worktree before committing conclusions. If `hack/update-codegen.sh` is pinned to an older Kubernetes code-generator, it can mutate `go.mod` and even downgrade `agent-sandbox`; record that as a codegen/tooling requirement, not as a business-logic failure.
-7. Compare changed file counts by category: dependency files, hand-written production code, tests, generated files, and scripts. Use this to explain why a final upstream PR is larger than an intermediate compile fix.
+7. Do not run generator targets concurrently in the same worktree. `make gen-check`, `make build-all`, and other targets that depend on `generate` may all run `controller-gen` and `go mod tidy`; parallel execution can read a transient generated-code state and produce a misleading failure.
+8. After fixing codegen drift, rerun `make gen-check` and update the local report from "blocked by codegen" to the final pass/fail state. Keep the original failure as a process note, not the final validation status.
+9. Compare changed file counts by category: dependency files, hand-written production code, tests, generated files, and scripts. Use this to explain why a final upstream PR is larger than an intermediate compile fix.
 
 ```bash
 GOBIN=/root/go/bin go install github.com/k3d-io/k3d/v5@latest
