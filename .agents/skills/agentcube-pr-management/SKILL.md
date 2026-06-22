@@ -280,6 +280,7 @@ go test ./pkg/workloadmanager ./cmd/workload-manager ./cmd/agentd -count=1
 go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
 go test ./test/e2e -run '^$' -count=1
 make build-all
+make lint
 git diff --check
 ```
 

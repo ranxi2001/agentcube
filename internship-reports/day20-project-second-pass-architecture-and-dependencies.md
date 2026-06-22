@@ -308,7 +308,12 @@ AgentCube 对 agent-sandbox 的依赖不是一个单纯 module import：
 为了避免把 `v0.1.1 -> v0.4.6` 的所有变化揉成一个大 diff，今天按版本演进补了两个干净实验分支：
 
 - `/home/agentcube-agent-sandbox-v02`：branch `test/agent-sandbox-v02-adaptation`，commit `a4506d6`，目标 `sigs.k8s.io/agent-sandbox v0.2.1`。
-- `/home/agentcube-agent-sandbox-v03`：branch `test/agent-sandbox-v03-adaptation`，head `44f473c`，目标 `sigs.k8s.io/agent-sandbox v0.3.10`。其中 `02cfae5` 是 runtime-aware 适配，`44f473c` 是 codegen 闭环修复。
+- `/home/agentcube-agent-sandbox-v03`：branch `test/agent-sandbox-v03-adaptation`，head `142c56e`，目标 `sigs.k8s.io/agent-sandbox v0.3.10`。其中 `02cfae5` 是 runtime-aware 适配，`44f473c` 是 codegen 闭环修复，`142c56e` 是 fork CI 暴露后的 lint 最小修复。
+
+两个分段实验已推到 fork 并创建 fork-only 归档 PR，用于保留阶段性 diff 和触发 fork CI，不作为 upstream review 请求：
+
+- `v0.2.1`：fork PR [ranxi2001/agentcube#6](https://github.com/ranxi2001/agentcube/pull/6)，base `main`，head `test/agent-sandbox-v02-adaptation`。
+- `v0.3.10`：fork PR [ranxi2001/agentcube#7](https://github.com/ranxi2001/agentcube/pull/7)，base `main`，head `test/agent-sandbox-v03-adaptation`。
 
 版本来源：
 
@@ -426,24 +431,26 @@ Pod belongs to actual Sandbox
 补齐 codegen 后的最终 diff：
 
 ```text
-client-go/clientset/versioned/fake/clientset_generated.go          |  17 ++-
+client-go/clientset/versioned/fake/clientset_generated.go          |  17 +-
 client-go/informers/externalversions/factory.go                    |   3 +-
 client-go/informers/externalversions/runtime/v1alpha1/agentruntime.go | 4 +-
 client-go/informers/externalversions/runtime/v1alpha1/codeinterpreter.go | 4 +-
-go.mod                                                            |  43 ++----
-go.sum                                                            | 141 +++++-------------
+go.mod                                                            |  43 ++---
+go.sum                                                            | 141 +++++-----------
 hack/update-codegen.sh                                            |   6 +-
-manifests/charts/base/crds/...agentruntimes.yaml                  |  71 ++++++++-
+manifests/charts/base/crds/...agentruntimes.yaml                  |  71 +++++++-
 pkg/workloadmanager/codeinterpreter_controller.go                 |  15 +-
-pkg/workloadmanager/codeinterpreter_controller_test.go            |  86 +++++++++++
-pkg/workloadmanager/handlers.go                                   | 153 ++++++++++++++-----
-pkg/workloadmanager/handlers_test.go                              | 164 ++++++++++++++++++++-
+pkg/workloadmanager/codeinterpreter_controller_test.go            |  86 ++++++++++
+pkg/workloadmanager/handlers.go                                   | 186 +++++++++++++++------
+pkg/workloadmanager/handlers_test.go                              | 164 +++++++++++++++++-
+pkg/workloadmanager/informers_test.go                             |   3 +-
 pkg/workloadmanager/k8s_client.go                                 |  28 ++++
 pkg/workloadmanager/sandbox_helper.go                             |   5 +
-14 files changed, 554 insertions(+), 186 deletions(-)
+pkg/workloadmanager/workload_builder_test.go                      |  22 ++-
+16 files changed, 590 insertions(+), 208 deletions(-)
 ```
 
-其中手写生产代码是 4 个文件：`handlers.go`、`k8s_client.go`、`sandbox_helper.go`、`codeinterpreter_controller.go`。测试 2 个文件，依赖 2 个文件，codegen 脚本 1 个文件，generated files 5 个文件。
+其中手写生产代码是 4 个文件：`handlers.go`、`k8s_client.go`、`sandbox_helper.go`、`codeinterpreter_controller.go`。测试 4 个文件，依赖 2 个文件，codegen 脚本 1 个文件，generated files 5 个文件。`informers_test.go` / `workload_builder_test.go` 的新增改动来自 fork CI 的 `golangci-lint`：Kubernetes 官方 fake client 从 `NewSimpleClientset` 切到 `NewClientset`，AgentCube 自己生成的 fake client 暂无 `NewClientset`，所以集中封装并在 helper 上加局部 `nolint:staticcheck` 说明原因。
 
 测试结果：
 
@@ -453,10 +460,43 @@ go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go 
 go test ./test/e2e -run '^$' -count=1
 make build-all
 make gen-check
+make lint
 git diff --check
 ```
 
 结果均通过。
+
+fork PR #7 第一次 CI 暴露了本地静态验证未覆盖的 lint 问题：
+
+```text
+pkg/workloadmanager/workload_builder_test.go:393: SA1019: cubefake.NewSimpleClientset is deprecated
+pkg/workloadmanager/workload_builder_test.go:353: SA1019: cubefake.NewSimpleClientset is deprecated
+pkg/workloadmanager/informers_test.go:70: SA1019: cubefake.NewSimpleClientset is deprecated
+pkg/workloadmanager/informers_test.go:66: SA1019: fake.NewSimpleClientset is deprecated
+pkg/workloadmanager/handlers.go:96: cyclomatic complexity 16 of func `(*Server).handleSandboxCreate` is high (> 15)
+```
+
+修复方式：
+
+- 官方 `k8s.io/client-go/kubernetes/fake` 改用 `fake.NewClientset()`。
+- AgentCube generated fake client 只有 `NewSimpleClientset`，没有 `NewClientset`，因此封装 `newCubeClientset` 并在 helper 处写局部 `nolint:staticcheck`，避免在每个调用点重复豁免。
+- `handleSandboxCreate` 抽出 `resolveSandboxOwnerID`，只降低复杂度，不改变身份解析语义。
+
+修复后本地补跑：
+
+```bash
+go test ./pkg/workloadmanager -count=1
+make lint
+go test ./cmd/workload-manager ./cmd/agentd -count=1
+go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+go test ./test/e2e -run '^$' -count=1
+make gen-check
+make build-all
+git diff --check
+git diff --exit-code
+```
+
+结果均通过，commit 为 `142c56e test: fix v0.3 adaptation lint`。
 
 过程卡点：第一次跑 `make gen-check` 失败，失败原因不是业务代码，而是旧 `hack/update-codegen.sh` 固定 `CODEGEN_VERSION="v0.34.1"`，并执行：
 
@@ -491,7 +531,7 @@ go: downgraded sigs.k8s.io/controller-runtime v0.23.3 => v0.22.4
 | `v0.3.10` | `pkg/workloadmanager/k8s_client.go` | WorkloadManager 需要通过 dynamic client 读取 `SandboxClaim` 和实际 `Sandbox`，不能只靠 watcher 等同名对象 | workloadmanager 单测和非 e2e 全量通过 |
 | `v0.3.10` | `pkg/workloadmanager/sandbox_helper.go` | warm-pool path 需要保留 placeholder 的 `CreatedAt` / `ExpiresAt`，避免 adopted Sandbox 时间字段覆盖 AgentCube session TTL | claim path 单测覆盖 |
 | `v0.3.10` | `pkg/workloadmanager/codeinterpreter_controller.go` | 0.3 已有 `NetworkPolicyManagement`，默认 `Managed` 可能阻断 AgentCube Router / WorkloadManager 到 sandbox Pod 的访问路径；当前 AgentCube 需要显式 `Unmanaged` | SandboxTemplate 单测覆盖 |
-| `v0.3.10` | `pkg/workloadmanager/*_test.go` | 新增行为不是语法迁移，必须固定 claim/adopted Sandbox、delete name、NetworkPolicy opt-out、watcher failure 语义 | 新增单测通过 |
+| `v0.3.10` | `pkg/workloadmanager/*_test.go` | 新增行为不是语法迁移，必须固定 claim/adopted Sandbox、delete name、NetworkPolicy opt-out、watcher failure 语义；Kubernetes 0.35 lint 还要求处理 `NewSimpleClientset` deprecation | 新增单测和 `make lint` 通过 |
 | `v0.3.10` | `hack/update-codegen.sh` | 旧脚本固定 `code-generator@v0.34.1` 且用 `go get -d`，会把 `agent-sandbox v0.3.10` 降级到 `v0.2.1` | 修复后 `make gen-check` 通过 |
 | `v0.3.10` | `client-go/...`、`manifests/charts/base/crds/...` | Kubernetes 0.35 generator 和 OpenAPI schema 变化导致 generated diff；正式 PR 必须提交生成结果 | `make gen-check` 通过 |
 | `v0.4.6` | 继承 0.3 的全部 runtime-aware 改动 | 0.4.6 仍是 `v1alpha1`，warm pool adoption / claim status / NetworkPolicy 问题同类 | #387 已验证 |
@@ -503,6 +543,13 @@ go: downgraded sigs.k8s.io/controller-runtime v0.23.3 => v0.22.4
 | `v0.5.0rc1` | e2e install manifest / clean cluster CRD 策略 | rc1 manifest 是 v1beta1-only，已有 v1alpha1 CRD 集群存在 `storedVersions` 原地升级问题 | Day18 clean k3d 验证通过，原地升级未覆盖 |
 
 本轮 0.2 / 0.3 的“跑通”范围是本地静态、生成、构建和单元级验证；没有重新跑真实 k3s/k3d runtime e2e。真实 runtime e2e、SDK、MCP、math-agent 的完整证据目前主要来自 #387 的 `v0.4.6` 和 Day18 的 `v0.5.0rc1` 实验。
+
+2026-06-22 又补了 fork PR 存档：#6 / #7 的目的不是合并到 fork `main`，而是让 GitHub Actions 对两个 checkpoint 独立跑一遍，形成可链接的 CI 证据。PR title 使用 `[WIP]`，避免误合并这些中间态适配分支。
+
+最终 fork CI 结果：
+
+- [ranxi2001/agentcube#6](https://github.com/ranxi2001/agentcube/pull/6)：head `a4506d6`，9/9 checks 全部通过，包括 build、coverage、e2e-test、golangci-lint、Codegen Check。
+- [ranxi2001/agentcube#7](https://github.com/ranxi2001/agentcube/pull/7)：第一次 fork CI 失败在 `golangci-lint`，已由 `142c56e` 修复；最终 head `142c56e`，10/10 checks 全部通过，包括 build、coverage、e2e-test、golangci-lint、Codegen Check。
 
 ### 与 #387 v0.4.6 的对比
 
@@ -524,7 +571,7 @@ go: downgraded sigs.k8s.io/controller-runtime v0.23.3 => v0.22.4
 | 阶段 | 主要变化 | 文件数量 | 结论 |
 | --- | --- | --- | --- |
 | `v0.1.1 -> v0.2.1` | 依赖更新，API 仍兼容 | 2 | 静态适配几乎无代码改动 |
-| `v0.2.1 -> v0.3.10` | warm pool 改为 full Sandbox adoption；annotation 常量迁公开 API；NetworkPolicy default 风险出现；K8s 0.35 生成链路变化 | 14 | 开始需要 runtime-aware 代码适配、单测、codegen 脚本和 generated files |
+| `v0.2.1 -> v0.3.10` | warm pool 改为 full Sandbox adoption；annotation 常量迁公开 API；NetworkPolicy default 风险出现；K8s 0.35 生成链路变化；lint 开始暴露 fake client deprecation / handler complexity | 16 | 开始需要 runtime-aware 代码适配、单测、codegen 脚本、generated files 和 lint 闭环 |
 | `v0.3.10 -> v0.4.6` | 依赖 patch 继续升级；正式 PR 需要 codegen / generated / e2e 闭环 | 15 | review 重点是生成链路和运行证据，不只是业务代码 |
 | `v0.4.6 -> v0.5.0rc1` | `v1alpha1 -> v1beta1`、`TemplateRef -> WarmPoolRef`、`Replicas -> OperatingMode` | 另见 Day18 | 不应混入 #387，应该独立 follow-up |
 
