@@ -20,6 +20,7 @@ Use this skill for AgentCube upstream PR work: branch prep, template filling, is
 - Use the community role table there to separate human reviewer guidance from automation bot, CI, merge gate, and AI reviewer comments.
 - Upstream PRs must use English.
 - Use clean topic branches from `upstream/main`; do not open PRs from fork `main`.
+- Treat fork `main` as a clean mirror of `upstream/main`. Keep internship reports, local benchmark records, Chinese notes, and local skills on fork `intern`, not on `main`.
 - Do not open an upstream PR, draft PR, WIP PR, issue, or upstream review/comment without explicit user confirmation immediately before posting. Prepare the branch, diff, tests, and exact body/comment locally first, then ask for approval.
 - Prefer fork-only validation for CI experiments. Use fork branches, fork PRs, local Actions, or local tests to validate uncertain fixes before involving `volcano-sh/agentcube`.
 - For GitHub Actions configured on `pull_request`, pushing a fork branch is not enough to run the full CI matrix. Create a fork PR against `main` or a `release-*` base branch to trigger workflows that filter pull request base branches.
@@ -49,6 +50,12 @@ Approval request must include:
 If the goal is only to run CI, use fork CI first. Do not ask maintainers to validate work that can be validated in the fork.
 
 ## Branch Workflow
+
+Fork branch roles:
+
+- `origin/main`: clean mirror of `upstream/main`; reset it to `upstream/main` with `git reset --hard upstream/main` and push with `--force-with-lease` when syncing.
+- `origin/intern`: internship reports, local benchmark evidence, Chinese notes, local skills, and task tracking; rebase this branch onto `upstream/main` when it needs current project code.
+- Upstream PR topic branches: clean branches from `upstream/main` containing one focused change; never branch them from `intern`.
 
 ```bash
 git fetch upstream main
