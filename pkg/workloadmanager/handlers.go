@@ -114,19 +114,10 @@ func (s *Server) handleSandboxCreate(c *gin.Context, kind string) {
 	var sandboxEntry *sandboxEntry
 	var err error
 
-	ownerID, err := extractOwnerID(c.Request)
-	if err != nil {
-		if errors.Is(err, ErrNoIdentityHeader) {
-			ownerID = ""
-		} else if errors.Is(err, ErrPublicKeyNotCached) {
-			klog.Errorf("Failed to extract owner ID: %v", err)
-			respondError(c, http.StatusServiceUnavailable, "identity verifier not ready")
-			return
-		} else {
-			klog.Errorf("Failed to extract owner ID: %v", err)
-			respondError(c, http.StatusUnauthorized, "invalid identity token")
-			return
-		}
+	ownerID, statusCode, errMsg := resolveSandboxOwnerID(c.Request)
+	if statusCode != 0 {
+		respondError(c, statusCode, errMsg)
+		return
 	}
 
 	switch sandboxReq.Kind {
@@ -182,6 +173,22 @@ func (s *Server) handleSandboxCreate(c *gin.Context, kind string) {
 	}
 
 	respondJSON(c, http.StatusOK, response)
+}
+
+func resolveSandboxOwnerID(r *http.Request) (string, int, string) {
+	ownerID, err := extractOwnerID(r)
+	if err == nil {
+		return ownerID, 0, ""
+	}
+	if errors.Is(err, ErrNoIdentityHeader) {
+		return "", 0, ""
+	}
+
+	klog.Errorf("Failed to extract owner ID: %v", err)
+	if errors.Is(err, ErrPublicKeyNotCached) {
+		return "", http.StatusServiceUnavailable, "identity verifier not ready"
+	}
+	return "", http.StatusUnauthorized, "invalid identity token"
 }
 
 func (s *Server) respondSandboxCreateError(c *gin.Context, sandbox *sandboxv1alpha1.Sandbox, err error) {
