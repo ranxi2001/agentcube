@@ -61,6 +61,7 @@
 - 用户确认后已 push #387 注释对齐 commit `bc8e85b docs: align sandbox pod annotation comment` 到 `origin/feat/agent-sandbox-latest`。该 commit 只修改 `pkg/workloadmanager/handlers.go` 注释：从硬编码 `agents.x-k8s.io/pod-name` 改为引用 `sandboxv1alpha1.SandboxPodNameAnnotation`，用于回应 Copilot 的低风险注释维护性建议。验证通过：`go test ./pkg/workloadmanager -count=1`、`git diff --check`。PR #387 当前 head 为 `bc8e85b`，changed files 仍为 15。
 - PR skill 已强化最小修原则：fix/feature/compatibility PR 默认把 upstream base 当作稳定基线，只改解决目标问题必需的最少文件；代码清洁、格式、镜像卫生、注释润色、无关 refactor 不应夹带在功能/修复 PR 中，目标测试不依赖的 cleanup 必须移除或另开 cleanup PR。
 - 已调整 fork 分支语义：`origin/main` 已 force-with-lease 重置为 `upstream/main bed6bd4` 的干净镜像；所有实习报告、TODO、local skills 和中文记录保存在 `origin/intern`。本地当前应在 `intern` 上继续做记录，upstream PR topic branches 继续从 `upstream/main` 创建。
+- Day20 已创建：[项目二次梳理学习](internship-reports/day20-project-second-pass-architecture-and-dependencies.md)。核心结论：当前 main 是 Go `1.26.4` + `agent-sandbox v0.1.1`；设计文档中的 `Ready -> Paused -> Ready` 尚未实现，当前真实语义是 Router/Store last_activity + WorkloadManager/AgentD delete-on-idle；以后改 Router/WorkloadManager/Store/PicoD/agent-sandbox/codegen/auth 前按 Day20 的阅读顺序和测试矩阵定位影响面。
 
 ## Current Blockers
 
@@ -82,6 +83,7 @@
 
 - User confirmed updating #387. `origin/feat/agent-sandbox-latest` was force-with-lease pushed from `bc8e85b` to `c2633c5` using local branch `/home/agentcube-agent-sandbox-latest` `rebase/pr387-on-bed6bd4`. PR #387 now lists 5 commits (`bacf12d`, `1272052`, `1cb73f7`, `5ffc44b`, `c2633c5`) and 15 changed files. This should resolve tide's merge conflict caused by `upstream/main bed6bd4`; wait for refreshed CI/tide before further action. Do not post comments or push more updates without user confirmation.
 - Branch hygiene: keep fork `main` as a clean mirror of `upstream/main`; do not put internship reports or Chinese notes there. Continue local records on `intern`; rebase `intern` onto `upstream/main` when project code needs to be current.
+- Day20 后续：如继续做架构学习，下一步专项深读 Python SDK / CLI auth/session 封装，或补 agent-sandbox controller 源码状态机；不要把 Day20 的 general notes 混入 upstream PR。
 - Day18 `agent-sandbox v0.5.x` next step: decide follow-up packaging. Runtime evidence is now strong on clean rc1/v1beta1 install, but no upstream PR should be opened until official `v0.5.0` release or explicit maintainer request for rc support. If preparing PR material, include the clean-install limitation and do not claim in-place upgrade from existing v1alpha1 CRDs.
 - 根据 2026-06-17 例会纪要，把 `Sleep/Resume`、E2B-compatible API / SDK / template 分别拆成可公开讨论的英文 proposal / issue comment；`agent-sandbox` 适配已进入代码分支推进。
 - 与 FAUST-BENCHOU 讨论 Sleep/Resume 时优先确认第一版语义：是否接受基于 `Sandbox.spec.replicas=0/1` 的 stop/recreate，`context` 是否仅指 workspace/PVC，是否新增 `pauseTimeout`，warm-pool-backed CodeInterpreter 是否纳入第一版。
