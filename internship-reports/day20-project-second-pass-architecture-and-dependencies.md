@@ -53,6 +53,8 @@ Client / SDK
 - `Sandbox` / `SandboxClaim` / `SandboxTemplate` / `SandboxWarmPool`：来自 `kubernetes-sigs/agent-sandbox` 的底层运行资源。
 - `PicoD`：sandbox 内部的 HTTP daemon，执行命令和文件操作，依赖 Router 签发的 JWT 鉴权。
 
+> CRD = Custom Resource Definition。Kubernetes 默认只认识 Pod、Service、Deployment 这类内置资源；CRD 的作用是把项目自己的资源类型注册到 Kubernetes API server 里。AgentCube 注册了 `AgentRuntime` / `CodeInterpreter`，agent-sandbox 注册了 `Sandbox` / `SandboxClaim` / `SandboxTemplate` / `SandboxWarmPool`，所以控制器和用户都可以像操作 Pod 一样用 Kubernetes API 操作这些自定义资源。
+
 ## 设计文档和当前实现的差异
 
 README 和 architecture docs 都把 AgentCube 描述为 split-plane 架构：WorkloadManager 是 control plane，Router 是 data plane。这个方向和代码一致。
@@ -139,6 +141,8 @@ Store 中还有两个重要索引：
 - `session:last_activity`：按最近访问时间排序，GC 找 idle 对象。
 
 ## 请求链路
+
+> invocation 在这里不是“函数调用”那么窄，而是一次用户对 agent 或 code interpreter 的运行请求。比如调用 `/v1/namespaces/{ns}/code-interpreters/{name}/invocations/run` 执行一段代码，或者调用 `/agent-runtimes/{name}/invocations/echo` 让某个 agent server 处理请求。Router 会根据有没有 `x-agentcube-session-id` 决定是创建新 session，还是复用已有 session。
 
 ### 新 session
 
@@ -323,6 +327,8 @@ AgentCube 有自己的 CRD API 类型，因此有生成代码：
 - 如果 generated diff 和功能无关，要拆分或说明它是依赖升级必然结果。
 
 ## Auth 和身份链路
+
+> auth 在代码和文档里经常混用，最好拆成三层理解：authentication 是“你是谁”，authorization 是“你能不能做这件事”，request signing 是“Router 转发到 sandbox 时证明这条内部请求可信”。AgentCube 里 OIDC/JWT token 校验解决 authentication，role/RLAC owner 检查解决 authorization，Router 给 PicoD 签 JWT 解决 request signing。
 
 目前有三层身份：
 
