@@ -345,9 +345,9 @@ func (s *Server) createSandbox(ctx context.Context, dynamicClient dynamic.Interf
 		return nil, err
 	}
 
-	// agent-sandbox create pod with same name as sandbox if no warmpool is used
-	// so here we try to get pod IP by sandbox name first
-	// if warmpool is used, the pod name is stored in sandbox's annotation `agents.x-k8s.io/pod-name`
+	// agent-sandbox creates a Pod with the same name as the Sandbox if no warm pool is used.
+	// If a warm pool is used, the adopted Pod name is stored in
+	// sandboxv1alpha1.SandboxPodNameAnnotation.
 	sandboxNameForPod := createdSandbox.Name
 	sandboxPodName := createdSandbox.Name
 	if podName, exists := createdSandbox.Annotations[sandboxv1alpha1.SandboxPodNameAnnotation]; exists {
