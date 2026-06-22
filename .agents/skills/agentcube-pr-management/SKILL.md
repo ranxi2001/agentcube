@@ -259,6 +259,33 @@ go test ./<affected-package> -count=1
 
 For agent-sandbox dependency updates, compile-only validation is not enough. Prefer a clean, isolated runtime cluster before touching the long-lived local k3s cluster:
 
+### Staged Agent-Sandbox Compatibility Experiments
+
+When a direct jump from the project baseline to the latest agent-sandbox tag produces a large diff, split the investigation by release train before deciding PR scope.
+
+1. Create clean worktrees from `upstream/main` for the latest patch in each minor line, for example `v0.2.1`, `v0.3.10`, and `v0.4.6`.
+2. In each worktree run the minimal bump first:
+
+```bash
+go get sigs.k8s.io/agent-sandbox@<version>
+go mod tidy
+go test ./pkg/workloadmanager ./cmd/workload-manager ./cmd/agentd -count=1
+```
+
+3. Record the first exact failure before fixing it. For agent-sandbox, common breakpoints include moved public constants, `SandboxClaim.Status.SandboxStatus.Name` adoption semantics, `NetworkPolicyManagement` defaults, GVR/API version changes, and `SandboxSpec`/`SandboxClaimSpec` field removals.
+4. Separate compile-only fixes from runtime-aware fixes. A constant import migration may make tests compile while warm-pool sessions still wait for the wrong Sandbox or delete the wrong resource.
+5. After the runtime-aware minimal fix, run:
+
+```bash
+go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+go test ./test/e2e -run '^$' -count=1
+make build-all
+git diff --check
+```
+
+6. Run `make gen-check` in a temporary detached worktree before committing conclusions. If `hack/update-codegen.sh` is pinned to an older Kubernetes code-generator, it can mutate `go.mod` and even downgrade `agent-sandbox`; record that as a codegen/tooling requirement, not as a business-logic failure.
+7. Compare changed file counts by category: dependency files, hand-written production code, tests, generated files, and scripts. Use this to explain why a final upstream PR is larger than an intermediate compile fix.
+
 ```bash
 GOBIN=/root/go/bin go install github.com/k3d-io/k3d/v5@latest
 /root/go/bin/k3d cluster create agentcube-sandbox-test \
