@@ -26,9 +26,12 @@ Day11 已经完成 CubeSandbox 深入调研，但当时对 OpenSandbox 和 Agent
 | OpenSandbox | `README.md`、`ROADMAP.md`、`docs/components/*.md`、`server/configuration.md` | 官方定位、组件、server 配置、runtime / ingress / egress / secure runtime |
 | OpenSandbox | `kubernetes/apis/sandbox/v1alpha1/*types.go`、`docs/kubernetes/index.md`、`oseps/*.md` | Kubernetes CRD、Pool、BatchSandbox、SandboxSnapshot、pause/resume、agent-sandbox provider |
 | OpenSandbox | `server/opensandbox_server/services/k8s/*provider.py`、`runtime_resolver.py`、`validators.py` | runtime provider 抽象、agent-sandbox 接入、RuntimeClass 和 egress 组合校验 |
+| OpenSandbox | `provider_factory.py`、`kubernetes_service.py`、`workload_provider.py`、`agent_sandbox_provider.py`、`batchsandbox_provider.py`、`snapshot_runtime.py` | 二次阅读：确认 provider 边界、pause/resume 委托、BatchSandbox snapshot 路径和 agent-sandbox provider 当前限制 |
 | Agent Substrate | `README.md`、`docs/architecture.md`、`docs/api-guide.md`、`docs/roadmap.md` | 官方定位、架构、资源模型、路线图 |
 | Agent Substrate | `pkg/api/v1alpha1/*types.go`、`pkg/proto/ateapipb/ateapi.proto` | CRD schema、控制面 gRPC API、Actor / Worker 状态 |
 | Agent Substrate | `cmd/*`、`manifests/ate-install/`、`demos/`、`benchmarking/` | 组件边界、部署形态、demo 和测试工具 |
+| Agent Substrate | `cmd/ateapi/internal/controlapi/*actor*.go`、`workflow_resume.go`、`workflow_suspend.go`、`workflow_pause.go`、`cmd/atenet/internal/router/*` | 二次阅读：确认 actor 初始状态、worker 分配、checkpoint/restore、router 触发 resume 和 singleflight 去重 |
+| AgentCube | `README.md`、`pkg/router/handlers.go`、`pkg/router/session_manager.go`、`pkg/workloadmanager/handlers.go`、`garbage_collection.go`、`workload_builder.go`、`pkg/store/*` | 对照本项目现状：确认 Router/WorkloadManager/store 如何处理 session、GC、agent-sandbox CRD 和 warm pool |
 
 本日没有做实际部署和 benchmark。原因是两个项目都需要额外运行环境：OpenSandbox 的 Kubernetes 路径需要 CRD / controller / registry / runtime class 等条件；Agent Substrate 需要 Kubernetes、ValKey/Redis、gVisor/runsc、对象存储和多组件控制面。今天的产出是源码级初读和架构对比。
 
@@ -345,21 +348,48 @@ roadmap 中还在规划：
 
 benchmark 目录已有 Locust + Prometheus / Grafana 的雏形，但 README 明确说这是 nascent suite。当前更适合作为“方向明确但未成熟”的项目观察，而不是拿官方目标数字直接和 AgentCube 本机 benchmark 横比。
 
-## OpenSandbox vs Agent Substrate vs AgentCube
+## 源码二次深入后的三者对比
 
-| 维度 | OpenSandbox | Agent Substrate | AgentCube |
+先给最短判断：
+
+| 项目 | 最像 AgentCube 的地方 | 最不像 AgentCube 的地方 | 对 AgentCube 最直接的启发 |
 | --- | --- | --- | --- |
-| 核心定位 | 通用 AI sandbox API / SDK / runtime 平台 | Kubernetes 上的 stateful actor multiplexing 系统 | Kubernetes-native Agent runtime / sandbox 管理层 |
-| 面向用户 | SDK 用户、AI app 开发者、平台管理员 | 运行大规模 stateful agents 的平台团队 | Agent 应用、CodeInterpreter、Router、WorkloadManager |
-| 主要抽象 | Sandbox、BatchSandbox、Pool、SandboxSnapshot | Actor、Worker、WorkerPool、ActorTemplate、SandboxConfig | AgentRuntime、CodeInterpreter、Sandbox、SandboxWarmPool、Session |
-| 控制面 | FastAPI server + Docker/K8s providers | gRPC ate-api-server + Redis/ValKey dynamic state | Kubernetes API + workload-manager + router |
-| K8s 使用方式 | 可选 backend；自研 CRD，也可用 `agent-sandbox` provider | 必需；K8s 管配置和 worker pods，高频 actor state 外置 | 必需；直接依赖 K8s CRD / agent-sandbox |
-| 状态保留 | Kubernetes rootfs snapshot 到 OCI image；Docker pause；SDK 暴露 pause/resume | gVisor memory + disk checkpoint/restore 到对象存储或本地 | 当前主线偏 create/delete/warm pool，Sleep/Resume 仍在社区讨论 |
-| 启动加速 | Pool、BatchSandbox、client-side pool、runtime provider | 预热 worker pods + golden/latest snapshot restore | SandboxWarmPool；SnapStart 设计中 |
-| 隔离 | 默认容器；可通过 gVisor/Kata/Firecracker RuntimeClass 加强 | 当前以 gVisor/runsc 为核心，roadmap microVM | 取决于 agent-sandbox / RuntimeClass / cluster 配置 |
-| API / SDK | REST、多语言 SDK、CLI、MCP | gRPC、kubectl plugin、demo app | Python SDK、Router HTTP、K8s CRD |
-| 出网治理 | Egress sidecar、FQDN/CIDR、Credential Vault | roadmap 中规划 per-actor egress / credential injection | 目前项目内还不完整，更多依赖 K8s/CNI/runtime |
-| 成熟度 | 工程面比较完整，但仍在快速迭代 | 明确 very early development，API 会变 | 社区项目主线，当前正在补稳定性和 agent-sandbox 适配 |
+| OpenSandbox | 都是“外部 API / SDK 创建 sandbox，再通过 endpoint 执行代码或代理请求” | 它把 Kubernetes backend 做成 `WorkloadProvider` adapter；AgentCube 当前直接在 WorkloadManager 中引用 `agent-sandbox` CRD 语义 | 先抽清楚 provider 边界，再升级 `agent-sandbox`；否则依赖升级会反复波及 handler、helper、e2e、codegen |
+| Agent Substrate | 都面向 long-session、stateful、intermittently active 的 agent workloads | 它把 session/actor 状态作为一等对象放到 Redis/ValKey，并让 Router 在代理前触发 resume；不是每个 session 都长期对应一个独立 K8s CR | Sleep/Resume 不能只加状态字段，必须同时设计 store 状态机、router resume-before-proxy、worker/endpoint 更新和并发去重 |
+| AgentCube | README 目标和二者相似：低延迟、状态保留、sleep/resume、K8s-native agent workload | 当前 main 的实际路径仍是 create/delete/warm pool：Router 查 session 并代理，GC idle/TTL 后删除 Sandbox/SandboxClaim，没有 Paused 状态和 resume 主路径 | #387 属于“先把依赖和创建路径稳定住”；Sleep/Resume 应另开设计，不应混在 agent-sandbox 兼容修复里 |
+
+源码级对照表：
+
+| 维度 | AgentCube | OpenSandbox | Agent Substrate |
+| --- | --- | --- | --- |
+| 系统主语 | `AgentRuntime` / `CodeInterpreter` 生成 session，再绑定 `Sandbox` 或 `SandboxClaim` | `Sandbox` 是 API 主语，后端可选 Docker、BatchSandbox、agent-sandbox | `Actor` 是主语，worker pod 只是可复用承载体 |
+| 控制面形态 | Router + WorkloadManager + K8s CRD + Redis/ValKey store | FastAPI server + Kubernetes/Docker provider + execd | `ate-api-server` gRPC + Redis/ValKey + controllers + `atelet` + `atenet` |
+| K8s 的角色 | 核心生命周期依赖；WorkloadManager 直接创建/删除 agent-sandbox CR | 可选 backend；provider 隔离 BatchSandbox 和 agent-sandbox | 管低频配置和 worker pods；高频 actor 状态绕开 K8s API server |
+| 运行态状态 | `SandboxInfo` JSON + expiry / last-activity sorted set；无 `PausedAt` / `pauseTimeout` | 由 provider 读取 CR status；BatchSandbox 有 `Paused/Pausing/Resuming` | Actor proto 明确定义 `RESUMING/RUNNING/SUSPENDING/SUSPENDED/PAUSING/PAUSED` |
+| 请求路径 | Router 读 `x-agentcube-session-id`；无 session 则创建；有 session 则直接代理到旧 endpoint | SDK/API 调 server；endpoint 由 provider 或 ingress 解析 | Router 从 Host 解析 actor ID，先 `ResumeActor`，再把请求转发到 worker IP |
+| idle 后行为 | `garbage_collection.go` 按 idle/TTL 删除 K8s resource 和 store entry | BatchSandbox 可 patch `spec.pause=true` 并生成 snapshot；agent-sandbox provider 目前未实现 pause/resume | `SuspendActor` 写外部 snapshot；`PauseActor` 写本地 snapshot 并释放 worker |
+| 启动加速 | `SandboxWarmPool` / `SandboxClaim`，以及 SnapStart 规划 | Pool、BatchSandbox、client-side pool、snapshot image | WorkerPool + golden/latest snapshot restore |
+| 依赖升级风险 | `sigs.k8s.io/agent-sandbox` 类型散落在 WorkloadManager builder/controller/helper/k8s client 测试路径 | `agent-sandbox` 只是一种 provider；但当前 provider 仍写死 `agents.x-k8s.io/v1alpha1`，未来也要适配 v1beta1 | 主要风险不在 agent-sandbox，而在 gVisor/runsc checkpoint、ATE 组件协议和早期 API 变化 |
+| 安全/出网 | 目前更多依赖 K8s/CNI/runtime；项目内出网治理还不完整 | egress sidecar、FQDN/CIDR、Credential Vault、RuntimeClass 兼容校验较完整 | identity 随 Actor 迁移，mTLS/SessionIdentity 已有，per-actor egress 和 credential injection 仍在 roadmap |
+| 成熟度判断 | 社区主线项目，适配和测试材料正在补齐；README 的 sleep/resume 目标尚未闭合到代码 | 工程面最完整，SDK/CLI/MCP/egress/provider 都有；但 agent-sandbox provider 不等于完整 sleep/resume | 方向最接近 AgentCube 未来态，但 README 明确 very early，部署链路和 runtime 依赖更重 |
+
+### 三个尖锐结论
+
+1. OpenSandbox 更像 AgentCube 的“外壳和接入层”对照组。它不一定更懂 agent session，但 provider adapter 这条边界比 AgentCube 当前更干净，所以它能把 `agent-sandbox` 升级风险压在一个 provider 内。
+2. Agent Substrate 更像 AgentCube README 里“smart sleep/resume”的终局对照组。它已经把 Router 触发 resume、actor 状态机、worker 复用、checkpoint/restore 串起来；代价是系统复杂度和 runtime 约束显著高于 AgentCube 当前路径。
+3. AgentCube 现在卡在中间层：比 OpenSandbox 更 Kubernetes-native、比 Agent Substrate 更贴近现有 `agent-sandbox` 生态，但 session store、sandbox CR、Router endpoint 三者还没有形成真正的 Paused/Resume 闭环。这也是后续不应把 #387 和 Sleep/Resume 混在一个 PR 里的原因。
+
+### 对 AgentCube 源码的直接映射
+
+| AgentCube 文件 | 当前作用 | 对后续适配/设计的含义 |
+| --- | --- | --- |
+| `README.md` | 明确写了 stateful lifecycle 和 smart sleep/resume 目标 | 文档目标已经存在，但不能假设 main 已实现；proposal 要区分“设计承诺”和“代码现状” |
+| `pkg/router/handlers.go` | `handleInvoke` 读取 `x-agentcube-session-id`，更新 last activity，然后 `forwardToSandbox` | Sleep/Resume 的 resume-before-proxy 必须落在这里或 `SessionManager`，否则 Paused session 仍会被代理到旧 endpoint |
+| `pkg/router/session_manager.go` | 空 session 调 WorkloadManager 创建；非空 session 只查 store | 这里目前没有 `Paused -> Ready` 分支，也没有并发 resume 去重；Agent Substrate 的 `ActorResumer` 是直接参考对象 |
+| `pkg/workloadmanager/workload_builder.go` | 直接构造 `agent-sandbox` `Sandbox` / `SandboxClaim` / warm-pool 相关对象 | `agent-sandbox` 版本升级应优先把字段差异集中在 builder/helper，而不是扩散到业务 handler |
+| `pkg/workloadmanager/handlers.go` | 创建 CR、等 Ready、解析 warm-pool pod annotation、写 store endpoint | v0.4/v0.5 适配的关键是 readiness、pod name、endpoint、NetworkPolicy，不只是编译通过 |
+| `pkg/workloadmanager/garbage_collection.go` | idle/TTL 后删除 `Sandbox` 或 `SandboxClaim` 并删除 store | Sleep/Resume 要把 `sessionTimeout` 从删除改为 pause，另加 `pauseTimeout` 删除；否则行为仍是 GC |
+| `pkg/store/interface.go`、`store_redis.go` | 存 session JSON、expiry index、last-activity index | 若做 Paused 状态，需要扩展 store schema：`Status`、`PausedAt`、`PauseTimeout`、resume 锁或幂等保护 |
 
 ## 和 CubeSandbox 的分层关系
 

@@ -8,7 +8,7 @@
 
 ## Last Run
 
-- Day21 已完成 OpenSandbox / Agent Substrate 补充调研：新增 `internship-reports/day21-opensandbox-agent-substrate-study.md`，并在 Day11 和 TODO 中加了索引。结论：OpenSandbox 更像 sandbox API/SDK 平台和多 backend adapter；Agent Substrate 更像 Kubernetes 上的 stateful actor multiplexing / suspend-resume 控制面。
+- Day21 已完成 OpenSandbox / Agent Substrate 二次源码深读：`internship-reports/day21-opensandbox-agent-substrate-study.md` 已补 OpenSandbox provider 源码、Agent Substrate actor/resume/pause 工作流、AgentCube Router/WorkloadManager/store 对照，并新增 AgentCube / OpenSandbox / Agent Substrate 三方源码级表格和尖锐结论。核心判断：OpenSandbox 的 adapter 边界更清楚；Agent Substrate 更接近 AgentCube sleep/resume 未来态；AgentCube 当前 main 仍是 create/delete/warm pool，未形成 Paused/Resume 闭环。
 - Day15 报告已补入 2026-06-17 14:30 线上会议任务：和 `FAUST-BENCHOU` 讨论 AgentCube 下一步计划，重点围绕 v0.2.0 umbrella issue #386。
 - `internship-reports/todo.md` 已新增 P0 任务“讨论 AgentCube v0.2.0 下一步计划”，下一步是整理 #386 中文内部总结并明确会后是否发英文 proposal / review / test plan。
 - 已核查 #386 中 `zhzhuang-zju` 的 agent-sandbox 适配提案：AgentCube 确实依赖 `sigs.k8s.io/agent-sandbox v0.1.1`；临时升级到 `v0.4.6` 会因 `controllers.SandboxPodNameAnnotation` 缺失编译失败，但 `SandboxWarmPool` / `SandboxClaim` 类型和核心字段仍存在。
