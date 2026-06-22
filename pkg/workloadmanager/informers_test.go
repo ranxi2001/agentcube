@@ -63,10 +63,11 @@ func runCanceled(t *testing.T, ifm *Informers) error {
 }
 
 func newFactory() informers.SharedInformerFactory {
-	return informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	return informers.NewSharedInformerFactory(fake.NewClientset(), 0)
 }
 
 func newCubeFactory() cubeinformers.SharedInformerFactory {
+	//nolint:staticcheck // AgentCube generated fake client does not provide NewClientset.
 	return cubeinformers.NewSharedInformerFactory(cubefake.NewSimpleClientset(), 0)
 }
 
