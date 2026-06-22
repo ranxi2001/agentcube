@@ -1,4 +1,4 @@
-# Day 20 - AgentCube Project Second-Pass Architecture and Dependency Study
+# Day 20 - AgentCube Project Study and agent-sandbox v0.2/v0.3/v0.5 WIP PR Implementations
 
 日期：2026-06-22
 
@@ -12,6 +12,7 @@
 - 一次 `AgentRuntime` / `CodeInterpreter` invocation 从 Router 到 sandbox 内部怎么走。
 - `agent-sandbox`、Kubernetes client-go/codegen、Redis/Valkey、PicoD、OIDC/mTLS 分别卡在哪些边界。
 - 后续做 `agent-sandbox v0.4.6` / `v0.5.x` / Sleep-Resume 适配时，应该先看哪些文件，设计哪些测试。
+- 记录 `agent-sandbox v0.2.1` / `v0.3.10` / `v0.5.0rc1` 三个 fork WIP PR / validation PR 实现，方便后续比较适配演进和 review 答辩。
 
 ## 基线和过程修正
 
