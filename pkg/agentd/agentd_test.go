@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/scale/scheme"
-	sandboxv1alpha1 "sigs.k8s.io/agent-sandbox/api/v1alpha1"
+	sandboxv1beta1 "sigs.k8s.io/agent-sandbox/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -39,7 +39,7 @@ import (
 func setupTestScheme() *runtime.Scheme {
 	testScheme := runtime.NewScheme()
 	utilruntime.Must(scheme.AddToScheme(testScheme))
-	utilruntime.Must(sandboxv1alpha1.AddToScheme(testScheme))
+	utilruntime.Must(sandboxv1beta1.AddToScheme(testScheme))
 	return testScheme
 }
 
@@ -49,13 +49,13 @@ func TestReconciler_Reconcile_RuntimeRegistration(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		sandbox        *sandboxv1alpha1.Sandbox
+		sandbox        *sandboxv1beta1.Sandbox
 		expectRequeue  bool
 		expectDeletion bool
 	}{
 		{
 			name: "Newly registered sandbox without last-activity-time should not be deleted",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "new-sandbox",
 					Namespace: "default",
@@ -67,7 +67,7 @@ func TestReconciler_Reconcile_RuntimeRegistration(t *testing.T) {
 		},
 		{
 			name: "Sandbox with empty last-activity-time annotation should not be deleted",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "empty-annotation-sandbox",
 					Namespace: "default",
@@ -108,7 +108,7 @@ func TestReconciler_Reconcile_RuntimeRegistration(t *testing.T) {
 			}
 
 			// Verify sandbox still exists
-			sandbox := &sandboxv1alpha1.Sandbox{}
+			sandbox := &sandboxv1beta1.Sandbox{}
 			err = fakeClient.Get(context.Background(), types.NamespacedName{
 				Name:      tt.sandbox.Name,
 				Namespace: tt.sandbox.Namespace,
@@ -131,7 +131,7 @@ func TestReconciler_Reconcile_LifecycleOrchestration(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		sandbox           *sandboxv1alpha1.Sandbox
+		sandbox           *sandboxv1beta1.Sandbox
 		expectDeletion    bool
 		expectRequeue     bool
 		expectedRequeueAt time.Duration
@@ -139,7 +139,7 @@ func TestReconciler_Reconcile_LifecycleOrchestration(t *testing.T) {
 	}{
 		{
 			name: "Sandbox with recent activity should be requeued",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "recent-activity-sandbox",
 					Namespace: "default",
@@ -155,7 +155,7 @@ func TestReconciler_Reconcile_LifecycleOrchestration(t *testing.T) {
 		},
 		{
 			name: "Sandbox exactly at expiration boundary should be deleted",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "expired-sandbox",
 					Namespace: "default",
@@ -170,7 +170,7 @@ func TestReconciler_Reconcile_LifecycleOrchestration(t *testing.T) {
 		},
 		{
 			name: "Sandbox past expiration should be deleted",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "past-expired-sandbox",
 					Namespace: "default",
@@ -185,7 +185,7 @@ func TestReconciler_Reconcile_LifecycleOrchestration(t *testing.T) {
 		},
 		{
 			name: "Sandbox with activity just before expiration should be requeued",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "near-expiration-sandbox",
 					Namespace: "default",
@@ -201,7 +201,7 @@ func TestReconciler_Reconcile_LifecycleOrchestration(t *testing.T) {
 		},
 		{
 			name: "Sandbox with custom short timeout should be deleted",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "custom-short-timeout-sandbox",
 					Namespace: "default",
@@ -217,7 +217,7 @@ func TestReconciler_Reconcile_LifecycleOrchestration(t *testing.T) {
 		},
 		{
 			name: "Sandbox with custom long timeout should be requeued",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "custom-long-timeout-sandbox",
 					Namespace: "default",
@@ -234,7 +234,7 @@ func TestReconciler_Reconcile_LifecycleOrchestration(t *testing.T) {
 		},
 		{
 			name: "Sandbox with invalid custom timeout should fallback to default",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "invalid-timeout-sandbox",
 					Namespace: "default",
@@ -251,7 +251,7 @@ func TestReconciler_Reconcile_LifecycleOrchestration(t *testing.T) {
 		},
 		{
 			name: "Sandbox with negative custom timeout should fallback to default",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "negative-timeout-sandbox",
 					Namespace: "default",
@@ -268,7 +268,7 @@ func TestReconciler_Reconcile_LifecycleOrchestration(t *testing.T) {
 		},
 		{
 			name: "Sandbox with zero custom timeout should fallback to default",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "zero-timeout-sandbox",
 					Namespace: "default",
@@ -318,7 +318,7 @@ func TestReconciler_Reconcile_LifecycleOrchestration(t *testing.T) {
 			}
 
 			// Verify deletion status
-			sandbox := &sandboxv1alpha1.Sandbox{}
+			sandbox := &sandboxv1beta1.Sandbox{}
 			err = fakeClient.Get(context.Background(), types.NamespacedName{
 				Name:      tt.sandbox.Name,
 				Namespace: tt.sandbox.Namespace,
@@ -366,7 +366,7 @@ func TestReconciler_Reconcile_ErrorPaths(t *testing.T) {
 		{
 			name: "Invalid time format should return error and requeue",
 			setupClient: func() client.Client {
-				sandbox := &sandboxv1alpha1.Sandbox{
+				sandbox := &sandboxv1beta1.Sandbox{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "invalid-time-sandbox",
 						Namespace: "default",
@@ -425,14 +425,14 @@ func TestReconciler_Reconcile_EdgeCases(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		sandbox        *sandboxv1alpha1.Sandbox
+		sandbox        *sandboxv1beta1.Sandbox
 		expectRequeue  bool
 		expectDeletion bool
 		description    string
 	}{
 		{
 			name: "Sandbox with future last-activity-time should not be deleted",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "future-time-sandbox",
 					Namespace: "default",
@@ -447,7 +447,7 @@ func TestReconciler_Reconcile_EdgeCases(t *testing.T) {
 		},
 		{
 			name: "Sandbox with multiple annotations should work correctly",
-			sandbox: &sandboxv1alpha1.Sandbox{
+			sandbox: &sandboxv1beta1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "multi-annotation-sandbox",
 					Namespace: "default",
@@ -491,7 +491,7 @@ func TestReconciler_Reconcile_EdgeCases(t *testing.T) {
 			}
 
 			// Verify deletion status
-			sandbox := &sandboxv1alpha1.Sandbox{}
+			sandbox := &sandboxv1beta1.Sandbox{}
 			err = fakeClient.Get(context.Background(), types.NamespacedName{
 				Name:      tt.sandbox.Name,
 				Namespace: tt.sandbox.Namespace,
