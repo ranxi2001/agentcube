@@ -303,6 +303,203 @@ AgentCube 对 agent-sandbox 的依赖不是一个单纯 module import：
 - unit test pass 只能证明本地逻辑拼装没错。
 - e2e pass 才能证明 SandboxClaim、actual Sandbox、Pod、Router proxy、PicoD/JWT、Store/GC 能连起来。
 
+## agent-sandbox 0.2 / 0.3 / 0.4 分段适配实验
+
+为了避免把 `v0.1.1 -> v0.4.6` 的所有变化揉成一个大 diff，今天按版本演进补了两个干净实验分支：
+
+- `/home/agentcube-agent-sandbox-v02`：branch `test/agent-sandbox-v02-adaptation`，commit `a4506d6`，目标 `sigs.k8s.io/agent-sandbox v0.2.1`。
+- `/home/agentcube-agent-sandbox-v03`：branch `test/agent-sandbox-v03-adaptation`，commit `02cfae5`，目标 `sigs.k8s.io/agent-sandbox v0.3.10`。
+
+版本来源：
+
+```bash
+go list -m -versions sigs.k8s.io/agent-sandbox
+```
+
+当前可见 release 序列是：
+
+```text
+v0.1.0-rc.0 v0.1.0-rc.1 v0.1.0-rc.2 v0.1.0 v0.1.1 v0.2.0 v0.2.1 v0.3.10 v0.4.0 v0.4.1 v0.4.2 v0.4.3 v0.4.5 v0.4.6
+```
+
+所以本轮选择：
+
+- 0.2 系列最新：`v0.2.1`
+- 0.3 系列最新：`v0.3.10`
+- 0.4 系列当前 stable latest：`v0.4.6`，也就是 #387 的范围
+
+### v0.2.1：静态上基本是 dependency-only
+
+执行：
+
+```bash
+go get sigs.k8s.io/agent-sandbox@v0.2.1
+go mod tidy
+```
+
+变更结果：
+
+```text
+go.mod | 12 ++++++------
+go.sum | 30 ++++++++++++++----------------
+2 files changed, 20 insertions(+), 22 deletions(-)
+```
+
+关键观察：
+
+- `api/v1alpha1` 和 `extensions/api/v1alpha1` 仍存在。
+- `SandboxPodNameAnnotation` 仍能被当前代码引用的路径覆盖，所以不会触发 `controllers.SandboxPodNameAnnotation` 编译失败。
+- `SandboxClaim.Status.SandboxStatus.Name` 已经存在。
+- `SandboxTemplate.Spec.NetworkPolicyManagement` 已经存在，默认 `Managed`、可设 `Unmanaged`。
+- Kubernetes 依赖栈仍和当前 main 对齐在 `k8s.io/* v0.34.1`、`controller-runtime v0.22.2`，不需要升级 generated client 或 CRD schema。
+
+测试结果：
+
+```bash
+go test ./pkg/workloadmanager ./cmd/workload-manager ./cmd/agentd -count=1
+go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+go test ./test/e2e -run '^$' -count=1
+make build-all
+make gen-check
+git diff --check
+```
+
+结果均通过。
+
+结论：`v0.2.1` 对当前 main 的源码级适配成本很低，基本可以作为 dependency-only 阶段理解。但这不等于 runtime 完全验证，因为 0.2 已经引入了 `NetworkPolicyManagement` 和 claim status name，编译通过不能证明 Router / WorkloadManager 到 sandbox Pod 的数据路径一定可达。
+
+### v0.3.10：开始出现真实 warm pool 语义断点
+
+先做最小依赖 bump：
+
+```bash
+go get sigs.k8s.io/agent-sandbox@v0.3.10
+go mod tidy
+go test ./pkg/workloadmanager ./cmd/workload-manager ./cmd/agentd -count=1
+```
+
+复现到的第一处编译失败：
+
+```text
+pkg/workloadmanager/handlers.go:272:63: undefined: controllers.SandboxPodNameAnnotation
+```
+
+源码确认：
+
+- `v0.3.10/api/v1alpha1/sandbox_types.go` 里公开了 `sandboxv1alpha1.SandboxPodNameAnnotation`。
+- `v0.3.10/controllers/sandbox_controller.go` 已经使用 `sandboxv1alpha1.SandboxPodNameAnnotation`。
+- `v0.3.10/extensions/controllers/sandboxwarmpool_controller.go` 的 warm pool 不再只是管理 bare Pod，而是创建/管理 `Sandbox` 对象。
+- `SandboxClaim` controller 会把实际采用的 sandbox 写入 `claim.Status.SandboxStatus.Name`。
+
+这说明 `v0.3.10` 的问题不是简单换一个 import 就结束。仅修常量可以让代码继续编译，但 warm-pool-backed CodeInterpreter 仍可能等错对象：
+
+```text
+AgentCube old path:
+create SandboxClaim named <session-name>
+watch Sandbox with same <session-name>
+
+agent-sandbox v0.3.10 path:
+create SandboxClaim named <claim-name>
+claim adopts or creates actual Sandbox named <status.sandbox.name>
+Pod belongs to actual Sandbox
+```
+
+因此 0.3 实验分支做了 runtime-aware 最小适配：
+
+- `handlers.go`
+  - direct Sandbox 仍使用 `WatchSandboxOnce`。
+  - SandboxClaim path 改成轮询 `SandboxClaim.Status.SandboxStatus.Name`。
+  - 找到实际 adopted Sandbox 后，再按它的 `Ready` condition 和 annotation 查 Pod。
+  - Store 仍保存 `SandboxClaim` 的名字，保证 delete / GC 删除 claim，而不是误删 adopted Sandbox。
+- `k8s_client.go`
+  - 增加 `getSandboxClaim` 和 `getSandbox`，用于 dynamic client 读取 claim 和 actual sandbox。
+- `sandbox_helper.go`
+  - placeholder 补 `CreatedAt`，claim path 最终 store 回写时保留 placeholder 的创建/过期时间，避免 adopted Sandbox 的时间字段覆盖 session TTL。
+- `codeinterpreter_controller.go`
+  - `SandboxTemplate.Spec.NetworkPolicyManagement` 显式设为 `Unmanaged`，避免 agent-sandbox 默认管理的 NetworkPolicy 阻断 AgentCube Router / WorkloadManager 到 sandbox Pod 的路径。
+- `handlers_test.go`
+  - 新增测试覆盖：claim 指向 adopted Sandbox，路由使用 adopted Sandbox / adopted Pod，Store 仍保存 claim name。
+  - 新增测试覆盖：direct watcher nil / closed / empty sandbox 的失败路径。
+- `codeinterpreter_controller_test.go`
+  - 新增测试覆盖：新建和更新 `SandboxTemplate` 时都把 network policy 设为 `Unmanaged`。
+
+提交后的 diff：
+
+```text
+go.mod                                             |  43 ++----
+go.sum                                             | 141 +++++-------------
+manifests/charts/base/crds/...agentruntimes.yaml   |  71 ++++++++-
+pkg/workloadmanager/codeinterpreter_controller.go  |  15 +-
+pkg/workloadmanager/codeinterpreter_controller_test.go | 86 +++++++++++
+pkg/workloadmanager/handlers.go                    | 153 ++++++++++++++-----
+pkg/workloadmanager/handlers_test.go               | 164 ++++++++++++++++++++-
+pkg/workloadmanager/k8s_client.go                  |  28 ++++
+pkg/workloadmanager/sandbox_helper.go              |   5 +
+9 files changed, 531 insertions(+), 175 deletions(-)
+```
+
+其中手写生产代码是 4 个文件：`handlers.go`、`k8s_client.go`、`sandbox_helper.go`、`codeinterpreter_controller.go`。测试 2 个文件，依赖 2 个文件，generated CRD 1 个文件。
+
+测试结果：
+
+```bash
+go test ./pkg/workloadmanager -count=1
+go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+go test ./test/e2e -run '^$' -count=1
+make build-all
+git diff --check
+```
+
+结果均通过。
+
+但 `make gen-check` 在临时 worktree 中失败，失败原因不是业务代码，而是旧 `hack/update-codegen.sh` 固定 `CODEGEN_VERSION="v0.34.1"`，并执行：
+
+```bash
+go get -d "k8s.io/code-generator@${CODEGEN_VERSION}" || true
+```
+
+在 0.3 分支上，这会扰动依赖解析：
+
+```text
+go: downgraded k8s.io/apiextensions-apiserver v0.35.0 => v0.34.1
+go: downgraded k8s.io/code-generator v0.35.0 => v0.34.1
+go: downgraded sigs.k8s.io/agent-sandbox v0.3.10 => v0.2.1
+go: downgraded sigs.k8s.io/controller-runtime v0.23.3 => v0.22.4
+```
+
+结论：从 0.3 开始，只改业务逻辑还不够。如果作为正式 PR，还必须像 #387 那样修正 codegen 脚本，把 code-generator 与 Kubernetes 依赖栈对齐，并避免 `gen-check` 过程中修改 module 选择。
+
+### 与 #387 v0.4.6 的对比
+
+#387 当前 `v0.4.6` 适配分支 changed files 是 15：
+
+```text
+15 files changed, 672 insertions(+), 273 deletions(-)
+```
+
+和 0.3 实验相比，核心业务逻辑没有大一个数量级。主要增加来自：
+
+- `agent-sandbox v0.4.6` 带动 Kubernetes 依赖到 `v0.35.4`，而 0.3 是 `v0.35.0`。
+- #387 修了 `hack/update-codegen.sh`，否则 `make gen-check` 会反向降级依赖。
+- #387 包含 `client-go` generated files 和 CRD generated files，用于保证正式 PR 的生成链路闭合。
+- #387 扩展了 e2e warm-pool Pod ownerRef 检查，使测试覆盖新版 `SandboxWarmPool -> Sandbox -> Pod` 链路。
+
+分段适配带来的价值不是让最终 PR 一定更小，而是把演进原因拆清楚：
+
+| 阶段 | 主要变化 | 文件数量 | 结论 |
+| --- | --- | --- | --- |
+| `v0.1.1 -> v0.2.1` | 依赖更新，API 仍兼容 | 2 | 静态适配几乎无代码改动 |
+| `v0.2.1 -> v0.3.10` | warm pool 改为 full Sandbox adoption；annotation 常量迁公开 API；NetworkPolicy default 风险出现 | 9 | 开始需要 runtime-aware 代码适配和单测 |
+| `v0.3.10 -> v0.4.6` | 依赖 patch 继续升级；正式 PR 需要 codegen / generated / e2e 闭环 | 15 | review 重点是生成链路和运行证据，不只是业务代码 |
+| `v0.4.6 -> v0.5.0rc1` | `v1alpha1 -> v1beta1`、`TemplateRef -> WarmPoolRef`、`Replicas -> OperatingMode` | 另见 Day18 | 不应混入 #387，应该独立 follow-up |
+
+对下周 #387 review 的帮助：
+
+- 可以解释为什么 `v0.2.1` 编译通过不代表 `v0.4.6` 只需要一个 import fix。
+- 可以解释为什么 `go.mod` 的 K8s stack 更新是 agent-sandbox 版本驱动，不是随意 cleanup。
+- 可以解释为什么小文件 `k8s_client.go` / `sandbox_helper.go` 必须改：claim path 需要读 actual Sandbox，同时 Store 仍要保留 claim name。
+- 可以解释为什么 generated files 和 `hack/update-codegen.sh` 在正式 PR 中是必要的：0.3 实验证明旧脚本会把目标依赖降回旧版本。
+
 ## Codegen 和 generated files
 
 AgentCube 有自己的 CRD API 类型，因此有生成代码：
