@@ -8,6 +8,7 @@
 
 ## Last Run
 
+- Day21 已完成 OpenSandbox / Agent Substrate 补充调研：新增 `internship-reports/day21-opensandbox-agent-substrate-study.md`，并在 Day11 和 TODO 中加了索引。结论：OpenSandbox 更像 sandbox API/SDK 平台和多 backend adapter；Agent Substrate 更像 Kubernetes 上的 stateful actor multiplexing / suspend-resume 控制面。
 - Day15 报告已补入 2026-06-17 14:30 线上会议任务：和 `FAUST-BENCHOU` 讨论 AgentCube 下一步计划，重点围绕 v0.2.0 umbrella issue #386。
 - `internship-reports/todo.md` 已新增 P0 任务“讨论 AgentCube v0.2.0 下一步计划”，下一步是整理 #386 中文内部总结并明确会后是否发英文 proposal / review / test plan。
 - 已核查 #386 中 `zhzhuang-zju` 的 agent-sandbox 适配提案：AgentCube 确实依赖 `sigs.k8s.io/agent-sandbox v0.1.1`；临时升级到 `v0.4.6` 会因 `controllers.SandboxPodNameAnnotation` 缺失编译失败，但 `SandboxWarmPool` / `SandboxClaim` 类型和核心字段仍存在。
@@ -61,10 +62,11 @@
 - 用户确认后已 push #387 注释对齐 commit `bc8e85b docs: align sandbox pod annotation comment` 到 `origin/feat/agent-sandbox-latest`。该 commit 只修改 `pkg/workloadmanager/handlers.go` 注释：从硬编码 `agents.x-k8s.io/pod-name` 改为引用 `sandboxv1alpha1.SandboxPodNameAnnotation`，用于回应 Copilot 的低风险注释维护性建议。验证通过：`go test ./pkg/workloadmanager -count=1`、`git diff --check`。PR #387 当前 head 为 `bc8e85b`，changed files 仍为 15。
 - PR skill 已强化最小修原则：fix/feature/compatibility PR 默认把 upstream base 当作稳定基线，只改解决目标问题必需的最少文件；代码清洁、格式、镜像卫生、注释润色、无关 refactor 不应夹带在功能/修复 PR 中，目标测试不依赖的 cleanup 必须移除或另开 cleanup PR。
 - 已调整 fork 分支语义：`origin/main` 已 force-with-lease 重置为 `upstream/main bed6bd4` 的干净镜像；所有实习报告、TODO、local skills 和中文记录保存在 `origin/intern`。本地当前应在 `intern` 上继续做记录，upstream PR topic branches 继续从 `upstream/main` 创建。
-- Day20 已创建并补充分段适配实验：[项目二次梳理学习](internship-reports/day20-project-second-pass-architecture-and-dependencies.md)。核心结论：当前 main 是 Go `1.26.4` + `agent-sandbox v0.1.1`；设计文档中的 `Ready -> Paused -> Ready` 尚未实现，当前真实语义是 Router/Store last_activity + WorkloadManager/AgentD delete-on-idle。新增 `agent-sandbox v0.2.1` / `v0.3.10` 实验：0.2.1 是 2 文件 dependency-only 且 `make gen-check` 通过；0.3.10 需要 claim adopted Sandbox、public annotation、NetworkPolicy opt-out、codegen script 和 generated files，实验分支最终 14 文件，已通过目标包、非 e2e 全量、e2e static、`make build-all`、`make gen-check`、`git diff --check`。
+- Day20 已更名为 [AgentCube 项目梳理与 agent-sandbox v0.2/v0.3/v0.5 WIP PR 实现记录](internship-reports/day20-agent-sandbox-v02-v03-v05-wip-pr-implementations-and-project-study.md)。核心结论：当前 main 是 Go `1.26.4` + `agent-sandbox v0.1.1`；设计文档中的 `Ready -> Paused -> Ready` 尚未实现，当前真实语义是 Router/Store last_activity + WorkloadManager/AgentD delete-on-idle。新增 `agent-sandbox v0.2.1` / `v0.3.10` / `v0.5.0rc1` 三段 WIP PR / validation PR 记录：0.2 是 dependency-only，0.3 开始需要 claim adopted Sandbox、public annotation、NetworkPolicy opt-out、codegen/generated 闭环，0.5 是 v1beta1 API migration。
 
 ## Current Blockers
 
+- Day21 只是源码和官方文档调研，未部署 OpenSandbox / Agent Substrate：OpenSandbox K8s 路径需要 controller/CRD/registry/RuntimeClass；Agent Substrate 需要 K8s、ValKey/Redis、gVisor/runsc、对象存储和多组件控制面。
 - 当前机器没有 `/dev/kvm`，CPU 虚拟化 flags 未暴露，不能实测 Kuasar / MicroVM / forkd / CubeSandbox 的真实虚拟化路径。
 - kind 标准 Kubernetes 在本机 kubelet cgroup/QoS 初始化处失败；KWOK 只能用于调度语义，不等同完整 K8s 实测。
 - kind 标准集群创建仍在本机 kubelet/cgroup 环境处失败；Day16 真实 runtime 验证改用已有 k3s。不能把 kind 失败描述成 AgentCube 代码失败。
@@ -82,6 +84,7 @@
 
 ## Next
 
+- 如果继续 Day21 方向：OpenSandbox 先跑 Docker runtime 最小 smoke，再测 Kubernetes `BatchSandbox` / `agent-sandbox` provider；Agent Substrate 先跑 kind/GKE quickstart + counter demo。AgentBay / AWS AgentCore 更偏托管产品和 SDK，后续应另开产品对比报告。
 - User confirmed updating #387. `origin/feat/agent-sandbox-latest` was force-with-lease pushed from `bc8e85b` to `c2633c5` using local branch `/home/agentcube-agent-sandbox-latest` `rebase/pr387-on-bed6bd4`. PR #387 now lists 5 commits (`bacf12d`, `1272052`, `1cb73f7`, `5ffc44b`, `c2633c5`) and 15 changed files. This should resolve tide's merge conflict caused by `upstream/main bed6bd4`; wait for refreshed CI/tide before further action. Do not post comments or push more updates without user confirmation.
 - Branch hygiene: keep fork `main` as a clean mirror of `upstream/main`; do not put internship reports or Chinese notes there. Continue local records on `intern`; rebase `intern` onto `upstream/main` when project code needs to be current.
 - Day20 后续：如继续做架构学习，下一步专项深读 Python SDK / CLI auth/session 封装，或补 agent-sandbox controller 源码状态机。0.2/0.3 分段适配实验已创建 fork-only 归档 PR 并全绿：#6 `agent-sandbox v0.2.1` head `a4506d6`，#7 `agent-sandbox v0.3.10` head `142c56e`。#7 第一次 fork CI 暴露 `golangci-lint` 问题，已用 `142c56e test: fix v0.3 adaptation lint` 修复。不要把 Day20 的 general notes 混入 upstream PR。

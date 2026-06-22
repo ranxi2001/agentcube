@@ -550,6 +550,8 @@ CubeSandbox 的核心优势可以概括为：**用 RustVMM / KVM 做硬件级安
 
 ## 后续调研维度
 
+补充进展：OpenSandbox 与 Agent Substrate 的详细补充调研已在 [Day 21](day21-opensandbox-agent-substrate-study.md) 完成。Day11 保留 CubeSandbox 深读主报告，后续总表合并时引用 Day21 的结论即可。
+
 后面补表时沿用 Day8 的能力矩阵，但增加云厂商视角：
 
 | 维度 | 要记录的问题 |
@@ -571,4 +573,4 @@ CubeSandbox 的核心优势可以概括为：**用 RustVMM / KVM 做硬件级安
 1. 如需实测 CubeSandbox，申请一台可重装、可重启、可控制台救援的独立机器，优先 OpenCloudOS 9 / TencentOS 4，准备 glibc ≥ 2.31、XFS `/data/cubelet`、KVM 或 PVM kernel。
 2. 拿到合适机器后优先跑三类 smoke：创建 template、创建/删除 sandbox、snapshot -> clone -> rollback。
 3. 继续跟踪 AgentCube 社区的 SnapStart / E2B 兼容讨论，把 CubeSandbox 的 snapshot、clone、rollback 和 egress 治理作为对照样本。
-4. 其他云厂商项目先保持项目名和入口占位，等待同学补充 OpenSandbox、AgentBay、Agent Sandbox、Agent Substrate、AWS AgentCore 后再合并到总表。
+4. 其他云厂商项目中，OpenSandbox 与 Agent Substrate 已在 Day21 补充；AgentBay、Agent Sandbox、AWS AgentCore 后续如需继续深读，再单独开报告后合并到总表。
