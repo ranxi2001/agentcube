@@ -30,8 +30,14 @@ import (
 	"github.com/volcano-sh/agentcube/pkg/common/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 )
+
+func newCubeClientset(objects ...runtime.Object) *cubefake.Clientset {
+	//nolint:staticcheck // AgentCube generated fake client does not provide NewClientset.
+	return cubefake.NewSimpleClientset(objects...)
+}
 
 // TestBuildSandboxObject_DoesNotMutateCallerLabels verifies that buildSandboxObject
 // does not write session-specific labels back into the caller's map, which would
@@ -350,7 +356,7 @@ func TestBuildCodeInterpreterEnvVars(t *testing.T) {
 }
 
 func TestBuildSandboxByAgentRuntime_NotFound(t *testing.T) {
-	fakeClient := cubefake.NewSimpleClientset()
+	fakeClient := newCubeClientset()
 	factory := cubeinformers.NewSharedInformerFactory(fakeClient, 0)
 	agentRuntimeInformer := factory.Runtime().V1alpha1().AgentRuntimes()
 
@@ -390,7 +396,7 @@ func TestBuildSandboxByAgentRuntime_Success(t *testing.T) {
 		},
 	}
 
-	fakeClient := cubefake.NewSimpleClientset(agentRuntime)
+	fakeClient := newCubeClientset(agentRuntime)
 	factory := cubeinformers.NewSharedInformerFactory(fakeClient, 0)
 	agentRuntimeInformer := factory.Runtime().V1alpha1().AgentRuntimes()
 	err := agentRuntimeInformer.Informer().GetStore().Add(agentRuntime)
@@ -453,7 +459,7 @@ func TestBuildSandboxByAgentRuntime_DefaultTimeouts(t *testing.T) {
 		},
 	}
 
-	fakeClient := cubefake.NewSimpleClientset(ar)
+	fakeClient := newCubeClientset(ar)
 	factory := cubeinformers.NewSharedInformerFactory(fakeClient, 0)
 	agentRuntimeInformer := factory.Runtime().V1alpha1().AgentRuntimes()
 	err := agentRuntimeInformer.Informer().GetStore().Add(ar)
@@ -496,7 +502,7 @@ func TestBuildSandboxByAgentRuntime_CustomTimeouts(t *testing.T) {
 		},
 	}
 
-	fakeClient := cubefake.NewSimpleClientset(ar)
+	fakeClient := newCubeClientset(ar)
 	factory := cubeinformers.NewSharedInformerFactory(fakeClient, 0)
 	agentRuntimeInformer := factory.Runtime().V1alpha1().AgentRuntimes()
 	err := agentRuntimeInformer.Informer().GetStore().Add(ar)
@@ -519,7 +525,7 @@ func TestBuildSandboxByAgentRuntime_CustomTimeouts(t *testing.T) {
 }
 
 func TestBuildSandboxByCodeInterpreter_NotFound(t *testing.T) {
-	fakeClient := cubefake.NewSimpleClientset()
+	fakeClient := newCubeClientset()
 	factory := cubeinformers.NewSharedInformerFactory(fakeClient, 0)
 	codeInterpreterInformer := factory.Runtime().V1alpha1().CodeInterpreters()
 
@@ -552,7 +558,7 @@ func TestBuildSandboxByCodeInterpreter_PicodAuthFailsWithoutKey(t *testing.T) {
 
 	setCachedPublicKeyForTest(t, "") // Empty key to trigger error
 
-	fakeClient := cubefake.NewSimpleClientset(codeInterpreter)
+	fakeClient := newCubeClientset(codeInterpreter)
 	factory := cubeinformers.NewSharedInformerFactory(fakeClient, 0)
 	codeInterpreterInformer := factory.Runtime().V1alpha1().CodeInterpreters()
 	err := codeInterpreterInformer.Informer().GetStore().Add(codeInterpreter)
@@ -587,7 +593,7 @@ func TestBuildSandboxByCodeInterpreter_SuccessNoWarmPool(t *testing.T) {
 		},
 	}
 
-	fakeClient := cubefake.NewSimpleClientset(codeInterpreter)
+	fakeClient := newCubeClientset(codeInterpreter)
 	factory := cubeinformers.NewSharedInformerFactory(fakeClient, 0)
 	codeInterpreterInformer := factory.Runtime().V1alpha1().CodeInterpreters()
 	err := codeInterpreterInformer.Informer().GetStore().Add(codeInterpreter)
@@ -645,7 +651,7 @@ func TestBuildSandboxByCodeInterpreter_SuccessWithWarmPool(t *testing.T) {
 		},
 	}
 
-	fakeClient := cubefake.NewSimpleClientset(codeInterpreter)
+	fakeClient := newCubeClientset(codeInterpreter)
 	factory := cubeinformers.NewSharedInformerFactory(fakeClient, 0)
 	codeInterpreterInformer := factory.Runtime().V1alpha1().CodeInterpreters()
 	err := codeInterpreterInformer.Informer().GetStore().Add(codeInterpreter)
