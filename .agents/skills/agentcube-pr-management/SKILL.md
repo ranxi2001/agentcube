@@ -326,6 +326,26 @@ Before asking for maintainer review, prepare a local table that the author can u
 
 Use this matrix for dependency and lifecycle work such as agent-sandbox adaptation, where review questions often focus on why a file was touched at all.
 
+Useful collection commands:
+
+```bash
+python3 .agents/skills/agentcube-pr-management/scripts/pr_status.py <pr-number>
+git fetch upstream main '+pull/<pr-number>/head:refs/remotes/upstream/pr-<pr-number>'
+git diff --name-status <base>..<head>
+git diff --stat <base>..<head>
+git grep -n -e '<symbol-or-behavior>' <head> -- <path>
+git show <head>:<path> | nl -ba | sed -n '<start>,<end>p'
+```
+
+For dependency PRs, prove whether version bumps are project requirements or local workaround:
+
+```bash
+git worktree add --detach /tmp/<repo>-pr-<number>-review <head>
+cd /tmp/<repo>-pr-<number>-review
+go mod graph | rg '^(<module>@<version>|<repo-module>) '
+git worktree remove /tmp/<repo>-pr-<number>-review
+```
+
 ### Feature Test Plan
 
 For a feature PR, add or update tests that validate the feature's new behavior directly. Existing CI passing is necessary but not sufficient.
@@ -501,6 +521,7 @@ python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 379
 - Use `[WIP]` for unfinished upstream PRs when the user approves posting one; do not use `[DO NOT MERGE]`.
 - Do not comment on or mention maintainers in read-only PR analysis unless the user approves and upstream input is genuinely needed.
 - Do not merge unrelated formatting with behavior changes.
+- For fix, feature, or compatibility PRs, treat the upstream base project as the stable baseline by default. Change as few files as possible, and include only edits required to solve the stated problem. Do not include code cleanliness, formatting, image hygiene, dependency tidying, comment polishing, or unrelated refactors just because they look safe. If the target tests/builds pass without an isolated cleanup, remove it from the PR; propose it later as a separate cleanup PR only if it is worth upstream review.
 - Do not treat "avoid updating one PR forever" as a blanket rule. Update the existing PR for fixes that belong to that PR; split out independent prerequisites or repository-wide compatibility changes from `upstream/main`.
 - Do not let one upstream PR accumulate unrelated review fixes, independent prerequisites, CI/toolchain repairs, broad cleanup, and new feature work.
 - Do not patch an open PR branch directly for every comment by default; use a temporary fix branch or separate PR when that keeps review scope clearer.
