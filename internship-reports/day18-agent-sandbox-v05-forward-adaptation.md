@@ -412,7 +412,7 @@ sandboxwarmpools.extensions.agents.x-k8s.io       v1beta1:true:true  stored=["v1
 ```text
 repo: /home/agentcube-agent-sandbox-latest
 branch: test/agent-sandbox-v05-forward
-commit: ee1aecf test: adapt agent-sandbox v05 rc api
+commit: 3abdb94 test: align e2e agent-sandbox version with v05
 remote: https://github.com/ranxi2001/agentcube/tree/test/agent-sandbox-v05-forward
 ```
 
@@ -420,8 +420,8 @@ Fork CI validation PR：
 
 ```text
 PR: https://github.com/ranxi2001/agentcube/pull/5
-base: release-agent-sandbox-v05-base -> 5867183
-head: test/agent-sandbox-v05-forward -> c0122da
+base: release-agent-sandbox-v05-base -> c2633c5
+head: test/agent-sandbox-v05-forward -> 3abdb94
 ```
 
 构建镜像：
@@ -716,8 +716,8 @@ OK
 
 ```text
 PR: https://github.com/ranxi2001/agentcube/pull/5
-base: release-agent-sandbox-v05-base -> 5867183
-head: test/agent-sandbox-v05-forward -> c0122da
+base: release-agent-sandbox-v05-base -> c2633c5
+head: test/agent-sandbox-v05-forward -> 3abdb94
 ```
 
 第一次 CI（head `ee1aecf`）结果：
@@ -747,6 +747,64 @@ c0122da test: align e2e agent-sandbox version with v05
 该 commit 将 `make e2e` / `test/e2e/run_e2e.sh` 默认安装的 agent-sandbox release manifest 对齐到 `v0.5.0rc1`，并更新 `test/e2e/README.md` 的环境变量说明。
 
 第二次 CI（head `c0122da`）全绿：
+
+```text
+Approve workflows based on contributor status: success
+Check for spelling errors: success
+Codegen Check: success
+Python Lint: success
+build: success
+build: success
+coverage: success
+e2e-test: success
+golangci-lint: success
+python-sdk-tests: success
+```
+
+### Rebase 到最新 #387
+
+2026-06-22 发现 #5 仍基于旧的 #387 验证 head `5867183`，而 upstream PR #387 当前 head 已更新为 `c2633c5`。为了让 v0.5 rc1 前沿适配始终验证在最新 #387 之上，本轮执行：
+
+```bash
+git switch test/agent-sandbox-v05-forward
+git rebase --onto c2633c5 5867183
+```
+
+冲突点集中在 #387 新增的 owner/RLAC 传递、`resolveSandboxOwnerID`、sandbox create error handling 与 v0.5 的 `v1beta1` 类型迁移交叉处。最终保留两边语义：
+
+- agent-sandbox 类型迁到 `sandboxv1beta1` / `extensionsv1beta1`。
+- 保留 #387 最新的 `ownerID` 参数、store `OwnerID`、`resolveSandboxOwnerID` 和内部错误分类。
+- `SandboxPodNameAnnotation` 注释同步改为 `sandboxv1beta1.SandboxPodNameAnnotation`。
+- 修复 rebase 后 `sandbox_helper_test.go` 中残留的两处旧 `sandboxv1alpha1.Sandbox`。
+
+rebase 后 commit 变为：
+
+```text
+06849c1 test: adapt agent-sandbox v05 rc api
+3abdb94 test: align e2e agent-sandbox version with v05
+```
+
+fork 分支已 force-with-lease 更新：
+
+```text
+base: release-agent-sandbox-v05-base -> c2633c5
+head: test/agent-sandbox-v05-forward -> 3abdb94
+```
+
+本地 rebase 后验证：
+
+```bash
+go test ./pkg/workloadmanager ./cmd/workload-manager ./cmd/agentd -count=1
+make lint
+go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+go test ./test/e2e -run '^$' -count=1
+make gen-check
+make build-all
+git diff --check
+git diff --exit-code
+```
+
+结果均通过。PR #5 重新触发后的 fork CI 也已全绿：
 
 ```text
 Approve workflows based on contributor status: success
