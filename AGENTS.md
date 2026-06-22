@@ -51,18 +51,29 @@ This workspace uses two remotes:
 - `origin`: the personal fork, currently `https://github.com/ranxi2001/agentcube.git`.
 - `upstream`: the official project, `https://github.com/volcano-sh/agentcube.git`.
 
-Keep internship reports, local benchmark data, Chinese notes, and task tracking on the fork `main` branch. It is acceptable to rebase fork `main` onto `upstream/main` so the fork stays current while preserving internship commits after the latest official history. Before rebasing, make sure the worktree is clean by committing or stashing local edits.
+Keep the fork `main` branch as a clean mirror of `upstream/main`. Do not commit internship reports, local benchmark data, Chinese notes, task tracking, or local-only skills to fork `main`. Keep that work on the fork `intern` branch instead. Before rebasing or resetting either branch, make sure the worktree is clean by committing or stashing local edits.
 
-Use this sync flow for the fork `main` branch:
+Use this sync flow for the fork `main` mirror:
 
 ```bash
 git status
 git fetch upstream main
-git rebase upstream/main
+git switch main
+git reset --hard upstream/main
 git push --force-with-lease origin main:main
 ```
 
-Use `--force-with-lease`, not plain `--force`, after a rebase. If `--force-with-lease` is rejected, fetch `origin` and inspect the difference before pushing, because someone or something may have updated the fork branch. Do not push to `upstream`; keep its push URL disabled or treat it as read-only.
+Use this sync flow for internship records:
+
+```bash
+git status
+git fetch upstream main
+git switch intern
+git rebase upstream/main
+git push --force-with-lease origin intern:intern
+```
+
+Use `--force-with-lease`, not plain `--force`, after a rebase or mirror reset. If `--force-with-lease` is rejected, fetch `origin` and inspect the difference before pushing, because someone or something may have updated the fork branch. Do not push to `upstream`; keep its push URL disabled or treat it as read-only.
 
 For official upstream PRs, do not open PRs directly from the fork `main` branch. Create a clean topic branch from the latest `upstream/main`, and include only one focused change:
 
@@ -76,7 +87,7 @@ git commit -s -m "docs: ..."
 git push origin docs/benchmark-scope
 ```
 
-Keep official PR branches small and reviewable. Do not include internship reports, raw benchmark logs, Chinese-only notes, local environment files, or unrelated fork-main history unless the PR explicitly targets those files. Link issues with `Fixes #...` or `Refs #...`, list tests run, and mention any environment-specific limitations. Upstream PR commits must include DCO signoff; use `git commit -s` by default. If a PR branch commit is missing signoff and the branch is only yours, repair it with `git commit --amend --no-edit --signoff` or `git rebase HEAD~N --signoff`, then push with `git push --force-with-lease`.
+Keep official PR branches small and reviewable. Do not include internship reports, raw benchmark logs, Chinese-only notes, local environment files, `intern` branch history, or unrelated fork history unless the PR explicitly targets those files. Link issues with `Fixes #...` or `Refs #...`, list tests run, and mention any environment-specific limitations. Upstream PR commits must include DCO signoff; use `git commit -s` by default. If a PR branch commit is missing signoff and the branch is only yours, repair it with `git commit --amend --no-edit --signoff` or `git rebase HEAD~N --signoff`, then push with `git push --force-with-lease`.
 
 Before any upstream-facing action, including creating a PR, draft PR, WIP PR, issue, review comment, issue comment, `/assign`, reviewer request, or maintainer mention, get explicit user confirmation on the exact title/body/comment and target. Do not use upstream PRs as disposable CI runners; validate uncertain fixes in the fork first using fork branches, fork PRs, local tests, or fork CI. For workflows triggered by `pull_request`, pushing a branch alone does not run the full CI matrix; create a fork PR against `main` or a `release-*` base branch when full checks are needed. Open upstream PRs only when the change is ready for community review or the user explicitly asks to involve upstream. For unfinished upstream work, use the community-style `[WIP]` title prefix, not `[DO NOT MERGE]`, and still use the official PR template.
 
