@@ -1044,3 +1044,129 @@ Then the low-level implementation can be a provider capability:
 
 So my preference is: continue with an AgentCube-level design first, keep it capability-based, and avoid depending on soft pause being ready in agent-sandbox for the MVP.
 ```
+
+## 第一阶段实现记录：Store 状态和 CAS
+
+日期：2026-06-23
+
+隔离 worktree：
+
+```text
+/home/agentcube-sleep-resume-store-state
+branch: feat/sleep-resume-store-state
+base: upstream/main bed6bd4
+```
+
+实现范围：
+
+- `pkg/common/types/sandbox.go`
+  - 给 `SandboxInfo` 增加 Sleep/Resume 需要的 Store 字段：
+    - `RuntimeProvider`
+    - `PauseMode`
+    - `PausedAt`
+    - `PauseExpiresAt`
+    - `ResumedAt`
+    - `FailureReason`
+    - `SandboxName`
+    - `SandboxClaimName`
+    - `PodName`
+    - `EndpointRevision`
+  - 增加公用状态常量：
+    - `creating`
+    - `ready`
+    - `not-ready`
+    - `pausing`
+    - `paused`
+    - `resuming`
+    - `deleting`
+    - `deleted`
+    - `failed`
+
+- `pkg/store/interface.go`
+  - 新增 `UpdateSandboxStatusCAS(ctx, sandbox, expectedStatus)`。
+  - 新增 `ListPauseExpiredSandboxes(ctx, before, limit)`。
+
+- `pkg/store/error.go`
+  - 新增 `ErrStatusConflict`，用于区分并发 CAS 失败和普通 not found。
+
+- `pkg/store/store_redis.go`
+  - 新增 `session:pause_expiry` index。
+  - `StoreSandbox` / `UpdateSandbox` / `DeleteSandboxBySessionID` 维护 pause expiry index。
+  - `UpdateSandboxStatusCAS` 用 Redis Lua 脚本原子检查当前 JSON 中的 `status` 是否等于 `expectedStatus`，匹配才写入新 JSON。
+  - `ListPauseExpiredSandboxes` 只返回 `status == paused` 的过期 session，避免脏 index 误删 ready session。
+
+- `pkg/store/store_valkey.go`
+  - 实现与 Redis 相同的语义。
+  - CAS 使用 `valkey.NewLuaScriptNoSha` 执行 Lua 脚本。
+
+- 测试 fake store
+  - `pkg/router/session_manager_test.go`
+  - `pkg/workloadmanager/handlers_test.go`
+  - `pkg/workloadmanager/garbage_collection_test.go`
+  - 只补接口空实现，不改变测试语义。
+
+- `pkg/workloadmanager/sandbox_helper.go`
+  - 将局部字符串状态改为引用 `types.SandboxStatusCreating` / `types.SandboxStatusReady` / `types.SandboxStatusNotReady`，避免新增状态常量后继续散落裸字符串。
+
+测试覆盖：
+
+- Redis:
+  - CAS 成功：`ready -> paused`。
+  - CAS 冲突：当前状态不等于 expected 时返回 `ErrStatusConflict`。
+  - CAS not found：session 不存在时返回 `ErrNotFound`。
+  - 并发 CAS：两个 goroutine 同时从 `paused` 更新到 `resuming`，只有一个成功，另一个返回 `ErrStatusConflict`。
+  - pause expiry index：只返回 `paused` 且 `PauseExpiresAt <= now` 的 session。
+  - `UpdateSandbox` 从 paused 改回 ready 后清理 pause index。
+  - delete 清理 pause index。
+
+- Valkey:
+  - 覆盖与 Redis 相同的场景，保证两个 backend 语义一致。
+
+验证命令：
+
+```bash
+go test ./pkg/store -count=1
+go test ./pkg/router ./pkg/workloadmanager -count=1
+go test -race ./pkg/store -count=1
+go test $(go list ./... | grep -v '/test/e2e') -count=1
+make lint
+make build-all
+git diff --check
+```
+
+结果：
+
+```text
+PASS
+```
+
+过程卡点：
+
+```text
+命令：
+make build-all
+
+现象：
+命令通过，但它内部执行 go mod tidy，导致 go.sum 删除了两行 golang.org/x/oauth2 v0.36.0 checksum。
+
+判断：
+这和 Store 状态/CAS 改动无关，属于 tidy 产生的无关依赖清理。
+
+处理：
+按最小修原则恢复 go.sum，避免第一阶段 PR 混入无关依赖文件变化。
+```
+
+当前未做：
+
+- 未修改真实 GC 行为。
+- 未增加 WorkloadManager pause/resume API。
+- 未修改 Router resume-before-proxy。
+- 未接入 `agent-sandbox` `replicas=0/1` 或 `OperatingMode`。
+- 未新增 CRD 字段 `pauseTimeout`。
+
+下一阶段建议：
+
+1. 基于这个 Store CAS 能力，新增 WorkloadManager 内部 pause/resume service 层和 fake provider 测试。
+2. 再让 GC 调用 pause service，而不是直接 delete idle Ready session。
+3. 再让 Router 在看到 `paused` session 时调用 WorkloadManager resume。
+4. 最后接真实 agent-sandbox hard pause e2e。
