@@ -23,3 +23,4 @@
 - [Day 10：从 #265 开始做 WarmPoolAvailable PoC](day10-warmpoolavailable-poc.md)
 - [Day 11：云厂商 Agent 沙箱与 CubeSandbox 深入调研](day11-cloud-agent-sandbox-projects.md)
 - [Day 12：从 CubeSandbox 反推 AgentCube 开发方向](day12-agentcube-roadmap-from-cubesandbox.md)
+- [Day 25：Sleep/Resume 代码审查与架构复盘](day25-sleep-resume-code-review-and-architecture-retrospective.md)
