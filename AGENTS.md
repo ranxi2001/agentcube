@@ -28,6 +28,8 @@ Add unit tests next to changed Go code using `*_test.go`; table-driven tests are
 
 When updating internship reports under `internship-reports/`, include process blockers and debugging notes, not only the final successful path. Record the command or step that failed, the observed error, the root cause if known, and the workaround or final resolution.
 
+Weekly summaries should emphasize reusable engineering judgment, not only code authored. Treat the internship as training for code review and architecture review: record how requirements were split, what design or clean-architecture boundary was chosen, how code directories map to responsibilities, what review concerns were found, which tests cover which risks, and what CI/CD or open-source process rule was learned. It is acceptable for AI to help draft docs or code; the key record is the human-reviewable reasoning chain from requirement -> design -> implementation boundary -> review -> test evidence.
+
 At the start of each new Agent work loop, read root `PROGRESS.md` before diving into reports or code. At the end of the loop, update it only with short state needed for the next run: last work, current blockers, ruled-out paths, next step, and stop conditions. Keep long-form daily records in `internship-reports/` and task inventory in `internship-reports/todo.md`; do not let `PROGRESS.md` become a second report.
 
 ## Knowledge Capture Guidelines
