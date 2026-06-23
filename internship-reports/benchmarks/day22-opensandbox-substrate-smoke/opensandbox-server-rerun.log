@@ -1,0 +1,73 @@
+[32mINFO[0m:     2026-06-23 09:43:34+0800 [-] opensandbox_server.config: Loaded configuration from /tmp/opensandbox-docker-smoke.toml
+[32mINFO[0m:     2026-06-23 09:43:34+0800 [-] opensandbox_server.services.factory: Creating sandbox service with type: docker
+[32mINFO[0m:     2026-06-23 09:43:34+0800 [-] opensandbox_server.services.docker.docker_service: Docker service initialized from environment
+[32mINFO[0m:     2026-06-23 09:43:34+0800 [-] uvicorn.error: Started server process [[36m2350863[0m]
+[32mINFO[0m:     2026-06-23 09:43:34+0800 [-] uvicorn.error: Waiting for application startup.
+[33mWARNING[0m:  2026-06-23 09:43:34+0800 [-] opensandbox_server.startup_guard: server.api_key is not configured. Proceeding because OPENSANDBOX_INSECURE_SERVER explicitly acknowledges the insecure server mode.
+[32mINFO[0m:     2026-06-23 09:43:34+0800 [-] opensandbox_server.main: Validating secure runtime for Docker backend
+[32mINFO[0m:     2026-06-23 09:43:34+0800 [-] opensandbox_server.services.runtime_resolver: Secure runtime is not configured.
+[32mINFO[0m:     2026-06-23 09:43:34+0800 [-] uvicorn.error: Application startup complete.
+[32mINFO[0m:     2026-06-23 09:43:34+0800 [-] uvicorn.error: Uvicorn running on [1mhttp://127.0.0.1:8080[0m (Press CTRL+C to quit)
+[32mINFO[0m:     2026-06-23 09:43:57+0800 [-] uvicorn.access: 127.0.0.1:41400 - "GET /health HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:43:57+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=6ab01102-fec7-4994-9784-515deb96ae8d | action=inspect image python:3.12 | duration=1.79
+[32mINFO[0m:     2026-06-23 09:43:57+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=6ab01102-fec7-4994-9784-515deb96ae8d | action=create sandbox container | duration=53.28
+[32mINFO[0m:     2026-06-23 09:43:57+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=execd-cache:linux/amd64 | action=inspect image opensandbox/execd:v1.0.19 | duration=1.58
+[32mINFO[0m:     2026-06-23 09:43:57+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=execd-cache | action=execd cache create container | duration=60.80
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.runtime: Created sandbox execd archive for container fc36a958e570f9577b8d7527e882d7099ea61a15393d470553cb4fa9bea6920b
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=execd-cache | action=execd cache start container | duration=240.40
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=execd-cache | action=execd cache read archive | duration=74.22
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=execd-cache | action=execd cache read bootstrap | duration=16.90
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=execd-cache | action=execd cache cleanup container | duration=125.77
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.runtime: Dumped execd archive to memory for platform key linux/amd64
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=6ab01102-fec7-4994-9784-515deb96ae8d | action=ensure directory /opt/opensandbox | duration=31.31
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=6ab01102-fec7-4994-9784-515deb96ae8d | action=copy execd archive to sandbox | duration=40.83
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=6ab01102-fec7-4994-9784-515deb96ae8d | action=ensure directory /opt/opensandbox | duration=28.76
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=6ab01102-fec7-4994-9784-515deb96ae8d | action=install bootstrap script | duration=19.77
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [a79b24520ee84c10955c91a05d035b94] opensandbox_server.services.docker.docker_service: sandbox=6ab01102-fec7-4994-9784-515deb96ae8d | action=start sandbox container | duration=237.11
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [-] uvicorn.access: 127.0.0.1:41412 - "POST /v1/sandboxes HTTP/1.1" 202
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [-] uvicorn.access: 127.0.0.1:41412 - "GET /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d/endpoints/44772?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:43:58+0800 [-] uvicorn.access: 127.0.0.1:41412 - "GET /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d/endpoints/18080?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:44:33+0800 [-] uvicorn.access: 127.0.0.1:41726 - "GET /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:44:33+0800 [-] uvicorn.access: 127.0.0.1:41736 - "GET /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d/endpoints/44772?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:44:33+0800 [-] uvicorn.access: 127.0.0.1:41736 - "GET /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d/endpoints/18080?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:44:34+0800 [-] uvicorn.access: 127.0.0.1:41752 - "GET /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d/endpoints/44772?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:44:34+0800 [-] uvicorn.access: 127.0.0.1:41752 - "GET /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d/endpoints/18080?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:44:35+0800 [-] uvicorn.access: 127.0.0.1:41776 - "GET /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d/endpoints/44772?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:44:35+0800 [-] uvicorn.access: 127.0.0.1:41776 - "GET /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d/endpoints/18080?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:44:36+0800 [-] uvicorn.access: 127.0.0.1:41788 - "GET /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d/endpoints/44772?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:44:36+0800 [-] uvicorn.access: 127.0.0.1:41788 - "GET /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d/endpoints/18080?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:44:37+0800 [c2a07cbde44c45e49d05090cf5ce22d7] opensandbox_server.services.docker.docker_service: sandbox=6ab01102-fec7-4994-9784-515deb96ae8d | action=kill sandbox container | duration=132.98
+[32mINFO[0m:     2026-06-23 09:44:37+0800 [c2a07cbde44c45e49d05090cf5ce22d7] opensandbox_server.services.docker.docker_service: sandbox=6ab01102-fec7-4994-9784-515deb96ae8d | action=remove sandbox container | duration=16.50
+[32mINFO[0m:     2026-06-23 09:44:37+0800 [-] uvicorn.access: 127.0.0.1:41802 - "DELETE /v1/sandboxes/6ab01102-fec7-4994-9784-515deb96ae8d HTTP/1.1" 204
+[32mINFO[0m:     2026-06-23 09:44:49+0800 [82540fc8f0514038bc125d7631e936a6] opensandbox_server.api.lifecycle: ListSandboxes: state=None metadata=None
+[32mINFO[0m:     2026-06-23 09:44:49+0800 [-] uvicorn.access: 127.0.0.1:41914 - "GET /v1/sandboxes HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:45:32+0800 [b7ce817113134c5bb35aa97310dede09] opensandbox_server.services.docker.docker_service: sandbox=95427e6b-5f6f-4f96-a943-d89b6f6e6af4 | action=inspect image python:3.12 | duration=2.07
+[32mINFO[0m:     2026-06-23 09:45:32+0800 [b7ce817113134c5bb35aa97310dede09] opensandbox_server.services.docker.docker_service: sandbox=95427e6b-5f6f-4f96-a943-d89b6f6e6af4 | action=create sandbox container | duration=154.50
+[32mINFO[0m:     2026-06-23 09:45:32+0800 [b7ce817113134c5bb35aa97310dede09] opensandbox_server.services.docker.docker_service: sandbox=95427e6b-5f6f-4f96-a943-d89b6f6e6af4 | action=ensure directory /opt/opensandbox | duration=15.80
+[32mINFO[0m:     2026-06-23 09:45:33+0800 [b7ce817113134c5bb35aa97310dede09] opensandbox_server.services.docker.docker_service: sandbox=95427e6b-5f6f-4f96-a943-d89b6f6e6af4 | action=copy execd archive to sandbox | duration=67.59
+[32mINFO[0m:     2026-06-23 09:45:33+0800 [b7ce817113134c5bb35aa97310dede09] opensandbox_server.services.docker.docker_service: sandbox=95427e6b-5f6f-4f96-a943-d89b6f6e6af4 | action=ensure directory /opt/opensandbox | duration=18.16
+[32mINFO[0m:     2026-06-23 09:45:33+0800 [b7ce817113134c5bb35aa97310dede09] opensandbox_server.services.docker.docker_service: sandbox=95427e6b-5f6f-4f96-a943-d89b6f6e6af4 | action=install bootstrap script | duration=21.77
+[32mINFO[0m:     2026-06-23 09:45:33+0800 [b7ce817113134c5bb35aa97310dede09] opensandbox_server.services.docker.docker_service: sandbox=95427e6b-5f6f-4f96-a943-d89b6f6e6af4 | action=start sandbox container | duration=241.15
+[32mINFO[0m:     2026-06-23 09:45:33+0800 [-] uvicorn.access: 127.0.0.1:42290 - "POST /v1/sandboxes HTTP/1.1" 202
+[32mINFO[0m:     2026-06-23 09:45:33+0800 [-] uvicorn.access: 127.0.0.1:42290 - "GET /v1/sandboxes/95427e6b-5f6f-4f96-a943-d89b6f6e6af4/endpoints/44772?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:45:33+0800 [-] uvicorn.access: 127.0.0.1:42290 - "GET /v1/sandboxes/95427e6b-5f6f-4f96-a943-d89b6f6e6af4/endpoints/18080?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:45:34+0800 [9d00f8a2c0344c45a0a190955b16e239] opensandbox_server.services.docker.docker_service: sandbox=95427e6b-5f6f-4f96-a943-d89b6f6e6af4 | action=kill sandbox container | duration=129.27
+[32mINFO[0m:     2026-06-23 09:45:34+0800 [9d00f8a2c0344c45a0a190955b16e239] opensandbox_server.services.docker.docker_service: sandbox=95427e6b-5f6f-4f96-a943-d89b6f6e6af4 | action=remove sandbox container | duration=13.71
+[32mINFO[0m:     2026-06-23 09:45:34+0800 [-] uvicorn.access: 127.0.0.1:42290 - "DELETE /v1/sandboxes/95427e6b-5f6f-4f96-a943-d89b6f6e6af4 HTTP/1.1" 204
+[32mINFO[0m:     2026-06-23 09:45:51+0800 [a384c22a70734023b521cc738e93f936] opensandbox_server.api.lifecycle: ListSandboxes: state=None metadata=None
+[32mINFO[0m:     2026-06-23 09:45:51+0800 [-] uvicorn.access: 127.0.0.1:42464 - "GET /v1/sandboxes HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:46:08+0800 [c523dff5237f4338a99cef0c911687ff] opensandbox_server.services.docker.docker_service: sandbox=52e7b46f-a774-40ff-9588-b934b4ce20e7 | action=inspect image python:3.12 | duration=2.29
+[32mINFO[0m:     2026-06-23 09:46:08+0800 [c523dff5237f4338a99cef0c911687ff] opensandbox_server.services.docker.docker_service: sandbox=52e7b46f-a774-40ff-9588-b934b4ce20e7 | action=create sandbox container | duration=95.37
+[32mINFO[0m:     2026-06-23 09:46:08+0800 [c523dff5237f4338a99cef0c911687ff] opensandbox_server.services.docker.docker_service: sandbox=52e7b46f-a774-40ff-9588-b934b4ce20e7 | action=ensure directory /opt/opensandbox | duration=22.08
+[32mINFO[0m:     2026-06-23 09:46:08+0800 [c523dff5237f4338a99cef0c911687ff] opensandbox_server.services.docker.docker_service: sandbox=52e7b46f-a774-40ff-9588-b934b4ce20e7 | action=copy execd archive to sandbox | duration=74.93
+[32mINFO[0m:     2026-06-23 09:46:08+0800 [c523dff5237f4338a99cef0c911687ff] opensandbox_server.services.docker.docker_service: sandbox=52e7b46f-a774-40ff-9588-b934b4ce20e7 | action=ensure directory /opt/opensandbox | duration=25.84
+[32mINFO[0m:     2026-06-23 09:46:08+0800 [c523dff5237f4338a99cef0c911687ff] opensandbox_server.services.docker.docker_service: sandbox=52e7b46f-a774-40ff-9588-b934b4ce20e7 | action=install bootstrap script | duration=29.93
+[32mINFO[0m:     2026-06-23 09:46:08+0800 [c523dff5237f4338a99cef0c911687ff] opensandbox_server.services.docker.docker_service: sandbox=52e7b46f-a774-40ff-9588-b934b4ce20e7 | action=start sandbox container | duration=244.14
+[32mINFO[0m:     2026-06-23 09:46:08+0800 [-] uvicorn.access: 127.0.0.1:42604 - "POST /v1/sandboxes HTTP/1.1" 202
+[32mINFO[0m:     2026-06-23 09:46:08+0800 [-] uvicorn.access: 127.0.0.1:42604 - "GET /v1/sandboxes/52e7b46f-a774-40ff-9588-b934b4ce20e7/endpoints/44772?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:46:08+0800 [-] uvicorn.access: 127.0.0.1:42604 - "GET /v1/sandboxes/52e7b46f-a774-40ff-9588-b934b4ce20e7/endpoints/18080?use_server_proxy=false HTTP/1.1" 200
+[32mINFO[0m:     2026-06-23 09:46:10+0800 [bc2dbe95f5da4172a442fa60030af38e] opensandbox_server.services.docker.docker_service: sandbox=52e7b46f-a774-40ff-9588-b934b4ce20e7 | action=kill sandbox container | duration=142.49
+[32mINFO[0m:     2026-06-23 09:46:10+0800 [bc2dbe95f5da4172a442fa60030af38e] opensandbox_server.services.docker.docker_service: sandbox=52e7b46f-a774-40ff-9588-b934b4ce20e7 | action=remove sandbox container | duration=15.79
+[32mINFO[0m:     2026-06-23 09:46:10+0800 [-] uvicorn.access: 127.0.0.1:42604 - "DELETE /v1/sandboxes/52e7b46f-a774-40ff-9588-b934b4ce20e7 HTTP/1.1" 204
+[32mINFO[0m:     2026-06-23 09:46:20+0800 [74f12d1cc8d84076af3ba341ec060645] opensandbox_server.api.lifecycle: ListSandboxes: state=None metadata=None
+[32mINFO[0m:     2026-06-23 09:46:20+0800 [-] uvicorn.access: 127.0.0.1:42730 - "GET /v1/sandboxes HTTP/1.1" 200

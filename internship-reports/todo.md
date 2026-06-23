@@ -70,6 +70,7 @@
 | 源码构建 cage-bro 并完成基础延迟对比 | [Day 7](day7-cage-bro-competitor-benchmark.md) |
 | 建立 sandbox 竞品隔离能力、兼容性和部署难度矩阵 | [Day 8](day8-sandbox-competitor-capability-matrix.md) |
 | 补充 OpenSandbox / Agent Substrate 云厂商开源项目调研 | [Day 21](day21-opensandbox-agent-substrate-study.md) |
+| 拆解 OpenSandbox / Agent Substrate 实测 runbook | [Day 22](day22-opensandbox-agent-substrate-runtime-runbook.md) |
 
 ## 卡点记录模板
 

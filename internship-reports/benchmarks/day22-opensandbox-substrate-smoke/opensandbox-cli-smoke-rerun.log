@@ -1,0 +1,11 @@
+
+$ curl -fsS http://127.0.0.1:8080/health
+{"status":"healthy"}
+$ uvx --from opensandbox-cli osb sandbox create --image python:3.12 --timeout 10m -o json
+{
+  "id": "6ab01102-fec7-4994-9784-515deb96ae8d",
+  "image": "python:3.12",
+  "status": "created",
+  "timeout": "0:10:00"
+}
+Failed to parse sandbox id

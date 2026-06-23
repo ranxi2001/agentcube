@@ -1,0 +1,26 @@
+Downloading cpython-3.12.13-linux-x86_64-gnu (download) (32.5MiB)
+ Downloaded cpython-3.12.13-linux-x86_64-gnu (download)
+Using CPython 3.12.13
+Creating virtual environment at: .venv
+   Building agentcube @ file:///home/agentcube
+      Built agentcube @ file:///home/agentcube
+Installed 1 package in 0.57ms
+Downloading pydantic-core (2.0MiB)
+ Downloaded pydantic-core
+Installed 15 packages in 5ms
+Traceback (most recent call last):
+  File "<string>", line 34, in <module>
+  File "/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "<string>", line 19, in main
+  File "/root/.cache/uv/archive-v0/TTMjQffQHf9HH2G2/lib/python3.12/site-packages/pydantic/main.py", line 1042, in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+AttributeError: 'Execution' object has no attribute 'stdout'
+sandbox_id= 95427e6b-5f6f-4f96-a943-d89b6f6e6af4

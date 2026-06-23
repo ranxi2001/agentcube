@@ -44,6 +44,8 @@ When a discussion reaches a concrete conclusion, design decision, testing limita
 
 For competitor benchmarks and sandbox/runtime comparisons, keep the raw result files under `internship-reports/benchmarks/` and reference them from the report. Separate data sources clearly as local measured data, upstream official data, and engineering inference. Record the benchmark host environment, including OS, kernel, glibc, CPU/vCPU, `/dev/kvm`, virtualization flags such as `vmx`/`svm`, and Kubernetes/runtime configuration. Add short plain-language notes for OS-level terms that affect the result, for example KVM, `/dev/kvm`, glibc, Landlock, cgroup, and RuntimeClass, so the report is readable by reviewers who are not operating-system specialists. If a test temporarily changes cluster state, such as `warmPoolSize`, port-forward sessions, or test services, restore it before finishing and state the final setting in the report or final response.
 
+For external sandbox runtime smoke tests such as OpenSandbox or Agent Substrate, use `.agents/skills/sandbox-runtime-smoke/SKILL.md` and keep the workflow scriptable: capture host environment, store raw logs, pre-pull known images when measuring runtime behavior, classify infrastructure bootstrap failures separately from product behavior, and verify cleanup before stopping.
+
 ## Fork Sync & Upstream PR Workflow
 
 This workspace uses two remotes:

@@ -1,0 +1,50 @@
+
+$ uvx --from opensandbox-cli osb sandbox get 6ab01102-fec7-4994-9784-515deb96ae8d -o json
+{
+  "id": "6ab01102-fec7-4994-9784-515deb96ae8d",
+  "status": {
+    "state": "Running",
+    "reason": "CONTAINER_RUNNING",
+    "message": "Sandbox container is running.",
+    "last_transition_at": "2026-06-23T01:43:57.738151Z"
+  },
+  "entrypoint": [
+    "tail",
+    "-f",
+    "/dev/null"
+  ],
+  "expires_at": "2026-06-23T01:53:57.727456Z",
+  "created_at": "2026-06-23T01:43:57.738151Z",
+  "image": {
+    "image": "python:3.12",
+    "auth": null
+  },
+  "snapshot_id": null,
+  "platform": null,
+  "metadata": {}
+}
+
+$ uvx --from opensandbox-cli osb sandbox health 6ab01102-fec7-4994-9784-515deb96ae8d -o json
+{
+  "sandbox_id": "6ab01102-fec7-4994-9784-515deb96ae8d",
+  "healthy": true
+}
+
+$ uvx --from opensandbox-cli osb command run 6ab01102-fec7-4994-9784-515deb96ae8d -o raw -- python -c print(1 + 1)
+2
+
+$ uvx --from opensandbox-cli osb file write 6ab01102-fec7-4994-9784-515deb96ae8d /workspace/agentcube-smoke.txt -c hello opensandbox -o json
+{
+  "status": "ok",
+  "message": "Written: /workspace/agentcube-smoke.txt"
+}
+
+$ uvx --from opensandbox-cli osb file cat 6ab01102-fec7-4994-9784-515deb96ae8d /workspace/agentcube-smoke.txt -o raw
+hello opensandbox
+$ uvx --from opensandbox-cli osb sandbox kill 6ab01102-fec7-4994-9784-515deb96ae8d -o json
+[
+  {
+    "sandbox_id": "6ab01102-fec7-4994-9784-515deb96ae8d",
+    "status": "terminated"
+  }
+]
