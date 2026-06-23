@@ -1185,6 +1185,31 @@ phase 1 commit: 3d0427a feat: add sandbox session state CAS store support
 phase 2 commit: cb66c8a feat: add workload manager session lifecycle service
 ```
 
+本阶段解决的问题：
+
+第二阶段解决的是 Sleep/Resume 从设计和 Store 能力进入 WorkloadManager 执行层的问题。第一阶段已经让 Store 能记录状态、做 CAS、维护 pause expiry index，但还没有回答这些问题：
+
+- 谁负责把 session 从 `ready` 安全推进到 `paused`？
+- 谁负责把 session 从 `paused` 安全恢复到 `ready`？
+- 底层 runtime pause/resume 失败时，AgentCube Store 里的 session 应该进入什么状态？
+- 多个请求同时触发 resume 时，如何保证只有一个真实 resume 操作发生？
+- pause 后旧的 sandbox entrypoint 是否还能继续使用？
+- resume 后新的 entrypoint 如何刷新给后续 Router 使用？
+
+本阶段给出的答案是：在 WorkloadManager 里先建立一个内部 `sessionLifecycleService`，用 Store CAS 保证状态迁移的并发正确性，用 `RuntimeProvider` 隔离底层 runtime 差异，用 fake provider 先把 AgentCube control-plane 语义测清楚。
+
+它具体补齐了以下能力：
+
+- `ready -> pausing -> paused`
+- `paused -> resuming -> ready`
+- provider pause/resume 失败时落到 `failed`，并记录 `FailureReason`
+- 并发 resume 时只有一个请求能完成 CAS 并进入 provider，其他请求得到 `ErrSessionStateConflict`
+- pause 后清空旧 `EntryPoints`，避免 Router 继续使用已经无效的 Pod endpoint
+- resume 后写回 provider 返回的新 `EntryPoints`
+- 每次 pause/resume 都递增 `EndpointRevision`，为后续 Router 判断 endpoint 是否刷新预留依据
+
+因此，第二阶段不是完整产品功能，而是把 Sleep/Resume 的中间执行层补起来。它承接第一阶段 Store CAS，向后支撑第三阶段 GC split、Router resume-before-proxy 和真实 `agent-sandbox` hard pause provider。
+
 实现范围：
 
 - 新增 `pkg/workloadmanager/session_lifecycle.go`
