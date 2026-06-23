@@ -14,6 +14,8 @@ AgentCube is a Go-first Kubernetes project with Python tooling and docs. Core bi
 - `make e2e`: runs the end-to-end suite in `test/e2e/`.
 - `cd docs/agentcube && npm run build`: validates the Docusaurus documentation site.
 
+This workspace has Go `1.26.4` installed as the default system toolchain at `/usr/local/go1.26.4`, with `go` and `gofmt` symlinked from `/usr/local/bin`. Use plain `go`, `gofmt`, and `make fmt`; no per-command `PATH` override is needed.
+
 ## Coding Style & Naming Conventions
 
 Use Go standard formatting and idioms; run `make fmt` before review. Keep package names lowercase and concise. Public API-facing Go symbols need clear comments. Kubernetes API changes must update CRD types, manifests, and generated clients with `make gen-all`. Python modules use snake_case and should follow the existing layouts in `sdk-python/` and `cmd/cli/`.
