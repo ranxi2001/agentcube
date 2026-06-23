@@ -82,12 +82,26 @@ OpenSandbox 是一个 **SDK / API 优先的通用 sandbox 平台**：它提供 D
 
 Agent Substrate 是一个 **Kubernetes 上的 stateful actor multiplexing 系统**：它不是通用代码执行 SDK，而是试图把大量长期存在、经常空闲的 agent-like actors 映射到少量预热 worker Pods 上，通过 gVisor checkpoint / restore、独立控制面和路由层实现低延迟 suspend/resume。
 
+> 注释：这里的 `gVisor checkpoint / restore` 可以先理解成 runtime 级别的“保存现场 / 恢复现场”。普通容器大多只保存文件系统或重新启动进程；gVisor 的 `runsc` 可以参与保存进程运行状态、内存和文件系统等更底层状态，从而让 actor 下次恢复时更接近“继续执行”，而不是从零冷启动。
+>
+> 注释：`独立控制面` 指 Agent Substrate 不把每次 actor 唤醒都完全交给 Kubernetes scheduler / API server 走一遍，而是自己维护 Actor / Worker 状态、选择可用 worker、协调 snapshot 传输和恢复。`路由层` 指请求先进入 `atenet` / Envoy 这类 router，如果发现目标 actor 已 suspend，就先触发 resume，再把原始请求转发到恢复后的 worker。
+>
+> 分析：这句话可以拆成三层能力：gVisor/runsc 解决“状态怎么保存和恢复”，独立控制面解决“哪个 actor 在哪个 worker 上、什么时候恢复”，路由层解决“请求来了先唤醒再代理”。AgentCube 如果第一版 Sleep/Resume 只要求 workspace 保留，不一定需要 gVisor；但 Router resume-before-proxy 和 Store 状态机这两层仍然需要设计。
+
 对 AgentCube 来说：
 
 - OpenSandbox 更接近“上层 sandbox API / SDK 平台 + 多 backend adapter”的参考样本。
 - Agent Substrate 更接近“未来 Sleep/Resume / 高密度会话复用 / actor 状态管理”的架构样本。
 - 二者都证明了一个方向：Agent sandbox 不能只做 create/delete；后续重点会转向 provider adapter、pause/resume、snapshot state、路由唤醒、egress / credential / audit。
 - Day22 实测进一步说明：OpenSandbox 的 Docker runtime 作为开发者入口已经可用，但冷启动必须区分镜像拉取、容器创建、execd bootstrap、command/file API；Agent Substrate 的设计更激进，第一道工程门槛不是 API，而是能否稳定准备 kind/GKE + gVisor/runsc + state store 这套 substrate。
+
+> 注释：`provider adapter` 指把 Docker、Kubernetes、agent-sandbox、BatchSandbox 等不同后端封装成统一接口，让上层生命周期 API 不直接依赖某个 CRD 或 runtime 的字段。`pause/resume` 是把 sandbox 从 Running/Ready 变为 Paused/Suspended，再在请求到来时恢复。`snapshot state` 指 pause 时保存出来的状态，可能只是 workspace/rootfs，也可能包含进程内存、文件系统、网络相关状态。
+>
+> 注释：`路由唤醒` 指 Router 收到请求后发现目标 session/actor 已暂停，于是先触发 resume，再转发原始请求。`egress` 是 sandbox/agent 对外访问网络的出站路径和策略；`credential` 是密钥、token、API key 等凭据如何注入或代理；`audit` 是记录谁在什么时间做了什么操作、访问了什么外部资源。Agent 进入生产后，这三项会直接影响安全边界和可追责性。
+>
+> 注释：`冷启动` 不是一个单一耗时。镜像拉取是从 registry 下载 image；容器创建是 runtime 准备 container/rootfs/namespace/cgroup；`execd bootstrap` 是 sandbox 内部命令执行服务启动并可响应；`command/file API` 是真正发起命令执行或文件读写后的 API 延迟。把这些拆开测，才能知道慢在 registry、runtime、服务启动还是业务 API。
+>
+> 注释：`kind` 是在 Docker 容器里跑本地 Kubernetes 集群的工具，适合开发测试；`GKE` 是 Google Cloud 的托管 Kubernetes，更接近稳定云环境；`gVisor/runsc` 是 Agent Substrate 依赖的 sandbox runtime 和对应 OCI runtime；`state store` 是 Redis/ValKey 这类保存 Actor/Worker 动态状态的存储。这里的 `substrate` 可以理解成“让上层 actor suspend/resume 能跑起来的一整套底座”，不只是一个 API server。
 
 ## OpenSandbox 调研
 
@@ -105,6 +119,16 @@ OpenSandbox 官方定位是面向 AI 应用的通用 sandbox 平台，覆盖 Cod
 | Backend runtime | Docker runtime、Kubernetes runtime；Kubernetes 下支持 `batchsandbox` 和 `agent-sandbox` provider |
 | Network | Ingress gateway、egress sidecar、FQDN / CIDR policy、Credential Vault、secure endpoint access |
 | Isolation | 默认 runc，也可配置 gVisor、Kata、Firecracker/Kata-FC 等 secure runtime |
+
+> 注释：`PTY` 是 pseudo-terminal，伪终端。它让程序以为自己连着一个真实终端，所以可以支持交互式 shell、REPL、彩色输出、光标控制等行为；普通 command API 更像“一次性执行命令并返回 stdout/stderr”。`code execution` 是更高层的代码执行接口，例如提交一段 Python 代码并拿回结果；`metrics` 是运行状态指标，例如 CPU、memory、进程或请求耗时，用来观测 sandbox 是否健康、是否过载。
+>
+> 注释：`Ingress gateway` 是进入集群或 sandbox 的入口网关，负责把外部请求路由到正确的 sandbox endpoint。`egress sidecar` 是跟 sandbox 同 Pod 或同网络路径部署的出站代理，用来控制 sandbox 能访问哪些外部地址。`FQDN policy` 按域名控制访问，例如只允许访问 `api.openai.com`；`CIDR policy` 按 IP 网段控制访问，例如只允许 `10.0.0.0/8`。域名策略更贴近 SaaS/API 访问，CIDR 策略更贴近网络层安全边界。
+>
+> 注释：`Credential Vault` 是集中管理密钥、token、API key 的组件或能力，目标是让 sandbox 内代码不直接持有长期密钥，而是在代理层或受控路径里按规则注入凭据。`secure endpoint access` 指 sandbox 暴露 endpoint 时要有鉴权、授权、隔离和访问控制，避免任何人拿到 URL 就能访问用户会话。
+>
+> 注释：`runc` 是普通 Linux 容器常用 runtime，性能和兼容性最好，但隔离强度主要依赖 namespace/cgroup/seccomp 等内核机制。`gVisor` 在应用和宿主机内核之间加用户态内核，隔离更强但可能有 syscall/网络/文件 I/O 兼容和性能成本。`Kata` 把容器放进轻量 VM，隔离更接近虚拟机。`Firecracker/Kata-FC` 是用 Firecracker 作为底层 VMM 的 Kata 路线，目标是在更强隔离和更低 VM 开销之间折中。
+>
+> 分析：OpenSandbox 这一层能力表说明它不是只做“跑一条命令”的代码执行器，而是把开发者入口、sandbox 内命令执行、Kubernetes 后端、网络出入站治理、凭据注入、隔离 runtime 都纳入平台。AgentCube 后续如果做生产级 agent runtime，也需要把 lifecycle、网络、安全、观测一起设计，而不是只优化 sandbox 创建速度。
 
 ### 组件结构
 
