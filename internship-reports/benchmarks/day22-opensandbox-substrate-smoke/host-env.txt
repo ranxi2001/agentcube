@@ -1,0 +1,11 @@
+date=2026-06-23T09:37:11+08:00
+uname=Linux ecs-4b42-0001 4.18.0-348.7.1.el8_5.x86_64 #1 SMP Wed Dec 22 13:25:12 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux
+docker_server=26.1.3
+uvx=uvx 0.11.20 (x86_64-unknown-linux-gnu)
+python3=Python 3.6.8
+kubectl=Flag --short has been deprecated, and will be removed in the future. The --short output will become the default. Client Version: v1.24.17+k3s1 Kustomize Version: v4.5.4 
+kind=kind v0.32.0 go1.26.3 linux/amd64
+go=/bin/bash: line 8: go: command not found
+cpu=4
+memory=              total        used        free      shared  buff/cache   available;Mem:           15Gi       2.8Gi       1.8Gi        59Mi        10Gi        12Gi;Swap:            0B          0B          0B;
+cgroup=tmpfs

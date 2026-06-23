@@ -1,0 +1,20 @@
+3.12: Pulling from library/python
+ef1b08ddd59d: Already exists
+8b365b6ff7b7: Already exists
+2ca884014342: Already exists
+442cca122a8b: Pulling fs layer
+71eb69eeaf01: Pulling fs layer
+d57bbc53353e: Pulling fs layer
+d04536ac5ef0: Pulling fs layer
+d04536ac5ef0: Download complete
+d57bbc53353e: Download complete
+71eb69eeaf01: Download complete
+442cca122a8b: Verifying Checksum
+442cca122a8b: Download complete
+442cca122a8b: Pull complete
+71eb69eeaf01: Pull complete
+d57bbc53353e: Pull complete
+d04536ac5ef0: Pull complete
+Digest: sha256:ea7b35cdb10b8a1381848aeb90a434997da25649c86d842d19fe6154c535cd11
+Status: Downloaded newer image for python:3.12
+docker.io/library/python:3.12

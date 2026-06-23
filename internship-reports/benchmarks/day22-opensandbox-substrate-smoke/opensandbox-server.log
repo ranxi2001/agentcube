@@ -1,0 +1,23 @@
+[32mINFO[0m:     2026-06-23 09:38:36+0800 [-] opensandbox_server.config: Loaded configuration from /tmp/opensandbox-docker-smoke.toml
+[32mINFO[0m:     2026-06-23 09:38:36+0800 [-] opensandbox_server.services.factory: Creating sandbox service with type: docker
+[32mINFO[0m:     2026-06-23 09:38:36+0800 [-] opensandbox_server.services.docker.docker_service: Docker service initialized from environment
+[32mINFO[0m:     2026-06-23 09:38:36+0800 [-] uvicorn.error: Started server process [[36m2347343[0m]
+[32mINFO[0m:     2026-06-23 09:38:36+0800 [-] uvicorn.error: Waiting for application startup.
+[33mWARNING[0m:  2026-06-23 09:38:36+0800 [-] opensandbox_server.startup_guard: server.api_key is not configured. Proceeding because OPENSANDBOX_INSECURE_SERVER explicitly acknowledges the insecure server mode.
+[32mINFO[0m:     2026-06-23 09:38:36+0800 [-] opensandbox_server.main: Validating secure runtime for Docker backend
+[32mINFO[0m:     2026-06-23 09:38:36+0800 [-] opensandbox_server.services.runtime_resolver: Secure runtime is not configured.
+[32mINFO[0m:     2026-06-23 09:38:36+0800 [-] uvicorn.error: Application startup complete.
+[32mINFO[0m:     2026-06-23 09:38:36+0800 [-] uvicorn.error: Uvicorn running on [1mhttp://127.0.0.1:8080[0m (Press CTRL+C to quit)
+[32mINFO[0m:     2026-06-23 09:38:59+0800 [-] uvicorn.access: 127.0.0.1:38766 - "GET /health HTTP/1.1" 200
+[33mWARNING[0m:  2026-06-23 09:39:01+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.docker_service: sandbox=960784eb-a465-4160-bdc0-eb0dd58d7ea6 | action=inspect image python:3.12 | duration=3.09 | error=404 Client Error for http+docker://localhost/v1.45/images/python:3.12/json: Not Found ("No such image: python:3.12")
+[32mINFO[0m:     2026-06-23 09:43:08+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.docker_service: sandbox=960784eb-a465-4160-bdc0-eb0dd58d7ea6 | action=pull image python:3.12 | duration=246678.11
+[32mINFO[0m:     2026-06-23 09:43:12+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.docker_service: sandbox=960784eb-a465-4160-bdc0-eb0dd58d7ea6 | action=create sandbox container | duration=3760.33
+[32mINFO[0m:     2026-06-23 09:43:12+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.docker_service: sandbox=execd-cache:linux/amd64 | action=inspect image opensandbox/execd:v1.0.19 | duration=1.45
+[32mINFO[0m:     2026-06-23 09:43:12+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.docker_service: sandbox=execd-cache | action=execd cache create container | duration=41.36
+[32mINFO[0m:     2026-06-23 09:43:12+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.runtime: Created sandbox execd archive for container f5626cb77454157f6e2e46bcb96850fc98b07cb67361bf3e1535886d2acb84d1
+[32mINFO[0m:     2026-06-23 09:43:12+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.docker_service: sandbox=execd-cache | action=execd cache start container | duration=205.75
+[32mINFO[0m:     2026-06-23 09:43:12+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.docker_service: sandbox=execd-cache | action=execd cache read archive | duration=57.16
+[32mINFO[0m:     2026-06-23 09:43:12+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.docker_service: sandbox=execd-cache | action=execd cache read bootstrap | duration=7.48
+[32mINFO[0m:     2026-06-23 09:43:12+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.docker_service: sandbox=execd-cache | action=execd cache cleanup container | duration=122.80
+[32mINFO[0m:     2026-06-23 09:43:12+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.runtime: Dumped execd archive to memory for platform key linux/amd64
+[32mINFO[0m:     2026-06-23 09:43:12+0800 [4d475f09767f4f31b7d2b2b888f141dc] opensandbox_server.services.docker.docker_service: sandbox=960784eb-a465-4160-bdc0-eb0dd58d7ea6 | action=ensure directory /opt/opensandbox | duration=32.28
