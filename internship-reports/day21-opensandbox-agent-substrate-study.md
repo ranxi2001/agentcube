@@ -50,6 +50,24 @@ Day11 已经完成 CubeSandbox 深入调研，但当时对 OpenSandbox 和 Agent
 >
 > 分析：协议选择本质上是在回答“这是外部入口还是内部控制面、需要同步结果还是异步 reconcile、是单次请求还是持续状态流、状态契约是否必须强类型”。AgentCube 当前不必全面 gRPC 化，但 Sleep/Resume 的内部状态契约要像 proto 一样清楚。
 >
+> 注释：`proto` 通常指 Protocol Buffers 的接口定义文件，文件后缀是 `.proto`。可以把它理解成“一份给人读、也能给机器生成代码的 API 契约”。例如：
+>
+> ```proto
+> message ResumeActorRequest {
+>   string actor_id = 1;
+> }
+>
+> message ResumeActorResponse {
+>   string status = 1;
+> }
+>
+> service ActorService {
+>   rpc ResumeActor(ResumeActorRequest) returns (ResumeActorResponse);
+> }
+> ```
+>
+> 这里 `message` 定义请求 / 响应的数据结构，`service` 定义一组远程 API，`rpc ResumeActor(...) returns (...)` 定义一个远程函数调用，字段后的 `= 1` 是 protobuf 的字段编号，用来保持二进制编码和向后兼容。读 Agent Substrate 的 `pkg/proto/ateapipb/ateapi.proto` 时，看到 `CreateActor`、`ResumeActor`、`SuspendActor`、`PauseActor`，就能直接知道控制面真正支持哪些生命周期动作。
+>
 > 注释：`CRD schema` 和 `gRPC API` 不是同一层东西。CRD 是 Kubernetes API server 里保存的期望状态和观测状态，适合声明低频配置；gRPC API 是运行中服务之间的直接调用接口，适合高频、强交互、需要返回明确结果的控制面动作。Agent Substrate 同时使用这两者，所以阅读时要分清“写入 Kubernetes 资源”和“调用控制面服务”。
 
 Day21 本日没有做实际部署和 benchmark，产出是源码级初读和架构对比。Day22 已补充第一轮实际运行：OpenSandbox Docker runtime 完成 CLI / Python SDK 端到端 smoke；Agent Substrate 尝试 kind quickstart，但阻塞在 kind / kubeadm control-plane bootstrap，尚未进入 counter demo。原始日志保存在：

@@ -8,6 +8,7 @@
 
 ## Last Run
 
+- Day21 的同一 gRPC/protobuf 注释区已补 `proto` 基础解释：说明 `.proto` 是 Protocol Buffers 的接口定义文件，是人和机器都能使用的 API 契约，并用最小 `ResumeActorRequest` / `ResumeActorResponse` / `ActorService` 示例解释 `message`、`service`、`rpc` 和字段编号，帮助后续阅读 Agent Substrate 的 `ateapi.proto`。
 - Day21 的 gRPC 概念注释已继续补充：在 `internship-reports/day21-opensandbox-agent-substrate-study.md` 开头资料来源后的 `gRPC API` 注释处加入“常见上层通信方式”表，只保留 REST/HTTP JSON、gRPC/protobuf、WebSocket、SSE、Message Queue/PubSub、Kubernetes API/CRD，去掉 TCP/UDP/QUIC 等底层传输协议，方便后续阅读 OpenSandbox / Agent Substrate / AgentCube 文档时快速区分外部入口、内部控制面、状态流、异步任务和声明式资源。
 - `AGENTS.md` 已新增文档写作规范：实习报告、设计笔记、架构调研、review-prep 文档中不要吝啬解释性注释；遇到抽象概念、跨项目术语、协议、Kubernetes 资源、状态机、控制面/数据面、安全术语或工程推断时，应在相关段落/表格附近加 `> 注释：...` / `> 分析：...`，方便未来 reviewer 脱离聊天上下文阅读。该规则仅针对学习/报告文档，代码注释仍保持精确和必要。
 - Day21 已按用户要求补充 gRPC / proto / 控制面概念注释：`internship-reports/day21-opensandbox-agent-substrate-study.md` 新增多处 `> 注释` / `> 分析`，解释 gRPC 与 REST、CRD、Kubernetes reconcile、控制面/数据面、SessionIdentity、snapshot stream 的区别，并新增 “gRPC / proto 对 AgentCube 的启发” 小节。结论：AgentCube 当前不应为了协议先进性直接改 gRPC；更重要的是先把 session lifecycle contract、Router resume-before-proxy、Store 高频状态/CAS、runtime provider 边界定义清楚。Day21 当前 633 行，已超过同主题续写 600 行阈值。
