@@ -4,10 +4,11 @@
 
 ## Goal
 
-当前主线：参与 AgentCube upstream 社区，跟进 PR #385，并围绕 SnapStart / warm pool / sandbox benchmark 找可验证、低重复的贡献点。
+当前主线：参与 AgentCube upstream 社区，跟进 PR #385 / #387，并围绕 agent-sandbox compatibility、Sleep/Resume、SnapStart、observability、SDK lifecycle 和 sandbox benchmark 找可验证、低重复的贡献点。
 
 ## Last Run
 
+- Day23 已创建 `internship-reports/day23-agentcube-future-architecture-and-design.md`，基于 `design.md`、官方 README/architecture/proposal、最新 PR/issue（#386/#387/#400/#367/#398/#394/#395/#331/#291/#382/#301/#354/#366/#379）和 Day12/15/18/19/20/21/22 记录，形成 AgentCube 未来架构路线：继续调研但从泛读转为设计/测试驱动；近期重点不是造新 runtime 或二级 scheduler，而是把 AgentCube 做成稳定的 session lifecycle control plane。核心路线为 `agent-sandbox v0.4.6` compatibility -> RuntimeProvider capability layer -> Store session state/index -> Router resume-before-proxy -> GC Ready/Paused/Deleted split -> Sleep/Resume MVP -> benchmark/math-agent validation -> SnapStart/runtime acceleration -> 可选 SandboxWorkspace/resource pool。
 - Day21 已按 Day22 端到端实测回灌更新：`internship-reports/day21-opensandbox-agent-substrate-study.md` 新增 2026-06-23 更新说明、OpenSandbox Docker runtime 实测后的理解修正、Agent Substrate kind quickstart bootstrap 失败分析、三方源码级对照表的“实测状态”行、更新后的尖锐结论、测试纪律（冷/热启动分开、readiness 独立测、清理状态作为通过条件）和新的下一步。核心变化：OpenSandbox 不只是文档完整，Docker CLI/SDK/execd/file API 已本机跑通；Agent Substrate 仍是 sleep/resume 架构样本，但部署 substrate 本身是第一风险，当前机器未进入 counter demo。
 - Day22 端到端实测已执行并写回 `internship-reports/day22-opensandbox-agent-substrate-runtime-runbook.md`，原始日志在 `internship-reports/benchmarks/day22-opensandbox-substrate-smoke/`。OpenSandbox Docker runtime 通过 CLI 与 Python SDK 两条 e2e：health、create `python:3.12` sandbox、command 输出 `2`、file write/read、kill、list empty、Docker 无残留。首次 create 因 server 同步拉 `python:3.12` 镜像耗时约 246s，CLI `httpx.ReadTimeout` 且 `/health` 期间也会超时；预拉 `opensandbox/execd:v1.0.19` 和 `python:3.12` 后通过。SDK 脚本需读 `execution.logs.stdout[0].text`，不是 `result.stdout`。Agent Substrate 用临时 Go PATH 绕过 `go` 不在 PATH 后，`hack/create-kind-cluster.sh` 失败在 kind/kubeadm control-plane 初始化：cgroup v1 warning，创建 ClusterRoleBinding 请求持续无响应，最终 `client rate limiter Wait returned an error: context deadline exceeded`；未进入 Agent Substrate system/counter demo。已清理：无 kind cluster、无 Docker 容器、8080/5001 释放。
 - Day22 已创建 `internship-reports/day22-opensandbox-agent-substrate-runtime-runbook.md`，把 Day21 的 OpenSandbox / Agent Substrate 后续实测拆成分层 runbook：OpenSandbox 先跑 Docker server health / create python sandbox / command / file read-write / delete，再进入 Kubernetes BatchSandbox 和 agent-sandbox provider；Agent Substrate 先跑 kind quickstart + counter demo，验证 CreateActor -> router request -> ResumeActor -> SuspendActor -> 再次 resume 后计数保留。当前本机前置检查显示 Docker 26.1.3、uvx 0.11.20、kubectl client v1.24.17+k3s1、kind v0.32.0 可用，但系统 Python 为 3.6.8，OpenSandbox 需用 uvx/uv 管理 Python 3.10+；当前 shell 里 `go` 不在 PATH，Agent Substrate quickstart 会先卡在 Go toolchain。
@@ -87,6 +88,7 @@
 
 ## Next
 
+- Day23 后续建议：先写本地 Sleep/Resume design note，不急着发 upstream；从 #387 代码中提炼 `RuntimeProvider` 边界草图；为 `sessionTimeout / pauseTimeout / maxSessionDuration / ttl / delete` 画 API 语义表；设计统一 benchmark schema 覆盖 cold/warm/pause/resume/SnapStart/math-agent/cleanup；继续跟踪 #400/#331/#382/#291，但只有在有代码证据或测试证据时参与社区评论。
 - 如果继续 Day21 方向：OpenSandbox 先跑 Docker runtime 最小 smoke，再测 Kubernetes `BatchSandbox` / `agent-sandbox` provider；Agent Substrate 先跑 kind/GKE quickstart + counter demo。AgentBay / AWS AgentCore 更偏托管产品和 SDK，后续应另开产品对比报告。
 - User confirmed updating #387. `origin/feat/agent-sandbox-latest` was force-with-lease pushed from `bc8e85b` to `c2633c5` using local branch `/home/agentcube-agent-sandbox-latest` `rebase/pr387-on-bed6bd4`. PR #387 now lists 5 commits (`bacf12d`, `1272052`, `1cb73f7`, `5ffc44b`, `c2633c5`) and 15 changed files. This should resolve tide's merge conflict caused by `upstream/main bed6bd4`; wait for refreshed CI/tide before further action. Do not post comments or push more updates without user confirmation.
 - Branch hygiene: keep fork `main` as a clean mirror of `upstream/main`; do not put internship reports or Chinese notes there. Continue local records on `intern`; rebase `intern` onto `upstream/main` when project code needs to be current.

@@ -1,6 +1,6 @@
 # 实习任务 TODO
 
-更新时间：2026-06-22
+更新时间：2026-06-23
 
 这个文档用于管理实习期间的后续任务。日报记录每天做了什么，TODO 记录“现在还要做什么、优先级是什么、做到哪里、卡在哪里”。
 
@@ -26,7 +26,7 @@
 | P0 | 对齐 SnapStart / warm pool benchmark 口径 | WATCH | #365 无 assignee；#366/#379 @lyuyun | 中 | 低 | 1 天 | [Day 12](day12-agentcube-roadmap-from-cubesandbox.md) 已整理 #366 实验验证矩阵、补跑 plain Pod / warm pool 本机数据，并在 [#366](https://github.com/volcano-sh/agentcube/pull/366#issuecomment-4714612811) 发布评论；来源 #365/#366/#379 | 重复评论已删除；跟踪维护者是否希望整理 proposal patch / docs PR |
 | P0 | 学习 Karmada Kubernetes-native 控制面设计 | DONE | 不适用 | 中 | 低 | 1 天 | [Day 13](day13-karmada-project-study.md) 已完成：项目定位、组件、核心资源链路、Binding/Work 控制器初读、成功原因和 AgentCube 对比 | 后续如继续学习，再单独开 scheduler / status aggregation 深读任务 |
 | P0 | 建立更完整 Kubernetes 测试环境 | BLOCKED | 不适用 | 中高 | 低 | 1-2 天 | [Day 14](day14-kubernetes-environment-and-test-plan.md) 已制定 L0/L1/L2/L3 环境分层；KWOK 已跑通 1 个真实节点 + 3 个 fake nodes；Docker `26.1.3` 和 kind `v0.32.0` 已安装，但 kind 标准 K8s 在 kubelet cgroup/QoS 初始化处失败 | 本机继续硬调收益低；下一步换 cgroup v2 / 新内核机器，或使用云厂商标准 K8s / 新 VM 跑 L1；KWOK 仅保留为调度语义环境 |
-| P0 | 分析社区 issue / PR 动态 | DOING | 按 issue 逐项记录 | 中 | 中 | 0.5-1 天 | [Day 9](day9-open-source-community-and-fork-sync.md) 和 [Week 2](week2-work-plan.md) 已完成两轮统计 | 重点跟进 #375、#365、#366、#379、#265，选择可参与点 |
+| P0 | 分析社区 issue / PR 动态 | DOING | 按 issue 逐项记录 | 中 | 中 | 0.5-1 天 | [Day 9](day9-open-source-community-and-fork-sync.md)、[Week 2](week2-work-plan.md) 已完成两轮统计；[Day 23](day23-agentcube-future-architecture-and-design.md) 已把 2026-06-23 最新 PR / issue 信号整理成未来架构路线 | 重点跟进 #386、#387、#400、#394/#395、#331、#291、#366/#379，选择可验证参与点 |
 | P0 | 跟进 PR #385 review 反馈 | DOING | PR #385；assignee @RainbowMango | 中 | 低 | 0.5 天 | [Day 15](day15-upstream-pr-review-and-snapstart-implementation.md) 已处理 Gemini 关于 `WarmPoolNotFound` warning event 噪音的建议，commit `d885b4e` 已 push；DCO signoff 已修复并通过 | 等待 CI、Codecov、tide、maintainer review；当前 tide 主要等待 `approved` / `lgtm` |
 | P0 | 阅读 SnapStart 实现 PR #379 | DOING | PR #379 @lyuyun | 高 | 低 | 1 天 | [Day 15](day15-upstream-pr-review-and-snapstart-implementation.md) 已完成代码范围初读，并找到一个非重复 review 点：promotion 重置 `ReadyAt` 后可能因 `snapshotStatusEqual` 不比较 `ReadyAt` 而没有持久化 | 将 `ReadyAt` status equality 评论发到 #379，或先在本地临时分支补最小 controller unit test 验证 |
 | P0 | 讨论 AgentCube v0.2.0 下一步计划 | DONE | #386 无 assignee；`FAUST-BENCHOU` 已提 Sandbox Sleep/Resume | 中 | 低 | 0.5 天 | [Day 15](day15-upstream-pr-review-and-snapstart-implementation.md) 已整理 2026-06-17 会议纪要，明确 agent-sandbox compatibility、Sleep/Resume、E2B-compatible API/SDK/template、SnapStart/MicroVM snapshot/runtime 四层关系 | 后续拆到具体子任务，不再作为单独会议任务跟踪 |
@@ -71,6 +71,7 @@
 | 建立 sandbox 竞品隔离能力、兼容性和部署难度矩阵 | [Day 8](day8-sandbox-competitor-capability-matrix.md) |
 | 补充 OpenSandbox / Agent Substrate 云厂商开源项目调研 | [Day 21](day21-opensandbox-agent-substrate-study.md) |
 | 拆解 OpenSandbox / Agent Substrate 实测 runbook | [Day 22](day22-opensandbox-agent-substrate-runtime-runbook.md) |
+| 完成 AgentCube 未来发展方向与架构设计探讨 | [Day 23](day23-agentcube-future-architecture-and-design.md) |
 
 ## 卡点记录模板
 
