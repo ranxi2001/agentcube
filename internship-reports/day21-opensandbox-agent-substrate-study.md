@@ -37,6 +37,19 @@ Day11 已经完成 CubeSandbox 深入调研，但当时对 OpenSandbox 和 Agent
 
 > 注释：这里的 `gRPC API` 可以先理解成“组件之间的强类型远程函数调用接口”。REST API 更像用 URL + HTTP method 表达资源操作，gRPC 更像调用一个已经由 `.proto` 文件定义好的函数，例如 `ResumeActor(request) -> response`。读这类控制面项目时，`.proto` 往往比 README 更接近真实的跨组件契约。
 >
+> 注释：后面阅读这些 sandbox / agent runtime 项目时，常见的上层通信方式可以先按下表理解，不需要先纠结 TCP / UDP 这类更底层传输协议。
+>
+> | 方式 | 可以怎么理解 | 典型用法 | 在 AgentCube 相关项目里的判断 |
+> | --- | --- | --- | --- |
+> | REST / HTTP JSON | 用 URL + HTTP method 操作资源，例如 `GET /sessions/123`、`DELETE /sandboxes/abc` | 外部 API、SDK、CLI、管理后台 | OpenSandbox Server 和 AgentCube 用户入口更适合这种方式，容易调试和接入 |
+> | gRPC / protobuf | 调一个由 `.proto` 定义好的远程函数，例如 `ResumeActor(request) -> response` | 内部服务调用、控制面动作、强类型状态机 | Agent Substrate 的 `ate-api-server` 属于这种；适合表达 `CreateActor`、`ResumeActor`、`SuspendActor` |
+> | WebSocket | 建立长连接，客户端和服务端可以双向持续发消息 | 终端、实时交互、协作、长时间会话 | 如果 AgentCube 以后要做浏览器终端或实时 agent output，可以考虑 |
+> | SSE | HTTP 长连接，服务端单向推送事件 | 日志流、状态流、任务进度 | 比 WebSocket 简单，适合只需要服务端持续推送 resume 进度或日志的场景 |
+> | Message Queue / PubSub | 发送异步消息，不要求调用方马上拿到最终结果 | 后台任务、事件通知、削峰、异步审计 | 适合 GC、审计、异步清理，不适合 Router 请求路径上的立即 resume |
+> | Kubernetes API / CRD | 把“期望状态”写进 Kubernetes，Controller 异步 reconcile | K8s 资源生命周期、低频配置、声明式控制 | 适合创建 Sandbox / WorkerPool，不适合高频同步唤醒和强实时状态查询 |
+>
+> 分析：协议选择本质上是在回答“这是外部入口还是内部控制面、需要同步结果还是异步 reconcile、是单次请求还是持续状态流、状态契约是否必须强类型”。AgentCube 当前不必全面 gRPC 化，但 Sleep/Resume 的内部状态契约要像 proto 一样清楚。
+>
 > 注释：`CRD schema` 和 `gRPC API` 不是同一层东西。CRD 是 Kubernetes API server 里保存的期望状态和观测状态，适合声明低频配置；gRPC API 是运行中服务之间的直接调用接口，适合高频、强交互、需要返回明确结果的控制面动作。Agent Substrate 同时使用这两者，所以阅读时要分清“写入 Kubernetes 资源”和“调用控制面服务”。
 
 Day21 本日没有做实际部署和 benchmark，产出是源码级初读和架构对比。Day22 已补充第一轮实际运行：OpenSandbox Docker runtime 完成 CLI / Python SDK 端到端 smoke；Agent Substrate 尝试 kind quickstart，但阻塞在 kind / kubeadm control-plane bootstrap，尚未进入 counter demo。原始日志保存在：
