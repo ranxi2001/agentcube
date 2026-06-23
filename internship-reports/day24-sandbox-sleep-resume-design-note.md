@@ -1170,3 +1170,184 @@ make build-all
 2. 再让 GC 调用 pause service，而不是直接 delete idle Ready session。
 3. 再让 Router 在看到 `paused` session 时调用 WorkloadManager resume。
 4. 最后接真实 agent-sandbox hard pause e2e。
+
+## 第二阶段实现记录：WorkloadManager lifecycle service
+
+日期：2026-06-23
+
+隔离 worktree：
+
+```text
+/home/agentcube-sleep-resume-store-state
+branch: feat/sleep-resume-store-state
+base: upstream/main bed6bd4
+phase 1 commit: 3d0427a feat: add sandbox session state CAS store support
+phase 2 commit: cb66c8a feat: add workload manager session lifecycle service
+```
+
+实现范围：
+
+- 新增 `pkg/workloadmanager/session_lifecycle.go`
+  - 引入 WorkloadManager 内部 `sessionLifecycleService`，先不暴露 HTTP route。
+  - 引入 `RuntimeProvider` 接口：
+    - `Capabilities(ctx)`
+    - `Pause(ctx, sandbox)`
+    - `Resume(ctx, sandbox)`
+  - 引入 capability 结构 `RuntimeCapabilities`，为后续 hard pause / soft pause / snapshot pause / warm pool / adopted Sandbox / managed NetworkPolicy 留接口边界。
+  - 引入 pause mode 常量：
+    - `hard`
+    - `soft`
+    - `snapshot`
+  - 引入 `ErrSessionStateConflict`，把底层 Store CAS 冲突包装成 WorkloadManager 生命周期语义错误。
+
+- `pauseSession(ctx, sessionID)` 的语义
+  - 从 Store 读取当前 session。
+  - 用 CAS 执行 `ready -> pausing`。
+  - 调用 provider `Pause`。
+  - 成功后写回 `paused`：
+    - 设置 `PauseMode`
+    - 设置 `PausedAt`
+    - 根据 `pauseTimeout` 设置 `PauseExpiresAt`
+    - 清空 `EntryPoints`
+    - 递增 `EndpointRevision`
+  - provider 失败时尝试把 session 从 `pausing` 标记为 `failed`，并写入 `FailureReason`。
+
+- `resumeSession(ctx, sessionID)` 的语义
+  - 从 Store 读取当前 session。
+  - 用 CAS 执行 `paused -> resuming`。
+  - 调用 provider `Resume`。
+  - 成功后写回 `ready`：
+    - 清空 `PausedAt` / `PauseExpiresAt`
+    - 设置 `ResumedAt`
+    - 刷新 `LastActivityAt`
+    - 清空 `FailureReason`
+    - 使用 provider 返回的新 `EntryPoints`
+    - 递增 `EndpointRevision`
+  - provider 失败时尝试把 session 从 `resuming` 标记为 `failed`，并写入 `FailureReason`。
+
+设计边界：
+
+- 第二阶段只做 WorkloadManager 内部 service 和 fake provider 测试。
+- 不改真实 GC 行为。
+- 不新增 Router resume-before-proxy。
+- 不新增 HTTP API。
+- 不接真实 `agent-sandbox` `replicas=0/1` 或 `OperatingMode=Suspended/Running`。
+- 不新增 CRD `pauseTimeout` 字段。
+
+为什么这样切：
+
+- 第一阶段已经证明 Store CAS 是并发 resume 的硬需求。
+- 第二阶段把 WorkloadManager 的状态机和 runtime provider 边界先固定住，避免第三阶段一上来就同时改 GC、Router、Kubernetes provider 和 e2e。
+- fake provider 可以独立验证 AgentCube control-plane 语义：状态迁移、失败落库、entrypoint 刷新、CAS 冲突。
+
+测试覆盖：
+
+- 新增 `pkg/workloadmanager/session_lifecycle_test.go`
+  - `TestSessionLifecycleServicePauseSession`
+    - 验证 `ready -> pausing -> paused`。
+    - 验证 `PauseMode` / `PausedAt` / `PauseExpiresAt`。
+    - 验证 pause 后 `EntryPoints` 清空。
+    - 验证 `EndpointRevision` 递增。
+  - `TestSessionLifecycleServiceResumeSession`
+    - 验证 `paused -> resuming -> ready`。
+    - 验证 pause 时间字段清空。
+    - 验证 `ResumedAt` / `LastActivityAt` 更新。
+    - 验证 provider 返回的新 entrypoint 被写回。
+    - 验证 `EndpointRevision` 递增。
+  - `TestSessionLifecycleServicePauseProviderFailureMarksFailed`
+    - provider pause 失败后 session 进入 `failed`。
+    - `FailureReason` 不为空。
+  - `TestSessionLifecycleServiceResumeProviderFailureMarksFailed`
+    - provider resume 失败后 session 进入 `failed`。
+    - `FailureReason` 不为空。
+  - `TestSessionLifecycleServiceResumeConcurrentConflict`
+    - 两个 goroutine 同时 resume 同一个 paused session。
+    - 只有一个成功进入 provider。
+    - 另一个收到 `ErrSessionStateConflict`。
+  - `TestSessionLifecycleServiceRejectsWrongInitialState`
+    - 对 `ready` session 调 resume 会返回 `ErrSessionStateConflict`，不会错误地调用 provider。
+
+验证命令：
+
+```bash
+go test ./pkg/workloadmanager -run 'TestSessionLifecycleService' -count=1
+go test ./pkg/store ./pkg/workloadmanager -count=1
+go test -race ./pkg/workloadmanager -run 'TestSessionLifecycleService' -count=1
+make lint
+go test $(go list ./... | grep -v '/test/e2e') -count=1
+make build-all
+git diff --check
+```
+
+结果：
+
+```text
+PASS
+```
+
+过程卡点：
+
+```text
+命令：
+make lint
+
+现象：
+golangci-lint / unparam 一开始认为 newSessionLifecycleService 的 pauseMode 参数恒为 hard，
+并且 markFailed 返回的 sandbox 结果未被使用。
+
+原因：
+第二阶段还没有把 pause mode 暴露成配置或 API，测试里也只需要验证 hard pause MVP；
+markFailed 的调用方只需要知道标记失败是否成功，不需要返回 sandbox。
+
+处理：
+去掉 constructor 的 pauseMode 参数，第二阶段固定为 PauseModeHard；
+把 markFailed 改为只返回 error。
+```
+
+```text
+命令：
+make lint
+
+现象：
+新增 resume 失败测试后，unparam 认为 resumeSession 的 sessionID 参数总是 "session-1"。
+
+原因：
+测试数据都复用了同一个 session id，导致内部方法参数看起来像死参数。
+
+处理：
+给失败路径测试使用独立 session id，既更贴近真实调用，也证明 service 方法不是绑定固定 session。
+```
+
+```text
+命令：
+make build-all
+
+现象：
+命令通过，但内部 go mod tidy 再次删除 go.sum 里 golang.org/x/oauth2 v0.36.0 的两行 checksum。
+
+判断：
+这和第二阶段 WorkloadManager lifecycle service 无关，属于已有依赖文件 tidy 漂移。
+
+处理：
+按最小修原则恢复 go.sum；最终 phase 2 commit 只包含两个新增文件：
+pkg/workloadmanager/session_lifecycle.go
+pkg/workloadmanager/session_lifecycle_test.go
+```
+
+当前未做：
+
+- 未让 `garbage_collection.go` 从 idle delete 改成 idle pause。
+- 未新增 `pauseTimeout` 配置来源。
+- 未让 Router 对 `paused` session 执行 resume-before-proxy。
+- 未实现真实 agent-sandbox provider。
+- 未验证 direct Sandbox hard pause/resume e2e。
+- 未验证 math-agent 在 pause/resume 后继续使用同一 session。
+
+下一阶段建议：
+
+1. 第三阶段先做 GC split：`Ready` idle 后调用 pause service，`Paused` pause timeout 后 delete，`maxSessionDuration` 对所有 active 状态仍然 delete。
+2. 再做 Router resume-before-proxy，并明确 owner/auth 检查必须发生在 resume 前。
+3. 再接真实 agent-sandbox hard pause provider：
+   - `v0.4.6`: `spec.replicas=0/1`
+   - `v0.5.x`: `spec.operatingMode=Suspended/Running`
+4. 最后补 direct CodeInterpreter e2e、warm-pool 支持边界、math-agent LLM e2e 和 cleanup 残留检查。
