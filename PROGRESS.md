@@ -8,6 +8,7 @@
 
 ## Last Run
 
+- 已安装本地技能 `drawio-skill` 到 `.agents/skills/drawio-skill`，来源 `https://github.com/Agents365-ai/drawio-skill.git` 的 `skills/drawio-skill` 子目录。安装注意：系统默认 `python3` 是 3.6.8，官方 installer 需要用 `/root/.local/bin/python3.11`；仓库根目录没有 `SKILL.md`，正确 skill path 是 `skills/drawio-skill`。重启 Codex 后才能在可用 skills 列表中自动出现。
 - 根 [README.md](README.md) 已在 `intern` 分支改成中文实习研发导航页，不再作为上游项目介绍使用；现在主要跳转 `internship-reports/todo.md`、`PROGRESS.md`、实习报告目录、Sleep/Resume、#387、OpenSandbox/Agent Substrate、Agent Infra 和协作纪律。原项目介绍仍保留入口到 `README-ZH.md` 和 upstream 仓库。
 - Day24 已补 3A Store / GC split 完成记录：基于当前 `pkg/workloadmanager/garbage_collection.go`、`pkg/store/interface.go`、`pkg/common/types/sandbox.go` 和现有 GC tests 梳理源码基线，明确当前主线仍是 idle/TTL 直接 delete；3A 完成范围是设计落点、GC decision table、Store/lifecycle 边界、fake-lifecycle 单测骨架和 review checklist，不代表真实 Sleep/Resume 产品实现已合入。`internship-reports/todo.md` 中 3A 已标 DONE，真实代码仍等 #387 合并和 #386 分工明确。
 - `internship-reports/todo.md` 已补 Sleep/Resume Stage 3 子任务拆解：3A Store/GC split、3B Router resume-before-proxy、3C WorkloadManager resume API、3D agent-sandbox hard-pause provider、3E e2e/math-agent validation。每项都标了是否适合我们做、是否等 #387 合并、是否会和 FAUST-BENCHOU 冲突、需要的 unit/e2e、产出类型和下一步。当前结论：#386 无正式 assignee 但 FAUST-BENCHOU 表示愿意接手；#387 仍 open，所以今天不发 upstream、不抢实现，优先设计/test skeleton/fake-provider validation。
