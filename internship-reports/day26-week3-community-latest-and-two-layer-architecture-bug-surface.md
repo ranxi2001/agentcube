@@ -386,3 +386,150 @@ AgentCube 的下一阶段核心不是单点 feature，
 - snapshot / checkpoint / warm pool / SnapStart 如何被测试证明。
 
 对我们来说，最好的实习产出不是“抢一个新 issue 写代码”，而是能把这些点归纳成可 review 的设计表、测试矩阵和 PR 边界判断。后续如果一行代码都不写，只做审查，也应该能从这个双层模型判断一个 PR 是否拆分合理、测试是否充分、社区协作是否友好。
+
+## Issue proposal 草稿
+
+下面是一份可作为 upstream enhancement issue 起点的英文草稿。当前只作为本地材料保存，不直接发布。
+
+```md
+**What would you like to be added**:
+
+I would like to propose documenting and gradually hardening AgentCube's session lifecycle around a two-layer architecture:
+
+1. **Session / API / control-plane contract layer**
+   - SDK and API semantics: `ttl`, `delete`, `stop`, attach existing session, and owner-aware behavior.
+   - Router behavior: valid path-prefix matching, owner/auth check before resume, and resume-before-proxy for paused sessions.
+   - Store behavior: explicit session state, lifecycle indexes, CAS-based state transition, and list/get semantics.
+   - GC behavior: split `Ready -> Paused` and `Paused -> Deleted`, with clear `sessionTimeout`, `pauseTimeout`, and `maxSessionDuration` semantics.
+
+2. **Runtime / provider / substrate capability layer**
+   - Provider compatibility: isolate `agent-sandbox` API differences behind a RuntimeProvider-like boundary.
+   - Runtime capabilities: hard pause, soft pause, snapshot/checkpoint restore, warm-pool adoption, and endpoint refresh.
+   - Kubernetes/network behavior: CRD/controller reconciliation, NetworkPolicy allow paths, egress, credential injection, and cleanup.
+   - Benchmark evidence: separate cold image pull, runtime create, bootstrap, first command, pause/resume, and cleanup measurements.
+
+This proposal is not asking to implement the whole lifecycle in one PR. The suggested first step is to align on the contract and testing matrix, so future PRs can be reviewed against a shared boundary.
+
+**Why is this needed**:
+
+Recent issues and PRs suggest that AgentCube is moving from "can create a sandbox session" toward "can manage a reliable session lifecycle":
+
+- #394 shows that the Python SDK can send `ttl`, but the Workload Manager API currently ignores it.
+- #395 shows that `AgentRuntimeClient` can create sessions but does not have an explicit server-side delete/stop path.
+- #397 shows a behavior mismatch between direct CodeInterpreter sandbox creation and warm-pool creation for default `authMode`.
+- #388 shows that Router path-prefix matching needs a more precise contract.
+- #401 / #399 show that CI/codegen checks must be trustworthy, otherwise generated code or dependency-state issues can be missed.
+- #386 is already collecting v0.2.0 proposals, including `agent-sandbox` compatibility and Sandbox Sleep/Resume.
+- #387 is an important provider-compatibility foundation, but it is not itself a full Sleep/Resume implementation.
+
+These are not isolated issues. They point to the same architectural boundary: AgentCube needs a clear session lifecycle contract above the runtime provider, and a runtime/provider capability layer below it.
+
+**Possible implementation direction**:
+
+This can be split into small, reviewable phases:
+
+1. **Document the session lifecycle contract**
+   - Define visible states such as `Ready`, `Pausing`, `Paused`, `Resuming`, `Deleted`, and `Failed`.
+   - Define `ttl`, `sessionTimeout`, `pauseTimeout`, `maxSessionDuration`, `delete`, and `stop` semantics.
+   - Define what is preserved after pause/resume: session metadata, endpoint, workspace/rootfs, process memory, or runtime state.
+
+2. **Store and API foundation**
+   - Add explicit session state and lifecycle timestamps to the store schema.
+   - Add CAS-style state transitions to avoid concurrent resume races.
+   - Define list/get/delete behavior and owner-aware filtering.
+
+3. **Router contract**
+   - Normalize entrypoint path matching with longest valid prefix semantics.
+   - Check owner/auth before any resume.
+   - Resume paused sessions before proxying and refresh endpoint information after resume.
+
+4. **RuntimeProvider capability boundary**
+   - Hide provider-specific details such as `replicas=0/1`, `OperatingMode`, warm-pool claim adoption, or snapshot restore behind a capability interface.
+   - Keep `agent-sandbox v0.4.x` compatibility separate from future `v0.5.x/v1beta1` migration work.
+
+5. **Testing matrix**
+   - Unit tests for state transitions, CAS conflict, provider failure, and timeout decisions.
+   - Router tests for path-prefix matching, owner/auth, paused session handling, and endpoint refresh.
+   - E2E tests for direct sandbox, warm pool, SDK create/delete, workspace persistence, cleanup, and eventually math-agent/LLM workflows.
+   - Benchmark cases that separate cold start, warm pool hit, pause/resume, SnapStart restore, and cleanup residue.
+
+**Alternatives considered**:
+
+1. Implement Sleep/Resume directly against the current `agent-sandbox` fields.
+   - This is faster initially, but it risks coupling AgentCube's Router/Store/SDK behavior to a specific provider version.
+
+2. Wait until upstream `agent-sandbox` fully finalizes pause/resume.
+   - AgentCube should reuse provider capabilities where possible, but it still needs to define its own session lifecycle contract for SDK, Router, Store, GC, and user-visible behavior.
+
+3. Treat each current issue as an independent bug.
+   - This may fix symptoms, but it can miss the common contract problem across SDK TTL, delete/stop semantics, Router matching, auth defaults, Store state, and GC.
+
+**Compatibility / migration impact**:
+
+- The contract should preserve existing create/proxy behavior by default.
+- New lifecycle fields should be added in a backward-compatible way.
+- Existing sessions without lifecycle fields should be treated as `Ready` or migrated with a clear fallback.
+- Provider-specific migrations, especially `agent-sandbox v0.5.x/v1beta1`, should be handled in separate PRs with clean install and migration notes.
+
+**Security considerations**:
+
+- Resume must not happen before owner/auth checks.
+- Session delete/list/get should be owner-aware.
+- NetworkPolicy, egress, credential injection, and audit behavior should be considered part of the lifecycle contract, not separate afterthoughts.
+
+**Observability**:
+
+- Metrics should distinguish create, pause, resume, delete, GC, provider failure, and Router resume-before-proxy latency.
+- Metrics should avoid high-cardinality labels such as raw request path or session ID.
+- Logs should make it possible to diagnose stuck `Pausing` / `Resuming` sessions and provider/store divergence.
+
+**Testing plan**:
+
+- Unit tests:
+  - state transition success/failure
+  - CAS conflict
+  - provider failure
+  - timeout decision table
+  - path-prefix matching
+  - owner/auth before resume
+
+- Integration / E2E tests:
+  - direct CodeInterpreter create/run/delete
+  - warm-pool adoption path
+  - SDK create with ttl
+  - SDK stop/delete
+  - workspace/file persistence after pause/resume, if supported
+  - cleanup of Pods, CRs, Redis/ValKey entries, and snapshots
+
+- Benchmark:
+  - cold image pull
+  - warm image create
+  - warm-pool hit
+  - pause latency
+  - resume latency
+  - first command latency after resume
+  - math-agent/LLM workflow, if credentials are available
+
+**Related issues / PRs**:
+
+- #386: v0.2.0 umbrella proposal thread
+- #387: `agent-sandbox v0.4.6` compatibility foundation
+- #394: Python SDK `ttl` is sent but ignored
+- #395: `AgentRuntimeClient` create/delete lifecycle gap
+- #397: CodeInterpreter `authMode` default mismatch
+- #388: Router longest valid path-prefix matching
+- #401 / #399: Codegen Check / CI trust issue
+- #331: session list/get and store indexing direction
+- #291: NetworkPolicy support
+- #366 / #379: SnapStart and snapshot/restore direction
+
+**Open questions**:
+
+1. Should SDK `ttl` override CRD `maxSessionDuration`, or should it be bounded by it?
+2. Should `stop()` only close local connections, or should it delete the server-side session when the client created the session?
+3. What is the minimum preservation contract for the first Sleep/Resume version: metadata only, workspace/rootfs, or runtime memory?
+4. Should warm-pool-backed sessions support pause/resume in the first version, or should direct sandbox be handled first?
+5. What provider capability interface is acceptable before `agent-sandbox v0.5.x` is stable?
+
+I can help by preparing a more focused lifecycle contract table, test matrix, or review checklist before any implementation PR.
+```
