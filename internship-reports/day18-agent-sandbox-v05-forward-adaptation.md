@@ -858,6 +858,51 @@ Ctrl-C workloadmanager/router port-forward sessions
 - 没测 rc1 warm pool 为空时 claim 是否 cold create；本轮验证的是 warm pool ready 后 checkout/refill。
 - 没测 SPIRE/mTLS 模式；本轮为非 mTLS runtime 验证。
 
+## 补充：`OperatingMode=Suspended` 对 Sleep/Resume 的真实含义
+
+日期：2026-06-24
+
+Day18 的 `v0.5.0rc1` 适配验证能说明 AgentCube 代码可以迁移到 `v1beta1` API，并且 direct / warm-pool / SDK / MCP / math-agent 在干净 rc1 集群上可以跑通。但这个结果不能被过度解释成“AgentCube 已经验证了 Sleep/Resume”。
+
+需要区分三层能力：
+
+| 层级 | Day18 是否验证 | 说明 |
+| --- | --- | --- |
+| API migration | 已验证 | `v1alpha1` -> `v1beta1`、GVR/import、`Replicas` -> `OperatingMode`、`TemplateRef` -> `WarmPoolRef` |
+| normal create/delete/runtime path | 已验证 | direct / warm-pool / SDK / MCP / math-agent 在 clean rc1 环境跑通 |
+| Sleep/Resume lifecycle | 未验证 | 没有执行 `Running -> Suspended -> Running`，也没有验证 Store/Router/GC 对 paused session 的处理 |
+
+`OperatingMode=Suspended` 的价值是：它给未来 `agent-sandbox` provider 一个更语义化的 hard pause API。相比 `replicas=0/1`，它更接近业务语义：
+
+```text
+Running    -> runtime should exist and become Ready
+Suspended  -> runtime pod may be removed while Sandbox-level identity/config remain
+```
+
+但它仍然不是 soft pause 或 checkpoint restore：
+
+- 不等于进程还在内存中。
+- 不等于 open socket 保留。
+- 不等于 GPU memory 保留。
+- 不等于 `/workspace` 一定保留，除非底层 template / PVC / provider 明确保证。
+- 不等于 AgentCube Router 已经知道如何 resume-before-proxy。
+
+> 注释：`OperatingMode=Suspended` 更像给 AgentCube 的 RuntimeProvider 提供了一个“硬暂停”的底层开关。AgentCube 仍然要自己实现上层 session 状态、Store CAS、Router resume-before-proxy、GC split、错误映射和 e2e 测试。
+
+因此后续如果基于 `v0.5.x` 做 Sleep/Resume provider，最小验证矩阵至少应包含：
+
+| Case | 验证点 |
+| --- | --- |
+| direct Sandbox `Running -> Suspended` | Pod 是否释放，Sandbox CR 是否保留，condition 如何变化 |
+| direct Sandbox `Suspended -> Running` | 是否重新 Ready，Pod IP 是否变化，entrypoint 是否刷新 |
+| Store paused state | AgentCube 是否清空或失效化旧 entrypoint |
+| Router resume-before-proxy | 同一个 session id 的请求是否先触发 resume，再使用新 endpoint |
+| `pauseTimeout` cleanup | paused session 到期后是否 delete 并清理 Store index |
+| workspace retention | 如果使用 PVC，resume 后文件是否保留；如果没有 PVC，应明确不承诺 |
+| math-agent e2e | LLM 工具调用是否复用同一 session，并在 resume 后继续工作 |
+
+这也是为什么 #387 不应该扩到 rc1/v1beta1：#387 是 stable `agent-sandbox v0.4.6` compatibility；`v0.5.x` 的 `OperatingMode` 更适合作为后续 provider / Sleep-Resume follow-up 的输入，而不是当前兼容 PR 的一部分。
+
 ## 下周 #387 Review 准备
 
 下周回到 upstream PR #387 时，不能只说“CI 过了”或“代码能跑”。需要先准备两份材料。

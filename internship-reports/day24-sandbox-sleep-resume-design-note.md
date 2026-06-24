@@ -1376,3 +1376,524 @@ pkg/workloadmanager/session_lifecycle_test.go
    - `v0.4.6`: `spec.replicas=0/1`
    - `v0.5.x`: `spec.operatingMode=Suspended/Running`
 4. 最后补 direct CodeInterpreter e2e、warm-pool 支持边界、math-agent LLM e2e 和 cleanup 残留检查。
+
+## 第三阶段设计推进：Router / GC 行为表
+
+日期：2026-06-24
+
+本阶段先不写第三阶段代码，而是基于当前 `main` 源码重新检查 Router、Store、WorkloadManager 的真实链路，明确下一步代码应该改在哪里、先测什么、哪些能力不能提前承诺。
+
+这次重读的上游和本地上下文包括：
+
+- AgentCube v0.2 umbrella issue [#386](https://github.com/volcano-sh/agentcube/issues/386)
+- agent-sandbox pause field 讨论 [kubernetes-sigs/agent-sandbox#36](https://github.com/kubernetes-sigs/agent-sandbox/issues/36)
+- agent-sandbox soft pause 讨论 [kubernetes-sigs/agent-sandbox#103](https://github.com/kubernetes-sigs/agent-sandbox/issues/103)
+- `pkg/router/handlers.go`
+- `pkg/router/session_manager.go`
+- `pkg/workloadmanager/handlers.go`
+- `pkg/workloadmanager/garbage_collection.go`
+- `pkg/workloadmanager/sandbox_helper.go`
+- `pkg/store/interface.go`
+- `pkg/common/types/sandbox.go`
+
+### 上游上下文更新
+
+agent-sandbox #36 的当前有效信号是：
+
+- phase 1 pause 已经被维护者描述为 `/scale` subresource。
+- `Sandbox` scale 到 0 等价于 pause。
+- 这个 pause 的语义是删除 Pod，保留 Sandbox/PVC/service 等对象。
+- 它不是内存级、进程级、GPU state 级恢复。
+
+agent-sandbox #103 的当前有效信号是：
+
+- soft pause 仍是 long-term feature。
+- 方向是 in-place pod resize，而不是删除 Pod。
+- 对 gVisor、Kata、hypervisor、guest OS memory reclaim 仍有不确定性。
+- 维护者把它和 #36 的 suspend/resume 行为一起讨论，但还没有形成可以被 AgentCube 直接依赖的稳定实现。
+
+因此，AgentCube 第三阶段不应该等待 soft pause，也不应该把 `Paused -> Ready` 承诺成进程内存恢复。它应该把上层 session 语义做对：
+
+```text
+Ready idle -> Paused
+Paused request -> resume before proxy
+Paused timeout -> Deleted
+maxSessionDuration -> Deleted regardless of state
+```
+
+> 注释：这里的 `Paused` 是 AgentCube session 状态，不等同于“容器进程被冻结在内存里”。在 hard pause provider 下，底层 Pod 可能已经被删除；恢复时会重新创建 Pod，然后通过 persistent workspace 或 provider 能力找回可保留的状态。
+
+### 当前源码真实链路
+
+Router 请求链路：
+
+```text
+handleInvoke
+  -> read x-agentcube-session-id
+  -> sessionManager.GetSandboxBySession
+       -> session id empty: POST WorkloadManager /v1/{kind}
+       -> session id present: Store.GetSandboxBySessionID
+  -> checkSandboxOwnership
+  -> Store.UpdateSessionLastActivity before proxy
+  -> forwardToSandbox
+       -> determineUpstreamURL from sandbox.EntryPoints
+       -> waitForUpstreamReachable
+       -> httputil.ReverseProxy
+  -> Store.UpdateSessionLastActivity after proxy
+```
+
+当前问题：
+
+- Router 不读取或理解 `SandboxInfo.Status`。
+- Router 只要拿到 Store entry 就尝试使用 `EntryPoints`。
+- 如果 pause 后旧 Pod IP 失效，当前 Router 会在 preflight 阶段返回 `sandbox unreachable` / `sandbox timeout`。
+- 这会把“session 需要 resume”的正常生命周期状态误报成 sandbox 网络故障。
+
+WorkloadManager 当前链路：
+
+```text
+POST /v1/agent-runtime or /v1/code-interpreter
+  -> build Sandbox / SandboxClaim
+  -> StoreSandbox placeholder(status=creating)
+  -> create K8s resource
+  -> wait Sandbox Ready
+  -> get Pod IP
+  -> probe entrypoints
+  -> UpdateSandbox(status=ready or not-ready)
+
+DELETE /v1/{kind}/sessions/{sessionId}
+  -> Store.GetSandboxBySessionID
+  -> delete Sandbox or SandboxClaim
+  -> Store.DeleteSandboxBySessionID
+```
+
+当前问题：
+
+- WorkloadManager 只有 create/delete HTTP API。
+- 还没有 `/resume` / `/pause` API。
+- `buildSandboxInfo` 的 `Status` 来自 agent-sandbox Ready condition，只会得到 `ready` 或 `not-ready`，不是完整 session lifecycle state。
+- `buildSandboxPlaceHolder` 写入 `creating`，但后续没有正式状态机约束。
+
+GC 当前链路：
+
+```text
+garbageCollector.once
+  -> Store.ListInactiveSandboxes(now - 1m)
+  -> per-sandbox IdleTimeout filter
+  -> Store.ListExpiredSandboxes(now)
+  -> deduplicate
+  -> delete Sandbox or SandboxClaim
+  -> Store.DeleteSandboxBySessionID
+```
+
+当前问题：
+
+- idle timeout 和 max TTL 最终都进入同一个 delete path。
+- GC 不看 `SandboxInfo.Status`。
+- GC 没有 `pauseTimeout` index。
+- GC 不能区分 `Ready idle -> pause` 和 `Paused expired -> delete`。
+
+Store 当前能力：
+
+```text
+session:{id}              -> SandboxInfo JSON
+session:expiry            -> ExpiresAt sorted set
+session:last_activity     -> LastActivity sorted set
+```
+
+当前问题：
+
+- `UpdateSandbox` 只是 `SETXX session:{id}`，没有 CAS。
+- `DeleteSandboxBySessionID` 清理 session key、expiry index、last activity index。
+- 没有 state index，也没有 pause expiry index。
+- `ListInactiveSandboxes` 可以返回任何状态的 session，因为状态过滤只能在 caller 侧做。
+
+### 第三阶段不应直接做的事
+
+第三阶段不应该一上来同时改所有层：
+
+- 不应直接接真实 agent-sandbox provider，同时修改 Router/GC/Store。
+- 不应在没有 Store CAS 的情况下让 Router 触发 resume。
+- 不应把所有 `Status != ready` 都当成需要 resume。
+- 不应让 Router 直接 patch `Sandbox.spec.replicas` 或 `OperatingMode`。
+- 不应把 `pauseTimeout` 偷偷复用为 `sessionTimeout` 而不写清语义。
+- 不应把 warm-pool-backed CodeInterpreter 默认声明为已支持 pause/resume，除非验证 claim/adopted Sandbox handle 的恢复路径。
+
+> 分析：第三阶段最大的风险不是代码写不出来，而是状态语义混乱。Router、GC、WorkloadManager 如果各自理解状态，就会出现 Router 代理旧 endpoint、GC 删除正在恢复的 session、WorkloadManager provider 成功但 Store 仍显示 paused 这类问题。
+
+### Stage 3 推荐拆分
+
+第三阶段建议再拆成两个小 PR 或两个小 spike，而不是一个大 PR：
+
+| 子阶段 | 目标 | 代码入口 | 依赖 | 不包含 |
+| --- | --- | --- | --- | --- |
+| 3A: GC split design/implementation | 把 idle Ready session 从 delete 改成 pause candidate | `pkg/workloadmanager/garbage_collection.go` | Store CAS、pause index、lifecycle service | Router resume-before-proxy、真实 provider |
+| 3B: Router resume-before-proxy | Router 看到 Paused session 先恢复再代理 | `pkg/router/session_manager.go` / `pkg/router/handlers.go` | WorkloadManager resume API、Store status | GC pause policy、真实 provider |
+
+如果只能做一个最小代码 spike，优先顺序应该是：
+
+1. Store lifecycle state / CAS / pause expiry index。
+2. WorkloadManager lifecycle service。
+3. GC split。
+4. Router resume-before-proxy。
+5. real agent-sandbox hard pause provider。
+6. e2e / math-agent。
+
+前两项已经在本地 spike 中完成。现在该补的是 3 和 4 的精确行为表。
+
+### GC Decision Table
+
+GC 判断顺序应该固定，不能依赖当前代码里 inactive/expired 两个列表的偶然 merge 顺序。
+
+建议顺序：
+
+1. 先判断 `ExpiresAt <= now`，即 `maxSessionDuration` 到期。
+2. 再判断 `Status`。
+3. 对 `Ready` 判断 idle 是否超过 `IdleTimeout`。
+4. 对 `Paused` 判断 `PauseExpiresAt` 是否到期。
+5. 对 `Pausing` / `Resuming` 判断 transition 是否卡死。
+6. 对 unknown / legacy status 记录 warning，不直接执行 destructive action。
+
+| Store status | 时间条件 | GC 行为 | Store 变化 | Runtime 变化 | 用户可见结果 |
+| --- | --- | --- | --- | --- | --- |
+| `creating` | 未过 `ExpiresAt` | keep | 不变 | 不变 | 创建流程继续 |
+| `creating` | 过 `ExpiresAt` | delete | 删除 session | 删除 Sandbox/Claim | session not found |
+| `ready` | 未 idle，未过 `ExpiresAt` | keep | 更新无 | 无 | 正常请求 |
+| `ready` | idle 超过 `IdleTimeout`，未过 `ExpiresAt` | pause | CAS `ready -> pausing -> paused` | provider pause | 下一次请求触发 resume |
+| `ready` | 过 `ExpiresAt` | delete | 删除 session | provider delete 或现有 delete path | session not found |
+| `paused` | 未过 `PauseExpiresAt`，未过 `ExpiresAt` | keep | 不变 | 无 | Router 可 resume |
+| `paused` | 过 `PauseExpiresAt` | delete | 删除 session | provider delete 或现有 delete path | session not found |
+| `paused` | 过 `ExpiresAt` | delete | 删除 session | provider delete 或现有 delete path | session not found |
+| `pausing` | transition 未超时 | keep / observe | 不变 | 等 pause 完成 | 暂不可 proxy |
+| `pausing` | transition 超时 | mark failed 或 reconcile | 写 `failed` + reason，或查询 provider | 可选 provider status check | 返回 retryable/failure |
+| `resuming` | transition 未超时 | keep / observe | 不变 | 等 resume 完成 | Router 等待或 retry |
+| `resuming` | transition 超时 | mark failed 或 reconcile | 写 `failed` + reason，或查询 provider | 可选 provider status check | 返回 retryable/failure |
+| `failed` | 未过 `ExpiresAt` | keep 或 delete by policy | 不建议立即删除 | 无 | 用户可看到明确失败 |
+| `failed` | 过 `ExpiresAt` | delete | 删除 session | provider delete | session not found |
+| `deleted` | 任意 | cleanup idempotent | 确保索引清理 | 无 | session not found |
+| empty / unknown | 任意 | legacy compatibility path | warning，按旧逻辑或保守 keep | 不直接 pause | 避免升级误删 |
+
+> 注释：`empty / unknown` 是升级兼容问题。当前 `SandboxInfo.Status` 只是字符串，历史测试里甚至有 `"running"`。正式实现不能假设所有旧 session 都是新状态机里的 `ready`。最保守做法是把空状态当 legacy ready 处理一段时间，但 unknown 状态只记录告警，避免升级后误删用户 session。
+
+### GC API / Store API 建议
+
+为了让 GC 不再自己读写复杂状态，正式实现中应避免在 `garbage_collection.go` 里直接写一堆状态迁移。
+
+推荐接口形状：
+
+```go
+type SessionLifecycle interface {
+    PauseSession(ctx context.Context, sessionID string) error
+    DeleteSession(ctx context.Context, sessionID string, reason string) error
+}
+```
+
+Store 侧需要至少具备：
+
+```go
+UpdateSandboxStatusCAS(ctx, sessionID, expectedStatus string, mutate func(*SandboxInfo) error) error
+ListPauseCandidates(ctx, before time.Time, limit int64) ([]*SandboxInfo, error)
+ListPauseExpired(ctx, before time.Time, limit int64) ([]*SandboxInfo, error)
+```
+
+最小实现可以先不建完整 `session:state:{state}` index，但必须承认它的效率边界：
+
+- 直接复用 `session:last_activity` 时，GC 需要在 caller 侧过滤 `ready`。
+- 如果大量 paused / failed session 仍留在 last activity index，会影响候选扫描效率。
+- `pauseTimeout` 最好用单独 sorted set，例如 `session:pause_expiry`，否则无法高效找到 paused expired session。
+
+### Router Status Handling Table
+
+Router 的第一原则是：owner/auth 检查必须在 resume 前完成。
+
+原因：
+
+- resume 会消耗集群资源。
+- 如果未授权用户可以触发别人 session resume，就构成资源滥用和信息泄漏风险。
+- 当前 `handleInvoke` 已经在 proxy 前调用 `checkSandboxOwnership`，第三阶段应保留这个顺序。
+
+建议 Router 行为表：
+
+| Store status | Router 行为 | 是否调用 WorkloadManager | 是否 proxy | HTTP 建议 | Header / body 建议 |
+| --- | --- | --- | --- | --- | --- |
+| empty session id | 创建新 sandbox | `POST /v1/{kind}` | 是 | 原有行为 | 返回 `x-agentcube-session-id` |
+| `creating` | 不直接 proxy | 可选 wait/get status | 否 | `202` 或 `409` | `Retry-After`，`state=creating` |
+| `ready` | 正常 proxy | 否 | 是 | 上游响应 | 返回 `x-agentcube-session-id` |
+| `not-ready` | 不直接 proxy | 否，或走 recover policy | 否 | `503` | `state=not-ready` |
+| `paused` | owner check 后 resume | `POST /v1/sessions/{id}/resume` | resume 成功后 proxy | 成功后上游响应；失败按错误映射 | `state=resumed` 可选 |
+| `pausing` | 不 proxy | 否，或短轮询 | 否 | `409` / `202` | `Retry-After`，`state=pausing` |
+| `resuming` | 等待同一 resume 或 retry | 可选 `GET resume status` | 成功后 proxy | 成功后上游响应；超时 `202/409` | `Retry-After`，`state=resuming` |
+| `failed` | 不 proxy | 否，除非显式 retry API | 否 | `503` | `state=failed`，不要泄漏底层敏感错误 |
+| `deleted` / Store not found | 不 proxy | 否 | 否 | `404` | `session not found` |
+| empty / legacy `running` | 兼容 ready 或 warning | 否 | 是，前提 entrypoint 存在 | 原有行为 | warning log |
+| unknown | 不 proxy | 否 | 否 | `409` 或 `500` | `state=unknown` |
+
+推荐 MVP 行为：
+
+```text
+paused: synchronous resume with Router request context, bounded by the existing 2m WorkloadManager client timeout.
+resuming: return 409 + Retry-After first, unless WorkloadManager exposes idempotent resume wait.
+pausing: return 409 + Retry-After.
+failed: return 503 with stable public error code.
+```
+
+> 分析：Router 同步等待 `paused -> ready` 对第一版用户体验最好，因为用户只需要重试最少。但 `resuming` 并发场景不能让每个 Router handler 都各自发起 resume。没有 WorkloadManager idempotent resume/wait API 前，`409 + Retry-After` 更安全。
+
+### Router 代码落点
+
+有两个可选落点：
+
+方案 A：在 `SessionManager.GetSandboxBySession` 内处理 resume。
+
+优点：
+
+- `handleInvoke` 仍保持“拿到 sandbox 后 proxy”的结构。
+- resume 后可以直接返回刷新后的 `SandboxInfo`。
+- 更容易让 AgentRuntime / CodeInterpreter 共用逻辑。
+
+缺点：
+
+- `SessionManager` 当前没有用户 owner check 上下文。
+- 如果在这里 resume，会发生在 `checkSandboxOwnership` 之前，违反安全顺序。
+
+方案 B：在 `handleInvoke` owner check 之后处理 resume。
+
+优点：
+
+- 保持当前安全顺序。
+- 能用 `gin.Context` 映射 HTTP response。
+- 可以在 resume 成功后重新读取 Store，并继续走 `forwardToSandbox`。
+
+缺点：
+
+- `handleInvoke` 会变复杂。
+- 需要给 `SessionManager` 增加 `ResumeSandboxBySession` 或给 Router Server 增加 WorkloadManager client 方法。
+
+建议选择方案 B：
+
+```text
+handleInvoke
+  -> GetSandboxBySession
+  -> checkSandboxOwnership
+  -> ensureSandboxReadyForProxy
+       -> status ready: return current sandbox
+       -> status paused: call WM resume, then Store.GetSandboxBySessionID again
+       -> status resuming/pausing: return retryable response
+       -> status failed/deleted: return clear error
+  -> UpdateSessionLastActivity
+  -> forwardToSandbox
+```
+
+这样能保证 resume 是 owner-aware 的，也能保证 resume 后使用新 entrypoint。
+
+### Resume 后必须重新读 Store
+
+Router 看到 `paused` 时拿到的 `SandboxInfo` 不能继续使用。
+
+原因：
+
+- pause 时应清空或失效化旧 `EntryPoints`。
+- hard pause resume 后 Pod IP 很可能变化。
+- WorkloadManager resume 成功后会写回新 `EntryPoints`。
+- 如果 Router 不重新读 Store，就可能继续 proxy 到旧 Pod IP。
+
+推荐流程：
+
+```text
+paused sandbox from Store
+  -> WorkloadManager resume returns sessionID / endpointRevision / maybe entrypoints
+  -> Router re-reads Store by sessionID
+  -> verify status == ready
+  -> verify EndpointRevision changed or EntryPoints non-empty
+  -> proxy
+```
+
+`EndpointRevision` 不是第一版必须暴露给用户的字段，但对 Router 内部判断很有用。
+
+### WorkloadManager Resume API 草案
+
+Router 需要一个内部 API：
+
+```text
+POST /v1/sessions/{sessionId}/resume
+```
+
+请求：
+
+```json
+{
+  "kind": "CodeInterpreter",
+  "namespace": "default",
+  "name": "python",
+  "reason": "router-invocation"
+}
+```
+
+响应：
+
+```json
+{
+  "sessionId": "...",
+  "status": "ready",
+  "endpointRevision": 3,
+  "entryPoints": [
+    {
+      "path": "/",
+      "protocol": "HTTP",
+      "endpoint": "10.42.0.12:8080"
+    }
+  ]
+}
+```
+
+错误映射：
+
+| WorkloadManager error | Router response | 说明 |
+| --- | --- | --- |
+| session not found | `404` | 已被 delete 或从未存在 |
+| owner mismatch | `403` | 如果 WorkloadManager 也做 owner check |
+| already ready | treat as success | 幂等 resume |
+| already resuming | `409` / wait | 并发恢复中 |
+| state conflict | `409` | Store CAS 冲突 |
+| provider unsupported | `501` or `409` | 当前 runtime 不支持 pause/resume |
+| provider timeout | `504` | 底层恢复超时 |
+| provider failure | `503` | 暂时不可恢复 |
+
+### last-activity 更新时间点
+
+当前 Router 在 proxy 前后各更新一次 last activity。
+
+Sleep/Resume 后建议：
+
+- 对 `ready` session：保持当前前后更新。
+- 对 `paused` session：
+  - resume 尝试开始前可以不更新 last activity，避免失败 resume 把 session 从 GC 中延后太久。
+  - resume 成功并拿到 ready entrypoint 后，再更新 last activity。
+  - proxy 完成后再更新一次，保持当前语义。
+- 对 `pausing` / `resuming` / `failed`：不要更新 last activity，或只记录单独 metric，不更新 GC index。
+
+> 注释：last-activity 是 GC 策略输入，不是普通访问日志。resume 失败如果也刷新 last-activity，会让一个无法恢复的 paused session 持续避开 cleanup。
+
+### Explicit Delete 语义
+
+现有 delete API 是：
+
+```text
+DELETE /v1/agent-runtime/sessions/{sessionId}
+DELETE /v1/code-interpreter/sessions/{sessionId}
+```
+
+Sleep/Resume 后显式 delete 应该覆盖：
+
+- `ready`
+- `paused`
+- `failed`
+- `pausing`
+- `resuming`
+- legacy status
+
+但 transition 状态要明确策略：
+
+| 状态 | delete 行为建议 |
+| --- | --- |
+| `pausing` | 尝试 provider delete；Store 删除成功后视为终态 |
+| `resuming` | 尝试 provider delete；如果 provider resume 正在进行，需要 delete 幂等 |
+| `creating` | 继续沿用 rollback/cleanup 语义 |
+| `failed` | 允许 delete，便于用户清理 |
+
+这个设计要求 provider `Delete` 是幂等的。当前 `deleteSandbox` / `deleteSandboxClaim` 已经把 NotFound 当成功，这是一个好基础。
+
+### 测试矩阵更新
+
+第三阶段先补单元测试，再考虑 e2e。
+
+GC tests：
+
+| Test name | 目的 |
+| --- | --- |
+| `TestGarbageCollectorReadyIdlePausesSession` | `ready` 且 idle 超时调用 lifecycle pause，不 delete |
+| `TestGarbageCollectorPausedBeforePauseTimeoutKeepsSession` | `paused` 未过 pause timeout 不做事 |
+| `TestGarbageCollectorPausedAfterPauseTimeoutDeletesSession` | `paused` 过 pause timeout 走 delete |
+| `TestGarbageCollectorMaxSessionDurationDeletesAnyState` | `ready/paused/resuming/failed` 到绝对 TTL 都 delete |
+| `TestGarbageCollectorTransitionStateTimeoutMarkedFailed` | `pausing/resuming` 卡死后可诊断 |
+| `TestGarbageCollectorUnknownStatusDoesNotDestructivelyDelete` | unknown status 保守处理 |
+
+Router tests：
+
+| Test name | 目的 |
+| --- | --- |
+| `TestHandleInvokeReadySessionProxiesWithoutResume` | ready session 保持原行为 |
+| `TestHandleInvokePausedSessionResumesBeforeProxy` | paused session 先调用 WM resume，再 proxy |
+| `TestHandleInvokePausedSessionOwnerMismatchDoesNotResume` | owner mismatch 不触发 resume |
+| `TestHandleInvokePausedResumeSuccessReloadsStore` | resume 成功后重新读 Store 使用新 endpoint |
+| `TestHandleInvokeResumingReturnsRetryAfter` | resuming 状态返回 retryable response |
+| `TestHandleInvokeResumeFailureDoesNotUpdateLastActivity` | resume 失败不刷新 last-activity |
+| `TestHandleInvokeFailedSessionReturnsServiceUnavailable` | failed 状态不 proxy |
+
+WorkloadManager API tests：
+
+| Test name | 目的 |
+| --- | --- |
+| `TestHandleResumeSessionReadyIsIdempotent` | already ready 当成功或直接返回 ready |
+| `TestHandleResumeSessionPausedSuccess` | paused -> ready |
+| `TestHandleResumeSessionStateConflict` | CAS 冲突映射 409 |
+| `TestHandleResumeSessionUnsupportedProvider` | provider 不支持映射清晰错误 |
+| `TestHandleResumeSessionProviderTimeout` | provider 超时映射 504 |
+| `TestHandleResumeSessionRefreshesEntryPoints` | entrypoint 更新 |
+
+E2E tests：
+
+| Case | 必须验证 |
+| --- | --- |
+| direct CodeInterpreter hard pause | Pod 释放/重建，同 session id 可继续请求 |
+| workspace retention | `/workspace` 文件在 resume 后仍存在；如果无 PVC 则明确不承诺 |
+| endpoint refresh | pause 前后 Pod IP 可变，Router 使用新 endpoint |
+| explicit delete after paused | session、Sandbox、Pod、Store index 无残留 |
+| math-agent | LLM 工具调用使用同一 session，pause/resume 后继续执行 |
+
+### Stage 3 最小落地建议
+
+如果下一步开始写代码，推荐最小路线是：
+
+1. 在 Store 层补正式 CAS 和 pause expiry index。
+2. 把本地 `sessionLifecycleService` 从 spike 迁移到真实 WorkloadManager，但仍用 fake provider 测试。
+3. 改 GC：只让 `ready` idle session 调 pause service；`paused` pause timeout 调 delete。
+4. 给 WorkloadManager 增加内部 `POST /v1/sessions/{sessionId}/resume`。
+5. 改 Router：owner check 后 `ensureSandboxReadyForProxy`。
+6. 只在所有单元测试通过后，再接 `agent-sandbox v0.4.6` hard pause provider。
+
+暂时不做：
+
+- 不改 `agent-sandbox v0.5.x`。
+- 不改 E2B。
+- 不改 warm-pool pause/resume 承诺。
+- 不发 upstream proposal，等 #386 / maintainer 对 Sleep/Resume 分工更明确。
+
+### 对当前能力的判断
+
+目前我们实现的是部分控制面能力验证，不是完整 Sleep/Resume 产品能力。
+
+已经验证的：
+
+- Store CAS 是必要且可行的。
+- WorkloadManager 内部 lifecycle service 可以表达 pause/resume 状态机。
+- fake provider 能证明 AgentCube 上层状态语义，不依赖具体 agent-sandbox API。
+- 并发 resume 必须通过 CAS 或 idempotent resume 控制。
+
+还没有验证的：
+
+- Router 真实 resume-before-proxy。
+- GC 真实 `Ready -> Paused -> Deleted` split。
+- agent-sandbox hard pause provider。
+- direct CodeInterpreter e2e。
+- warm-pool-backed CodeInterpreter pause/resume。
+- math-agent LLM e2e。
+
+因此对外表述应该是：
+
+```text
+We have validated the AgentCube control-plane shape for Sleep/Resume
+with Store CAS and a WorkloadManager lifecycle service spike.
+The remaining product work is Router resume-before-proxy, GC split,
+a real agent-sandbox hard-pause provider, and e2e validation.
+```
