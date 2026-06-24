@@ -34,7 +34,7 @@ Draw.io 文件校验：
 /root/.local/bin/python3.11 .agents/skills/drawio-skill/scripts/validate.py internship-reports/agent-substrate-counter-architecture.drawio
 ```
 
-结果：`0 error(s), 24 warning(s)`。警告主要来自 swimlane 容器和内部节点的重叠，这是图形分组带来的预期现象，不影响 XML 结构有效性。
+结果：`0 error(s), 0 warning(s)`。已将内部节点归入对应 swimlane / Worker Pod 容器，并调整跨层边线，避免 draw.io 中出现泳道覆盖节点或边线穿过关键节点的问题。
 
 ## 一句话结论
 
