@@ -585,6 +585,194 @@ Day11 里已经确认 CubeSandbox 是底层 microVM sandbox platform。把三个
 - Agent Substrate：大规模 stateful session multiplexing 层。
 - AgentCube：Kubernetes-native agent runtime 编排层。
 
+## E2B 兼容性专题：协议、生态还是相似接口
+
+上次 Day21 对 OpenSandbox / Agent Substrate / AgentCube 的对比漏掉了一个重要维度：它们对 E2B 的支持程度。
+
+先给结论：
+
+```text
+E2B 更适合被理解成事实上的 sandbox API / SDK 生态兼容对象，
+而不是 OCI / MCP / Kubernetes CRD 这类中立标准协议。
+```
+
+> 注释：用户和社区里常说 “E2B protocol” 或 “E2B-compatible API”，但严格讲，目前我没有看到 E2B 像 OCI、MCP、OpenAPI 标准组织那样提供一个中立的、可由第三方独立实现并跑 conformance test 的正式协议规范。更准确的说法是：是否兼容 E2B 官方 SDK / API surface。
+>
+> 注释：这点很容易被误读。一个项目里有 `Sandbox.create()`、`commands.run()`、`files.write()` 这些名字，并不自动说明它兼容 E2B。因为 sandbox 平台天然会长出这些接口名。真正的兼容需要官方 E2B SDK 能通过改 base URL / API key 直接跑通，或者至少路由、payload、错误模型、生命周期语义都对齐。
+
+### E2B 的来源和定义
+
+官方资料来源：
+
+- [E2B Documentation](https://e2b.dev/docs)
+- [E2B Sandbox docs](https://e2b.dev/docs/sandbox)
+- [E2B connect to running sandbox](https://e2b.dev/docs/sandbox/connect)
+- [E2B API reference: sandboxes](https://e2b.dev/docs/api-reference/sandboxes/list-sandboxes)
+
+E2B 官方文档把自己描述为给 agents 提供隔离 sandbox，使 agent 能安全执行代码、处理数据和运行工具。官方 quickstart 的核心开发者体验是：
+
+- 安装官方 SDK：`pip install e2b` 或 `npm i e2b`。
+- 创建 sandbox：`Sandbox.create()`。
+- 在 sandbox 内执行命令：`sandbox.commands.run(...)`。
+- 读写文件：`sandbox.files.read(...)` / `sandbox.files.write(...)` 一类文件 API。
+- 管理生命周期：list、connect、kill、timeout、pause / auto-resume 等。
+- 使用 `E2B_API_KEY` 做鉴权。
+
+> 注释：这里的 `Sandbox` 在 E2B 语境下通常是一个按需创建的隔离 Linux VM / sandbox。它既是用户 SDK 的对象，也是远端运行环境的生命周期主语。
+>
+> 注释：`Template` 是 sandbox 启动环境的定义，类似“这个 sandbox 初始有什么镜像、依赖、文件、启动配置”。这和 AgentCube 的 `CodeInterpreter` CRD / template 概念相似，但不是同一个 API 契约。
+
+可以把 E2B 的最小兼容面拆成四组：
+
+| 兼容面 | 典型能力 | 兼容判断重点 |
+| --- | --- | --- |
+| Lifecycle | create、list、connect、kill、timeout、pause / resume | sandbox ID、状态、超时、删除、重连语义是否一致 |
+| Execution | commands.run、code interpreter run | stdout / stderr / exit code / logs / timeout / error model 是否一致 |
+| Filesystem | files.write、files.read、upload/download/list | 路径语义、工作目录、二进制/文本、权限、session 间持久化是否一致 |
+| Auth / endpoint | E2B_API_KEY、base URL、API routes | 官方 E2B SDK 能否只改 `E2B_API_URL` / `E2B_API_KEY` 后跑通 |
+
+> 分析：如果只是“能执行 Python 代码”，那是 code interpreter 能力，不是 E2B 兼容。E2B 兼容要求的是开发者已有 E2B 代码迁移成本低，甚至不改业务代码。
+
+### 兼容等级定义
+
+后续评价项目时可以用这个等级，避免混淆：
+
+| 等级 | 名称 | 判断标准 |
+| --- | --- | --- |
+| L0 | 无 E2B 关系 | 不提供 sandbox SDK / API，也不面向 E2B 迁移 |
+| L1 | 概念相似 | 都做 sandbox、code execution、file API，但接口完全不同 |
+| L2 | SDK surface 相似 | 有 `Sandbox.create`、`commands.run`、`files.*` 这类类似命名，但包名、路由、payload、错误语义是自己的 |
+| L3 | E2B API / SDK 部分兼容 | 明确支持官方 E2B SDK 或 E2B 风格路由的核心子集，例如 create / run / file / delete |
+| L4 | E2B drop-in 兼容 | 官方 E2B SDK 通过改 base URL / API key 完成 create、command、file、list/connect/kill、timeout、pause 等主路径，并有文档和测试证据 |
+
+> 注释：`drop-in` 的意思是“几乎直接替换”。比如已有用户代码 `from e2b import Sandbox` 不改，最多改环境变量 `E2B_API_URL` / `E2B_API_KEY`，就能连到另一个实现。
+>
+> 分析：在开源社区写 proposal 或 PR body 时，最好不要直接写 “E2B-compatible”，而应写清楚是 “E2B-like CodeInterpreter API” 还是 “E2B SDK-compatible for create/run/files/delete”。这会显著降低 review 争议。
+
+### 三个项目加 CubeSandbox 的支持程度
+
+虽然 Day21 主体是 AgentCube / OpenSandbox / Agent Substrate 三者，但 CubeSandbox 是当前材料里最明确的 E2B 兼容参考点，所以这里把它作为 baseline 一起列出来。
+
+| 项目 | E2B 支持等级 | 依据 | 关键限制 |
+| --- | --- | --- | --- |
+| CubeSandbox | L3，核心路径接近 L4 | Day11 已记录：`CubeAPI` 明确定位为 E2B-compatible API server，支持通过官方 `e2b` / `e2b-code-interpreter` Python SDK 改 `E2B_API_URL` / `E2B_API_KEY` 指向 CubeAPI；覆盖 `/sandboxes` 生命周期、代码执行、文件、pause / connect 等核心迁移面 | snapshot / rollback / template / AgentHub / CubeEgress 是 Cube 扩展能力，不属于 E2B 原生兼容；端到端运行还依赖 CubeMaster、Cubelet、KVM/PVM、CubeCoW、CubeVS 和模板 |
+| OpenSandbox | L2 | README 和 Python SDK 明确提供 `opensandbox.Sandbox.create(...)`、`sandbox.commands.run(...)`、`sandbox.files.write_files(...)` / `read_file(...)`、`sandbox.kill()`；README 还说自己定义 `Sandbox Protocol`，提供 OpenAPI specs、CLI、MCP、多语言 SDK | 当前看到的是自有 `opensandbox` SDK / OpenSandbox API，不是官方 E2B SDK drop-in；没有看到官方说明 “set E2B_API_URL to OpenSandbox server and reuse e2b SDK” |
+| AgentCube | L1 到 L2 之间 | Python SDK 提供 `CodeInterpreterClient.run_code(...)`、`execute_command(...)`、`write_file(...)`、`stop()`；Router 数据面路径是 `/v1/namespaces/{ns}/code-interpreters/{name}/invocations/...`，WorkloadManager 创建路径是 `/v1/code-interpreter`；功能上覆盖 code execution / files / session reuse | 不是 `from e2b import Sandbox` 的对象模型；没有 `/sandboxes` 兼容 API；session ID、CodeInterpreter CRD、Router invocation path 都是 AgentCube 自己的 contract；不能声称 E2B drop-in |
+| Agent Substrate | L0 到 L1 | README 说明它不是 agent SDK，而是 Kubernetes 上的 actor multiplexing system；有 sandbox demo，可运行 arbitrary shell 并保留 filesystem state；核心 API 是 `CreateActor` / `ResumeActor` / `SuspendActor` 和 actor routing | 不面向 E2B SDK，不暴露 E2B sandbox lifecycle API；它更可能作为某个 E2B-like API 背后的 substrate，而不是直接兼容 E2B |
+
+> 分析：这张表说明“被动兼容”这个判断是对的。OpenSandbox 和 AgentCube 都因为同处 code execution / sandbox 领域，自然长出类似 E2B 的开发者体验，但它们目前更像 E2B-like interface，而不是 E2B-compatible implementation。CubeSandbox 才是材料里明确把 E2B compatibility 当迁移面来做的项目。
+
+### 为什么会出现“名字相似但不兼容”
+
+Sandbox 平台的 SDK 很容易收敛到同一组词：
+
+- 创建环境：`create`。
+- 执行命令：`commands.run` / `execute_command`。
+- 执行代码：`run_code` / code interpreter。
+- 读写文件：`files.read` / `files.write` / `upload_file`。
+- 删除环境：`kill` / `delete` / `stop`。
+- 复用环境：`connect` / `session_id` / attach。
+
+这些词并不是 E2B 独有，而是领域自然语言。
+
+真正决定兼容性的不是名字，而是：
+
+- SDK 包名和对象模型是否一致。
+- HTTP route 是否一致。
+- request / response schema 是否一致。
+- 错误码和异常模型是否一致。
+- sandbox ID / session ID 是否能互通。
+- timeout / pause / reconnect / delete 的状态语义是否一致。
+- 文件路径、工作目录、stdout/stderr/logs 的返回格式是否一致。
+
+> 注释：这和我们前面分析 gRPC / proto 是一个道理。接口名字只是表层；真正的 contract 是字段、状态、错误、重试、幂等和生命周期。
+
+### AgentCube 如果要支持 E2B，应该怎么做
+
+AgentCube 当前不应把已有 `CodeInterpreterClient` 简单改名成 `Sandbox`，也不应在 #387 这类 agent-sandbox compatibility PR 里顺手加 E2B 兼容。更合理的路线是新开一个兼容层设计：
+
+```mermaid
+flowchart LR
+    E2BSDK["official e2b SDK / E2B-style client"]
+    Facade["AgentCube E2B-compatible facade"]
+    WM["WorkloadManager / session create/delete"]
+    Router["Router invocation path"]
+    Store["Store: e2b sandbox id -> AgentCube session id"]
+    Runtime["agent-sandbox / CodeInterpreter runtime"]
+
+    E2BSDK --> Facade
+    Facade --> WM
+    Facade --> Router
+    Facade --> Store
+    WM --> Runtime
+    Router --> Runtime
+```
+
+第一版兼容层可以只覆盖最小迁移面：
+
+| E2B 语义 | AgentCube 映射候选 | 需要补的 contract |
+| --- | --- | --- |
+| `Sandbox.create(template=...)` | 创建一个 `CodeInterpreter` session，或者指定已有 `CodeInterpreter` CRD 作为 template | E2B template ID 如何映射到 namespace / CodeInterpreter name |
+| `sandbox.commands.run(cmd)` | Router invocation `/api/execute` | stdout / stderr / exit_code / timeout / error model 对齐 |
+| `sandbox.files.write/read` | Router invocation `/api/files` | 文本/二进制、路径、目录、错误语义 |
+| `Sandbox.connect(sandbox_id)` | 根据 `sandbox_id -> session_id` 查 Store 并复用 session | paused / deleted / expired / not found 的语义 |
+| `Sandbox.list()` | Store list sessions | owner、namespace、pagination、status、auth |
+| `sandbox.kill()` | WorkloadManager delete session | 幂等 delete、404 是否视为成功、资源清理 |
+| timeout / pause | `ttl`、future `pauseTimeout`、Sleep/Resume | 当前 AgentCube main 尚未实现 Paused / auto-resume |
+
+> 分析：这里最关键的是 ID 映射。E2B 的 `sandbox_id` 是用户看到的 sandbox 主语；AgentCube 当前用户看到的是 `session_id`，底层还有 `Sandbox` / `SandboxClaim` / Pod 名。兼容层必须明确：对 E2B SDK 暴露的是哪个 ID，内部如何映射到 AgentCube session 和 runtime resource。
+
+### 最小兼容测试计划
+
+如果未来要说 AgentCube 支持 E2B compatibility，至少要用官方 E2B SDK 或 E2B-style conformance script 跑：
+
+```python
+from e2b import Sandbox
+
+sandbox = Sandbox.create()
+result = sandbox.commands.run("python3 -c 'print(1 + 1)'")
+assert result.stdout.strip() == "2"
+
+sandbox.files.write("/tmp/hello.txt", "hello")
+assert sandbox.files.read("/tmp/hello.txt") == "hello"
+
+sandbox_id = sandbox.sandbox_id
+same = Sandbox.connect(sandbox_id)
+assert same.commands.run("cat /tmp/hello.txt").stdout.strip() == "hello"
+
+sandbox.kill()
+```
+
+再补 API 层和生命周期层：
+
+| 测试 | 目的 |
+| --- | --- |
+| 官方 E2B Python SDK create/run/file/kill | 证明不是只实现相似名字 |
+| 官方 E2B JS/TS SDK create/run/file/kill | 避免只兼容一个语言 SDK 的偶然行为 |
+| list/connect existing sandbox | 验证 ID 映射和 session reuse |
+| timeout / expired sandbox | 验证 E2B lifecycle 和 AgentCube TTL/GC 语义 |
+| kill twice | 验证 delete 幂等 |
+| command timeout / non-zero exit | 验证错误模型 |
+| binary file upload/read | 验证文件 API 不只支持简单文本 |
+| auth failure | 验证 `E2B_API_KEY` / AgentCube auth 映射 |
+| cleanup check | 验证 Pod / Sandbox / SandboxClaim / Redis 没残留 |
+
+> 注释：这类测试最好作为单独 e2e suite，不要混入普通 AgentCube Python SDK 测试。因为它验证的是“外部兼容契约”，不是 AgentCube 自己 SDK 的行为。
+
+### 对文档和 PR 口径的修正
+
+以后写 AgentCube roadmap 或 upstream proposal 时，建议统一用下面这套说法：
+
+| 不建议写法 | 建议写法 |
+| --- | --- |
+| AgentCube already supports E2B protocol | AgentCube supports E2B-like code interpreter workflows through its own SDK/API, but it is not currently E2B SDK-compatible |
+| OpenSandbox is E2B-compatible | OpenSandbox has an E2B-like SDK surface and its own Sandbox Protocol; no drop-in E2B SDK compatibility was confirmed in this pass |
+| Agent Substrate supports E2B | Agent Substrate can host sandbox-like actors, but it is not an E2B API implementation |
+| Add E2B support in the agent-sandbox compatibility PR | E2B compatibility should be a separate facade/API proposal after session lifecycle and CodeInterpreter contract are clear |
+| E2B compatibility just means run Python code | E2B compatibility means SDK/API/lifecycle/file/error/auth compatibility, ideally verified with official E2B SDK tests |
+
+> 分析：这个章节对 AgentCube 后续很实用。E2B-compatible API / SDK / template 是社区会议里提到过的方向，但它不应该和 `agent-sandbox v0.4.6` 适配、Sleep/Resume、SnapStart 混在一个 PR。正确顺序应该是先稳定 session lifecycle 和 CodeInterpreter contract，再在 API 边缘加 E2B facade。
+
 ## 对 AgentCube 后续工作的启发
 
 ### 1. `agent-sandbox` 适配要做成 provider compatibility 工作
