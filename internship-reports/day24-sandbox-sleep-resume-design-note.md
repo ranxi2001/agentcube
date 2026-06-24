@@ -1897,3 +1897,225 @@ with Store CAS and a WorkloadManager lifecycle service spike.
 The remaining product work is Router resume-before-proxy, GC split,
 a real agent-sandbox hard-pause provider, and e2e validation.
 ```
+
+## 3A 完成记录：Store / GC split 设计和测试骨架
+
+> 记录日期：2026-06-24。
+>
+> 这里的“完成 3A”指完成 Store / GC split 的源码基线分析、实现落点、测试骨架和 review checklist。它不等于已经把真实 Sleep/Resume 产品代码合入 upstream。真实代码实现仍然应该等 #387 合并、维护者明确 #386 分工后，再从干净 topic branch 做。
+
+### 3A 要解决的问题
+
+当前 AgentCube 的 GC 语义仍然是 v0.1 风格：
+
+- session idle 超时后，GC 直接删除 Sandbox 或 SandboxClaim。
+- `maxSessionDuration` 过期后，GC 也删除。
+- GC 不区分 `Ready`、`Paused`、`Pausing`、`Resuming` 等生命周期状态。
+- Store 只有 inactive / expired 两类查询，没有 pause expiry index。
+
+Sleep/Resume 需要把这个语义拆开：
+
+- `Ready` idle 到 `sessionTimeout`：进入 pause 流程，而不是 delete。
+- `Paused` 到 `pauseTimeout`：delete。
+- `maxSessionDuration`：覆盖所有 active 状态，直接 delete。
+- transition state，例如 `Pausing` / `Resuming`：不能随意 delete，需要 timeout / reconcile 策略。
+
+> 注释：这里的 GC 是 WorkloadManager 的 session garbage collection，不是 Go runtime 的内存 GC。它负责清理或回收 AgentCube session 对应的 Kubernetes Sandbox / SandboxClaim / Store 记录。
+
+### 当前源码基线
+
+| 文件 | 当前行为 | 对 3A 的影响 |
+| --- | --- | --- |
+| `pkg/workloadmanager/garbage_collection.go` | `once()` 先查 inactive，再查 expired，然后合并成 `gcSandboxes` 统一走 delete | 需要拆成 pause candidates、pause-expired candidates、max-TTL-expired candidates 三类 |
+| `pkg/store/interface.go` | Store 只有 `ListInactiveSandboxes`、`ListExpiredSandboxes`、`UpdateSessionLastActivity` 等接口 | 需要新增或封装 pause candidate / pause expiry 查询，避免用 inactive 查询表达 paused expiry |
+| `pkg/common/types/sandbox.go` | `SandboxInfo` 有 `Status string`，但当前主线没有正式 pause 字段 | 需要正式字段，例如 `PausedAt`、`PauseExpiresAt`、`TransitionStartedAt`，以及 store index |
+| `pkg/workloadmanager/garbage_collection_test.go` | 现有测试验证 idle sandbox 会被 delete | Sleep/Resume 合入后，相关测试语义必须改成 idle ready 会 pause，不会 delete |
+
+这个基线说明一个关键点：3A 不是在原有 delete 流程里加一个小 if 就结束。它需要先把 GC 对 lifecycle 的调用边界切清楚，否则 GC 会同时承担 Store 状态机、Kubernetes 删除、provider pause 的职责，后续 review 会很难解释。
+
+### 推荐实现落点
+
+GC 不应该直接 patch Store 状态，也不应该直接理解 provider 的 pause 细节。更合适的边界是：
+
+```go
+type gcSessionLifecycle interface {
+    PauseSession(ctx context.Context, sessionID string, reason string) error
+    DeleteSession(ctx context.Context, sessionID string, reason string) error
+    MarkTransitionTimedOut(ctx context.Context, sessionID string, expectedState string) error
+}
+```
+
+> 注释：这个接口名字只是设计骨架，不是最终 API。重点是让 GC 表达“我要 pause / delete / 标记 transition timeout”，而不是让 GC 自己散落地操作 Store、Kubernetes client 和 provider。
+
+Store 层建议补的能力：
+
+```go
+type Store interface {
+    ListReadyPauseCandidates(ctx context.Context, before time.Time, limit int) ([]*types.SandboxInfo, error)
+    ListPauseExpiredSandboxes(ctx context.Context, before time.Time, limit int) ([]*types.SandboxInfo, error)
+    UpdateSandboxStatusCAS(ctx context.Context, sessionID string, from string, to string, patch SandboxStatusPatch) error
+}
+```
+
+如果第一版为了减少改动，不想马上加两个 list 接口，也可以保守复用 `ListInactiveSandboxes`：
+
+- 对返回结果二次过滤 `Status == Ready` 或 legacy empty status。
+- 只把 ready idle 送入 `PauseSession`。
+- paused expiry 仍然建议单独建查询，不建议用 inactive 查询硬凑。
+
+不推荐的做法：
+
+- 不推荐让 GC 直接 `sandbox.Status = "Paused"` 后调用 `UpdateSandbox`，这会绕过 CAS。
+- 不推荐让 GC 直接调用 agent-sandbox pause API，provider 差异会污染 GC。
+- 不推荐把 paused session 混进 `ListExpiredSandboxes`，否则 `pauseTimeout` 和 `maxSessionDuration` 的语义会混在一起。
+
+### GC decision table
+
+| Session state | `sessionTimeout` | `pauseTimeout` | `maxSessionDuration` | Expected action |
+| --- | --- | --- | --- | --- |
+| `Ready` | not reached | n/a | not reached | keep |
+| `Ready` | reached | n/a | not reached | pause |
+| `Ready` | any | n/a | reached | delete |
+| `Paused` | n/a | not reached | not reached | keep |
+| `Paused` | n/a | reached | not reached | delete |
+| `Paused` | n/a | any | reached | delete |
+| `Pausing` | n/a | n/a | not reached, transition fresh | keep / observe |
+| `Pausing` | n/a | n/a | not reached, transition timeout | mark timed out or reconcile |
+| `Resuming` | n/a | n/a | not reached, transition fresh | keep / observe |
+| `Resuming` | n/a | n/a | not reached, transition timeout | mark timed out or reconcile |
+| `Failed` | n/a | policy dependent | not reached | keep or delete by failed-retention policy |
+| unknown | n/a | n/a | not reached | no destructive delete, emit warning |
+| any active state | any | any | reached | delete |
+
+> 注释：`maxSessionDuration` 是硬上限，所以优先级高于 pause。也就是说一个 ready session 同时 idle 且超过 max TTL 时，不能先 pause 再等下一轮 GC delete，应该直接 delete。
+
+### 单元测试骨架
+
+这些测试是 3A 最小 review 材料。它们不要求现在全部变成可编译代码，但每个 case 都应该能映射到未来的 `garbage_collection_test.go` 或 Store 单测。
+
+| Test name | Setup | Expected assertion |
+| --- | --- | --- |
+| `TestGarbageCollectorReadyIdlePausesSession` | ready session，`LastActivityAt` 早于 idle cutoff，未超过 max TTL | 调用 `PauseSession` 一次；不调用 delete |
+| `TestGarbageCollectorReadyMaxTTLExpiredDeletesWithoutPause` | ready session，同时 idle 且超过 max TTL | 调用 delete；不调用 pause |
+| `TestGarbageCollectorPausedBeforePauseTimeoutKeepsSession` | paused session，`PauseExpiresAt` 在未来 | 不 pause；不 delete |
+| `TestGarbageCollectorPausedAfterPauseTimeoutDeletesSession` | paused session，`PauseExpiresAt` 已过，未超过 max TTL | 调用 delete；reason 是 pause timeout |
+| `TestGarbageCollectorPausedMaxTTLExpiredDeletesSession` | paused session，pause timeout 未到，但 max TTL 已到 | 调用 delete；reason 是 max session duration |
+| `TestGarbageCollectorPausingWithinTransitionTimeoutKeepsSession` | pausing session，transition 刚开始 | 不 delete；不 mark failed |
+| `TestGarbageCollectorPausingTransitionTimeoutMarksTimedOut` | pausing session，transition 超时 | 调用 `MarkTransitionTimedOut` 或进入 reconcile |
+| `TestGarbageCollectorResumingWithinTransitionTimeoutKeepsSession` | resuming session，transition 刚开始 | 不 delete |
+| `TestGarbageCollectorResumingTransitionTimeoutMarksTimedOut` | resuming session，transition 超时 | 调用 `MarkTransitionTimedOut` 或进入 reconcile |
+| `TestGarbageCollectorUnknownStatusDoesNotDestructivelyDelete` | status 为未知值，未超过 max TTL | 不 delete；记录 warning |
+| `TestGarbageCollectorLegacyEmptyStatusCompatibility` | 旧数据没有 status，未超过 max TTL | 需要明确兼容策略：当 ready 处理或保守 keep |
+| `TestGarbageCollectorDeleteCleansPauseIndexes` | 删除 paused session | session key、last activity index、pause expiry index、status index 都清理 |
+| `TestListPauseExpiredSandboxesFiltersPausedOnly` | pause expiry index 里混入 ready / failed 脏数据 | Store 只返回 paused 且已过期的 session |
+| `TestUpdateSandboxStatusCASConcurrentPause` | 两个 GC worker 同时尝试 ready -> pausing | 只有一个 CAS 成功，另一个拿到 conflict / no-op |
+
+### 可落地的测试伪代码
+
+```go
+type gcLifecycleRecorder struct {
+    paused   []string
+    deleted  []string
+    timedOut []string
+}
+
+func (r *gcLifecycleRecorder) PauseSession(ctx context.Context, sessionID string, reason string) error {
+    r.paused = append(r.paused, sessionID)
+    return nil
+}
+
+func (r *gcLifecycleRecorder) DeleteSession(ctx context.Context, sessionID string, reason string) error {
+    r.deleted = append(r.deleted, sessionID+":"+reason)
+    return nil
+}
+
+func (r *gcLifecycleRecorder) MarkTransitionTimedOut(ctx context.Context, sessionID string, expectedState string) error {
+    r.timedOut = append(r.timedOut, sessionID+":"+expectedState)
+    return nil
+}
+
+func TestGarbageCollectorReadyIdlePausesSession(t *testing.T) {
+    now := time.Date(2026, 6, 24, 10, 0, 0, 0, time.UTC)
+    store := newGCTestStore()
+    lifecycle := &gcLifecycleRecorder{}
+    gc := newTestSleepResumeGC(store, lifecycle, now)
+
+    store.readyPauseCandidates = []*types.SandboxInfo{{
+        SessionID:      "session-ready-idle",
+        Status:         types.SandboxStatusReady,
+        CreatedAt:      now.Add(-10 * time.Minute),
+        LastActivityAt: now.Add(-6 * time.Minute),
+        IdleTimeout:    5 * time.Minute,
+    }}
+
+    gc.once()
+
+    require.Equal(t, []string{"session-ready-idle"}, lifecycle.paused)
+    require.Empty(t, lifecycle.deleted)
+}
+
+func TestGarbageCollectorReadyMaxTTLExpiredDeletesWithoutPause(t *testing.T) {
+    now := time.Date(2026, 6, 24, 10, 0, 0, 0, time.UTC)
+    store := newGCTestStore()
+    lifecycle := &gcLifecycleRecorder{}
+    gc := newTestSleepResumeGC(store, lifecycle, now)
+
+    store.readyPauseCandidates = []*types.SandboxInfo{{
+        SessionID:      "session-ready-expired",
+        Status:         types.SandboxStatusReady,
+        CreatedAt:      now.Add(-2 * time.Hour),
+        LastActivityAt: now.Add(-6 * time.Minute),
+        IdleTimeout:    5 * time.Minute,
+        ExpiresAt:      now.Add(-1 * time.Second),
+    }}
+    store.maxTTLExpired = []*types.SandboxInfo{store.readyPauseCandidates[0]}
+
+    gc.once()
+
+    require.Empty(t, lifecycle.paused)
+    require.Equal(t, []string{"session-ready-expired:max-session-duration"}, lifecycle.deleted)
+}
+```
+
+> 注释：上面代码是测试骨架，不是当前 main 可直接编译的代码。它依赖未来引入的 `types.SandboxStatusReady`、`newTestSleepResumeGC`、pause candidate list 等接口。它的价值是先固定行为语义，避免后续实现时只跑通编译却没有覆盖 Sleep/Resume 的核心状态转换。
+
+### review 时需要解释的点
+
+1. 为什么不继续沿用 `ListInactiveSandboxes -> delete`：
+   Sleep/Resume 的 idle 语义已经从“回收销毁”变成“暂停保存上下文”，所以 inactive candidate 不能再直接进入 delete path。
+
+2. 为什么 `maxSessionDuration` 优先：
+   它是 session 生命周期硬上限，如果先 pause 会延长超时 session 的存活期，和 TTL 语义冲突。
+
+3. 为什么 paused expiry 要单独建查询：
+   paused session 是否应该删除取决于 `PausedAt` / `PauseExpiresAt`，不是 `LastActivityAt`。继续复用 inactive index 会让数据语义不清晰。
+
+4. 为什么需要 CAS：
+   GC、Router resume、显式 delete、用户新请求可能并发操作同一个 session。没有 CAS 时，ready -> pausing 和 paused -> resuming 可能互相覆盖。
+
+5. 为什么 unknown status 不应该 destructive delete：
+   状态机迁移早期可能存在旧数据、脏数据或新状态。未知状态直接 delete 风险太高，除非 max TTL 已经过期。
+
+6. 为什么先做 fake lifecycle 测试：
+   3A 的核心是 AgentCube 控制面语义，不是 agent-sandbox 具体 pause API。fake provider 能先证明状态机和 GC decision table，后续再接真实 provider。
+
+### 3A 完成口径
+
+已完成：
+
+- 梳理当前 GC / Store / SandboxInfo 的源码基线。
+- 明确 idle ready 不应直接 delete。
+- 明确 paused timeout 和 max TTL 的优先级。
+- 给出 Store / GC / lifecycle 的推荐边界。
+- 给出可转成 Go 单测的 test matrix 和伪代码。
+- 将 3A 作为 review checklist 固化，后续可用于审核 FAUST-BENCHOU 或我们自己的实现。
+
+未完成：
+
+- 没有修改真实 `garbage_collection.go` 行为。
+- 没有新增正式 Store API。
+- 没有实现真实 pause expiry index。
+- 没有接 agent-sandbox hard pause provider。
+- 没有发 upstream PR。
+
+下一步如果继续推进，优先做 3B Router resume-before-proxy 的测试骨架，或者把 3A 转成 fork/local spike 代码验证。正式 upstream 实现仍然应该等 #387 合并和 #386 分工明确。
