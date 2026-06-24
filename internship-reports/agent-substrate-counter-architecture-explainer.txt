@@ -1,0 +1,451 @@
+Agent Substrate Counter 架构图解说
+==================================
+
+图文件：
+- Draw.io: /root/.copilot/session-state/44f68afd-f6d4-4fc6-af4c-883125403058/files/agent-substrate-counter-architecture.drawio
+- PNG:     /root/.copilot/session-state/44f68afd-f6d4-4fc6-af4c-883125403058/files/agent-substrate-counter-architecture.png
+
+一、整体理解
+------------
+
+这张图用 counter demo 里的 my-counter-1 作为例子，说明一个 Actor 是如何从模板被预热、在请求到来时被恢复到 Worker Pod 中，并最终处理 HTTP 请求的。
+
+最关键的概念是：
+
+1. Kubernetes 只负责创建和维持 Worker Pod。
+2. Worker Pod 里常驻的容器是 ateom-gvisor，它不是业务应用本身。
+3. Actor 是 Agent Substrate 控制面管理的逻辑应用实例，例如 my-counter-1。
+4. Actor 真正运行时，是由 atelet 通知 Worker Pod 内的 ateom-gvisor，再由 ateom-gvisor 调用 runsc/gVisor 在 Worker Pod 内部启动或恢复 workload。
+5. Worker Pod 同一时刻最多承载一个 Actor；Actor 挂起后释放 Worker，后续可以恢复到同一个或另一个 Worker Pod。
+
+在 counter 例子里，Actor my-counter-1 表示一个可挂起/恢复的 counter HTTP server。它的内存里可能有 requestCount，文件系统里也可能有状态文件。Suspend 时这些状态会被 checkpoint 到 snapshot storage；Resume 时可以恢复回来。
+
+
+二、图中各功能区域
+------------------
+
+1. 用户 / 开发者入口
+
+这里包括开发者、平台管理员、kubectl-ate/SDK，以及最终发起 HTTP 请求的 counter 用户。
+
+平台管理员通常负责安装系统和创建 WorkerPool。开发者负责定义 ActorTemplate，例如 counter 应用的镜像、环境变量、snapshot 存储位置和 sandboxClass。用户或上层系统通过 kubectl-ate、SDK 或 HTTP 请求创建和访问 Actor。
+
+2. 网络入口层
+
+这里包括 atenet-dns、CoreDNS、atenet-router 和 Envoy。
+
+atenet-dns 负责把类似 my-counter-1.actors.resources.substrate.ate.dev 的域名解析到 atenet-router。atenet-router 通过 Envoy external processing 拿到请求头，从 Host 中解析 actor id，即 my-counter-1，然后调用 ateapi.ResumeActor 确保 Actor 已经运行。
+
+3. Substrate 控制面
+
+这里包括 ate-api-server、Redis/ValKey、atecontroller 和 Observability。
+
+ate-api-server 是核心控制面，负责 Actor 生命周期、Worker 分配、状态转换，以及调用节点上的 atelet。Redis/ValKey 保存高频变化的 Actor 和 Worker 运行时状态。atecontroller 负责 Kubernetes CRD 的 reconcile，例如把 WorkerPool 转成 Deployment，把 ActorTemplate 转成 Golden Snapshot 预热流程。
+
+4. Kubernetes 控制面 / API 资源
+
+这里包括 CRDs、Kubernetes API Server、PodCertificate Controller、Deployment/Service。
+
+CRD 包括 WorkerPool、ActorTemplate 和 SandboxConfig。Kubernetes API Server 保存这些低频配置资源，并由 controller watch/reconcile。Deployment/Service 是最终落到 Kubernetes 的资源，例如 WorkerPool 对应的 Worker Deployment、atenet-router Service、ate-api-server Service 等。
+
+5. Kubernetes Node / Worker Pod
+
+这里包括 atelet DaemonSet、Snapshot Storage、Worker Pod、ateom-gvisor、runsc/gVisor sandbox 和具体的 counter Actor workload。
+
+atelet 是节点级组件，运行在每个 Node 上，负责准备 OCI bundle、下载或校验 runsc、处理 checkpoint/restore 文件，并通过 Unix socket 和 Worker Pod 内的 ateom-gvisor 通信。ateom-gvisor 再调用 runsc，在 gVisor sandbox 中启动或恢复 counter workload。
+
+
+三、图中编号流程解说
+--------------------
+
+1. apply CRDs
+
+这一步是安装和配置阶段。
+
+平台管理员或开发者把 Substrate 需要的 Kubernetes 资源提交到集群里，包括：
+
+- WorkerPool：声明需要多少个预热 Worker Pod。
+- ActorTemplate(counter)：声明 counter Actor 的 workload 镜像、pause image、snapshot 存储位置、sandboxClass、workerSelector 等。
+- SandboxConfig(gvisor)：声明 gVisor/runsc 运行时资产，例如 runsc 的下载 URL 和 sha256。
+
+怎么做：
+
+通常通过 kubectl apply、ko apply、hack/install-ate.sh 或 demo manifest 完成。提交后，这些对象会进入 Kubernetes API Server，并被 atecontroller watch 到。
+
+
+2. watch / reconcile
+
+这一步由 atecontroller 完成。
+
+atecontroller 持续 watch WorkerPool 和 ActorTemplate 等 CRD。一旦发现这些资源被创建或更新，它会进入 reconcile 流程。
+
+怎么做：
+
+- 对 WorkerPool：atecontroller 根据 spec.replicas、spec.ateomImage、调度配置等生成或更新 Kubernetes Deployment。
+- 对 ActorTemplate：atecontroller 启动 Golden Snapshot 状态机，后续会创建 golden actor、恢复它、等待初始化完成，然后挂起生成 golden snapshot。
+
+
+3. create Deployment
+
+这一步是 WorkerPool 到 Kubernetes Deployment 的转换。
+
+WorkerPool 不是直接运行 Actor 的实体，而是一个容量声明。atecontroller 会根据 WorkerPool 创建一个 Deployment，Deployment 的副本数对应 WorkerPool.spec.replicas。
+
+怎么做：
+
+生成的 Worker Pod 里主要运行一个容器：ateom-gvisor。它是 Worker Pod 内的常驻 runtime coordinator，等待 atelet 通过 Unix socket 发指令。
+
+这个 Deployment 的 Pod 会带有类似 ate.dev/worker-pool=<pool-name> 的 label，ateapi 之后会通过 informer 识别这些 Worker Pod，并在 Redis/ValKey 中创建 Worker 记录。
+
+
+4. kubelet starts worker pod
+
+这一步是 Kubernetes 原生行为。
+
+Kubernetes scheduler 把 Worker Pod 调度到某个 Node 上，kubelet 拉取并启动 Worker Pod 中的 ateom-gvisor 容器。
+
+怎么做：
+
+从 Kubernetes 视角看，这只是普通 Pod 创建流程：
+
+- scheduler 选 Node。
+- kubelet 拉取 ateom-gvisor 镜像。
+- kubelet 启动 ateom-gvisor 容器。
+- ateom-gvisor 在 Pod 内创建工作目录、监听 Unix socket，等待后续 run/restore/checkpoint 指令。
+
+注意：此时 counter Actor 还没有运行。Worker Pod 只是一个空闲执行槽位。
+
+
+5. golden actor lifecycle
+
+这一步是 ActorTemplate 的预热流程，用来避免每个新 Actor 第一次访问时都冷拉镜像、冷启动应用。
+
+当 ActorTemplate(counter) 被创建后，atecontroller 会创建一个临时的 golden actor。这个 golden actor 会被恢复/启动一次，让 counter workload 完成初始化，然后被 suspend 成一个 golden snapshot。
+
+怎么做：
+
+典型流程是：
+
+1. atecontroller 调用 ateapi.CreateActor，创建 golden actor。
+2. atecontroller 调用 ateapi.ResumeActor，让 golden actor 在某个 Worker 上启动。
+3. ateapi 选择空闲 Worker，并调用该节点上的 atelet。
+4. atelet 准备 counter 镜像对应的 OCI bundle、runsc 运行时等。
+5. atelet 通知 Worker Pod 内的 ateom-gvisor。
+6. ateom-gvisor 调用 runsc create/start，在 gVisor sandbox 中启动 counter。
+7. atecontroller 等待一段时间，让应用完成初始化。
+8. atecontroller 调用 ateapi.SuspendActor。
+9. atelet/ateom-gvisor 对 counter workload 做 checkpoint。
+10. checkpoint 文件上传到 Snapshot Storage，形成 golden snapshot。
+11. ActorTemplate.status.goldenSnapshot 被更新为该 snapshot URI。
+
+后续创建的新 Actor，例如 my-counter-1，如果没有自己的 latest snapshot，就可以从这个 golden snapshot 快速恢复。
+
+
+6. state / locks
+
+这一步表示 ateapi 和 Redis/ValKey 之间的状态读写。
+
+Agent Substrate 没有把每个 Actor 都作为 Kubernetes CRD 存在 API Server 里，而是把高频变化的 Actor/Worker 运行时状态放在 Redis/ValKey。
+
+怎么做：
+
+ateapi 会写入类似这样的状态：
+
+- actor:my-counter-1
+  - actor_id = my-counter-1
+  - status = SUSPENDED / RESUMING / RUNNING / SUSPENDING
+  - actor_template_namespace / actor_template_name
+  - latest_snapshot_info
+  - current worker pod 信息
+
+- worker:<namespace>:<pool>:<pod>
+  - worker pod IP
+  - node name
+  - 当前绑定的 actor_id
+
+当 ResumeActor 或 SuspendActor 发生时，ateapi 会使用版本号和分布式锁避免并发状态冲突。
+
+
+7. Run / Restore / Checkpoint
+
+这一步是 ateapi 调用节点上的 atelet。
+
+ateapi 是控制面，它不直接在 Worker Pod 里运行进程。它会找到目标 Worker Pod 所在的 Node，再找到同 Node 上的 atelet，然后通过 gRPC 调用 atelet。
+
+怎么做：
+
+- 如果 Actor 是冷启动：ateapi 调用 atelet Run。
+- 如果 Actor 有 golden snapshot 或 latest snapshot：ateapi 调用 atelet Restore。
+- 如果 Actor 要挂起：ateapi 调用 atelet Checkpoint。
+
+atelet 负责实际准备运行环境，包括：
+
+- 下载或校验 runsc。
+- 准备 OCI bundle。
+- 下载或读取 snapshot 文件。
+- 准备 checkpoint/restore 目录。
+- 连接 Worker Pod 内 ateom-gvisor 的 Unix socket。
+
+
+8. Unix gRPC socket
+
+这一步是 atelet 和 Worker Pod 内 ateom-gvisor 的通信。
+
+atelet 运行在 Node 上，Worker Pod 里的 ateom-gvisor 也在同一个 Node 上。它们通过共享的 hostPath 目录和 Unix socket 通信。
+
+怎么做：
+
+Worker Pod 启动时，ateom-gvisor 会在类似下面的位置监听 socket：
+
+/var/lib/ateom-gvisor/ateoms/<podUID>/ateom.sock
+
+atelet 根据 Worker Pod UID 拼出 socket 路径，建立 gRPC 连接，然后发出 RunWorkload、RestoreWorkload 或 CheckpointWorkload 请求。
+
+
+9. runsc create / restore
+
+这一步是 ateom-gvisor 调用 gVisor 的 runsc。
+
+ateom-gvisor 本身不是 counter 应用。它只是 Worker Pod 内的 coordinator。真正创建或恢复 actor workload 的动作，是它调用 runsc 完成的。
+
+怎么做：
+
+- 冷启动时：
+  - runsc create pause container
+  - runsc start pause container
+  - runsc create counter container
+  - runsc start counter container
+
+- 从 snapshot 恢复时：
+  - runsc create pause container
+  - runsc restore pause container
+  - runsc create counter container
+  - runsc restore counter container
+
+这样 counter workload 就在 Worker Pod 内部的 gVisor sandbox 中运行起来。
+
+
+10. start counter workload
+
+这一步表示 Actor my-counter-1 真正开始运行。
+
+在图中，Actor my-counter-1 对应 counter HTTP server。它不是 Kubernetes 原生 Pod，也不是 Kubernetes container 列表里的一个普通业务容器；它是 Substrate 通过 runsc/gVisor 在 Worker Pod 内部启动或恢复的 workload。
+
+怎么做：
+
+counter workload 运行后，会监听 HTTP 请求。它的内存中可能有 requestCount，文件系统中可能有用于验证状态恢复的文件。请求打到它时，它会递增 counter 并返回响应。
+
+如果后续 SuspendActor 被调用，counter 的内存和文件系统状态会被 checkpoint 到 snapshot。下次 ResumeActor 时，这些状态可以恢复回来。
+
+
+11. golden / latest snapshot
+
+这一步表示 snapshot 的保存和读取。
+
+Snapshot Storage 可以是 GCS、S3 或本地 Kind 环境里的 RustFS。它保存两类重要快照：
+
+- golden snapshot：来自 ActorTemplate 预热，供新 Actor 第一次快速恢复。
+- latest snapshot：来自某个具体 Actor 的 suspend/pause，保存该 Actor 自己的最新状态。
+
+怎么做：
+
+Checkpoint 时，atelet 会把 gVisor checkpoint 文件和 manifest 上传到对象存储。Restore 时，atelet 会读取 manifest 和 checkpoint 文件，再交给 ateom-gvisor/runsc 恢复 workload。
+
+在 counter 例子里：
+
+- 第一次访问 my-counter-1 时，如果没有 latest snapshot，可以从 counter template 的 golden snapshot 恢复。
+- 运行一段时间后，如果 my-counter-1 被 suspend，会生成 my-counter-1 自己的 latest snapshot。
+- 下次请求 my-counter-1 时，会优先从 latest snapshot 恢复，这样 requestCount 等状态不会丢失。
+
+
+12. DNS lookup
+
+这一步发生在用户访问 counter Actor 时。
+
+用户请求的 Host 类似：
+
+my-counter-1.actors.resources.substrate.ate.dev
+
+atenet-dns/CoreDNS 会把这个 actor 域名解析到 atenet-router 的 Service IP。
+
+怎么做：
+
+atenet-dns 维护 CoreDNS 配置和 kube-dns stubDomains，让 actor DNS suffix 下的请求都被导向 Substrate 的 router。
+
+
+13. HTTP request
+
+这一步是实际用户请求进入网络入口。
+
+用户向 atenet-router 发起 HTTP 请求，并带上 Host：
+
+Host: my-counter-1.actors.resources.substrate.ate.dev
+
+怎么做：
+
+请求进入 Envoy。Envoy 配置了 external processing filter，会把请求头交给 atenet-router 的 ext_proc 服务处理。
+
+
+14. ResumeActor(my-counter-1)
+
+这一步是按需唤醒的核心。
+
+atenet-router 从 Host 里解析出 actor id：my-counter-1，然后调用 ateapi.ResumeActor(my-counter-1)。
+
+怎么做：
+
+ateapi 收到 ResumeActor 后：
+
+1. 从 Redis/ValKey 读取 Actor 记录。
+2. 从 Kubernetes informer/lister 读取对应 ActorTemplate。
+3. 根据 sandboxClass、workerSelector 等条件选择 eligible WorkerPool。
+4. 从 Worker 列表里找 actor_id 为空的空闲 Worker。
+5. 把 Worker 绑定给 my-counter-1。
+6. 把 Actor 状态设置为 RESUMING，并记录 worker pod namespace/name/IP/UID。
+7. 根据 snapshot 情况调用 atelet：
+   - 有 latest snapshot：恢复 latest。
+   - 没有 latest 但有 golden snapshot：恢复 golden。
+   - 都没有或指定 boot：从 ActorTemplate spec 冷启动。
+8. 成功后把 Actor 状态设置为 RUNNING。
+
+
+15. forward to workerIP:80
+
+这一步是请求转发到已经运行的 counter Actor。
+
+ResumeActor 返回后，atenet-router 得到 Actor 当前所在的 Worker Pod IP。router 会把请求的 upstream 地址改成 workerIP:80，然后让 Envoy 转发请求。
+
+怎么做：
+
+Envoy 最终把原始 HTTP 请求转发到 Worker Pod IP 的 80 端口。此时 Worker Pod 内的 counter workload 已经通过 runsc/gVisor 启动或恢复，所以可以直接处理请求。
+
+在 counter 例子里，用户会看到类似：
+
+hello from: <pod-ip> | preserved memory count: <n>
+
+如果 Actor 是从 latest snapshot 恢复的，count 会延续之前的值，而不是从 0 开始。
+
+
+16. suspend / pause / logs
+
+这一步表示用户或系统通过 kubectl-ate/SDK 对 Actor 做生命周期管理。
+
+常见操作包括：
+
+- kubectl ate get actors
+- kubectl ate resume actor my-counter-1
+- kubectl ate suspend actor my-counter-1
+- kubectl ate pause actor my-counter-1
+- kubectl ate delete actor my-counter-1
+- kubectl ate logs actors my-counter-1
+
+怎么做：
+
+kubectl-ate 会连接 ateapi，调用对应的 gRPC API。
+
+SuspendActor 的典型流程：
+
+1. ateapi 把 Actor 状态设置为 SUSPENDING。
+2. ateapi 调用 atelet Checkpoint。
+3. atelet 通知 ateom-gvisor 对 workload 做 checkpoint。
+4. checkpoint 文件写入 Snapshot Storage。
+5. ateapi 把 Worker 的 actor_id 清空，释放 Worker。
+6. ateapi 把 Actor 状态设置为 SUSPENDED，并记录 latest snapshot。
+
+logs 的流程：
+
+1. kubectl-ate 调用 GetActor。
+2. 找到 Actor 当前所在的 ateom pod。
+3. 通过 Kubernetes Pod Logs API 读取当前 Worker Pod 的日志。
+4. follow 模式下，如果 Actor 迁移或挂起，CLI 会重连。
+
+
+17. read logs / metrics / traces
+
+这一步表示观测数据流。
+
+Counter workload 和 Substrate 组件都会产生日志、指标或 trace。图中 Observability 代表日志、Prometheus metrics、OpenTelemetry traces、Jaeger 等观测能力。
+
+怎么做：
+
+- Actor stdout/stderr 会被包装成带 actor 元数据的结构化日志。
+- ateapi、atelet 等服务暴露 gRPC 延迟等指标。
+- atenet-router 记录路由耗时。
+- atelet 记录 snapshot size。
+- trace 可以通过客户端或系统配置开启，进入 OTel/Jaeger。
+
+
+18. certs / identity
+
+这一步表示证书和身份能力。
+
+系统里有 PodCertificate Controller，用于为服务 DNS 或 pod identity 签发证书/凭据。ate-api-server 等组件使用这些凭据进行服务身份相关配置。
+
+怎么做：
+
+PodCertificate Controller 根据 Kubernetes beta API 和相关 signer 配置，为系统组件提供证书材料。图中用虚线表示它不是 counter 请求主链路上的业务动作，但属于系统安全和身份基础设施。
+
+
+19. informers / listers
+
+这一步表示 ateapi 对 Kubernetes API 的读取。
+
+ateapi 虽然把 Actor/Worker 高频状态放在 Redis/ValKey，但仍然需要读取 Kubernetes 中的低频配置和 Pod 信息。
+
+怎么做：
+
+ateapi 通过 informer/lister 读取：
+
+- ActorTemplate：恢复 Actor 时要知道 workload spec、snapshot config、sandboxClass 等。
+- WorkerPool：调度时要知道哪些 WorkerPool eligible。
+- SandboxConfig：要知道 runsc 等 sandbox asset。
+- Worker Pod：要知道 Worker Pod IP、Pod UID、Node name。
+- atelet Pod：要找到目标 Worker 所在 Node 上的 atelet。
+
+
+四、把 counter 请求串起来
+-----------------------
+
+完整链路可以按下面方式理解：
+
+1. 管理员安装 Substrate，并创建 WorkerPool。
+2. Kubernetes 根据 WorkerPool 预先创建一批 Worker Pod，每个里面跑 ateom-gvisor。
+3. 开发者创建 counter ActorTemplate。
+4. atecontroller 基于 ActorTemplate 创建 golden actor，并生成 golden snapshot。
+5. 用户创建 Actor my-counter-1，控制面记录它，但它还不一定在运行。
+6. 用户发请求到 my-counter-1.actors.resources.substrate.ate.dev。
+7. DNS 把请求导向 atenet-router。
+8. Router 解析 actor id，调用 ResumeActor(my-counter-1)。
+9. ateapi 找空闲 Worker，把 my-counter-1 绑定过去。
+10. ateapi 调用目标 Node 上的 atelet。
+11. atelet 连接该 Worker Pod 内的 ateom-gvisor。
+12. ateom-gvisor 调用 runsc，从 golden snapshot 或 latest snapshot 恢复 counter。
+13. counter 开始监听并处理请求。
+14. Router 把请求转发到 workerIP:80。
+15. counter 返回响应。
+16. 如果后续 suspend，系统 checkpoint counter 状态到 snapshot storage，并释放 Worker。
+17. 下次请求 my-counter-1 时，系统优先从 latest snapshot 恢复，因此 counter 状态可以延续。
+
+
+五、最容易混淆的点
+------------------
+
+1. Actor 不是 Kubernetes Pod。
+
+Actor 是 Substrate 控制面里的逻辑应用实例。Kubernetes API Server 并不会看到一个叫 my-counter-1 的 Pod。
+
+2. Worker Pod 不是业务 Pod。
+
+Worker Pod 是预热执行槽，里面常驻 ateom-gvisor。业务 workload 是后续由 runsc/gVisor 在 Worker Pod 内部启动或恢复的。
+
+3. 首次请求不一定等于冷启动。
+
+如果 ActorTemplate 的 golden snapshot 已经 Ready，my-counter-1 第一次请求可以从 golden snapshot restore，而不是完整拉镜像、冷启动应用。
+
+4. 一个 Worker Pod 同一时刻只承载一个 Actor。
+
+多路复用发生在时间维度和 WorkerPool 层面：很多 Actor 轮流复用一组 Worker Pod，而不是多个 Actor 同时塞进同一个 Worker Pod。
+
+5. 最新状态来自 latest snapshot。
+
+golden snapshot 用于新 Actor 的初始快速恢复；latest snapshot 用于同一个 Actor 后续恢复自己的状态。
