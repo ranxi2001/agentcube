@@ -39,3 +39,4 @@
 - [Day 26：社区最新讨论与双层架构问题面](day26-week3-community-latest-and-two-layer-architecture-bug-surface.md)
 - [Day 27：Agent Infra 职业能力地图与实习目标管理](day27-agent-infra-career-roadmap-and-internship-goals.md)
 - [Day 28：Agent Substrate 架构吃透与 AgentCube 差异化设计方向](day28-agent-substrate-architecture-and-agentcube-differentiation.md)
+- [Day 29：先分析 `cmd/agentd` 组件的作用](day29-agentd-component-role-analysis.md)
