@@ -1,0 +1,6 @@
+I0625 09:01:29.846666       1 server.go:60] Initializing workspace with config.Workspace: "/root"
+I0625 09:01:29.846737       1 files.go:429] setWorkspace called with dir: "/root"
+I0625 09:01:29.846742       1 files.go:435] Resolved workspace to absolute path: "/root"
+I0625 09:01:29.846749       1 files.go:439] Workspace directory ensured: "/root"
+I0625 09:01:29.846754       1 server.go:72] Final workspace directory: "/root"
+F0625 09:01:29.846765       1 server.go:88] Failed to load public key from environment: environment variable PICOD_AUTH_PUBLIC_KEY is not set

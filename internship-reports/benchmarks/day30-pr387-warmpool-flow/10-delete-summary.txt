@@ -1,0 +1,21 @@
+# after deleting SandboxClaim
+deleted.claim=pr387-claim-1
+deleted.adoptedSandbox=pr387-flow2-q48z9
+deleted.adoptedPod=pr387-flow2-q48z9
+claim.exists=0
+adoptedSandbox.exists=0
+adoptedPod.exists=0
+warmPool.readyReplicas=2
+sandbox.count=2
+pod.count=2
+
+NAME                                                     READY   AGE
+sandboxwarmpool.extensions.agents.x-k8s.io/pr387-flow2   2       109s
+
+NAME                                        AGE
+sandbox.agents.x-k8s.io/pr387-flow2-x5qtm   109s
+sandbox.agents.x-k8s.io/pr387-flow2-xx7dt   62s
+
+NAME                    READY   STATUS    RESTARTS   AGE    IP           NODE                               NOMINATED NODE   READINESS GATES
+pod/pr387-flow2-x5qtm   1/1     Running   0          109s   10.42.0.10   k3d-agentcube-flow-v046-server-0   <none>           <none>
+pod/pr387-flow2-xx7dt   1/1     Running   0          62s    10.42.0.11   k3d-agentcube-flow-v046-server-0   <none>           <none>

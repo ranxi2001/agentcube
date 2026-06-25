@@ -1,0 +1,9 @@
+# assertion summary
+claim.status.sandbox.name=pr387-flow2-q48z9
+adopted.sandbox.owner=SandboxClaim/pr387-claim-1
+adopted.pod.name=pr387-flow2-q48z9
+adopted.pod.owner=Sandbox/pr387-flow2-q48z9
+warmPool.readyReplicas=2
+warmPool.replicas=2
+sandbox.count=3
+pod.count=3

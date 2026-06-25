@@ -1,0 +1,2 @@
+delete-poll=1 claimExists=0 adoptedSandboxExists=0 adoptedPodExists=1 poolReady=2 sandboxes=2 pods=3
+delete-poll=2 claimExists=0 adoptedSandboxExists=0 adoptedPodExists=0 poolReady=2 sandboxes=2 pods=2
