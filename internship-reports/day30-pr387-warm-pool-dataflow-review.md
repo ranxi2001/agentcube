@@ -17,7 +17,9 @@
 
 > 通俗解释：可以把 warm pool 想成一排提前开好的机器。旧理解像是“池子里直接放着可用 Pod，拿到 Pod IP 就能用”；但 `agent-sandbox v0.4.6` 真实做法是“池子里提前放好 Sandbox，每个 Sandbox 下面才有真正跑代码的 Pod”。用户请求来了以后，AgentCube 不是直接拿 Pod，而是先创建一张 `SandboxClaim`，类似取号单。agent-sandbox controller 会把某个已经热好的 Sandbox 分配给这张取号单，并在 `SandboxClaim.status.sandbox.name` 里写清楚“你实际拿到的是哪个 Sandbox”。所以 #387 要做的关键事，就是沿着这张取号单找到真正的 Sandbox 和 Pod，把 Pod IP 写进 Store 给 Router 转发，同时 Store 里还要记住取号单名字，因为删除/回收时应该删 claim，而不是误删或找错那个真正的 Sandbox 名。我们这次 L1 白盒测试验证的不是“用户代码最后能跑出结果”这么粗的黑盒结果，而是验证这条取号、分配、找 Pod、写 Store、删除回收、warm pool 补位的链路每一步都真的按 v0.4.6 的模型发生了。
 
-> Sandbox 和 Pod 的关系：`Sandbox` 不是 `Pod` 的新名字，也不是另一个容器。`Sandbox` 是 agent-sandbox 暴露给 AgentCube 的沙箱运行时对象，负责表达“这个沙箱是谁、属于哪个 warm pool 或 claim、是否 Ready、生命周期怎么清理、它对应哪个 Pod”。`Pod` 则是 Kubernetes 真正调度到节点上的运行实例，里面跑 PicoD 和用户代码容器，有 Pod IP，Router 最终转发请求时连接的是这个 Pod IP。可以简单理解为：Sandbox 是控制面/身份/生命周期层的对象，Pod 是数据面/进程/网络层的对象。#387 的关键修正就是不能跳过 Sandbox 直接按名字猜 Pod，而要先通过 `SandboxClaim.status.sandbox.name` 找到被分配的 Sandbox，再从这个 Sandbox 的 annotation 或 ownerRef 关系找到真实 Pod。
+> Sandbox 和 Pod 的关系：`Sandbox` 不是 `Pod` 的新名字，也不是另一个容器。`Sandbox` 是 agent-sandbox 暴露给 AgentCube 的沙箱运行时对象，负责表达“这个沙箱是谁、属于哪个 warm pool 或 claim、是否 Ready、生命周期怎么清理、它对应哪个 Pod”。`Pod` 则是 Kubernetes 真正调度到节点上的运行实例，里面通常有一个 `code-interpreter` container，有 Pod IP，Router 最终转发请求时连接的是这个 Pod IP。可以简单理解为：Sandbox 是控制面/身份/生命周期层的对象，Pod 是数据面/进程/网络层的对象。#387 的关键修正就是不能跳过 Sandbox 直接按名字猜 Pod，而要先通过 `SandboxClaim.status.sandbox.name` 找到被分配的 Sandbox，再从这个 Sandbox 的 annotation 或 ownerRef 关系找到真实 Pod。
+
+> PicoD 是什么：PicoD 是 AgentCube 放在默认 code-interpreter runtime 镜像里的一个小 HTTP daemon，不是 Kubernetes 控制器，也不是新的 Kubernetes 资源。Router 找到 Pod IP 以后，请求实际打到 Pod 里的 PicoD；PicoD 监听默认 `8080`，提供 `/health`，以及需要 JWT 鉴权的 `/api/execute` 和 `/api/files`。当用户通过 SDK/API 要执行代码或读写文件时，Router 只是转发请求，真正调用 `exec.CommandContext` 执行命令、限制工作目录、处理 stdout/stderr、上传下载文件的是 PicoD。这里说“用户代码”更准确地说是这个 runtime 镜像或 workspace 里的代码/依赖/文件，由 PicoD 在同一个 sandbox 运行环境里执行；不应理解成一定还有一个单独的“用户代码容器”。
 
 目标：这次不再只解释 `agent-sandbox` API 接口适配，而是从实际项目运行流程理解 #387 的 warm pool adoption 数据流：warm pool 对象怎么创建、claim 怎么拿到 serving Sandbox、Pod 怎么被观测、WorkloadManager 为什么不能把 warm claim 当成同名 Sandbox 等待、Store 最终应该保存 claim 名还是 adopted Sandbox 名。
 
