@@ -940,3 +940,38 @@ The Store record intentionally keeps Name=<SandboxClaim name> and Kind=SandboxCl
 4. 如果 reviewer 追问 Pod informer race，可以建议 follow-up：给 `GetSandboxPodIP` 加短 retry，或将 `claim.status.sandbox.podIPs` 作为 fallback。
 5. 不把 `agent-sandbox v0.5.x` / `v1beta1`、Sleep/Resume、PicoD cleanup 混进 #387。
 6. 如果要发 upstream comment 或新增测试工具 PR，先让用户确认英文全文和 PR 范围。
+
+## 追加：math payload 断点追踪测试脚本
+
+已新增脚本：
+
+```text
+internship-reports/benchmarks/day30-pr387-warmpool-flow/trace_math_dataflow_breakpoints.py
+```
+
+这个脚本不是 e2e 黑盒测试。它用一道确定答案的数学题作为 payload：求 `f(x)=x^3-3x` 在 `[-2,2]` 上的最大值，脚本计算端点和驻点 `[-2,-1,1,2]`，断言答案必须是 `2`。数学题本身只是载荷，真正的测试目标是逐段验证数据流：
+
+1. 前置断点：确认目标 `CodeInterpreter` 配了 `warmPoolSize > 0`，并且对应 `SandboxWarmPool` 已有 ready replicas。
+2. WorkloadManager 断点：直接 `POST /v1/code-interpreter` 创建 session，断言返回 `kind=SandboxClaim`、`sessionId`、`sandboxId` 和 `entryPoints`。
+3. Claim 断点：用 `runtime.agentcube.io/session-id=<sessionId>` 从 Kubernetes API 找到真实 `SandboxClaim`，不是只信 HTTP 返回。
+4. Adoption 断点：等待并断言 `SandboxClaim.status.sandbox.name` 指向 adopted Sandbox，`status.sandbox.podIPs` 非空。
+5. Sandbox 断点：读取 adopted `Sandbox`，断言 UID 等于 WorkloadManager 返回的 `sandboxId`，ownerRef 已变成 `SandboxClaim/<claim>`，并且 Ready。
+6. Pod 断点：通过 Sandbox annotation 或 ownerRef 找真实 Pod，断言 Pod ownerRef 指向 adopted Sandbox，Pod IP 同时出现在 claim status 和 WorkloadManager entrypoint 中。
+7. Router/PicoD 文件断点：通过 Router `/api/files` 写入 Python 脚本，断言返回的 `x-agentcube-session-id` 仍是同一个 session。
+8. Router/PicoD 执行断点：通过 Router `/api/execute` 执行 `python3 script_*.py`，断言 PicoD 返回 `exit_code=0`，stdout JSON 中 `answer=2`。
+9. Cleanup 断点：删除 session，断言 `SandboxClaim`、adopted `Sandbox`、adopted Pod 都被清理；若能读取 warm pool，则断言 `readyReplicas == replicas`。
+
+运行示例：
+
+```bash
+WORKLOAD_MANAGER_URL=http://localhost:8080 \
+ROUTER_URL=http://localhost:8081 \
+AGENTCUBE_NAMESPACE=agentcube \
+python3 internship-reports/benchmarks/day30-pr387-warmpool-flow/trace_math_dataflow_breakpoints.py \
+  --code-interpreter e2e-code-interpreter-warmpool \
+  --pause
+```
+
+> 注释：`--pause` 会在每个 `[BPxx PASS]` 后停住，方便手工打开另一个终端执行 `kubectl get sandboxclaim/sandbox/pod -o yaml` 对照现场对象。也可以用 `--pdb` 进入 Python `breakpoint()`。如果只想自动跑完，去掉 `--pause`。
+
+> 分析：这比“math-agent 最后回答对了”更强。因为它不只验证最后 stdout，而是在 claim、adopted Sandbox、Pod、entrypoint、Router session header、PicoD 文件/执行返回、delete cleanup 每个边界都有断言。只要 #387 只是接口适配、没有真正对齐 warm-pool runtime 数据流，这个脚本会在中间断点失败。
