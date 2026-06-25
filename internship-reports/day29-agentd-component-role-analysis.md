@@ -451,13 +451,95 @@ flowchart LR
 | 当前主线回收是否依赖它 | 从源码看，主线更依赖 WorkloadManager GC + Store last-activity |
 | 最大疑点 | `agentd` 读 Kubernetes 注解，Router / WorkloadManager GC 用 Store last-activity，数据源不统一 |
 
+## 实际项目运行中是否使用
+
+追加确认时间：2026-06-25
+
+结论：按当前 `upstream/main bed6bd4` 和本机当前 AgentCube 集群状态看，`agentd` 没有进入官方默认运行路径。
+
+这里要区分四层：
+
+| 层级 | 是否使用 `agentd` | 证据 |
+| --- | --- | --- |
+| Go 二进制构建 | 会构建 | `Makefile` 有 `build-agentd`，`build-all` 也会调用它 |
+| Docker / release 镜像 | 不发布 `agentd` 镜像 | `build-push-release.yml` 只 push `workloadmanager`、`agentcube-router`、`picod` |
+| Helm chart 部署 | 不部署 | `manifests/charts/base/values.yaml` 只有 router / workloadmanager image；`helm template` 输出只有 `agentcube-router` 和 `workloadmanager` Deployment |
+| e2e / sample workload | 不使用 | CodeInterpreter fixture 使用 `picod:latest`；AgentRuntime echo fixture 使用 `python:3.9-slim` |
+| 当前本机集群 | 未运行 | `kubectl get deploy,pods` 只看到 redis、agentcube-router、workloadmanager，以及若干 `picod` CodeInterpreter Pod，没有 `agentd` Pod / container / image |
+
+执行过的确认命令：
+
+```bash
+rg -n "agentd|AgentD|cmd/agentd|build-agentd|ghcr.io/volcano-sh/agentd|volcano-sh/agentd" . \
+  -g '!docs/agentcube/node_modules/**' \
+  -g '!internship-reports/**' \
+  -g '!PROGRESS.md'
+```
+
+结果只命中源码、Makefile、文档、e2e 日志注释，没有命中 Helm Deployment 或 Dockerfile。
+
+```bash
+helm template agentcube manifests/charts/base --namespace agentcube | rg -n "agentd|picod|workloadmanager|agentcube-router|image:"
+```
+
+结果只出现：
+
+- `ghcr.io/volcano-sh/agentcube-router:latest`
+- `ghcr.io/volcano-sh/workloadmanager:latest`
+
+没有 `agentd`。
+
+```bash
+kubectl get pods -A -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name,CONTAINERS:.spec.containers[*].name,IMAGES:.spec.containers[*].image' \
+  | rg -i 'agentd|agentcube|workloadmanager|router|picod|redis'
+```
+
+当前本机集群只看到：
+
+- `agentcube-router`：`ghcr.io/volcano-sh/agentcube-router:latest`
+- `workloadmanager`：`ghcr.io/volcano-sh/workloadmanager:latest`
+- `redis`：`redis:7-alpine`
+- CodeInterpreter sandbox：`ghcr.io/volcano-sh/picod:latest`
+
+没有 `agentd`。
+
+> 分析：`agentd` 当前属于“仓库里仍保留并可编译的组件”，但不是“官方 release / chart / e2e 默认会启动的组件”。如果没有用户手工运行 `bin/agentd`、自定义镜像或自定义 Deployment，它不会参与实际请求链路，也不会参与当前集群的 sandbox 回收。
+
+这也解释了为什么当前运行系统还能正常工作：实际 runtime path 是：
+
+```text
+SDK / user
+  -> AgentCube Router
+  -> Redis / Valkey Store
+  -> WorkloadManager create / delete / GC
+  -> agent-sandbox Sandbox / SandboxClaim
+  -> sandbox Pod
+  -> PicoD or user Agent container
+```
+
+而不是：
+
+```text
+SDK / user
+  -> AgentD
+```
+
+更不是：
+
+```text
+sandbox Pod
+  -> AgentD
+```
+
+当前文档中 “PicoD / AgentD” 混写，容易让读者误会 `agentd` 是默认沙箱内 daemon；但从实际部署看，默认沙箱内 daemon 是 `picod`。
+
 ## 下一步建议
 
-如果继续分析这个组件，不建议马上改代码。先做三件事：
+如果继续分析这个组件，不建议马上改代码。下一步可以做三件事：
 
-1. 查 deployment / chart 里是否实际部署 `agentd` image；当前 `rg` 只看到 build target 和 docs，没有看到明确 Helm workload。
-2. 跑 `go test ./pkg/agentd ./cmd/agentd -count=1`，确认当前单元测试基线。
-3. 继续追历史 PR，尤其是 `2c9131c fix(agentd): use custom idle timeout annotation for garbage collection`，看 `agentd` 是不是早期 idle GC 方案留下来的。
+1. 继续追历史 PR，尤其是 `2c9131c fix(agentd): use custom idle timeout annotation for garbage collection`，看 `agentd` 是不是早期 idle GC 方案留下来的。
+2. 检查是否有已关闭 issue / proposal 讨论过 AgentD 与 PicoD 的职责拆分。
+3. 如果准备 upstream-facing 反馈，优先做文档澄清，不直接删组件。
 
 如果后续要提 issue / PR，优先方向不是功能改造，而是文档澄清：
 
@@ -469,5 +551,4 @@ flowchart LR
 
 - 没有修改 `cmd/agentd` 或 `pkg/agentd` 代码。
 - 没有跑真实 Kubernetes controller。
-- 没有验证 `agentd` 是否被 Helm chart 部署。
 - 没有分析 PR #379 的 SnapStart 版本里是否扩展了 `agentd`，本报告只针对当前 upstream `main`。
