@@ -26,6 +26,71 @@ Day30 追加了一轮 L1 white-box 实测，直接驱动 `SandboxTemplate` / `Sa
 
 > 分析：这就是 #387 最容易被误解的地方。对 Router 来说，它只需要 Store 里的 `EntryPoints` 转发请求；对 WorkloadManager delete/GC 来说，它需要知道删的是 `SandboxClaim` 还是 direct `Sandbox`。所以 warm path 的 Store 记录天然包含两种身份：控制身份是 claim，运行身份是 adopted Sandbox/Pod。
 
+## 两张序列图：旧观测假设 vs v0.4.6 真实流转
+
+下面两张是 reviewer 最容易看懂的“竖线图”。注意第一张不是 no-warm-pool direct Sandbox 路径，而是旧 warm-pool 观测 / 测试 helper 更接近的模型：把 warm pool 看成直接产出 Pod，或者从 claim / pool label 直接推断 serving Pod。
+
+### 1. 旧 warm-pool 观测假设：SandboxWarmPool -> Pod
+
+```mermaid
+sequenceDiagram
+    participant CI as CodeInterpreter CR
+    participant CIC as AgentCube CodeInterpreterReconciler
+    participant SWP as SandboxWarmPool
+    participant Pod as Warm Pod
+    participant WM as WorkloadManager / e2e helper
+    participant Store
+
+    CI->>CIC: reconcile CodeInterpreter(warmPoolSize > 0)
+    CIC->>SWP: ensure SandboxWarmPool(replicas=N)
+    SWP->>Pod: pre-create / maintain warm Pods
+    WM->>SWP: observe warm pool selector / labels
+    WM->>Pod: list Pods directly under warm pool
+    WM->>Pod: infer serving Pod from pool / claim labels
+    WM->>Store: write session -> inferred Pod IP
+```
+
+> 注释：这张图描述的是旧观测假设和测试 helper 视角，不是 #387 目标版本的完整 runtime truth。它的问题是缺少 `SandboxClaim.status.sandbox.name` 这个 bridge，也看不到被 adopt 的 Sandbox UID / ownerRef 转移。
+
+### 2. v0.4.6 真实流转：SandboxWarmPool -> Sandbox -> Pod，再由 Claim adopt
+
+```mermaid
+sequenceDiagram
+    participant CI as CodeInterpreter CR
+    participant CIC as AgentCube CodeInterpreterReconciler
+    participant ST as SandboxTemplate
+    participant SWP as SandboxWarmPool
+    participant ASC as agent-sandbox controllers
+    participant WarmSB as pre-warmed Sandbox
+    participant Pod as Warm Pod
+    participant Router
+    participant WM as WorkloadManager
+    participant SC as SandboxClaim
+    participant Store
+
+    CI->>CIC: reconcile CodeInterpreter(warmPoolSize > 0)
+    CIC->>ST: ensure SandboxTemplate
+    CIC->>SWP: ensure SandboxWarmPool(replicas=N)
+    SWP->>ASC: request warm Sandbox replicas
+    ASC->>WarmSB: create / maintain warm Sandbox
+    WarmSB->>Pod: create / keep Pod warm
+
+    Router->>WM: create CodeInterpreter session
+    WM->>SC: create SandboxClaim
+    SC->>ASC: reconcile claim
+    ASC->>WarmSB: adopt ready warm Sandbox
+    ASC->>WarmSB: ownerRef SandboxWarmPool -> SandboxClaim
+    ASC->>WarmSB: set agents.x-k8s.io/pod-name
+    ASC->>SC: status.sandbox.name = adopted Sandbox
+    ASC->>SC: status.sandbox.podIPs = adopted Pod IPs
+    WM->>SC: poll SandboxClaim status
+    WM->>WarmSB: get Sandbox by status.sandbox.name
+    WM->>Pod: resolve Pod by annotation / ownerRef fallback
+    WM->>Store: keep Name=claim, SandboxID=adopted UID, EntryPoints=Pod IP
+```
+
+> 分析：第二张才是 #387 需要适配的数据流。核心不是“有无 warm pool”，而是 warm pool 中间多了 serving `Sandbox`，claim 通过 status 指向它；Store 也必须同时保存 claim identity 和 runtime identity。
+
 ## 本地基线
 
 - PR: <https://github.com/volcano-sh/agentcube/pull/387>
