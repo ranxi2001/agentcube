@@ -45,6 +45,7 @@ The second run passed the L1 data-flow assertions:
 | `11-after-delete-all-objects.yaml` | Full raw object dump after claim deletion |
 | `12-namespace-cleanup.txt` | Namespace cleanup evidence |
 | `13-cluster-cleanup.txt` | k3d cluster cleanup evidence |
+| `trace_math_dataflow_breakpoints.py` | Reusable white-box breakpoint script: math payload through WorkloadManager, SandboxClaim adoption, adopted Sandbox/Pod, Router, and PicoD |
 | `failed-*` | First attempt with missing PicoD public key; object graph existed but Pods were not Ready |
 
 ## Reviewer-Level Conclusion
