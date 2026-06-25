@@ -2,6 +2,19 @@
 
 日期：2026-06-25
 
+## 结论先行
+
+#387 不能只理解成“e2e 黑盒通过”。在本 PR scope 内，它已经把 AgentCube 对 `agent-sandbox v0.4.6` 的使用从 API 依赖层推进到运行时语义层对齐：
+
+- API / dependency：Go module、import、CRD/GVR、generated client、codegen 与 `agent-sandbox v0.4.6` 的 `v1alpha1` 使用面完成对齐。
+- Controller object flow：`CodeInterpreter` 维护 `SandboxTemplate` / `SandboxWarmPool`，warm pool 预热出来的是 `Sandbox -> Pod`，不是裸 Pod。
+- Claim adoption：WorkloadManager 创建 `SandboxClaim` 后，通过 `SandboxClaim.status.sandbox.name` 找 serving Sandbox，而不是把 claim 名当 serving Sandbox 名。
+- Runtime observation：AgentCube 通过 adopted Sandbox 的 `agents.x-k8s.io/pod-name` annotation 或 ownerRef fallback 找真实 Pod 和 Pod IP。
+- Store / cleanup：Store 保留 `Kind=SandboxClaim`、`Name=<claim name>` 用于 delete / GC，同时 `SandboxID` 和 `EntryPoints` 来自 adopted Sandbox / Pod；删除 claim 后 adopted Sandbox/Pod 清理，warm pool refill。
+- Evidence：unit / e2e / fork CI 覆盖代码路径；Day30 L1 白盒实测进一步验证了 UID continuity、ownerRef 转移、claim status bridge、warm pool refill 和 cleanup。
+
+更准确的 reviewer 口径是：#387 is not just a black-box e2e pass; it aligns AgentCube with the actual `agent-sandbox v0.4.6` warm-pool runtime model within the PR scope.
+
 目标：这次不再只解释 `agent-sandbox` API 接口适配，而是从实际项目运行流程理解 #387 的 warm pool adoption 数据流：warm pool 对象怎么创建、claim 怎么拿到 serving Sandbox、Pod 怎么被观测、WorkloadManager 为什么不能把 warm claim 当成同名 Sandbox 等待、Store 最终应该保存 claim 名还是 adopted Sandbox 名。
 
 > 注释：reviewer 当前更关心的是“运行时数据如何流动”，不是“某个 Go package import 从哪个版本改到哪个版本”。因此本报告用 Mermaid 和源码证据解释 `CodeInterpreter -> SandboxTemplate / SandboxWarmPool -> SandboxClaim -> adopted Sandbox -> Pod -> Store -> Router` 的真实链路。
