@@ -1,306 +1,394 @@
-<mxfile host="drawio" version="30.2.4" type="device">
+<mxfile host="Electron">
   <diagram id="day30-pr387-warm-pool-dataflow" name="PR387 Warm Pool Dataflow Before After">
-    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2860" pageHeight="1680" math="0" shadow="0">
+    <mxGraphModel dx="2515" dy="1943" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2860" pageHeight="1680" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="title" value="PR #387 Warm Pool Adoption 数据流：升级前后 Pod / Agent 创建删除变化" style="text;html=1;strokeColor=none;fillColor=none;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;" parent="1" vertex="1">
-          <mxGeometry x="330" y="20" width="2200" height="45" as="geometry" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;" value="PR #387 Warm Pool Adoption 数据流：旧观测假设 vs v0.4.6 真实流转" vertex="1">
+          <mxGeometry height="45" width="2200" x="330" y="20" as="geometry" />
         </mxCell>
-        <mxCell id="subtitle" value="核心变化：direct Sandbox watcher 只适用于旧直连路径；warm-pool 路径必须通过 SandboxClaim.status.sandbox.name 找到 adopted Sandbox，再解析 Pod / Agent endpoint，并在 Store 中保留 claim 身份用于删除。" style="text;html=1;strokeColor=none;fillColor=none;fontSize=13;align=center;verticalAlign=middle;" parent="1" vertex="1">
-          <mxGeometry x="260" y="70" width="2340" height="40" as="geometry" />
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=13;align=center;verticalAlign=middle;" value="核心变化：旧 warm-pool 观测把 SandboxWarmPool 近似看成直接产出 Pod；#387 目标模型是 SandboxWarmPool 先维护 pre-warmed Sandbox/Pod，请求创建 SandboxClaim 后 adopt，并通过 claim status 找 serving runtime。" vertex="1">
+          <mxGeometry height="40" width="2340" x="260" y="70" as="geometry" />
         </mxCell>
-        <mxCell id="old-label" value="升级前 / 旧理解：direct Sandbox 与 runtime 身份基本同名" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=16;fontStyle=1;align=center;verticalAlign=middle;" parent="1" vertex="1">
-          <mxGeometry x="40" y="125" width="1270" height="42" as="geometry" />
+        <mxCell id="old-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=16;fontStyle=1;align=center;verticalAlign=middle;" value="旧 warm-pool 观测假设：SandboxWarmPool -&gt; Pod，能看到 pool 更新/补池，但缺少 adopted Sandbox bridge" vertex="1">
+          <mxGeometry height="42" width="1270" x="40" y="125" as="geometry" />
         </mxCell>
-        <mxCell id="new-label" value="升级后 / #387：SandboxClaim adoption，控制身份与运行身份分离" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;fontStyle=1;align=center;verticalAlign=middle;" parent="1" vertex="1">
-          <mxGeometry x="1380" y="125" width="1440" height="42" as="geometry" />
+        <mxCell id="new-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;fontStyle=1;align=center;verticalAlign=middle;" value="升级后 / #387：SandboxClaim adoption，控制身份与运行身份分离" vertex="1">
+          <mxGeometry height="42" width="1440" x="1380" y="125" as="geometry" />
         </mxCell>
-
-        <mxCell id="old-router-lane" value="请求入口 / Router" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;" parent="1" vertex="1">
-          <mxGeometry x="40" y="185" width="210" height="940" as="geometry" />
+        <mxCell id="old-router-lane" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;" value="请求入口 / Router" vertex="1">
+          <mxGeometry height="965" width="210" x="40" y="185" as="geometry" />
         </mxCell>
-        <mxCell id="old-wm-lane" value="WorkloadManager / Store" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" parent="1" vertex="1">
-          <mxGeometry x="270" y="185" width="270" height="940" as="geometry" />
+        <mxCell id="old-user" parent="old-router-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;shadow=1;" value="用户 / SDK 请求&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;create code interpreter session&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="160" x="25" y="60" as="geometry" />
         </mxCell>
-        <mxCell id="old-watch-lane" value="AgentCube watcher" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" parent="1" vertex="1">
-          <mxGeometry x="570" y="185" width="230" height="940" as="geometry" />
+        <mxCell id="old-router-create" parent="old-router-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;shadow=1;" value="Router&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;无 session id，调用 WM create&lt;/font&gt;" vertex="1">
+          <mxGeometry height="75" width="160" x="25" y="185" as="geometry" />
         </mxCell>
-        <mxCell id="old-k8s-lane" value="agent-sandbox / Kubernetes" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" parent="1" vertex="1">
-          <mxGeometry x="830" y="185" width="250" height="940" as="geometry" />
+        <mxCell id="old-router-proxy" parent="old-router-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;shadow=1;" value="Router reverse proxy&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;只读取 Store EntryPoints&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="160" x="25" y="710" as="geometry" />
         </mxCell>
-        <mxCell id="old-runtime-lane" value="Runtime Pod / Agent" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" parent="1" vertex="1">
-          <mxGeometry x="1110" y="185" width="200" height="940" as="geometry" />
+        <mxCell id="old-wm-lane" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="旧 WorkloadManager / Store" vertex="1">
+          <mxGeometry height="965" width="270" x="270" y="185" as="geometry" />
         </mxCell>
-
-        <mxCell id="old-user" value="用户 / SDK 请求&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;create code interpreter session&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;shadow=1;" parent="old-router-lane" vertex="1">
-          <mxGeometry x="25" y="60" width="160" height="70" as="geometry" />
+        <mxCell id="old-wm-build" parent="old-wm-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;shadow=1;" value="旧 helper / WM 视角&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;从 warm pool / claim label 推断 serving Pod&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="200" x="35" y="105" as="geometry" />
         </mxCell>
-        <mxCell id="old-router-create" value="Router&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;无 session id，调用 WM create&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;shadow=1;" parent="old-router-lane" vertex="1">
-          <mxGeometry x="25" y="185" width="160" height="75" as="geometry" />
+        <mxCell id="old-store-placeholder" parent="old-wm-lane" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" value="Store placeholder&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Name=claim / pool inferred&lt;br&gt;EntryPoints 待推断&lt;br&gt;缺少 adopted Sandbox UID&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="200" x="35" y="230" as="geometry" />
         </mxCell>
-        <mxCell id="old-router-proxy" value="Router reverse proxy&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;只读取 Store EntryPoints&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;shadow=1;" parent="old-router-lane" vertex="1">
-          <mxGeometry x="25" y="710" width="160" height="80" as="geometry" />
+        <mxCell id="old-register-watch" parent="old-wm-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;shadow=1;" value="list/watch warm pool Pods&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;按 pool / claim label 猜测&lt;br&gt;没有 claim.status bridge&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="200" x="35" y="380" as="geometry" />
         </mxCell>
-
-        <mxCell id="old-wm-build" value="build direct Sandbox&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;sandboxName 即 serving Sandbox&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;shadow=1;" parent="old-wm-lane" vertex="1">
-          <mxGeometry x="35" y="105" width="200" height="80" as="geometry" />
+        <mxCell id="old-wm-ready" parent="old-wm-lane" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" value="Update Store ready&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;SandboxID / Pod 由 label 推断&lt;br&gt;EntryPoints = inferred Pod IP&lt;/font&gt;" vertex="1">
+          <mxGeometry height="100" width="200" x="35" y="600" as="geometry" />
         </mxCell>
-        <mxCell id="old-store-placeholder" value="Store placeholder&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Kind=Sandbox&lt;br&gt;Name=sandboxName&lt;br&gt;Status=creating&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" parent="old-wm-lane" vertex="1">
-          <mxGeometry x="35" y="230" width="200" height="95" as="geometry" />
+        <mxCell id="old-delete" parent="old-wm-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;shadow=1;" value="Delete / GC&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;按推断对象清理&lt;br&gt;可能找错 serving runtime&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="200" x="35" y="835" as="geometry" />
         </mxCell>
-        <mxCell id="old-register-watch" value="register WatchSandboxOnce&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;key = namespace / sandboxName&lt;br&gt;必须早于 create&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;shadow=1;" parent="old-wm-lane" vertex="1">
-          <mxGeometry x="35" y="370" width="200" height="95" as="geometry" />
+        <mxCell id="old-watch-lane" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="旧 warm-pool 观测" vertex="1">
+          <mxGeometry height="965" width="230" x="570" y="185" as="geometry" />
         </mxCell>
-        <mxCell id="old-wm-ready" value="Update Store ready&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;SandboxID = Sandbox UID&lt;br&gt;EntryPoints = Pod IP:ports&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" parent="old-wm-lane" vertex="1">
-          <mxGeometry x="35" y="600" width="200" height="100" as="geometry" />
+        <mxCell id="old-watch-once" parent="old-watch-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;shadow=1;" value="old warm-pool helper&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;list Pod / watch pool status&lt;br&gt;按标签推断 runtime&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="180" x="25" y="380" as="geometry" />
         </mxCell>
-        <mxCell id="old-delete" value="Delete / GC&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Kind=Sandbox&lt;br&gt;delete Sandbox(name)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;shadow=1;" parent="old-wm-lane" vertex="1">
-          <mxGeometry x="35" y="800" width="200" height="85" as="geometry" />
+        <mxCell id="old-ready-event" parent="old-watch-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;shadow=1;" value="inferred ready Pod&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;没有 adopted Sandbox 名称&lt;br&gt;只能返回猜到的 Pod IP&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="180" x="25" y="520" as="geometry" />
         </mxCell>
-
-        <mxCell id="old-watch-once" value="SandboxReconciler&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;watch Sandbox Ready=True&lt;br&gt;只关心同名 Sandbox&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;shadow=1;" parent="old-watch-lane" vertex="1">
-          <mxGeometry x="25" y="380" width="180" height="95" as="geometry" />
+        <mxCell id="old-k8s-lane" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" value="SandboxWarmPool / controller" vertex="1">
+          <mxGeometry height="965" width="250" x="830" y="185" as="geometry" />
         </mxCell>
-        <mxCell id="old-ready-event" value="SandboxStatusUpdate&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;resultChan 返回 ready Sandbox&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;shadow=1;" parent="old-watch-lane" vertex="1">
-          <mxGeometry x="25" y="520" width="180" height="80" as="geometry" />
+        <mxCell id="old-sandbox-cr" parent="old-k8s-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;" value="SandboxWarmPool&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;replicas=N&lt;br&gt;旧观测只看 pool / Pod&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="180" x="35" y="100" as="geometry" />
         </mxCell>
-
-        <mxCell id="old-sandbox-cr" value="Sandbox CR&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;name = sandboxName&lt;br&gt;AgentCube 直接创建&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;" parent="old-k8s-lane" vertex="1">
-          <mxGeometry x="35" y="115" width="180" height="90" as="geometry" />
+        <mxCell id="old-as-controller" parent="old-k8s-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" value="warm pool controller&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;maintain ready capacity&lt;br&gt;pre-create runtime&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="180" x="35" y="287" as="geometry" />
         </mxCell>
-        <mxCell id="old-as-controller" value="agent-sandbox controller&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;reconcile Sandbox&lt;br&gt;create Pod&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" parent="old-k8s-lane" vertex="1">
-          <mxGeometry x="35" y="295" width="180" height="90" as="geometry" />
+        <mxCell id="old-sandbox-ready" parent="old-k8s-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" value="WarmPool status&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;readyReplicas=N&lt;br&gt;Pod 集合 ready&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="180" x="30" y="465" as="geometry" />
         </mxCell>
-        <mxCell id="old-sandbox-ready" value="Sandbox Ready=True&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;watcher 看到同名对象 Ready&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" parent="old-k8s-lane" vertex="1">
-          <mxGeometry x="35" y="520" width="180" height="80" as="geometry" />
+        <mxCell id="old-warmpool-update" parent="old-k8s-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" value="WarmPool 更新 / 补池&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;一个 warm Pod 被消费&lt;br&gt;readyReplicas 短暂下降&lt;br&gt;controller 创建 replacement&lt;/font&gt;" vertex="1">
+          <mxGeometry height="105" width="180" x="35" y="700" as="geometry" />
         </mxCell>
-        <mxCell id="old-delete-sandbox" value="delete Sandbox&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;K8s ownerRef / controller 清理 Pod&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;shadow=1;" parent="old-k8s-lane" vertex="1">
-          <mxGeometry x="35" y="800" width="180" height="85" as="geometry" />
+        <mxCell id="old-delete-sandbox" parent="old-k8s-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;shadow=1;" value="cleanup ambiguity&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;删除 pool / Pod / claim 任一推断对象&lt;br&gt;都可能不等于 serving runtime&lt;/font&gt;" vertex="1">
+          <mxGeometry height="85" width="180" x="35" y="835" as="geometry" />
         </mxCell>
-
-        <mxCell id="old-pod" value="Pod + PicoD / Agent&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;通常可按 Sandbox name / label / ownerRef 找到&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;" parent="old-runtime-lane" vertex="1">
-          <mxGeometry x="20" y="295" width="160" height="100" as="geometry" />
+        <mxCell id="old-runtime-lane" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" value="Warm Pod / Agent" vertex="1">
+          <mxGeometry height="965" width="200" x="1110" y="185" as="geometry" />
         </mxCell>
-        <mxCell id="old-entrypoints" value="probe entrypoints&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;PodIP + configured ports&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" parent="old-runtime-lane" vertex="1">
-          <mxGeometry x="20" y="600" width="160" height="80" as="geometry" />
+        <mxCell id="old-pod" parent="old-runtime-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;" value="warm Pod + PicoD / Agent&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;旧视角把 Pod 当成直接 runtime&lt;br&gt;忽略实际 Sandbox owner bridge&lt;/font&gt;" vertex="1">
+          <mxGeometry height="100" width="160" x="20" y="295" as="geometry" />
         </mxCell>
-
-        <mxCell id="new-ci-lane" value="CodeInterpreter / Router" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;" parent="1" vertex="1">
-          <mxGeometry x="1380" y="185" width="250" height="940" as="geometry" />
+        <mxCell id="old-entrypoints" parent="old-runtime-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" value="probe inferred endpoint&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;PodIP + ports&lt;br&gt;未由 claim status 确认&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="160" x="20" y="600" as="geometry" />
         </mxCell>
-        <mxCell id="new-wm-lane" value="WorkloadManager / Store" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" parent="1" vertex="1">
-          <mxGeometry x="1660" y="185" width="310" height="940" as="geometry" />
+        <mxCell id="old-refill-pod" parent="old-runtime-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" value="replacement warm Pod&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;补回 replicas=N&lt;br&gt;旧 helper 只能看到 Pod 集合变化&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="160" x="20" y="735" as="geometry" />
         </mxCell>
-        <mxCell id="new-claim-lane" value="SandboxClaim controller" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" parent="1" vertex="1">
-          <mxGeometry x="2000" y="185" width="300" height="940" as="geometry" />
+        <mxCell id="new-ci-lane" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;" value="CodeInterpreter / Router" vertex="1">
+          <mxGeometry height="965" width="250" x="1380" y="185" as="geometry" />
         </mxCell>
-        <mxCell id="new-runtime-lane" value="adopted Sandbox / Pod" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" parent="1" vertex="1">
-          <mxGeometry x="2330" y="185" width="250" height="940" as="geometry" />
+        <mxCell id="new-ci" parent="new-ci-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;shadow=1;" value="CodeInterpreter CR&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;warmPoolSize &gt; 0&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="180" x="35" y="55" as="geometry" />
         </mxCell>
-        <mxCell id="new-store-lane" value="Router / Delete" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" parent="1" vertex="1">
-          <mxGeometry x="2610" y="185" width="210" height="940" as="geometry" />
+        <mxCell id="new-ci-reconciler" parent="new-ci-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;shadow=1;" value="CodeInterpreterReconciler&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;预创建 warm pool 基础设施&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="180" x="35" y="160" as="geometry" />
         </mxCell>
-
-        <mxCell id="new-ci" value="CodeInterpreter CR&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;warmPoolSize &gt; 0&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;shadow=1;" parent="new-ci-lane" vertex="1">
-          <mxGeometry x="35" y="55" width="180" height="70" as="geometry" />
+        <mxCell id="new-router-create" parent="new-ci-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;shadow=1;" value="Router create session&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;无 session id，调用 WM&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="180" x="35" y="420" as="geometry" />
         </mxCell>
-        <mxCell id="new-ci-reconciler" value="CodeInterpreterReconciler&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;预创建 warm pool 基础设施&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;shadow=1;" parent="new-ci-lane" vertex="1">
-          <mxGeometry x="35" y="160" width="180" height="80" as="geometry" />
+        <mxCell id="new-router-existing" parent="new-ci-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;shadow=1;" value="Router existing session&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;从 Store 取 EntryPoints&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="180" x="35" y="760" as="geometry" />
         </mxCell>
-        <mxCell id="new-router-create" value="Router create session&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;无 session id，调用 WM&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;shadow=1;" parent="new-ci-lane" vertex="1">
-          <mxGeometry x="35" y="420" width="180" height="80" as="geometry" />
+        <mxCell id="new-wm-lane" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="WorkloadManager / Store" vertex="1">
+          <mxGeometry height="965" width="310" x="1660" y="185" as="geometry" />
         </mxCell>
-        <mxCell id="new-router-existing" value="Router existing session&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;从 Store 取 EntryPoints&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;shadow=1;" parent="new-ci-lane" vertex="1">
-          <mxGeometry x="35" y="760" width="180" height="80" as="geometry" />
+        <mxCell id="new-template" parent="new-wm-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" value="SandboxTemplate&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;来自 CodeInterpreter template&lt;br&gt;NetworkPolicy unmanaged&lt;br&gt;注入 PicoD public key&lt;/font&gt;" vertex="1">
+          <mxGeometry height="100" width="240" x="35" y="55" as="geometry" />
         </mxCell>
-
-        <mxCell id="new-template" value="SandboxTemplate&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;来自 CodeInterpreter template&lt;br&gt;NetworkPolicy unmanaged&lt;br&gt;注入 PicoD public key&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" parent="new-wm-lane" vertex="1">
-          <mxGeometry x="35" y="55" width="240" height="100" as="geometry" />
+        <mxCell id="new-warmpool" parent="new-wm-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;" value="SandboxWarmPool&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;replicas=N&lt;br&gt;TemplateRef = CodeInterpreter.Name&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="240" x="35" y="223" as="geometry" />
         </mxCell>
-        <mxCell id="new-warmpool" value="SandboxWarmPool&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;replicas=N&lt;br&gt;TemplateRef = CodeInterpreter.Name&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;" parent="new-wm-lane" vertex="1">
-          <mxGeometry x="35" y="190" width="240" height="90" as="geometry" />
+        <mxCell id="new-build-claim" parent="new-wm-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;shadow=1;" value="build SandboxClaim&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;claimName = session sandbox name&lt;br&gt;labels: session / owner / ttl&lt;br&gt;ownerRef -&gt; CodeInterpreter&lt;/font&gt;" vertex="1">
+          <mxGeometry height="120" width="240" x="35" y="400" as="geometry" />
         </mxCell>
-        <mxCell id="new-build-claim" value="build SandboxClaim&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;claimName = session sandbox name&lt;br&gt;labels: session / owner / ttl&lt;br&gt;ownerRef -&gt; CodeInterpreter&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;shadow=1;" parent="new-wm-lane" vertex="1">
-          <mxGeometry x="35" y="400" width="240" height="120" as="geometry" />
+        <mxCell id="new-store-placeholder" parent="new-wm-lane" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" value="Store placeholder&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Kind=SandboxClaim&lt;br&gt;Name=claimName&lt;br&gt;Status=creating&lt;/font&gt;" vertex="1">
+          <mxGeometry height="100" width="240" x="35" y="555" as="geometry" />
         </mxCell>
-        <mxCell id="new-store-placeholder" value="Store placeholder&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Kind=SandboxClaim&lt;br&gt;Name=claimName&lt;br&gt;Status=creating&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" parent="new-wm-lane" vertex="1">
-          <mxGeometry x="35" y="555" width="240" height="100" as="geometry" />
+        <mxCell id="new-wait-claim" parent="new-wm-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;shadow=1;" value="waitForClaimSandboxReady&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;每 1s poll claim&lt;br&gt;读 status.sandbox.name&lt;br&gt;再 get adopted Sandbox Ready=True&lt;/font&gt;" vertex="1">
+          <mxGeometry height="115" width="240" x="35" y="690" as="geometry" />
         </mxCell>
-        <mxCell id="new-wait-claim" value="waitForClaimSandboxReady&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;每 1s poll claim&lt;br&gt;读 status.sandbox.name&lt;br&gt;再 get adopted Sandbox Ready=True&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;shadow=1;" parent="new-wm-lane" vertex="1">
-          <mxGeometry x="35" y="690" width="240" height="115" as="geometry" />
+        <mxCell id="new-store-ready" parent="new-wm-lane" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" value="Store ready SandboxInfo&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Name = claimName&lt;br&gt;Kind = SandboxClaim&lt;br&gt;SandboxID = adopted UID&lt;br&gt;EntryPoints = adopted Pod IP&lt;/font&gt;" vertex="1">
+          <mxGeometry height="115" width="240" x="35" y="835" as="geometry" />
         </mxCell>
-        <mxCell id="new-store-ready" value="Store ready SandboxInfo&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Name = claimName&lt;br&gt;Kind = SandboxClaim&lt;br&gt;SandboxID = adopted UID&lt;br&gt;EntryPoints = adopted Pod IP&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" parent="new-wm-lane" vertex="1">
-          <mxGeometry x="35" y="835" width="240" height="115" as="geometry" />
+        <mxCell id="new-claim-lane" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" value="SandboxClaim controller" vertex="1">
+          <mxGeometry height="965" width="300" x="2000" y="185" as="geometry" />
         </mxCell>
-
-        <mxCell id="new-claim-resource" value="SandboxClaim&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Spec.TemplateRef.Name = CI&lt;br&gt;per-session control object&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;" parent="new-claim-lane" vertex="1">
-          <mxGeometry x="35" y="410" width="230" height="95" as="geometry" />
+        <mxCell id="new-claim-resource" parent="new-claim-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;" value="SandboxClaim&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Spec.TemplateRef.Name = CI&lt;br&gt;per-session control object&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="230" x="35" y="294" as="geometry" />
         </mxCell>
-        <mxCell id="new-claim-controller" value="SandboxClaimReconciler&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;查 status / assigned label / 同名 cold path&lt;br&gt;再从 warm queue 取 candidate&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" parent="new-claim-lane" vertex="1">
-          <mxGeometry x="35" y="535" width="230" height="110" as="geometry" />
+        <mxCell id="new-claim-controller" parent="new-claim-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" value="SandboxClaimReconciler&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;查 status / assigned label / 同名 cold path&lt;br&gt;再从 warm queue 取 candidate&lt;/font&gt;" vertex="1">
+          <mxGeometry height="110" width="230" x="35" y="441" as="geometry" />
         </mxCell>
-        <mxCell id="new-adopt" value="completeAdoption&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;ownerRef: WarmPool -&gt; Claim&lt;br&gt;patch claim identity labels&lt;br&gt;ensure SandboxPodNameAnnotation&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" parent="new-claim-lane" vertex="1">
-          <mxGeometry x="35" y="675" width="230" height="120" as="geometry" />
+        <mxCell id="new-adopt" parent="new-claim-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" value="completeAdoption&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;ownerRef: WarmPool -&gt; Claim&lt;br&gt;patch claim identity labels&lt;br&gt;ensure SandboxPodNameAnnotation&lt;/font&gt;" vertex="1">
+          <mxGeometry height="120" width="230" x="35" y="591" as="geometry" />
         </mxCell>
-        <mxCell id="new-claim-status" value="Claim status update&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;status.sandbox.name = adopted Sandbox&lt;br&gt;status.sandbox.podIPs mirrored&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" parent="new-claim-lane" vertex="1">
-          <mxGeometry x="35" y="825" width="230" height="90" as="geometry" />
+        <mxCell id="new-claim-status" parent="new-claim-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;shadow=1;" value="Claim status update&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;status.sandbox.name = adopted Sandbox&lt;br&gt;status.sandbox.podIPs mirrored&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="230" x="35" y="825" as="geometry" />
         </mxCell>
-
-        <mxCell id="new-warm-sandbox" value="pre-warmed Sandbox&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;由 SandboxWarmPool 预先维护&lt;br&gt;请求前已存在&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;" parent="new-runtime-lane" vertex="1">
-          <mxGeometry x="25" y="140" width="200" height="95" as="geometry" />
+        <mxCell id="new-e12" edge="1" parent="new-claim-lane" source="new-adopt" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;entryX=0.86;entryY=0.047;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.75;exitY=1;exitDx=0;exitDy=0;" target="new-claim-status" value="12. status.sandbox.name">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="208" y="715" />
+              <mxPoint x="220" y="715" />
+              <mxPoint x="220" y="768" />
+              <mxPoint x="233" y="768" />
+            </Array>
+            <mxPoint x="233" y="705" as="sourcePoint" />
+          </mxGeometry>
         </mxCell>
-        <mxCell id="new-warm-pod" value="warm Pod + PicoD / Agent&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;已经 Running&lt;br&gt;等待 claim adopt&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" parent="new-runtime-lane" vertex="1">
-          <mxGeometry x="25" y="270" width="200" height="95" as="geometry" />
+        <mxCell id="new-runtime-lane" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" value="adopted Sandbox / Pod" vertex="1">
+          <mxGeometry height="940" width="250" x="2330" y="185" as="geometry" />
         </mxCell>
-        <mxCell id="new-adopted-sandbox" value="adopted Sandbox&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;真实 serving runtime&lt;br&gt;Ready=True&lt;br&gt;name 可能不同于 claim&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;" parent="new-runtime-lane" vertex="1">
-          <mxGeometry x="25" y="640" width="200" height="115" as="geometry" />
+        <mxCell id="new-warm-sandbox" parent="new-runtime-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;" value="pre-warmed Sandbox&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;由 SandboxWarmPool 预先维护&lt;br&gt;请求前已存在&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="200" x="25" y="140" as="geometry" />
         </mxCell>
-        <mxCell id="new-pod-lookup" value="serving Pod lookup&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;fast path: SandboxPodNameAnnotation&lt;br&gt;fallback: label + ownerRef&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" parent="new-runtime-lane" vertex="1">
-          <mxGeometry x="25" y="790" width="200" height="100" as="geometry" />
+        <mxCell id="new-warm-pod" parent="new-runtime-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" value="warm Pod + PicoD / Agent&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;已经 Running&lt;br&gt;等待 claim adopt&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="200" x="25" y="287" as="geometry" />
         </mxCell>
-        <mxCell id="new-probe" value="probe entrypoints&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;PodIP + ports&lt;br&gt;Router 的真实转发目标&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" parent="new-runtime-lane" vertex="1">
-          <mxGeometry x="25" y="925" width="200" height="80" as="geometry" />
+        <mxCell id="new-adopted-sandbox" parent="new-runtime-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;" value="adopted Sandbox&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;真实 serving runtime&lt;br&gt;Ready=True&lt;br&gt;name 可能不同于 claim&lt;/font&gt;" vertex="1">
+          <mxGeometry height="115" width="200" x="25" y="640" as="geometry" />
         </mxCell>
-
-        <mxCell id="new-router-proxy" value="Router reverse proxy&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;不关心 direct / claim&lt;br&gt;只使用 EntryPoints&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;shadow=1;" parent="new-store-lane" vertex="1">
-          <mxGeometry x="25" y="760" width="160" height="95" as="geometry" />
+        <mxCell id="new-pod-lookup" parent="new-runtime-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" value="serving Pod lookup&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;fast path: SandboxPodNameAnnotation&lt;br&gt;fallback: label + ownerRef&lt;/font&gt;" vertex="1">
+          <mxGeometry height="100" width="200" x="25" y="790" as="geometry" />
         </mxCell>
-        <mxCell id="new-delete" value="Delete / GC&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Kind=SandboxClaim&lt;br&gt;delete SandboxClaim(claimName)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;shadow=1;" parent="new-store-lane" vertex="1">
-          <mxGeometry x="25" y="885" width="160" height="95" as="geometry" />
+        <mxCell id="new-probe" parent="new-runtime-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;" value="probe entrypoints&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;PodIP + ports&lt;br&gt;Router 的真实转发目标&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="200" x="25" y="925" as="geometry" />
         </mxCell>
-
-        <mxCell id="note-old-identity" value="旧路径关键假设&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;控制对象、运行对象、Pod 查找键基本同名：Sandbox name = serving Sandbox = Pod label / ownerRef。Watcher 按 namespace/name 等 Ready event。&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;" parent="1" vertex="1">
-          <mxGeometry x="60" y="1160" width="570" height="110" as="geometry" />
+        <mxCell id="new-store-lane" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" value="Router / Delete" vertex="1">
+          <mxGeometry height="940" width="210" x="2610" y="185" as="geometry" />
         </mxCell>
-        <mxCell id="note-old-risk" value="旧 warm-pool 误区&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;如果把 warm pool 理解成 SandboxWarmPool -&gt; Pod，或把 claim name 当成 serving Sandbox / Pod name，WM 可能 watch 错对象、找错 Pod、删错资源。&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;" parent="1" vertex="1">
-          <mxGeometry x="660" y="1160" width="620" height="110" as="geometry" />
+        <mxCell id="new-router-proxy" parent="new-store-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;shadow=1;" value="Router reverse proxy&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;不关心 direct / claim&lt;br&gt;只使用 EntryPoints&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="160" x="25" y="760" as="geometry" />
         </mxCell>
-        <mxCell id="note-new-identity" value="#387 新语义：身份分离&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;控制身份保留 SandboxClaim：Store Name=claimName、Kind=SandboxClaim，delete / GC 删除 claim。运行身份来自 adopted Sandbox / Pod：SandboxID=adopted UID、EntryPoints=Pod IP。&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" parent="1" vertex="1">
-          <mxGeometry x="1400" y="1160" width="660" height="110" as="geometry" />
+        <mxCell id="new-delete" parent="new-store-lane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;shadow=1;" value="Delete / GC&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Kind=SandboxClaim&lt;br&gt;delete SandboxClaim(claimName)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="160" x="25" y="885" as="geometry" />
         </mxCell>
-        <mxCell id="note-new-risk" value="仍需关注&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;Pod informer cache 可能短暂滞后：adopted Sandbox Ready=True 后，Pod name / IP lookup 如果立刻失败，未来可考虑短 retry 或用 claim.status.sandbox.podIPs 作为 fallback。&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" parent="1" vertex="1">
-          <mxGeometry x="2090" y="1160" width="700" height="110" as="geometry" />
+        <mxCell id="note-old-identity" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;" value="旧观测关键假设&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;把 SandboxWarmPool 近似看成直接维护 Pod：pool ready、Pod ready、endpoint 可从 pool/claim 标签推断，没有通过 claim.status.sandbox.name 绑定 serving Sandbox。&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="570" x="60" y="1202" as="geometry" />
         </mxCell>
-
-        <mxCell id="legend" value="图例：灰色=用户/Router；蓝色=AgentCube 控制面；绿色=agent-sandbox / Kubernetes 资源；黄色=真实 runtime Pod / Agent；紫色=网络转发；红色=删除或错误风险。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
-          <mxGeometry x="60" y="1300" width="2730" height="60" as="geometry" />
+        <mxCell id="note-old-risk" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;" value="旧 warm-pool 误区&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;pool update / refill 只能说明容量被补回，不能证明哪个 Sandbox 被 claim adopt。若把 claim name 当 serving Sandbox / Pod name，WM 仍可能 watch 错对象、找错 Pod、删错资源。&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="620" x="660" y="1202" as="geometry" />
         </mxCell>
-        <mxCell id="diff1" value="变化 1：创建对象&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;升级前请求时直接 create Sandbox；升级后 CodeInterpreter 先维护 SandboxTemplate / SandboxWarmPool，请求时只 create SandboxClaim。&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;" parent="1" vertex="1">
-          <mxGeometry x="60" y="1390" width="520" height="95" as="geometry" />
+        <mxCell id="note-new-identity" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" value="#387 新语义：身份分离&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;控制身份保留 SandboxClaim：Store Name=claimName、Kind=SandboxClaim，delete / GC 删除 claim。运行身份来自 adopted Sandbox / Pod：SandboxID=adopted UID、EntryPoints=Pod IP。&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="660" x="1400" y="1202" as="geometry" />
         </mxCell>
-        <mxCell id="diff2" value="变化 2：Ready 观测&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;direct path 仍 watch Sandbox Ready event；warm path poll SandboxClaim.status.sandbox.name，然后 get adopted Sandbox 并确认 Ready=True。&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" parent="1" vertex="1">
-          <mxGeometry x="610" y="1390" width="560" height="95" as="geometry" />
+        <mxCell id="note-new-risk" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" value="仍需关注&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;Pod informer cache 可能短暂滞后：adopted Sandbox Ready=True 后，Pod name / IP lookup 如果立刻失败，未来可考虑短 retry 或用 claim.status.sandbox.podIPs 作为 fallback。&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="700" x="2090" y="1202" as="geometry" />
         </mxCell>
-        <mxCell id="diff3" value="变化 3：Pod / Agent 查找&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;旧路径可按 Sandbox name 推断；新路径优先用 adopted Sandbox 的 SandboxPodNameAnnotation，失败才走 label + ownerRef fallback。&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" parent="1" vertex="1">
-          <mxGeometry x="1200" y="1390" width="580" height="95" as="geometry" />
+        <mxCell id="legend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" value="图例：灰色=用户/Router；蓝色=AgentCube 控制面；绿色=agent-sandbox / Kubernetes 资源；黄色=真实 runtime Pod / Agent；紫色=网络转发；红色=删除或错误风险。" vertex="1">
+          <mxGeometry height="60" width="2730" x="60" y="1315" as="geometry" />
         </mxCell>
-        <mxCell id="diff4" value="变化 4：删除 / GC&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;旧路径 delete Sandbox(name)；新路径必须 delete SandboxClaim(claimName)，由 agent-sandbox controller 根据 claim ownership 清理 adopted Sandbox / Pod。&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;" parent="1" vertex="1">
-          <mxGeometry x="1810" y="1390" width="580" height="95" as="geometry" />
+        <mxCell id="diff1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;" value="变化 1：创建对象&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;旧观测只看到 SandboxWarmPool 维护 Pod / 补池；新语义明确 warm pool 先维护 pre-warmed Sandbox/Pod，请求时只 create SandboxClaim。&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="520" x="60" y="1390" as="geometry" />
         </mxCell>
-        <mxCell id="diff5" value="变化 5：Router 不感知 adoption&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;Router 继续从 Store 读 EntryPoints 并反向代理。只要 WM 写对 Store，data plane 不需要知道 direct Sandbox 还是 warm claim。&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;" parent="1" vertex="1">
-          <mxGeometry x="2420" y="1390" width="370" height="95" as="geometry" />
+        <mxCell id="diff2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" value="变化 2：Ready 观测&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;旧 helper 只能看 pool ready 或 Pod ready；warm claim 必须 poll SandboxClaim.status.sandbox.name，然后 get adopted Sandbox 并确认 Ready=True。&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="560" x="610" y="1390" as="geometry" />
         </mxCell>
-
-        <mxCell id="old-e1" value="1. create" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" parent="1" source="old-user" target="old-router-create" edge="1">
+        <mxCell id="diff3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" value="变化 3：Pod / Agent 查找&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;旧观测按 pool/claim label 推断 Pod；新路径优先用 adopted Sandbox 的 SandboxPodNameAnnotation，失败才走 label + ownerRef fallback。&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="580" x="1200" y="1390" as="geometry" />
+        </mxCell>
+        <mxCell id="diff4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;" value="变化 4：删除 / GC&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;旧观测下 cleanup 目标容易混淆；新路径必须 delete SandboxClaim(claimName)，由 agent-sandbox controller 根据 claim ownership 清理 adopted Sandbox / Pod。&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="580" x="1810" y="1390" as="geometry" />
+        </mxCell>
+        <mxCell id="diff5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;" value="变化 5：Router 不感知 adoption&lt;br&gt;&lt;font style=&quot;font-size: 12px;&quot;&gt;Router 继续从 Store 读 EntryPoints 并反向代理。只要 WM 写对 Store，data plane 不需要知道 direct Sandbox 还是 warm claim。&lt;/font&gt;" vertex="1">
+          <mxGeometry height="95" width="370" x="2420" y="1390" as="geometry" />
+        </mxCell>
+        <mxCell id="old-e1" edge="1" parent="1" source="old-user" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" target="old-router-create" value="1. create">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e2" value="2. WM create" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" parent="1" source="old-router-create" target="old-wm-build" edge="1">
+        <mxCell id="old-e2" edge="1" parent="1" source="old-router-create" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" target="old-wm-build" value="2. warm request">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e3" value="3. init Store" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" parent="1" source="old-wm-build" target="old-store-placeholder" edge="1">
+        <mxCell id="old-e3" edge="1" parent="1" source="old-wm-build" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" target="old-store-placeholder" value="3. init inferred Store">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e4" value="4. register first" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;" parent="1" source="old-register-watch" target="old-watch-once" edge="1">
+        <mxCell id="old-e4" edge="1" parent="1" source="old-register-watch" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;" target="old-watch-once" value="4. observe pool/Pod">
+          <mxGeometry relative="1" x="0.1" y="-47" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="old-e5" edge="1" parent="1" source="old-wm-build" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" target="old-sandbox-cr" value="5. ensure / read pool">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e5" value="5. create Sandbox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" parent="1" source="old-wm-build" target="old-sandbox-cr" edge="1">
+        <mxCell id="old-e6" edge="1" parent="1" source="old-sandbox-cr" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" target="old-as-controller" value="6. reconcile">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e6" value="6. reconcile" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" parent="1" source="old-sandbox-cr" target="old-as-controller" edge="1">
+        <mxCell id="old-e7" edge="1" parent="1" source="old-as-controller" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;exitX=1;exitY=0.25;exitDx=0;exitDy=0;" value="7. pre-create Pod / Agent">
+          <mxGeometry relative="1" x="0.2706" y="10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1088" y="495" />
+              <mxPoint x="1088" y="460" />
+              <mxPoint x="1210" y="460" />
+              <mxPoint x="1210" y="480" />
+            </Array>
+            <mxPoint x="1210" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="old-e8" edge="1" parent="1" source="old-pod" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="old-sandbox-ready" value="8. Pod Ready">
+          <mxGeometry relative="1" x="0.1113" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1200" y="690" />
+            </Array>
+            <mxPoint x="990" y="700" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="old-e9" edge="1" parent="1" source="old-sandbox-ready" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;" target="old-ready-event" value="9. observed ready">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e7" value="7. create Pod / Agent" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" parent="1" source="old-as-controller" target="old-pod" edge="1">
+        <mxCell id="old-e10" edge="1" parent="1" source="old-ready-event" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;exitX=1;exitY=1;exitDx=0;exitDy=0;" target="old-entrypoints" value="10. inferred Pod IP">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e8" value="8. Ready=True" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" parent="1" source="old-pod" target="old-sandbox-ready" edge="1">
+        <mxCell id="old-e11" edge="1" parent="1" source="old-entrypoints" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;exitX=0;exitY=0.75;exitDx=0;exitDy=0;" target="old-wm-ready" value="11. write inferred endpoint">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1130" y="850" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="old-e12" edge="1" parent="1" source="old-wm-ready" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" target="old-router-proxy" value="12. proxy">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e9" value="9. event" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;" parent="1" source="old-sandbox-ready" target="old-ready-event" edge="1">
+        <mxCell id="old-e13" edge="1" parent="1" source="old-delete" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#b85450;strokeWidth=2;endArrow=block;" target="old-delete-sandbox" value="delete inferred target">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e10" value="10. Pod IP" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" parent="1" source="old-ready-event" target="old-entrypoints" edge="1">
+        <mxCell id="old-e14" edge="1" parent="1" source="old-pod" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" target="old-warmpool-update" value="claim consumes Pod / Ready--">
+          <mxGeometry relative="1" x="-0.229" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1030" y="570" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="old-e15" edge="1" parent="1" source="old-warmpool-update" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" target="old-refill-pod" value="refill replacement">
+          <mxGeometry relative="1" x="0.0588" y="-23" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1120" y="937" />
+              <mxPoint x="1120" y="937" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="old-e16" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;entryX=1.003;entryY=0.88;entryDx=0;entryDy=0;entryPerimeter=0;" target="old-sandbox-ready" value="Ready back to N">
+          <mxGeometry relative="1" x="0.2872" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1150" y="920" />
+              <mxPoint x="1150" y="880" />
+              <mxPoint x="1100" y="880" />
+              <mxPoint x="1100" y="720" />
+            </Array>
+            <mxPoint x="1150" y="920" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="new-e1" edge="1" parent="1" source="new-ci" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;" target="new-ci-reconciler" value="1. reconcile CI">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e11" value="11. ready Store" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" parent="1" source="old-entrypoints" target="old-wm-ready" edge="1">
+        <mxCell id="new-e2" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" target="new-template" value="2. ensure template">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1600" y="360" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="new-e3" edge="1" parent="1" source="new-ci-reconciler" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" target="new-warmpool" value="3. ensure warm pool">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e12" value="12. proxy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" parent="1" source="old-wm-ready" target="old-router-proxy" edge="1">
+        <mxCell id="new-e4" edge="1" parent="1" source="new-warmpool" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" target="new-warm-sandbox" value="4. pre-create Sandbox">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="old-e13" value="delete Sandbox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#b85450;strokeWidth=2;endArrow=block;" parent="1" source="old-delete" target="old-delete-sandbox" edge="1">
+        <mxCell id="new-e5" edge="1" parent="1" source="new-warm-sandbox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" target="new-warm-pod" value="5. start warm Pod / Agent">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="new-e1" value="1. reconcile CI" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;" parent="1" source="new-ci" target="new-ci-reconciler" edge="1">
+        <mxCell id="new-e6" edge="1" parent="1" source="new-router-create" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" target="new-build-claim" value="6. create session">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="new-e2" value="2. ensure template" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" parent="1" source="new-ci-reconciler" target="new-template" edge="1">
+        <mxCell id="new-e7" edge="1" parent="1" source="new-build-claim" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" target="new-store-placeholder" value="7. Store claim placeholder">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="new-e3" value="3. ensure warm pool" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" parent="1" source="new-ci-reconciler" target="new-warmpool" edge="1">
+        <mxCell id="new-e8" edge="1" parent="1" source="new-build-claim" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" target="new-claim-resource" value="8. create Claim">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1815" y="540" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="new-e9" edge="1" parent="1" source="new-claim-resource" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" target="new-claim-controller" value="9. reconcile">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="new-e4" value="4. pre-create Sandbox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" parent="1" source="new-warmpool" target="new-warm-sandbox" edge="1">
+        <mxCell id="new-e10" edge="1" parent="1" source="new-claim-controller" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" target="new-adopt" value="10. adopt candidate">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="new-e5" value="5. start warm Pod / Agent" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" parent="1" source="new-warm-sandbox" target="new-warm-pod" edge="1">
+        <mxCell id="new-e11" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" value="11. becomes serving Sandbox">
+          <mxGeometry relative="1" x="-0.192" y="39" as="geometry">
+            <mxPoint x="-9" y="-25" as="offset" />
+            <Array as="points">
+              <mxPoint x="2320" y="835" />
+              <mxPoint x="2320" y="882" />
+            </Array>
+            <mxPoint x="2265" y="835.090909090909" as="sourcePoint" />
+            <mxPoint x="2355" y="881.4545454545455" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="new-e13" edge="1" parent="1" source="new-claim-status" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;" target="new-wait-claim" value="13. get adopted Sandbox">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1815" y="1020" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="new-e14" edge="1" parent="1" source="new-wait-claim" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" target="new-pod-lookup" value="14. Pod lookup">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2145" y="932" />
+              <mxPoint x="2145" y="1000" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="new-e15" edge="1" parent="1" source="new-pod-lookup" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" target="new-probe" value="15. Pod IP / ports">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="new-e6" value="6. create session" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" parent="1" source="new-router-create" target="new-build-claim" edge="1">
+        <mxCell id="new-e16" edge="1" parent="1" source="new-probe" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" target="new-store-ready" value="16. Store ready">
+          <mxGeometry relative="1" x="-0.1473" as="geometry">
+            <mxPoint x="-1" as="offset" />
+            <Array as="points">
+              <mxPoint x="2145" y="1150" />
+              <mxPoint x="2145" y="1110" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="new-e17" edge="1" parent="1" source="new-router-existing" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" target="new-store-ready" value="17. lookup session">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="new-e7" value="7. Store claim placeholder" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" parent="1" source="new-build-claim" target="new-store-placeholder" edge="1">
+        <mxCell id="new-e18" edge="1" parent="1" source="new-store-ready" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" target="new-router-proxy" value="18. proxy EntryPoints">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="new-e8" value="8. create Claim" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" parent="1" source="new-build-claim" target="new-claim-resource" edge="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="new-e19" edge="1" parent="1" source="new-store-ready" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#b85450;strokeWidth=2;endArrow=block;" target="new-delete" value="delete claimName">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2285" y="1090" />
+              <mxPoint x="2285" y="1118" />
+            </Array>
+          </mxGeometry>
         </mxCell>
-        <mxCell id="new-e9" value="9. reconcile" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" parent="1" source="new-claim-resource" target="new-claim-controller" edge="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="new-e10" value="10. adopt candidate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" parent="1" source="new-claim-controller" target="new-adopt" edge="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="new-e11" value="11. becomes serving Sandbox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" parent="1" source="new-adopt" target="new-adopted-sandbox" edge="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="new-e12" value="12. status.sandbox.name" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#82b366;strokeWidth=2;endArrow=block;" parent="1" source="new-adopt" target="new-claim-status" edge="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="new-e13" value="13. get adopted Sandbox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;" parent="1" source="new-claim-status" target="new-wait-claim" edge="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="new-e14" value="14. Pod lookup" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" parent="1" source="new-wait-claim" target="new-pod-lookup" edge="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="new-e15" value="15. Pod IP / ports" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" parent="1" source="new-pod-lookup" target="new-probe" edge="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="new-e16" value="16. Store ready" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#d6b656;strokeWidth=2;endArrow=block;" parent="1" source="new-probe" target="new-store-ready" edge="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="new-e17" value="17. lookup session" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" parent="1" source="new-router-existing" target="new-store-ready" edge="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="new-e18" value="18. proxy EntryPoints" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#9673a6;strokeWidth=2;endArrow=block;" parent="1" source="new-store-ready" target="new-router-proxy" edge="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="new-e19" value="delete claimName" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#b85450;strokeWidth=2;endArrow=block;" parent="1" source="new-store-ready" target="new-delete" edge="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="new-e20" value="claim delete cleans runtime" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#b85450;strokeWidth=2;dashed=1;endArrow=block;" parent="1" source="new-delete" target="new-adopted-sandbox" edge="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="new-e20" edge="1" parent="1" source="new-delete" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#b85450;strokeWidth=2;dashed=1;endArrow=block;" target="new-adopted-sandbox" value="claim delete cleans runtime">
+          <mxGeometry relative="1" x="-1" y="-40" as="geometry">
+            <mxPoint x="5" as="offset" />
+            <Array as="points">
+              <mxPoint x="2570" y="1100" />
+              <mxPoint x="2570" y="882" />
+            </Array>
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>
