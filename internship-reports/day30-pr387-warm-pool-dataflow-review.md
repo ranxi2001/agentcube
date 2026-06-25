@@ -11,7 +11,7 @@
 - Claim adoption：WorkloadManager 创建 `SandboxClaim` 后，通过 `SandboxClaim.status.sandbox.name` 找 serving Sandbox，而不是把 claim 名当 serving Sandbox 名。
 - Runtime observation：AgentCube 通过 adopted Sandbox 的 `agents.x-k8s.io/pod-name` annotation 或 ownerRef fallback 找真实 Pod 和 Pod IP。
 - Store / cleanup：Store 保留 `Kind=SandboxClaim`、`Name=<claim name>` 用于 delete / GC，同时 `SandboxID` 和 `EntryPoints` 来自 adopted Sandbox / Pod；删除 claim 后 adopted Sandbox/Pod 清理，warm pool refill。
-- Evidence：unit / e2e / fork CI 覆盖代码路径；Day30 L1 白盒实测进一步验证了 UID continuity、ownerRef 转移、claim status bridge、warm pool refill 和 cleanup。
+- Evidence：unit / e2e / fork CI 覆盖代码路径；Day30 L1 白盒实测验证了 UID continuity、ownerRef 转移、claim status bridge、warm pool refill 和 cleanup；随后又用 #387 head `c2633c5` 的本地 WorkloadManager/Router 二进制跑通完整 CodeInterpreter 断点测试，确认 PR 代码路径能从 `SandboxClaim.status.sandbox.name` 走到 Router/PicoD 执行和 delete cleanup。
 
 更准确的 reviewer 口径是：#387 is not just a black-box e2e pass; it aligns AgentCube with the actual `agent-sandbox v0.4.6` warm-pool runtime model within the PR scope.
 
@@ -107,6 +107,16 @@ Day30 追加了一轮 L1 white-box 实测，直接驱动 `SandboxTemplate` / `Sa
 - 原始证据：`internship-reports/benchmarks/day30-pr387-warmpool-flow/`。
 
 > 分析：这就是 #387 最容易被误解的地方。对 Router 来说，它只需要 Store 里的 `EntryPoints` 转发请求；对 WorkloadManager delete/GC 来说，它需要知道删的是 `SandboxClaim` 还是 direct `Sandbox`。所以 warm path 的 Store 记录天然包含两种身份：控制身份是 claim，运行身份是 adopted Sandbox/Pod。
+
+Day30 随后补了一轮更接近 reviewer 诉求的 PR-head live breakpoint test，直接使用 #387 当前 head `c2633c5` 构建出来的本地 `workloadmanager` 和 `agentcube-router` 二进制，配合 `agent-sandbox-controller:v0.4.6` 跑完整 CodeInterpreter / Router / PicoD 数据流：
+
+- 环境：`/home/agentcube-agent-sandbox-latest` branch `rebase/pr387-on-bed6bd4`，head `c2633c5`；本地 WorkloadManager `19080`，本地 Router `19081`；测试 namespace `pr387-live-flow`。
+- 结果：`trace_math_dataflow_breakpoints.py` 输出 `TRACE DATAFLOW TEST PASSED`，BP01-BP09 全部通过。
+- 关键断点：创建 session 返回 `kind=SandboxClaim`、`sandboxName=pr387-math-ci-j4gbks6g`、`sandboxId=e5965ac8-86e1-4974-8a15-04a226ef9d5f`；Kubernetes API 中 `SandboxClaim.status.sandbox.name=pr387-math-ci-4fzgd`，`podIPs=[10.42.0.92]`；adopted Sandbox ownerRef 为 `SandboxClaim/pr387-math-ci-j4gbks6g`；Pod `pr387-math-ci-4fzgd` ownerRef 为 `Sandbox/pr387-math-ci-4fzgd`；Router `/api/files` 写入脚本，`/api/execute` 返回数学答案 `2`。
+- Cleanup：删除 session 后，`SandboxClaim`、adopted `Sandbox`、adopted Pod 均删除，`SandboxWarmPool/pr387-math-ci` refilled 到 `readyReplicas=2`。
+- 原始摘要：`internship-reports/benchmarks/day30-pr387-warmpool-flow/14-pr387-live-codeinterpreter-breakpoint-result.txt`。
+
+> 注释：这轮测试和前面“长驻集群旧 deployment”失败结果不同。旧失败用的是集群里原有 `agent-sandbox-controller:v0.1.1` 和 `ghcr.io/volcano-sh/*:latest`，只能说明环境版本不匹配；这轮明确把 HTTP create/delete、Store、Router 和 PicoD 请求都切到 #387 head 的本地二进制，并在测试期间使用 `agent-sandbox v0.4.6` controller，因此可以作为 #387 当前代码路径的数据流证据。
 
 ## 两张序列图：旧观测假设 vs v0.4.6 真实流转
 
@@ -975,3 +985,35 @@ python3 internship-reports/benchmarks/day30-pr387-warmpool-flow/trace_math_dataf
 > 注释：`--pause` 会在每个 `[BPxx PASS]` 后停住，方便手工打开另一个终端执行 `kubectl get sandboxclaim/sandbox/pod -o yaml` 对照现场对象。也可以用 `--pdb` 进入 Python `breakpoint()`。如果只想自动跑完，去掉 `--pause`。
 
 > 分析：这比“math-agent 最后回答对了”更强。因为它不只验证最后 stdout，而是在 claim、adopted Sandbox、Pod、entrypoint、Router session header、PicoD 文件/执行返回、delete cleanup 每个边界都有断言。只要 #387 只是接口适配、没有真正对齐 warm-pool runtime 数据流，这个脚本会在中间断点失败。
+
+### 实跑结果：#387 head live breakpoint test
+
+2026-06-25 晚间补跑了一次真正使用 #387 PR 版本的 live trace：
+
+```text
+worktree: /home/agentcube-agent-sandbox-latest
+branch: rebase/pr387-on-bed6bd4
+head: c2633c5
+WorkloadManager: local PR binary, http://127.0.0.1:19080
+Router: local PR binary, http://127.0.0.1:19081
+agent-sandbox controller: registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.4.6
+namespace: pr387-live-flow
+CodeInterpreter: pr387-math-ci
+result: TRACE DATAFLOW TEST PASSED
+```
+
+关键数据点：
+
+```text
+sessionId = e61d2fbf-48e4-4e7e-bb47-6aba02b43630
+claim = SandboxClaim/pr387-math-ci-j4gbks6g
+claim.status.sandbox.name = pr387-math-ci-4fzgd
+claim.status.sandbox.podIPs = [10.42.0.92]
+adopted Sandbox UID = e5965ac8-86e1-4974-8a15-04a226ef9d5f
+Pod = pr387-math-ci-4fzgd
+Pod IP = 10.42.0.92
+Router /api/execute answer = 2
+cleanup = claim + adopted Sandbox + adopted Pod deleted; warm pool readyReplicas=2
+```
+
+> 分析：这轮结果回答了“是否只是 e2e 黑盒通过”的问题。它不是只看 math-agent 最后答对，而是逐段确认 PR #387 的 WorkloadManager 创建的是 claim、claim status 指向 adopted Sandbox、adopted Pod IP 写入并被 Router 使用、PicoD 在该 Pod 中执行代码、delete path 删除 claim 并触发 runtime cleanup/refill。也就是说，#387 当前代码路径真正对齐了 `agent-sandbox v0.4.6` 的 warm-pool adoption 数据流。

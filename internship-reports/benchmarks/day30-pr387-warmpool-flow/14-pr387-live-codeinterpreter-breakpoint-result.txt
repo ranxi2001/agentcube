@@ -1,0 +1,75 @@
+# PR #387 live CodeInterpreter breakpoint result
+
+Date: 2026-06-25 19:13 CST
+
+Scope:
+- This run used the PR #387 code path, not the long-running cluster deployment.
+- Worktree: /home/agentcube-agent-sandbox-latest
+- Branch: rebase/pr387-on-bed6bd4
+- Head: c2633c5 fix: reduce sandbox create handler complexity after rebase
+- Built with: make build build-router
+- WorkloadManager: local PR binary on http://127.0.0.1:19080
+- Router: local PR binary on http://127.0.0.1:19081
+- agent-sandbox controller during test: registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.4.6
+- Test namespace: pr387-live-flow
+- CodeInterpreter: pr387-live-flow/pr387-math-ci
+- warmPoolSize: 2
+
+Important setup notes:
+- The long-running ghcr.io/volcano-sh/workloadmanager:latest and ghcr.io/volcano-sh/agentcube-router:latest deployments were temporarily scaled to 0 so the session create/delete path came from the PR head local binaries.
+- The Router and WorkloadManager both used pr387-live-flow/picod-router-identity so PicoD JWT auth was exercised, not bypassed.
+- The long-running agent-sandbox v0.1.1 StatefulSet was temporarily scaled down while the v0.4.6 Deployment was active.
+
+Command:
+
+PYTHONDONTWRITEBYTECODE=1 python3 internship-reports/benchmarks/day30-pr387-warmpool-flow/trace_math_dataflow_breakpoints.py \
+  --namespace pr387-live-flow \
+  --code-interpreter pr387-math-ci \
+  --workload-manager-url http://127.0.0.1:19080 \
+  --router-url http://127.0.0.1:19081 \
+  --k8s-timeout 180 \
+  --http-timeout 180
+
+Result: TRACE DATAFLOW TEST PASSED
+
+Breakpoints:
+
+- BP01 PASS: CodeInterpreter and SandboxWarmPool were ready; warm pool readyReplicas=2, replicas=2.
+- BP02 PASS: WorkloadManager created a warm-pool session through the PR code path.
+  - kind: SandboxClaim
+  - sessionId: e61d2fbf-48e4-4e7e-bb47-6aba02b43630
+  - sandboxName: pr387-math-ci-j4gbks6g
+  - sandboxId: e5965ac8-86e1-4974-8a15-04a226ef9d5f
+  - entrypoint: 10.42.0.92:8080
+- BP03 PASS: Kubernetes API found SandboxClaim/pr387-math-ci-j4gbks6g by runtime.agentcube.io/session-id.
+- BP04 PASS: SandboxClaim.status.sandbox.name pointed to the serving Sandbox.
+  - claim: pr387-math-ci-j4gbks6g
+  - adopted Sandbox: pr387-math-ci-4fzgd
+  - adopted Sandbox UID: e5965ac8-86e1-4974-8a15-04a226ef9d5f
+  - claim.status.sandbox.podIPs: [10.42.0.92]
+  - Sandbox ownerRef: SandboxClaim/pr387-math-ci-j4gbks6g
+- BP05 PASS: adopted Pod matched Sandbox, claim status, and WorkloadManager entrypoint.
+  - Pod: pr387-math-ci-4fzgd
+  - Pod UID: 95e5ba7b-c550-4d3e-9264-1a7ae2f64238
+  - Pod ownerRef: Sandbox/pr387-math-ci-4fzgd
+  - Pod IP: 10.42.0.92
+- BP06 PASS: Router used the Store entrypoint and PicoD wrote gaokao_trace_e61d2fbf48e4.py through /api/files.
+- BP07 PASS: Router forwarded /api/execute to PicoD and PicoD returned the math payload result.
+  - command: python3 gaokao_trace_e61d2fbf48e4.py
+  - exit_code: 0
+  - answer: 2
+- BP08 PASS: WorkloadManager accepted DELETE /v1/code-interpreter/sessions/e61d2fbf-48e4-4e7e-bb47-6aba02b43630.
+- BP09 PASS: SandboxClaim, adopted Sandbox, and adopted Pod were removed; warm pool refilled to readyReplicas=2, replicas=2.
+
+Cleanup:
+- pr387-live-flow namespace was deleted.
+- Local PR WorkloadManager/Router processes were stopped.
+- Original AgentCube deployments were restored to replicas=1.
+- agent-sandbox was restored to the original v0.1.1 StatefulSet in the long-running cluster.
+- No local listeners remained on ports 19080 or 19081.
+- Extra default-namespace v0.4.6 warm Sandboxes created while the temporary controller was active were deleted.
+
+Conclusion:
+- This is the stronger test requested by the review thread: it is not a black-box e2e result.
+- The data flow through PR #387's WorkloadManager, Store, Router, and PicoD is aligned with agent-sandbox v0.4.6 warm-pool adoption semantics:
+  CodeInterpreter -> SandboxWarmPool -> warm Sandbox -> Pod, then SandboxClaim -> status.sandbox.name -> adopted Sandbox/Pod -> Router entrypoint -> PicoD execution -> delete cleanup/refill.
