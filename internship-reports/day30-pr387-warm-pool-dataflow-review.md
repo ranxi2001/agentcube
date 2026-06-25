@@ -15,6 +15,8 @@
 
 更准确的 reviewer 口径是：#387 is not just a black-box e2e pass; it aligns AgentCube with the actual `agent-sandbox v0.4.6` warm-pool runtime model within the PR scope.
 
+> 通俗解释：可以把 warm pool 想成一排提前开好的机器。旧理解像是“池子里直接放着可用 Pod，拿到 Pod IP 就能用”；但 `agent-sandbox v0.4.6` 真实做法是“池子里提前放好 Sandbox，每个 Sandbox 下面才有真正跑代码的 Pod”。用户请求来了以后，AgentCube 不是直接拿 Pod，而是先创建一张 `SandboxClaim`，类似取号单。agent-sandbox controller 会把某个已经热好的 Sandbox 分配给这张取号单，并在 `SandboxClaim.status.sandbox.name` 里写清楚“你实际拿到的是哪个 Sandbox”。所以 #387 要做的关键事，就是沿着这张取号单找到真正的 Sandbox 和 Pod，把 Pod IP 写进 Store 给 Router 转发，同时 Store 里还要记住取号单名字，因为删除/回收时应该删 claim，而不是误删或找错那个真正的 Sandbox 名。我们这次 L1 白盒测试验证的不是“用户代码最后能跑出结果”这么粗的黑盒结果，而是验证这条取号、分配、找 Pod、写 Store、删除回收、warm pool 补位的链路每一步都真的按 v0.4.6 的模型发生了。
+
 目标：这次不再只解释 `agent-sandbox` API 接口适配，而是从实际项目运行流程理解 #387 的 warm pool adoption 数据流：warm pool 对象怎么创建、claim 怎么拿到 serving Sandbox、Pod 怎么被观测、WorkloadManager 为什么不能把 warm claim 当成同名 Sandbox 等待、Store 最终应该保存 claim 名还是 adopted Sandbox 名。
 
 > 注释：reviewer 当前更关心的是“运行时数据如何流动”，不是“某个 Go package import 从哪个版本改到哪个版本”。因此本报告用 Mermaid 和源码证据解释 `CodeInterpreter -> SandboxTemplate / SandboxWarmPool -> SandboxClaim -> adopted Sandbox -> Pod -> Store -> Router` 的真实链路。
