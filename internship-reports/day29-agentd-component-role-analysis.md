@@ -694,6 +694,15 @@ Gemini review 反馈处理：
 - 最终改动：`docker/Dockerfile.picod` 将 binary 安装到 `/usr/local/bin/picod`，`ENTRYPOINT` 改为绝对路径 `/usr/local/bin/picod`；文档示例同步为 `COPY --from=ghcr.io/volcano-sh/picod:latest /usr/local/bin/picod /usr/local/bin/picod`。
 - 本地验证：`go test ./cmd/picod ./pkg/picod -count=1`、`make build-all`、`cd docs/agentcube && npm run build`、`git diff --check`、无 `agentd` / `Agent Daemon` 残留扫描均通过。本地 `docker build -f docker/Dockerfile.picod -t agentcube-pr403-picod-path:test .` 因下载 `golang:1.26.4` layer 长时间无进展被手动中止，不是 Dockerfile 报错；等待 GitHub build job 覆盖镜像构建验证。
 
+Scope 取舍复盘：
+
+- 为什么 `docker/Dockerfile.picod` 会跟着改：`building-runtimes.md` 的示例不是普通文字替换，而是一个会被用户复制执行的 multi-stage Dockerfile 片段。文档里写 `COPY --from=ghcr.io/volcano-sh/picod:latest /usr/local/bin/picod ...` 的前提，是官方 PicoD 镜像真的在 `/usr/local/bin/picod` 提供 binary。如果只改文档、不改镜像构建文件，文档示例就会从一个存在的 `/root/picod` 变成一个不存在的路径，反而制造新 bug。
+- 为什么这个改动仍然可以和本 PR 关联：删除 `agentd` 后，开发者指南需要把原来的 `agentd` runtime 示例迁移到 `picod`。Gemini review 正是针对这个迁移后的 PicoD copy 示例提出的路径问题。因此把 PicoD 镜像 layout 对齐到原 `agentd` 的标准 binary path，是为了让迁移后的示例保持可执行、可解释、和 non-root 建议一致。
+- 为什么这个点也可能被认为超出最小 scope：严格从 “remove unused agentd” 看，`docker/Dockerfile.picod` 不是删除 `agentd` 的必要条件；它是 review 过程中暴露出的 PicoD image hygiene / documentation correctness cleanup。如果 maintainer 对 scope 很敏感，可选处理是撤回 Dockerfile 改动，让文档继续使用当前镜像真实路径 `/root/picod`，然后另开 follow-up PR 专门把 PicoD binary path 标准化到 `/usr/local/bin/picod`。
+- 当前选择的答辩口径：保留该改动时，应强调它不是无关重构，而是为了保证被 `agentd -> picod` 替换后的文档示例真实可用；同时承认这是 PR 中最接近 scope 边界的一处改动，后续 review 如要求拆分，可以干净拆出去。
+
+> 分析：这次经验是，删除旧组件时，文档替换常常会把 “旧组件路径” 转成 “新组件路径”。如果新组件镜像 layout 本身不标准，就会出现两种都不完美的选择：保持旧真实路径但接受 review warning，或修正镜像 layout 但扩大 PR scope。专业 PR 处理不是机械追求文件最少，而是要能解释每个 touched file 是否服务于本 PR 的用户可见正确性；解释不了的改动才应该拆出去。
+
 ### Fork CI PR
 
 用户要求先在个人 fork 跑 CI，因此已创建 fork-only validation PR：
