@@ -1,0 +1,13 @@
+# environment
+date=2026-06-25T17:04:40+08:00
+kubeconfig=/tmp/agentcube-flow-v046-kubeconfig.yaml
+cluster=agentcube-flow-v046
+
+# controller image
+registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.4.6
+
+# crd versions
+sandboxes.agents.x-k8s.io	v1alpha1:true:true,	stored=["v1alpha1"]
+sandboxclaims.extensions.agents.x-k8s.io	v1alpha1:true:true,	stored=["v1alpha1"]
+sandboxtemplates.extensions.agents.x-k8s.io	v1alpha1:true:true,	stored=["v1alpha1"]
+sandboxwarmpools.extensions.agents.x-k8s.io	v1alpha1:true:true,	stored=["v1alpha1"]

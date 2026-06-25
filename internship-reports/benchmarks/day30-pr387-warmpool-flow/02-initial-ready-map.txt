@@ -1,0 +1,29 @@
+# initial Sandbox map
+pr387-flow2-q48z9	4b5046d7-a6fc-437c-9f3e-7cb6096ee619	owner=SandboxWarmPool/pr387-flow2	ready=Ready:True,	podIPs=["10.42.0.9"]
+pr387-flow2-x5qtm	d7d81d4d-0f09-45d3-9d41-ceb28f34bd10	owner=SandboxWarmPool/pr387-flow2	ready=Ready:True,	podIPs=["10.42.0.10"]
+
+# initial Pod map
+pr387-flow2-q48z9	9554d673-6e6b-43c0-8cb3-25c7ef5ae94a	owner=Sandbox/pr387-flow2-q48z9	phase=Running	podIP=10.42.0.9
+pr387-flow2-x5qtm	556854eb-39c1-47b6-93c8-e63341ba7e8c	owner=Sandbox/pr387-flow2-x5qtm	phase=Running	podIP=10.42.0.10
+
+# initial WarmPool status
+apiVersion: extensions.agents.x-k8s.io/v1alpha1
+kind: SandboxWarmPool
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"extensions.agents.x-k8s.io/v1alpha1","kind":"SandboxWarmPool","metadata":{"annotations":{},"name":"pr387-flow2","namespace":"agentcube-flow-test"},"spec":{"replicas":2,"sandboxTemplateRef":{"name":"pr387-flow2"}}}
+  creationTimestamp: "2026-06-25T09:03:54Z"
+  generation: 1
+  name: pr387-flow2
+  namespace: agentcube-flow-test
+  resourceVersion: "1059"
+  uid: 7f3a44f7-6ab1-48e1-a903-f3b999bfcfe3
+spec:
+  replicas: 2
+  sandboxTemplateRef:
+    name: pr387-flow2
+status:
+  readyReplicas: 2
+  replicas: 2
+  selector: agents.x-k8s.io/warm-pool-sandbox=dc60806a

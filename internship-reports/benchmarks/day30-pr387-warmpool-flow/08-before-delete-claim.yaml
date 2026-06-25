@@ -1,0 +1,36 @@
+before-delete claimSandbox=pr387-flow2-q48z9 podName=pr387-flow2-q48z9
+apiVersion: extensions.agents.x-k8s.io/v1alpha1
+kind: SandboxClaim
+metadata:
+  annotations:
+    agents.x-k8s.io/controller-first-observed-at: "2026-06-25T09:04:41.258753098Z"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"extensions.agents.x-k8s.io/v1alpha1","kind":"SandboxClaim","metadata":{"annotations":{},"labels":{"test.agentcube.io/flow":"pr387"},"name":"pr387-claim-1","namespace":"agentcube-flow-test"},"spec":{"additionalPodMetadata":{"labels":{"test.agentcube.io/claim":"pr387-claim-1"}},"sandboxTemplateRef":{"name":"pr387-flow2"},"warmpool":"pr387-flow2"}}
+  creationTimestamp: "2026-06-25T09:04:41Z"
+  generation: 1
+  labels:
+    agents.x-k8s.io/sandbox-name: pr387-flow2-q48z9
+    test.agentcube.io/flow: pr387
+  name: pr387-claim-1
+  namespace: agentcube-flow-test
+  resourceVersion: "1107"
+  uid: 2ad30e9e-fd6e-419d-bc34-3ec2821432fe
+spec:
+  additionalPodMetadata:
+    labels:
+      test.agentcube.io/claim: pr387-claim-1
+  sandboxTemplateRef:
+    name: pr387-flow2
+  warmpool: pr387-flow2
+status:
+  conditions:
+  - lastTransitionTime: "2026-06-25T09:03:55Z"
+    message: Pod is Ready
+    observedGeneration: 2
+    reason: DependenciesReady
+    status: "True"
+    type: Ready
+  sandbox:
+    name: pr387-flow2-q48z9
+    podIPs:
+    - 10.42.0.9

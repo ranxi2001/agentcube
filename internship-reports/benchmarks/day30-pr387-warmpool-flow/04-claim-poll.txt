@@ -1,0 +1,2 @@
+claim-poll=1 claimSandbox=pr387-flow2-q48z9 claimReady=Ready:True, poolReady=1 sandboxes=3 pods=3
+claim-poll=2 claimSandbox=pr387-flow2-q48z9 claimReady=Ready:True, poolReady=2 sandboxes=3 pods=3

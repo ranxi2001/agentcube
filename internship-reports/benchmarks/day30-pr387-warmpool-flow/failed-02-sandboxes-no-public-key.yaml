@@ -1,0 +1,129 @@
+apiVersion: v1
+items:
+- apiVersion: agents.x-k8s.io/v1alpha1
+  kind: Sandbox
+  metadata:
+    annotations:
+      agents.x-k8s.io/pod-name: pr387-flow-cgkqv
+      agents.x-k8s.io/sandbox-template-ref: pr387-flow
+    creationTimestamp: "2026-06-25T08:58:45Z"
+    generateName: pr387-flow-
+    generation: 1
+    labels:
+      agents.x-k8s.io/sandbox-pod-template-hash: 44b22c94
+      agents.x-k8s.io/sandbox-template-ref-hash: 4321e81c
+      agents.x-k8s.io/warm-pool-sandbox: 4321e81c
+    name: pr387-flow-cgkqv
+    namespace: agentcube-flow-test
+    ownerReferences:
+    - apiVersion: extensions.agents.x-k8s.io/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: SandboxWarmPool
+      name: pr387-flow
+      uid: 42ecbf53-8d0a-4464-942e-e860b3e31a2b
+    resourceVersion: "652"
+    uid: 277d9d48-53f6-4830-9e81-b4f64caeb8bb
+  spec:
+    podTemplate:
+      metadata:
+        labels:
+          agents.x-k8s.io/sandbox-pod-template-hash: 44b22c94
+          agents.x-k8s.io/sandbox-template-ref-hash: 4321e81c
+          agents.x-k8s.io/warm-pool-sandbox: 4321e81c
+          app: pr387-flow
+          test.agentcube.io/flow: pr387
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - args:
+          - --workspace=/root
+          image: picod:latest
+          imagePullPolicy: IfNotPresent
+          name: codeinterpreter
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+    replicas: 1
+    shutdownPolicy: Retain
+  status:
+    conditions:
+    - lastTransitionTime: "2026-06-25T08:58:45Z"
+      message: Pod is Running but not Ready
+      observedGeneration: 1
+      reason: DependenciesNotReady
+      status: "False"
+      type: Ready
+    podIPs:
+    - 10.42.0.8
+    replicas: 1
+    selector: agents.x-k8s.io/sandbox-name-hash=209985f5
+- apiVersion: agents.x-k8s.io/v1alpha1
+  kind: Sandbox
+  metadata:
+    annotations:
+      agents.x-k8s.io/pod-name: pr387-flow-vrwll
+      agents.x-k8s.io/sandbox-template-ref: pr387-flow
+    creationTimestamp: "2026-06-25T08:58:45Z"
+    generateName: pr387-flow-
+    generation: 1
+    labels:
+      agents.x-k8s.io/sandbox-pod-template-hash: 44b22c94
+      agents.x-k8s.io/sandbox-template-ref-hash: 4321e81c
+      agents.x-k8s.io/warm-pool-sandbox: 4321e81c
+    name: pr387-flow-vrwll
+    namespace: agentcube-flow-test
+    ownerReferences:
+    - apiVersion: extensions.agents.x-k8s.io/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: SandboxWarmPool
+      name: pr387-flow
+      uid: 42ecbf53-8d0a-4464-942e-e860b3e31a2b
+    resourceVersion: "654"
+    uid: 34cb245c-82b4-4d3f-b630-4fb8e22eb3df
+  spec:
+    podTemplate:
+      metadata:
+        labels:
+          agents.x-k8s.io/sandbox-pod-template-hash: 44b22c94
+          agents.x-k8s.io/sandbox-template-ref-hash: 4321e81c
+          agents.x-k8s.io/warm-pool-sandbox: 4321e81c
+          app: pr387-flow
+          test.agentcube.io/flow: pr387
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - args:
+          - --workspace=/root
+          image: picod:latest
+          imagePullPolicy: IfNotPresent
+          name: codeinterpreter
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+    replicas: 1
+    shutdownPolicy: Retain
+  status:
+    conditions:
+    - lastTransitionTime: "2026-06-25T08:58:45Z"
+      message: Pod is Running but not Ready
+      observedGeneration: 1
+      reason: DependenciesNotReady
+      status: "False"
+      type: Ready
+    podIPs:
+    - 10.42.0.7
+    replicas: 1
+    selector: agents.x-k8s.io/sandbox-name-hash=f9441c48
+kind: List
+metadata:
+  resourceVersion: ""

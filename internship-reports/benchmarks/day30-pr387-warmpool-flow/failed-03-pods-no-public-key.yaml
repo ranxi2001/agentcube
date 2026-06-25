@@ -1,0 +1,235 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      agents.x-k8s.io/propagated-labels: agents.x-k8s.io/sandbox-pod-template-hash,agents.x-k8s.io/sandbox-template-ref-hash,agents.x-k8s.io/warm-pool-sandbox,app,test.agentcube.io/flow
+    creationTimestamp: "2026-06-25T08:58:45Z"
+    labels:
+      agents.x-k8s.io/sandbox-name-hash: 209985f5
+      agents.x-k8s.io/sandbox-pod-template-hash: 44b22c94
+      agents.x-k8s.io/sandbox-template-ref-hash: 4321e81c
+      agents.x-k8s.io/warm-pool-sandbox: 4321e81c
+      app: pr387-flow
+      test.agentcube.io/flow: pr387
+    name: pr387-flow-cgkqv
+    namespace: agentcube-flow-test
+    ownerReferences:
+    - apiVersion: agents.x-k8s.io/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Sandbox
+      name: pr387-flow-cgkqv
+      uid: 277d9d48-53f6-4830-9e81-b4f64caeb8bb
+    resourceVersion: "868"
+    uid: eb9079f3-f7df-416e-a593-265326923b78
+  spec:
+    automountServiceAccountToken: false
+    containers:
+    - args:
+      - --workspace=/root
+      image: picod:latest
+      imagePullPolicy: IfNotPresent
+      name: codeinterpreter
+      resources:
+        limits:
+          cpu: 100m
+          memory: 128Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: k3d-agentcube-flow-v046-server-0
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-06-25T08:58:46Z"
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-06-25T08:58:45Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-06-25T08:58:45Z"
+      message: 'containers with unready status: [codeinterpreter]'
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-06-25T08:58:45Z"
+      message: 'containers with unready status: [codeinterpreter]'
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-06-25T08:58:45Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: containerd://f74900cce1f4a32c07b0f741ae9f5d84da1fc569b5d988a825cc8db35deb244f
+      image: docker.io/library/picod:latest
+      imageID: sha256:7499d9f90ab288da55b18a49f603237240dcd75493e290b38fc2eaf811281944
+      lastState:
+        terminated:
+          containerID: containerd://f74900cce1f4a32c07b0f741ae9f5d84da1fc569b5d988a825cc8db35deb244f
+          exitCode: 255
+          finishedAt: "2026-06-25T09:01:29Z"
+          reason: Error
+          startedAt: "2026-06-25T09:01:29Z"
+      name: codeinterpreter
+      ready: false
+      restartCount: 5
+      started: false
+      state:
+        waiting:
+          message: back-off 2m40s restarting failed container=codeinterpreter pod=pr387-flow-cgkqv_agentcube-flow-test(eb9079f3-f7df-416e-a593-265326923b78)
+          reason: CrashLoopBackOff
+    hostIP: 172.20.0.2
+    hostIPs:
+    - ip: 172.20.0.2
+    phase: Running
+    podIP: 10.42.0.8
+    podIPs:
+    - ip: 10.42.0.8
+    qosClass: Burstable
+    startTime: "2026-06-25T08:58:45Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      agents.x-k8s.io/propagated-labels: agents.x-k8s.io/sandbox-pod-template-hash,agents.x-k8s.io/sandbox-template-ref-hash,agents.x-k8s.io/warm-pool-sandbox,app,test.agentcube.io/flow
+    creationTimestamp: "2026-06-25T08:58:45Z"
+    labels:
+      agents.x-k8s.io/sandbox-name-hash: f9441c48
+      agents.x-k8s.io/sandbox-pod-template-hash: 44b22c94
+      agents.x-k8s.io/sandbox-template-ref-hash: 4321e81c
+      agents.x-k8s.io/warm-pool-sandbox: 4321e81c
+      app: pr387-flow
+      test.agentcube.io/flow: pr387
+    name: pr387-flow-vrwll
+    namespace: agentcube-flow-test
+    ownerReferences:
+    - apiVersion: agents.x-k8s.io/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Sandbox
+      name: pr387-flow-vrwll
+      uid: 34cb245c-82b4-4d3f-b630-4fb8e22eb3df
+    resourceVersion: "876"
+    uid: f00ce080-f29f-482c-99e8-065638f48f31
+  spec:
+    automountServiceAccountToken: false
+    containers:
+    - args:
+      - --workspace=/root
+      image: picod:latest
+      imagePullPolicy: IfNotPresent
+      name: codeinterpreter
+      resources:
+        limits:
+          cpu: 100m
+          memory: 128Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: k3d-agentcube-flow-v046-server-0
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-06-25T08:58:46Z"
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-06-25T08:58:45Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-06-25T08:58:45Z"
+      message: 'containers with unready status: [codeinterpreter]'
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-06-25T08:58:45Z"
+      message: 'containers with unready status: [codeinterpreter]'
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-06-25T08:58:45Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: containerd://f301616b2cfb4ad7c3db8295c2d6437c9dc56728af8661eef8014126b6844ad1
+      image: docker.io/library/picod:latest
+      imageID: sha256:7499d9f90ab288da55b18a49f603237240dcd75493e290b38fc2eaf811281944
+      lastState:
+        terminated:
+          containerID: containerd://f301616b2cfb4ad7c3db8295c2d6437c9dc56728af8661eef8014126b6844ad1
+          exitCode: 255
+          finishedAt: "2026-06-25T09:01:38Z"
+          reason: Error
+          startedAt: "2026-06-25T09:01:38Z"
+      name: codeinterpreter
+      ready: false
+      restartCount: 5
+      started: false
+      state:
+        waiting:
+          message: back-off 2m40s restarting failed container=codeinterpreter pod=pr387-flow-vrwll_agentcube-flow-test(f00ce080-f29f-482c-99e8-065638f48f31)
+          reason: CrashLoopBackOff
+    hostIP: 172.20.0.2
+    hostIPs:
+    - ip: 172.20.0.2
+    phase: Running
+    podIP: 10.42.0.7
+    podIPs:
+    - ip: 10.42.0.7
+    qosClass: Burstable
+    startTime: "2026-06-25T08:58:45Z"
+kind: List
+metadata:
+  resourceVersion: ""

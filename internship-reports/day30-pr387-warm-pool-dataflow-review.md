@@ -14,8 +14,15 @@
 
 - 旧 warm-pool 观测假设更像：从 `SandboxWarmPool -> Pod` 直接找 Pod，或者把 `SandboxClaim name` 当成 serving Sandbox / Pod 名去推断。
 - #387 需要适配的真实模型是：`SandboxWarmPool -> pre-warmed Sandbox -> Pod`；请求到来后创建 `SandboxClaim`，`agent-sandbox` controller 从 warm pool 中 adopt 一个已有 Sandbox，并把 serving Sandbox 名写到 `SandboxClaim.status.sandbox.name`。
-- AgentCube 必须通过 `SandboxClaim.status.sandbox.name` 找 adopted Sandbox，再从 adopted Sandbox 的 `agents.x-k8s.io/sandbox-pod-name` annotation 或 owner/label 关系找到 Pod。
+- AgentCube 必须通过 `SandboxClaim.status.sandbox.name` 找 adopted Sandbox，再从 adopted Sandbox 的 `agents.x-k8s.io/pod-name` annotation 或 owner/label 关系找到 Pod。
 - Store 中仍应保存 `Kind=SandboxClaim` 和 `Name=<claim name>`，因为后续 delete / GC 应删除 claim；但 `SandboxID`、entrypoint、Pod IP 必须来自 adopted Sandbox / Pod。
+
+Day30 追加了一轮 L1 white-box 实测，直接驱动 `SandboxTemplate` / `SandboxWarmPool` / `SandboxClaim` / `Sandbox` / `Pod`，不经过 CodeInterpreter API：
+
+- 环境：临时 k3d 集群 `agentcube-flow-v046`，`agent-sandbox-controller:v0.4.6`，CRD storage version 均为 `v1alpha1`。
+- 结果：warm pool 初始 Ready=2；创建 `SandboxClaim/pr387-claim-1` 后，`status.sandbox.name=pr387-flow2-q48z9`，该 Sandbox UID 保持不变并从 `SandboxWarmPool/pr387-flow2` 转移到 `SandboxClaim/pr387-claim-1`；Pod UID 也保持不变；warm pool refill 后仍为 Ready=2。
+- 删除：删除 claim 后，adopted Sandbox 和 Pod 被清理，warm pool 剩余 2 个 ready Sandbox/Pod，没有 orphan runtime object。
+- 原始证据：`internship-reports/benchmarks/day30-pr387-warmpool-flow/`。
 
 > 分析：这就是 #387 最容易被误解的地方。对 Router 来说，它只需要 Store 里的 `EntryPoints` 转发请求；对 WorkloadManager delete/GC 来说，它需要知道删的是 `SandboxClaim` 还是 direct `Sandbox`。所以 warm path 的 Store 记录天然包含两种身份：控制身份是 claim，运行身份是 adopted Sandbox/Pod。
 
@@ -40,6 +47,72 @@
 - #387 checks：failed `0`，pending `0`
 - #387 assignee：`zhzhuang-zju`
 - 下一步：等待正式 review、`/lgtm`、`/approve` 和 tide。
+
+## L1 实测结果：agent-sandbox v0.4.6 object flow
+
+这轮测试不是 CodeInterpreter e2e，而是直接创建 `agent-sandbox` CRD 对象，观测 Kubernetes API 中的 ownerRef、status、UID 和 cleanup。原始文件在 `internship-reports/benchmarks/day30-pr387-warmpool-flow/`。
+
+测试环境：
+
+| 项 | 值 |
+| --- | --- |
+| Cluster | 临时 k3d cluster `agentcube-flow-v046` |
+| kubeconfig | `/tmp/agentcube-flow-v046-kubeconfig.yaml` |
+| agent-sandbox controller | `registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.4.6` |
+| CRD version | `sandboxes` / `sandboxclaims` / `sandboxtemplates` / `sandboxwarmpools` 均为 `v1alpha1:true:true`，storedVersions `["v1alpha1"]` |
+| Namespace | `agentcube-flow-test` |
+| Test template | `picod:latest` + `PICOD_AUTH_PUBLIC_KEY` secret injection |
+
+> 注释：本机默认长驻 k3s 集群仍是 `agent-sandbox-controller:v0.1.1`，且 `default/my-interpreter` 观测到的是旧 warm-pool 形态：`SandboxWarmPool -> Pod`，没有 `Sandbox` CR。这个结果只能说明旧环境/旧版本的观测模型，不能作为 #387 的 v0.4.6 pass/fail 证据。因此本轮另建干净 k3d 集群安装 v0.4.6 manifest。
+
+第一轮尝试使用 `picod:latest` 但未注入 `PICOD_AUTH_PUBLIC_KEY`，结果是：
+
+- `SandboxWarmPool` 创建了 2 个 `Sandbox` 和 2 个 Pod，owner 链已经是 `SandboxWarmPool -> Sandbox -> Pod`。
+- Pod 进入 CrashLoop，PicoD 日志为 `Failed to load public key from environment: environment variable PICOD_AUTH_PUBLIC_KEY is not set`。
+- `Sandbox` status 为 `Ready=False`，`SandboxWarmPool.readyReplicas` 未达到 2。
+
+判断：这是测试模板缺少 PicoD public key 的问题，不是 adoption controller 失败；所以只保留为 failed evidence。
+
+第二轮补充 public key 后，L1 通过：
+
+| 阶段 | 观测结果 |
+| --- | --- |
+| 初始 warm pool | `SandboxWarmPool/pr387-flow2` 达到 `readyReplicas=2`，创建 `Sandbox/pr387-flow2-q48z9` 和 `Sandbox/pr387-flow2-x5qtm` |
+| 初始 owner chain | `Sandbox/pr387-flow2-q48z9` owner 为 `SandboxWarmPool/pr387-flow2`；Pod `pr387-flow2-q48z9` owner 为 `Sandbox/pr387-flow2-q48z9` |
+| 初始 UID | Sandbox UID `4b5046d7-a6fc-437c-9f3e-7cb6096ee619`；Pod UID `9554d673-6e6b-43c0-8cb3-25c7ef5ae94a` |
+| Claim status | 创建 `SandboxClaim/pr387-claim-1` 后，`status.sandbox.name=pr387-flow2-q48z9`，`Ready=True` |
+| Adoption | adopted Sandbox UID 保持不变，owner 从 `SandboxWarmPool/pr387-flow2` 转为 `SandboxClaim/pr387-claim-1` |
+| Pod continuity | adopted Pod UID 保持不变，owner 仍为 `Sandbox/pr387-flow2-q48z9`，Pod IP 为 `10.42.0.9` |
+| Refill | claim active 时总数变成 3 个 Sandbox / 3 个 Pod，其中 warm pool refill 回 `readyReplicas=2` |
+| Delete cleanup | 删除 `SandboxClaim/pr387-claim-1` 后，adopted Sandbox 和 Pod 均删除，warm pool 剩余 2 个 ready Sandbox/Pod |
+
+关键断言摘要：
+
+```text
+claim.status.sandbox.name=pr387-flow2-q48z9
+adopted.sandbox.owner=SandboxClaim/pr387-claim-1
+adopted.pod.name=pr387-flow2-q48z9
+adopted.pod.owner=Sandbox/pr387-flow2-q48z9
+warmPool.readyReplicas=2
+sandbox.count=3
+pod.count=3
+
+after delete:
+claim.exists=0
+adoptedSandbox.exists=0
+adoptedPod.exists=0
+warmPool.readyReplicas=2
+sandbox.count=2
+pod.count=2
+```
+
+> 分析：这个结果直接验证了 #387 的核心运行时假设。`SandboxClaim.status.sandbox.name` 是 claim 到 serving Sandbox 的 bridge；被 adopt 的 Sandbox/Pod 是预热对象本身，UID 不变；delete / GC 删除 claim 可以清理 serving runtime；同时 warm pool 会 refill，继续维持预热容量。因此 Store 不能把 `Name` 改成 adopted Sandbox name，否则 delete/GC 会删错对象；它应保留 claim name，并把 `SandboxID` / entrypoints 来自 adopted Sandbox/Pod。
+
+测试结束状态：
+
+- `agentcube-flow-test` namespace 已删除。
+- 临时 k3d cluster `agentcube-flow-v046` 已删除。
+- 未改 #387 upstream branch，未发 upstream comment。
 
 ## 对象关系总图
 

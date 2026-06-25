@@ -1,0 +1,251 @@
+claimSandbox=pr387-flow2-q48z9
+podName=pr387-flow2-q48z9
+
+# SandboxClaim
+apiVersion: extensions.agents.x-k8s.io/v1alpha1
+kind: SandboxClaim
+metadata:
+  annotations:
+    agents.x-k8s.io/controller-first-observed-at: "2026-06-25T09:04:41.258753098Z"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"extensions.agents.x-k8s.io/v1alpha1","kind":"SandboxClaim","metadata":{"annotations":{},"labels":{"test.agentcube.io/flow":"pr387"},"name":"pr387-claim-1","namespace":"agentcube-flow-test"},"spec":{"additionalPodMetadata":{"labels":{"test.agentcube.io/claim":"pr387-claim-1"}},"sandboxTemplateRef":{"name":"pr387-flow2"},"warmpool":"pr387-flow2"}}
+  creationTimestamp: "2026-06-25T09:04:41Z"
+  generation: 1
+  labels:
+    agents.x-k8s.io/sandbox-name: pr387-flow2-q48z9
+    test.agentcube.io/flow: pr387
+  name: pr387-claim-1
+  namespace: agentcube-flow-test
+  resourceVersion: "1107"
+  uid: 2ad30e9e-fd6e-419d-bc34-3ec2821432fe
+spec:
+  additionalPodMetadata:
+    labels:
+      test.agentcube.io/claim: pr387-claim-1
+  sandboxTemplateRef:
+    name: pr387-flow2
+  warmpool: pr387-flow2
+status:
+  conditions:
+  - lastTransitionTime: "2026-06-25T09:03:55Z"
+    message: Pod is Ready
+    observedGeneration: 2
+    reason: DependenciesReady
+    status: "True"
+    type: Ready
+  sandbox:
+    name: pr387-flow2-q48z9
+    podIPs:
+    - 10.42.0.9
+
+# adopted Sandbox
+apiVersion: agents.x-k8s.io/v1alpha1
+kind: Sandbox
+metadata:
+  annotations:
+    agents.x-k8s.io/pod-name: pr387-flow2-q48z9
+    agents.x-k8s.io/sandbox-template-ref: pr387-flow2
+  creationTimestamp: "2026-06-25T09:03:54Z"
+  generateName: pr387-flow2-
+  generation: 2
+  labels:
+    agents.x-k8s.io/claim-uid: 2ad30e9e-fd6e-419d-bc34-3ec2821432fe
+  name: pr387-flow2-q48z9
+  namespace: agentcube-flow-test
+  ownerReferences:
+  - apiVersion: extensions.agents.x-k8s.io/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: SandboxClaim
+    name: pr387-claim-1
+    uid: 2ad30e9e-fd6e-419d-bc34-3ec2821432fe
+  resourceVersion: "1105"
+  uid: 4b5046d7-a6fc-437c-9f3e-7cb6096ee619
+spec:
+  podTemplate:
+    metadata:
+      labels:
+        agents.x-k8s.io/claim-uid: 2ad30e9e-fd6e-419d-bc34-3ec2821432fe
+        agents.x-k8s.io/sandbox-template-ref-hash: dc60806a
+        app: pr387-flow2
+        test.agentcube.io/claim: pr387-claim-1
+        test.agentcube.io/flow: pr387
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - --workspace=/root
+        env:
+        - name: PICOD_AUTH_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              key: public.pem
+              name: picod-router-identity
+        image: picod:latest
+        imagePullPolicy: IfNotPresent
+        name: codeinterpreter
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+  replicas: 1
+  shutdownPolicy: Retain
+status:
+  conditions:
+  - lastTransitionTime: "2026-06-25T09:03:55Z"
+    message: Pod is Ready
+    observedGeneration: 2
+    reason: DependenciesReady
+    status: "True"
+    type: Ready
+  podIPs:
+  - 10.42.0.9
+  replicas: 1
+  selector: agents.x-k8s.io/sandbox-name-hash=85e2d515
+
+# adopted Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    agents.x-k8s.io/propagated-labels: agents.x-k8s.io/claim-uid,agents.x-k8s.io/sandbox-template-ref-hash,app,test.agentcube.io/claim,test.agentcube.io/flow
+  creationTimestamp: "2026-06-25T09:03:54Z"
+  labels:
+    agents.x-k8s.io/claim-uid: 2ad30e9e-fd6e-419d-bc34-3ec2821432fe
+    agents.x-k8s.io/sandbox-name-hash: 85e2d515
+    agents.x-k8s.io/sandbox-template-ref-hash: dc60806a
+    app: pr387-flow2
+    test.agentcube.io/claim: pr387-claim-1
+    test.agentcube.io/flow: pr387
+  name: pr387-flow2-q48z9
+  namespace: agentcube-flow-test
+  ownerReferences:
+  - apiVersion: agents.x-k8s.io/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Sandbox
+    name: pr387-flow2-q48z9
+    uid: 4b5046d7-a6fc-437c-9f3e-7cb6096ee619
+  resourceVersion: "1103"
+  uid: 9554d673-6e6b-43c0-8cb3-25c7ef5ae94a
+spec:
+  automountServiceAccountToken: false
+  containers:
+  - args:
+    - --workspace=/root
+    env:
+    - name: PICOD_AUTH_PUBLIC_KEY
+      valueFrom:
+        secretKeyRef:
+          key: public.pem
+          name: picod-router-identity
+    image: picod:latest
+    imagePullPolicy: IfNotPresent
+    name: codeinterpreter
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 32Mi
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: k3d-agentcube-flow-v046-server-0
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2026-06-25T09:03:55Z"
+    status: "True"
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: "2026-06-25T09:03:54Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2026-06-25T09:03:55Z"
+    status: "True"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2026-06-25T09:03:55Z"
+    status: "True"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2026-06-25T09:03:54Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://1bb04bbbe6308e248e2ffe41c253468d84f8cc6cbeb79d7dd80bee267e2065e1
+    image: docker.io/library/picod:latest
+    imageID: sha256:7499d9f90ab288da55b18a49f603237240dcd75493e290b38fc2eaf811281944
+    lastState: {}
+    name: codeinterpreter
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2026-06-25T09:03:55Z"
+  hostIP: 172.20.0.2
+  hostIPs:
+  - ip: 172.20.0.2
+  phase: Running
+  podIP: 10.42.0.9
+  podIPs:
+  - ip: 10.42.0.9
+  qosClass: Burstable
+  startTime: "2026-06-25T09:03:54Z"
+
+# all Sandboxes after claim
+pr387-flow2-q48z9	4b5046d7-a6fc-437c-9f3e-7cb6096ee619	owner=SandboxClaim/pr387-claim-1	ready=Ready:True,	pod=pr387-flow2-q48z9	podIPs=["10.42.0.9"]
+pr387-flow2-x5qtm	d7d81d4d-0f09-45d3-9d41-ceb28f34bd10	owner=SandboxWarmPool/pr387-flow2	ready=Ready:True,	pod=pr387-flow2-x5qtm	podIPs=["10.42.0.10"]
+pr387-flow2-xx7dt	19b759ee-a61d-4c23-96c8-d93867f00786	owner=SandboxWarmPool/pr387-flow2	ready=Ready:True,	pod=pr387-flow2-xx7dt	podIPs=["10.42.0.11"]
+
+# all Pods after claim
+pr387-flow2-q48z9	9554d673-6e6b-43c0-8cb3-25c7ef5ae94a	owner=Sandbox/pr387-flow2-q48z9	phase=Running	podIP=10.42.0.9
+pr387-flow2-x5qtm	556854eb-39c1-47b6-93c8-e63341ba7e8c	owner=Sandbox/pr387-flow2-x5qtm	phase=Running	podIP=10.42.0.10
+pr387-flow2-xx7dt	2e62c0ef-8fa3-4df1-983e-c5dbd9d5d45b	owner=Sandbox/pr387-flow2-xx7dt	phase=Running	podIP=10.42.0.11
+
+# WarmPool after refill
+apiVersion: extensions.agents.x-k8s.io/v1alpha1
+kind: SandboxWarmPool
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"extensions.agents.x-k8s.io/v1alpha1","kind":"SandboxWarmPool","metadata":{"annotations":{},"name":"pr387-flow2","namespace":"agentcube-flow-test"},"spec":{"replicas":2,"sandboxTemplateRef":{"name":"pr387-flow2"}}}
+  creationTimestamp: "2026-06-25T09:03:54Z"
+  generation: 1
+  name: pr387-flow2
+  namespace: agentcube-flow-test
+  resourceVersion: "1120"
+  uid: 7f3a44f7-6ab1-48e1-a903-f3b999bfcfe3
+spec:
+  replicas: 2
+  sandboxTemplateRef:
+    name: pr387-flow2
+status:
+  readyReplicas: 2
+  replicas: 2
+  selector: agents.x-k8s.io/warm-pool-sandbox=dc60806a
