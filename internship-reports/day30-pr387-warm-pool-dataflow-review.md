@@ -21,6 +21,69 @@
 
 > PicoD 是什么：PicoD 是 AgentCube 放在默认 code-interpreter runtime 镜像里的一个小 HTTP daemon，不是 Kubernetes 控制器，也不是新的 Kubernetes 资源。Router 找到 Pod IP 以后，请求实际打到 Pod 里的 PicoD；PicoD 监听默认 `8080`，提供 `/health`，以及需要 JWT 鉴权的 `/api/execute` 和 `/api/files`。当用户通过 SDK/API 要执行代码或读写文件时，Router 只是转发请求，真正调用 `exec.CommandContext` 执行命令、限制工作目录、处理 stdout/stderr、上传下载文件的是 PicoD。这里说“用户代码”更准确地说是这个 runtime 镜像或 workspace 里的代码/依赖/文件，由 PicoD 在同一个 sandbox 运行环境里执行；不应理解成一定还有一个单独的“用户代码容器”。
 
+### 以 math-agent 解高考数学题为例：新版完整序列图
+
+> 注释：下面这张图画的是“LLM 判断需要用 Python 算题”时的路径。如果题目只靠 LLM 自己推理就回答，没有触发 `run_python_code` tool，那 AgentCube 的 CodeInterpreter / Sandbox / PicoD 链路不会被使用。按当前 `cmd/cli/examples/math-agent/main.py` 代码，`run_python_code()` 每次 tool call 都会 `CodeInterpreterClient()` 新建一个 CodeInterpreter session，因此每次工具执行都会走一次 warm-pool claim adoption 流程；这个示例里没有显式调用 `stop()`，所以 session 主要依赖 TTL/GC 回收，而不是 math-agent 在工具函数里复用并清理同一个长期 client。
+
+```mermaid
+sequenceDiagram
+    participant User as User / 请求方
+    participant MA as math-agent HTTP service
+    participant LLM as OpenAI-compatible LLM
+    participant Tool as LangChain tool: run_python_code
+    participant SDK as AgentCube Python SDK
+    participant WM as WorkloadManager
+    participant ASC as agent-sandbox controller
+    participant SC as SandboxClaim
+    participant SB as adopted Sandbox
+    participant Store as Redis / Valkey Store
+    participant Router as AgentCube Router
+    participant PicoD as Pod / PicoD
+
+    Note over WM,PicoD: 前置状态：CodeInterpreter 已维护 SandboxTemplate 和 SandboxWarmPool；warm pool 中已有 ready Sandbox 及其 Pod；PicoD 在 Pod 内监听 8080。
+
+    User->>MA: POST / with math question
+    MA->>LLM: prompt plus run_python_code tool
+    LLM-->>MA: tool call with Python calculation code
+    MA->>Tool: run_python_code(code)
+
+    Tool->>SDK: CodeInterpreterClient()
+    SDK->>WM: POST /v1/code-interpreter (name=my-interpreter)
+    WM->>SC: create SandboxClaim(session-scoped claim name)
+    SC->>ASC: reconcile claim
+    ASC->>SB: adopt one ready Sandbox from warm pool
+    ASC->>SB: ownerRef: SandboxWarmPool -> SandboxClaim
+    ASC->>SC: status.sandbox.name = adopted Sandbox name
+    ASC->>SC: status.sandbox.podIPs = adopted Pod IP
+    WM->>SC: read status.sandbox.name
+    WM->>SB: get adopted Sandbox
+    WM->>PicoD: resolve real Pod by annotation / ownerRef fallback
+    WM->>Store: write session record with claim identity and Pod entrypoint
+    WM-->>SDK: sessionId
+
+    SDK->>Router: POST /v1/.../invocations/api/files (write script_*.py, x-agentcube-session-id)
+    Router->>Store: GetSandboxBySessionID(sessionId)
+    Store-->>Router: EntryPoints = adopted Pod IP:8080
+    Router->>PicoD: POST /api/files with Router-signed JWT
+    PicoD-->>Router: file written in sandbox workspace
+    Router-->>SDK: upload ok
+
+    SDK->>Router: POST /v1/.../invocations/api/execute ["python3", "script_*.py"]
+    Router->>Store: lookup session and update last activity
+    Store-->>Router: EntryPoints = same Pod IP:8080
+    Router->>PicoD: POST /api/execute with Router-signed JWT
+    PicoD->>PicoD: exec.CommandContext("python3", "script_*.py")
+    PicoD-->>Router: stdout / stderr / exit_code
+    Router-->>SDK: execute response
+    SDK-->>Tool: stdout as tool result
+    Tool-->>MA: calculation result
+    MA->>LLM: feed tool result back into agent graph
+    LLM-->>MA: final math explanation and answer
+    MA-->>User: JSON {"response": "..."}
+```
+
+> 通俗解释：math-agent 自己不直接进 Kubernetes Pod 里跑代码。它先让 LLM 判断“这题需要算一算”，LLM 发起 `run_python_code` 工具调用；这个工具再通过 AgentCube SDK 创建/使用一个 CodeInterpreter session。新版 warm-pool 路径里，WorkloadManager 创建的是 `SandboxClaim`，agent-sandbox 把一个已经热好的 `Sandbox` 分配给 claim，最后 Router 才通过 Store 里的 Pod IP 找到 Pod 内的 PicoD。PicoD 收到 `/api/files` 时把 Python 脚本写进 workspace，收到 `/api/execute` 时在同一个 sandbox 环境里执行 `python3 script_*.py`，把 stdout/stderr/exit_code 返回给 Router、SDK、tool、LLM，LLM 再组织成用户看到的高考数学题答案。
+
 目标：这次不再只解释 `agent-sandbox` API 接口适配，而是从实际项目运行流程理解 #387 的 warm pool adoption 数据流：warm pool 对象怎么创建、claim 怎么拿到 serving Sandbox、Pod 怎么被观测、WorkloadManager 为什么不能把 warm claim 当成同名 Sandbox 等待、Store 最终应该保存 claim 名还是 adopted Sandbox 名。
 
 > 注释：reviewer 当前更关心的是“运行时数据如何流动”，不是“某个 Go package import 从哪个版本改到哪个版本”。因此本报告用 Mermaid 和源码证据解释 `CodeInterpreter -> SandboxTemplate / SandboxWarmPool -> SandboxClaim -> adopted Sandbox -> Pod -> Store -> Router` 的真实链路。
