@@ -40,3 +40,4 @@
 - [Day 27：Agent Infra 职业能力地图与实习目标管理](day27-agent-infra-career-roadmap-and-internship-goals.md)
 - [Day 28：Agent Substrate 架构吃透与 AgentCube 差异化设计方向](day28-agent-substrate-architecture-and-agentcube-differentiation.md)
 - [Day 29：先分析 `cmd/agentd` 组件的作用](day29-agentd-component-role-analysis.md)
+- [Day 30：PR #387 Warm Pool Adoption 数据流 Review](day30-pr387-warm-pool-dataflow-review.md)
