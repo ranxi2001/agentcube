@@ -2,16 +2,18 @@
 
 日期：2026-06-25
 
-目标：这次不再只解释 `agent-sandbox` API 接口适配，而是从实际项目运行流程理解 #387 的 warm pool adoption 数据流：对象怎么创建、claim 怎么拿到 serving Sandbox、Pod 怎么被观测、watcher 为什么要分 direct path 和 claim path、Store 最终应该保存 claim 名还是 adopted Sandbox 名。
+目标：这次不再只解释 `agent-sandbox` API 接口适配，而是从实际项目运行流程理解 #387 的 warm pool adoption 数据流：warm pool 对象怎么创建、claim 怎么拿到 serving Sandbox、Pod 怎么被观测、WorkloadManager 为什么不能把 warm claim 当成同名 Sandbox 等待、Store 最终应该保存 claim 名还是 adopted Sandbox 名。
 
 > 注释：reviewer 当前更关心的是“运行时数据如何流动”，不是“某个 Go package import 从哪个版本改到哪个版本”。因此本报告用 Mermaid 和源码证据解释 `CodeInterpreter -> SandboxTemplate / SandboxWarmPool -> SandboxClaim -> adopted Sandbox -> Pod -> Store -> Router` 的真实链路。
+
+> 更正：本报告不应把“不使用 warm pool 的 direct Sandbox 路径”拿来和 “warm pool adoption 路径”做旧新对比。原来的实现也有 warm pool。正确对比对象是 warm pool 自身的观测模型：旧 helper / 旧理解更接近 `SandboxWarmPool -> Pod` 或从 claim 名直接推断 runtime 对象；#387 面对的 `agent-sandbox v0.4.6` 真实模型是 `SandboxWarmPool -> Sandbox -> Pod`，claim 通过 status 指向被 adopt 的 serving Sandbox。direct Sandbox 只作为 WorkloadManager 代码背景存在，不是本次 review 的主对照组。
 
 ## 一句话结论
 
 #387 的核心不是简单把 `agent-sandbox` 升到 `v0.4.6`，而是修正 AgentCube 对 warm-pool 运行模型的假设：
 
-- 旧理解更像：`SandboxWarmPool -> Pod` 或 `SandboxClaim name == serving Sandbox name == Pod name`。
-- 新模型是：`SandboxWarmPool -> pre-warmed Sandbox -> Pod`；请求到来后创建 `SandboxClaim`，`agent-sandbox` controller 从 warm pool 中 adopt 一个已有 Sandbox，并把 serving Sandbox 名写到 `SandboxClaim.status.sandbox.name`。
+- 旧 warm-pool 观测假设更像：从 `SandboxWarmPool -> Pod` 直接找 Pod，或者把 `SandboxClaim name` 当成 serving Sandbox / Pod 名去推断。
+- #387 需要适配的真实模型是：`SandboxWarmPool -> pre-warmed Sandbox -> Pod`；请求到来后创建 `SandboxClaim`，`agent-sandbox` controller 从 warm pool 中 adopt 一个已有 Sandbox，并把 serving Sandbox 名写到 `SandboxClaim.status.sandbox.name`。
 - AgentCube 必须通过 `SandboxClaim.status.sandbox.name` 找 adopted Sandbox，再从 adopted Sandbox 的 `agents.x-k8s.io/sandbox-pod-name` annotation 或 owner/label 关系找到 Pod。
 - Store 中仍应保存 `Kind=SandboxClaim` 和 `Name=<claim name>`，因为后续 delete / GC 应删除 claim；但 `SandboxID`、entrypoint、Pod IP 必须来自 adopted Sandbox / Pod。
 
@@ -84,47 +86,18 @@ flowchart LR
 
 > 注释：`SandboxTemplate` 和 `SandboxWarmPool` 是 CodeInterpreter controller 预先准备的 warm pool 基础设施；`SandboxClaim` 是每次 session create 时 WorkloadManager 创建的请求对象；`Sandbox` 和 Pod 的真实生命周期由 agent-sandbox controller 管理。
 
-## 旧直连路径：direct Sandbox
+## direct Sandbox 只作为代码背景
 
-当 CodeInterpreter 不使用 warm pool，或者 AgentRuntime 直接创建 sandbox 时，AgentCube 仍然创建一个 direct `Sandbox`。
+WorkloadManager 代码里仍然有不使用 warm pool 的 direct `Sandbox` 分支，例如 AgentRuntime 或 CodeInterpreter 未设置 `warmPoolSize` 时，会先注册 `WatchSandboxOnce(namespace, sandboxName)`，再创建同名 `Sandbox`。这段逻辑解释了为什么 #387 里需要把等待逻辑拆成两个函数：
 
-```mermaid
-sequenceDiagram
-    participant Router
-    participant WM as WorkloadManager
-    participant Store
-    participant SR as AgentCube SandboxReconciler
-    participant AS as agent-sandbox Sandbox controller
-    participant Pod
+- direct path：等待同名 `Sandbox` 的 Ready event。
+- warm claim path：等待 `SandboxClaim.status.sandbox.name` 指向 adopted Sandbox。
 
-    Router->>WM: POST /v1/code-interpreter or /v1/agent-runtime
-    WM->>WM: build direct Sandbox object
-    WM->>Store: StoreSandbox(creating placeholder)
-    WM->>SR: WatchSandboxOnce(namespace, sandboxName)
-    WM->>AS: create Sandbox CR
-    AS->>Pod: create Pod for Sandbox
-    AS->>AS: set Sandbox Ready=True
-    AS-->>SR: Sandbox update event
-    SR-->>WM: SandboxStatusUpdate{Sandbox}
-    WM->>Pod: get Pod IP by name/label/ownerRef
-    WM->>Pod: probe entrypoints
-    WM->>Store: UpdateSandbox(ready, EntryPoints)
-    WM-->>Router: sessionID, sandboxID, entrypoints
-```
+但这不是本报告的旧新模型对照。原来的 AgentCube 也有 warm pool，所以 reviewer 真正要看的不是 “no warm pool -> warm pool”，而是 “warm pool 的对象图从直接 Pod 观测，变成 claim adoption 后的 Sandbox/Pod 观测”。
 
-关键点：
+> 分析：这一区分很重要。direct watcher 的存在只能说明为什么 warm claim 不能复用同名 Sandbox watcher；它不能作为旧版 warm pool 的运行模型图。真正的 review 重点仍然是 `SandboxWarmPool -> Sandbox -> Pod`、`SandboxClaim.status.sandbox.name` 和 Store identity 分离。
 
-- `WatchSandboxOnce` 必须在创建 direct Sandbox 之前注册，避免 Ready event 太快发生而 missed。
-- `SandboxReconciler` 只 watch `Sandbox`，看到 `Ready=True` 才通知等待者。
-- direct path 的 sandbox 名、serving Sandbox 名和通常 Pod 名是一致的。
-
-对应源码：
-
-- `handleSandboxCreate`：direct path 下先注册 `WatchSandboxOnce`，然后 `createSandbox(...)`。
-- `waitForDirectSandboxReady`：只从 `resultChan` 收一次 ready Sandbox。
-- `SandboxReconciler.Reconcile`：只在 `getSandboxStatus(sandbox) == ready` 时发送 `SandboxStatusUpdate`。
-
-## 新 warm-pool 路径：SandboxClaim adoption
+## warm-pool 路径：SandboxClaim adoption
 
 warm pool 路径里，WorkloadManager 不应该等待自己创建的 placeholder Sandbox 变 Ready，因为真正 serving 的不是这个 placeholder，而是 agent-sandbox 从 warm pool adopt 的已有 Sandbox。
 
@@ -197,13 +170,15 @@ if codeInterpreter.Spec.WarmPoolSize != nil && *codeInterpreter.Spec.WarmPoolSiz
 
 `buildSandboxByCodeInterpreter` 是 session create 的对象构造点。
 
-### Non-warm path
+### Non-warm path 只是分支背景
 
 没有 warm pool 时：
 
 - 返回一个完整 `Sandbox`。
 - `sandboxEntry.Kind = Sandbox`。
 - 后续 create direct Sandbox。
+
+这段不是 #387 warm pool review 的对照结论，只是说明同一个 builder 里存在 direct `Sandbox` 分支。
 
 ### Warm path
 
@@ -415,7 +390,7 @@ result -> claim remains, session cleanup is wrong
 
 ### E2E tests
 
-`test/e2e/e2e_test.go` 的 warm pool helper 已经从旧 direct Pod assumption 改成支持：
+`test/e2e/e2e_test.go` 的 warm pool helper 已经从旧 warm-pool bare Pod assumption 改成支持：
 
 - 新模型：`SandboxWarmPool -> Sandbox -> Pod`
 - 旧路径 fallback：`SandboxWarmPool -> Pod`
@@ -429,6 +404,196 @@ result -> claim remains, session cleanup is wrong
 - warm pool 会补回到 `warmPoolSize`。
 
 > 注释：e2e 这里不是在测 Go API shape，而是在测真实 controller ownership graph。它能发现“claim created 了但没有真正 adopt warm Pod”这类 unit test 不容易发现的问题。
+
+但现有 e2e 仍然偏黑盒：它通过 CodeInterpreter API 执行一次请求，再回头检查最终对象关系。它能证明最终路径可用，却不够解释“每个 Kubernetes API 对象什么时候创建、哪个 controller 写了哪个 status、Pod 是否真的是预热 Pod 被 adopt，而不是 cold create”。reviewer 如果追问数据流，应该补一种 white-box / conformance 风格的测试工具。
+
+## 新增测试方法：Warm Pool Data-Flow Inspector
+
+目标：新增一个不以 CodeInterpreter 执行结果为中心的测试工具，直接驱动和观测 `agent-sandbox` 的 warm pool CRD/API 数据流。它不是 SDK e2e，不执行用户代码，也不以 stdout 是否正确作为通过条件；它关心的是 `SandboxTemplate`、`SandboxWarmPool`、`SandboxClaim`、`Sandbox`、`Pod` 这些对象如何被创建、adopt、更新 status、转移 ownerReference、补池和清理。
+
+推荐工具名：
+
+- 本地 / fork 验证：`test/tools/warmpool-flow-inspector`
+- 如果后续上游接受，可以改成 `test/integration/warmpool_flow` 或 `hack/inspect-warmpool-flow`
+
+> 注释：放在 `test/tools` 的好处是它不是常规 e2e，不要求每次 CI 都跑；它更像一个 white-box conformance/debug 工具，review 时可以用它生成数据流证据。当前仓库没有 `test/tools` 目录，所以正式提交前需要确认维护者是否接受新增工具目录；若不接受，可以先作为 fork-only 脚本保留。
+
+### 工具分层
+
+建议分两层实现，避免又回到黑盒 e2e：
+
+| 层级 | 名称 | 是否经过 CodeInterpreter | 主要问题 |
+| --- | --- | --- | --- |
+| L1 | agent-sandbox CRD data-flow probe | 否 | warm pool controller 是否按 `SandboxWarmPool -> Sandbox -> Pod` 创建预热资源，`SandboxClaim` 是否真正 adopt 预热 Sandbox |
+| L2 | AgentCube WorkloadManager adapter probe | 可选，最小经过 WM API | WorkloadManager 是否把 claim status、adopted Sandbox、Pod IP 和 Store 字段映射正确 |
+
+Day30 当前优先建议做 L1。原因是 reviewer 现在问的是数据怎么流，不是 CodeInterpreter SDK 是否可用。L1 直接测 Kubernetes API 和 controller 行为，能把 agent-sandbox 本身的数据流和 AgentCube adapter 逻辑拆开。
+
+### L1：直接驱动 agent-sandbox API
+
+L1 工具不创建 `CodeInterpreter`，而是直接创建 agent-sandbox 扩展资源：
+
+1. 创建 `SandboxTemplate`，PodTemplate 使用一个最小可运行镜像。
+2. 创建 `SandboxWarmPool`，`spec.replicas=N`，`spec.templateRef.name=<template>`。
+3. 通过 watch 观察 `Sandbox` 创建。
+4. 通过 watch 观察 Pod 创建并进入 Running/Ready。
+5. 记录 warm pool 初始 `Sandbox UID -> Pod UID` 集合。
+6. 创建 `SandboxClaim`，`spec.templateRef.name=<template>`。
+7. 等待 `SandboxClaim.status.sandbox.name` 非空。
+8. 读取 adopted Sandbox，确认它来自第 5 步的 warm pool 初始集合。
+9. 确认 adopted Sandbox ownerReference 从 `SandboxWarmPool` 转为 `SandboxClaim`。
+10. 确认 Pod ownerReference 仍指向 adopted Sandbox，Pod UID 与预热阶段相同。
+11. 确认 Pod name 可从 adopted Sandbox 的 `SandboxPodNameAnnotation` 或 ownerRef fallback 找到。
+12. 确认 warm pool refill：新的 warm Sandbox/Pod 被创建，warm pool 可用数量回到 N。
+13. 删除 `SandboxClaim`，观察 adopted Sandbox/Pod 是否按 controller 语义清理或释放，至少不能留下指向已删除 claim 的孤儿 ownerReference。
+
+> 注释：这里使用的是 #387 目标版本 `agent-sandbox v0.4.6` 的 `v1alpha1` 语义，`SandboxClaim.spec.templateRef.name` 指向 template / warm-pool 关联名。后续 `v0.5.x` / `v1beta1` 的 `WarmPoolRef` 是另一个 follow-up，不应混进 #387 的验证口径。
+
+### 观测 API 和字段
+
+工具应使用 dynamic client + unstructured 读取对象，尽量不要依赖某个生成 client。这样它能输出原始 API 字段，也更适合跨 `v1alpha1` / `v1beta1` 做后续扩展。
+
+| 对象 | GVR | 关键字段 / 断言 |
+| --- | --- | --- |
+| `SandboxTemplate` | `extensions.agents.x-k8s.io/v1alpha1/sandboxtemplates` | create 成功；template 名与 warm pool ref 一致 |
+| `SandboxWarmPool` | `extensions.agents.x-k8s.io/v1alpha1/sandboxwarmpools` | `spec.replicas=N`；`spec.templateRef.name=<template>` |
+| warm `Sandbox` | `agents.x-k8s.io/v1alpha1/sandboxes` | ownerReference 初始为 `SandboxWarmPool/<name>`；Ready condition；UID 被记录 |
+| warm Pod | core `pods` | ownerReference 为 `Sandbox/<warmSandbox>`；Pod UID 被记录；phase Running；PodIP |
+| `SandboxClaim` | `extensions.agents.x-k8s.io/v1alpha1/sandboxclaims` | create 成功；`status.sandbox.name` 非空；`status.sandbox.podIPs` 如存在应和 PodIP 对齐 |
+| adopted `Sandbox` | `agents.x-k8s.io/v1alpha1/sandboxes` | name 等于 `claim.status.sandbox.name`；UID 属于初始 warm set；ownerReference 变为 `SandboxClaim/<claim>` |
+| adopted Pod | core `pods` | UID 属于初始 warm set；ownerRef 指向 adopted Sandbox；name 可由 annotation 或 ownerRef fallback 解析 |
+| refill `Sandbox/Pod` | `sandboxes` / `pods` | claim 后新增一组 ownerReference 为 `SandboxWarmPool/<name>` 的 warm resources |
+
+### Watch-first 设计
+
+这个工具应先注册 watches，再创建对象，避免丢失很快发生的事件：
+
+```text
+start watch SandboxTemplate / SandboxWarmPool / SandboxClaim / Sandbox / Pod
+create SandboxTemplate
+create SandboxWarmPool
+wait initial warm Sandbox + Pod ready
+snapshot warm Sandbox UID / Pod UID
+create SandboxClaim
+wait claim.status.sandbox.name
+read adopted Sandbox
+read adopted Pod
+assert ownership + UID continuity + status/podIP
+wait warm pool refill
+delete claim and fixtures
+emit JSON timeline + Mermaid graph
+```
+
+这和现有 e2e 的本质区别是：e2e 是先调用上层 API，然后最终检查；inspector 是从第一步开始 watch Kubernetes API 事件，能给出每条边的时间戳和对象 UID。
+
+### 建议命令行
+
+```bash
+go run ./test/tools/warmpool-flow-inspector \
+  --namespace agentcube-flow-test \
+  --name pr387-flow \
+  --replicas 2 \
+  --image registry.k8s.io/pause:3.10 \
+  --timeout 120s \
+  --output json \
+  --cleanup
+```
+
+如果 `pause` 镜像不能让 agent-sandbox 标记 Sandbox Ready，则改用 `busybox:1.36`：
+
+```bash
+--image busybox:1.36 --command sleep --args 3600
+```
+
+> 分析：这里刻意不用 `picod` 或 CodeInterpreter 默认镜像作为核心依赖。工具目标是验证 CRD/controller 数据流和 Pod 创建，不是验证 PicoD HTTP 执行。只有 L2 需要验证 WorkloadManager entrypoint 时，才需要带端口和可探测服务。
+
+### 输出格式
+
+工具至少输出两类结果。
+
+第一类是机器可读 JSON：
+
+```json
+{
+  "namespace": "agentcube-flow-test",
+  "warmPool": "pr387-flow",
+  "replicas": 2,
+  "events": [
+    {"t": "2026-06-25T10:00:01Z", "kind": "SandboxWarmPool", "name": "pr387-flow", "action": "created"},
+    {"t": "2026-06-25T10:00:03Z", "kind": "Sandbox", "name": "pr387-flow-abc", "uid": "s1", "owner": "SandboxWarmPool/pr387-flow", "action": "created"},
+    {"t": "2026-06-25T10:00:06Z", "kind": "Pod", "name": "pr387-flow-abc", "uid": "p1", "owner": "Sandbox/pr387-flow-abc", "phase": "Running"},
+    {"t": "2026-06-25T10:00:10Z", "kind": "SandboxClaim", "name": "claim-1", "action": "created"},
+    {"t": "2026-06-25T10:00:11Z", "kind": "SandboxClaim", "name": "claim-1", "statusSandbox": "pr387-flow-abc"},
+    {"t": "2026-06-25T10:00:12Z", "kind": "Sandbox", "name": "pr387-flow-abc", "uid": "s1", "owner": "SandboxClaim/claim-1", "action": "adopted"}
+  ],
+  "assertions": {
+    "claimStatusPointsToExistingSandbox": true,
+    "adoptedSandboxCameFromWarmPool": true,
+    "adoptedPodUidUnchanged": true,
+    "ownerRefTransferredToClaim": true,
+    "warmPoolRefilled": true
+  }
+}
+```
+
+第二类是可贴给 reviewer 的 Mermaid：
+
+```mermaid
+flowchart LR
+    Template[SandboxTemplate/pr387-flow] --> WarmPool[SandboxWarmPool/pr387-flow]
+    WarmPool -->|pre-create UID=s1| WarmSandbox[Sandbox/pr387-flow-abc]
+    WarmSandbox -->|ownerRef before claim| Pod[Pod/pr387-flow-abc UID=p1]
+    Claim[SandboxClaim/claim-1] -->|status.sandbox.name| WarmSandbox
+    Claim -->|ownerRef after adoption| WarmSandbox
+    WarmPool -->|refill creates| RefillSandbox[Sandbox/pr387-flow-def]
+```
+
+### 失败归因矩阵
+
+| 失败点 | 说明 | 更可能归因 |
+| --- | --- | --- |
+| `SandboxWarmPool` 创建后没有 `Sandbox` | warm pool controller 没创建预热资源 | agent-sandbox warm pool controller / CRD spec |
+| 有 `Sandbox` 但没有 Pod | Sandbox controller 没把 Pod 创建出来 | agent-sandbox runtime controller / PodTemplate |
+| Pod 已 Running 但 `Sandbox` 不 Ready | readiness condition 同步问题 | agent-sandbox status controller |
+| `SandboxClaim.status.sandbox.name` 一直为空 | claim 没有被 reconcile 或没有匹配 warm candidate | SandboxClaim controller adoption |
+| status 指向不存在的 `Sandbox` | claim status 完整性问题 | agent-sandbox controller bug |
+| adopted Sandbox UID 不在初始 warm set | 实际走了 cold create，不是 warm adoption | warm pool policy / claim matching |
+| ownerReference 未从 WarmPool 转为 Claim | adoption 不完整 | `completeAdoption` 行为 |
+| Pod UID 改变 | 不是 adopt 预热 Pod，而是新建 Pod | adoption / sandbox controller |
+| warm pool 未 refill | warm pool 维持 replicas 失败 | warm pool controller |
+
+这张矩阵比黑盒 e2e 更有 review 价值，因为它能把“请求执行失败”拆成具体 API 边的失败，而不是只告诉我们 CodeInterpreter stdout 不对。
+
+### L2：可选的 WorkloadManager adapter probe
+
+L2 不必一开始做。等 L1 证明 agent-sandbox data flow 后，再补一个小工具或测试模式验证 AgentCube adapter：
+
+1. 在已有 warm pool ready 的前提下，调用 WorkloadManager create API 创建 session。
+2. 不执行 CodeInterpreter 代码，只读取 create response、Store 记录和 K8s 对象。
+3. 断言 WorkloadManager 创建的是 `SandboxClaim`。
+4. 断言 response / Store 中：
+   - `Kind == SandboxClaim`
+   - `Name == SandboxClaim.Name`
+   - `SandboxID == adopted Sandbox UID`
+   - `EntryPoints` 使用 adopted Pod IP
+5. 删除 session，断言 delete path 删除 `SandboxClaim`，不是删除 adopted Sandbox 名。
+
+L2 仍然不是传统黑盒 e2e，因为它不关心用户代码执行结果，而是验证 AgentCube 对 agent-sandbox data-flow 的读取和映射。
+
+### 是否应该进入 #387
+
+建议先不直接把完整 inspector 工具塞进 #387。原因：
+
+- #387 已经是 compatibility feature，changed files 较多。
+- 新工具会新增目录、命令、文档和 CI 入口，review 面会扩大。
+- 它更适合作为 follow-up PR 或 fork-only validation evidence。
+
+更干净的做法：
+
+1. 先在 fork/local 写 `test/tools/warmpool-flow-inspector`，跑出 JSON timeline 和 Mermaid。
+2. 若发现 #387 逻辑 bug，再回到 #387 做最小修复。
+3. 若工具本身稳定，再单独开 upstream PR：`test: add warm pool data-flow inspector`。
+4. PR 描述明确它不是 e2e，而是 Kubernetes object-flow conformance/debug 工具。
 
 ## Mermaid：reviewer 最关心的数据流
 
@@ -476,11 +641,12 @@ flowchart LR
 
 当前 #387 的 warm pool data flow 改动方向是合理的：
 
-1. direct path 和 claim path 分开等待，避免把 direct `Sandbox` watcher 误用于 warm claim adoption。
+1. warm claim path 不再复用同名 direct `Sandbox` watcher，而是按 `SandboxClaim.status.sandbox.name` 找 adopted Sandbox。
 2. claim path 通过 `SandboxClaim.status.sandbox.name` 找 serving Sandbox，符合 `agent-sandbox v0.4.6` controller 语义。
-3. Pod 查找先用 `SandboxPodNameAnnotation`，再 fallback label/ownerRef，兼容 warm-pool adopted Pod 和 direct Sandbox Pod。
+3. Pod 查找先用 `SandboxPodNameAnnotation`，再 fallback label/ownerRef，能覆盖 warm-pool adopted Pod。
 4. Store 记录保留 claim name，同时使用 adopted Sandbox UID 和 Pod IP，区分 control identity 与 runtime identity。
 5. e2e helper 从旧 Pod ownership 过渡到 `SandboxWarmPool -> Sandbox -> Pod`，能真实验证 adoption graph。
+6. 还应新增 white-box data-flow inspector，直接测 `SandboxTemplate/SandboxWarmPool/SandboxClaim/Sandbox/Pod` API 和 owner/status 转移，避免只依赖 CodeInterpreter 黑盒 e2e。
 
 ## Review 关注点 / 可追问点
 
@@ -535,7 +701,7 @@ warm path 创建失败时，rollback 删除 `SandboxClaim` 并删除 Store place
 ```text
 The important runtime change is the identity split in the warm-pool path.
 
-With agent-sandbox v0.4.x, a CodeInterpreter warm pool is no longer observed as a direct/bare Pod. The steady-state ownership chain is:
+With agent-sandbox v0.4.x, the important warm-pool observation model is no longer a bare Pod list directly under the warm pool. The steady-state ownership chain is:
 
 CodeInterpreter -> SandboxWarmPool -> pre-warmed Sandbox -> Pod
 
@@ -548,8 +714,9 @@ The Store record intentionally keeps Name=<SandboxClaim name> and Kind=SandboxCl
 
 ## 后续建议
 
-1. 当前不需要给 #387 继续加代码，先等 reviewer 对数据流是否理解一致。
-2. 如果 reviewer 要求解释，优先用上面的 Mermaid / 英文草稿说明 control identity 与 runtime identity 的分离。
-3. 如果 reviewer 追问 Pod informer race，可以建议 follow-up：给 `GetSandboxPodIP` 加短 retry，或将 `claim.status.sandbox.podIPs` 作为 fallback。
-4. 不把 `agent-sandbox v0.5.x` / `v1beta1`、Sleep/Resume、PicoD cleanup 混进 #387。
-5. 如果要发 upstream comment，先让用户确认英文全文。
+1. 修正 review 口径：不要拿 no-warm-pool direct Sandbox 图和 warm-pool adoption 图做旧新对比；direct path 只用于解释 WorkloadManager 为什么需要两套等待逻辑。
+2. 如果 reviewer 要求解释，优先用上面的 Mermaid / 英文草稿说明 warm pool adoption、claim status bridge、control identity 与 runtime identity 的分离。
+3. 新增测试方法优先做 fork/local `warmpool-flow-inspector`，直接测 CRD/API/object flow；不要只靠 CodeInterpreter e2e 黑盒结果。
+4. 如果 reviewer 追问 Pod informer race，可以建议 follow-up：给 `GetSandboxPodIP` 加短 retry，或将 `claim.status.sandbox.podIPs` 作为 fallback。
+5. 不把 `agent-sandbox v0.5.x` / `v1beta1`、Sleep/Resume、PicoD cleanup 混进 #387。
+6. 如果要发 upstream comment 或新增测试工具 PR，先让用户确认英文全文和 PR 范围。
