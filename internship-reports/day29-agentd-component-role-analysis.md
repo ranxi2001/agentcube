@@ -533,22 +533,155 @@ sandbox Pod
 
 当前文档中 “PicoD / AgentD” 混写，容易让读者误会 `agentd` 是默认沙箱内 daemon；但从实际部署看，默认沙箱内 daemon 是 `picod`。
 
+## 清理 agentd 的 PR 工作记录
+
+追加工作时间：2026-06-25
+
+mentor 反馈确认：`agentd` 确实是早期设计留下来的组件，当前项目已经不用了。因此本轮从“组件分析”进入“干净删除 upstream PR 准备”。
+
+本轮 `/goal`：
+
+> Create a clean upstream PR branch that removes the unused agentd component, validates the codebase, and records the Day29/goal notes on the intern branch.
+
+> 注释：这里的“干净”有两个含义。第一，PR 分支必须从 `upstream/main` 切出，只包含删除 `agentd` 相关代码和必要引用更新。第二，中文实习报告、TODO、PROGRESS 等学习记录只留在 `intern` 分支，不能混进 upstream-facing PR。
+
+### PR 分支状态
+
+| 项目 | 结果 |
+| --- | --- |
+| PR 分支 | `cleanup/remove-unused-agentd` |
+| base | `upstream/main bed6bd4cb9d965706e132aea9f252a3340849935` |
+| fork remote | `origin` / `ranxi2001/agentcube` |
+| commit | `30dd584e8fea775f89e91917bc78e580334af2f0 cleanup: remove unused agentd component` |
+| push 状态 | 已推送到 `origin cleanup/remove-unused-agentd:cleanup/remove-unused-agentd` |
+| upstream PR | 尚未创建；需要用户明确确认 title/body/target 后再发 |
+
+本轮删除和更新范围：
+
+| 类型 | 文件 / 位置 | 说明 |
+| --- | --- | --- |
+| 删除代码 | `cmd/agentd/main.go` | 移除未使用的 `agentd` binary entrypoint |
+| 删除代码 | `pkg/agentd/agentd.go` | 移除 annotation-driven idle cleanup controller 实现 |
+| 删除测试 | `pkg/agentd/agentd_test.go` | 组件删除后测试也删除 |
+| 删除 ownership | `pkg/agentd/OWNERS` | 组件目录删除后不再需要 |
+| 构建 | `Makefile` | 删除 `build-agentd`，`build-all` 不再构建 `agentd`，`clean` 不再删除 `bin/agentd` |
+| 文档 | `CONTRIBUTING.md`、`.github/copilot-instructions.md` | build target 列表移除 `agentd` |
+| 文档 | `docs/agentcube/docs/developer-guide/*.md`、`docs/agentcube/docs/architecture/components.md`、`docs/agentcube/docs/intro.md` | 将 AgentD / PicoD 混写改成当前真实的 PicoD / WorkloadManager / Router 口径 |
+| e2e 日志 | `test/e2e/run_e2e.sh` | sandbox 日志描述不再说 `agentd` |
+| Go module checksum | `go.sum` | `make gen-check` 执行 `go mod tidy` 后移除两个 stale `golang.org/x/oauth2 v0.36.0` checksum |
+
+> 分析：这次没有引入替代实现，因为 `agentd` 当前不是默认 release、Helm、e2e 或请求路径组件。删除它不会改变 WorkloadManager / Router / PicoD 当前主链路；真正要保留的是文档里的职责边界，避免 reviewer 以为我们把 sandbox 内执行 daemon 删掉了。
+
+### 验证结果
+
+PR 分支上已跑过：
+
+```bash
+go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+make lint
+make build-all
+make gen-check
+go test ./test/e2e -run '^$' -count=1
+git diff --check
+cd docs/agentcube && npm ci && npm run build
+```
+
+结果：
+
+| 验证项 | 结果 | 备注 |
+| --- | --- | --- |
+| 非 e2e Go 单测 | 通过 | 排除 `test/e2e`，因为完整 e2e 需要运行中的服务和集群环境 |
+| `make lint` | 通过 | 删除组件后没有 lint 回归 |
+| `make build-all` | 通过 | 现在只构建 `workloadmanager` 和 `agentcube-router` |
+| `make gen-check` | 通过 | 提交后重跑通过；未留下 generated diff |
+| e2e 静态编译检查 | 通过 | `go test ./test/e2e -run '^$' -count=1` |
+| whitespace check | 通过 | `git diff --check` |
+| docs build | 通过 | 先执行 `npm ci` 安装 Docusaurus 依赖；`npm run build` 成功，仅有 blog truncate 和 Browserslist stale warning |
+
+删除后还做了全仓引用扫描：
+
+```bash
+rg -n "agentd|AgentD|PicoD / AgentD|PicoD/AgentD|ghcr.io/volcano-sh/agentd|cmd/agentd|pkg/agentd|build-agentd" . \
+  -g '!docs/agentcube/node_modules/**' \
+  -g '!internship-reports/**' \
+  -g '!PROGRESS.md'
+```
+
+结果：PR 分支中没有剩余命中。
+
+### Review 风险口径
+
+| 风险 / reviewer 疑问 | 当前回答 |
+| --- | --- |
+| 这是不是 breaking change？ | 对手工运行 `make build-agentd` 或自定义部署 `agentd` 的用户是删除行为；但官方 release workflow、Helm chart、e2e 和默认 runtime path 都未使用 `agentd`，PR 口径应明确这是清理 unused initial-design component。 |
+| 会不会影响 sandbox 内代码执行？ | 不会。当前 sandbox 内默认执行 daemon 是 `picod`，不是 `agentd`。 |
+| 会不会影响 session GC？ | 当前主链路 GC 在 WorkloadManager / Store 里；`agentd` 自己读 Kubernetes annotation 的 idle cleanup 没有被默认部署。 |
+| 为什么改 `go.sum`？ | `make gen-check` 会运行 `go mod tidy`。删除 `agentd` 后 tidy 保持当前 dependency graph，只额外清掉 upstream 已存在的 stale `golang.org/x/oauth2 v0.36.0` checksum。 |
+| 为什么也改 docs？ | 文档中存在 `PicoD / AgentD` 混写，删除代码后必须把用户可见组件说明同步到当前真实组件。 |
+
+### Upstream PR 草稿
+
+建议 title：
+
+```text
+cleanup: remove unused agentd component
+```
+
+建议 body：
+
+````markdown
+**What type of PR is this?**
+
+/kind cleanup
+
+**What this PR does / why we need it**:
+
+This PR removes the unused `agentd` component. `agentd` was part of an earlier design, but the current runtime path no longer starts or publishes it: release builds publish `workloadmanager`, `agentcube-router`, and `picod`; the Helm chart deploys Workload Manager and Router; CodeInterpreter sandboxes use PicoD.
+
+Changes:
+- Remove `cmd/agentd` and `pkg/agentd`.
+- Remove `make build-agentd` and stop including it in `make build-all`.
+- Update docs and e2e log collection wording to refer to PicoD/user containers instead of AgentD.
+- Keep `go.sum` aligned with `go mod tidy` because `make gen-check` runs tidy.
+
+**Which issue(s) this PR fixes**:
+
+None.
+
+**Special notes for your reviewer**:
+
+This PR was prepared with AI assistance. I verified that `agentd` has no remaining references after the removal and that the default runtime path is still Workload Manager / Router / PicoD.
+
+The `go.sum` change only removes stale `golang.org/x/oauth2 v0.36.0` checksum entries produced by `go mod tidy` during `make gen-check`.
+
+Tests:
+- `go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1`
+- `make lint`
+- `make build-all`
+- `make gen-check`
+- `go test ./test/e2e -run '^$' -count=1`
+- `cd docs/agentcube && npm ci && npm run build`
+- `git diff --check`
+
+**Does this PR introduce a user-facing change?**:
+
+```release-note
+NONE
+```
+````
+
+> 注释：upstream PR 还没有发。根据本地协作规则，创建 upstream PR、issue、review comment、maintainer mention 都需要用户明确确认目标仓库、title 和 body。
+
 ## 下一步建议
 
-如果继续分析这个组件，不建议马上改代码。下一步可以做三件事：
+分析阶段已经结束，当前更合适的下一步是开 cleanup PR，而不是继续追功能实现。
 
-1. 继续追历史 PR，尤其是 `2c9131c fix(agentd): use custom idle timeout annotation for garbage collection`，看 `agentd` 是不是早期 idle GC 方案留下来的。
-2. 检查是否有已关闭 issue / proposal 讨论过 AgentD 与 PicoD 的职责拆分。
-3. 如果准备 upstream-facing 反馈，优先做文档澄清，不直接删组件。
-
-如果后续要提 issue / PR，优先方向不是功能改造，而是文档澄清：
-
-- 把 docs 里 “agentd runs inside sandboxes” 改成当前真实职责，或明确历史/未来计划。
-- 把 PicoD 和 AgentD 的边界写清楚。
-- 如果 `agentd` 已经不是主链路组件，讨论是否保留、迁移到 WorkloadManager GC、或补齐 Store cleanup。
+1. 用户确认上面的 title/body 后，从 `ranxi2001:cleanup/remove-unused-agentd` 向 `volcano-sh/agentcube:main` 创建 upstream PR。
+2. PR 说明里把 `agentd` 的历史/未使用性质讲清楚，避免 reviewer 误以为删除的是 PicoD。
+3. 如果 reviewer 要求 issue 先行，再把本报告里的运行证据整理成英文 issue comment。
 
 ## 本轮没有做的事
 
-- 没有修改 `cmd/agentd` 或 `pkg/agentd` 代码。
-- 没有跑真实 Kubernetes controller。
-- 没有分析 PR #379 的 SnapStart 版本里是否扩展了 `agentd`，本报告只针对当前 upstream `main`。
+- 没有创建 upstream PR；只准备并推送了 fork 分支。
+- 没有修改当前 WorkloadManager / Router / PicoD 主链路行为。
+- 没有跑完整 e2e 集群场景；本轮做的是单测、构建、lint、codegen、docs build 和 e2e package 静态检查。
