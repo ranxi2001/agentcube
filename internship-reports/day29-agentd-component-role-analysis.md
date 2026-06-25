@@ -533,6 +533,140 @@ sandbox Pod
 
 当前文档中 “PicoD / AgentD” 混写，容易让读者误会 `agentd` 是默认沙箱内 daemon；但从实际部署看，默认沙箱内 daemon 是 `picod`。
 
+## PicoD 源码速读：当前真正的 sandbox 内 daemon
+
+追加理解时间：2026-06-25
+
+一句话定位：PicoD 是运行在 CodeInterpreter sandbox Pod 内部的 HTTP data-plane daemon，负责接收 Router 转发进来的请求，然后在 sandbox 容器里执行命令、读写文件、返回结果。它不是 Kubernetes controller，不 watch CRD，不管理 Store，也不负责 session GC。
+
+> 注释：这里的 data-plane daemon 指“真正处理用户请求的数据面进程”。用户调用 SDK 后，请求先到 Router；Router 查 Store 找到 session 对应的 sandbox entrypoint，再把 `/api/execute`、`/api/files` 这类请求转发给 sandbox 内部的 PicoD。WorkloadManager 负责创建 sandbox 和注入认证材料，PicoD 只处理进入自己 HTTP server 的请求。
+
+### 入口和启动参数
+
+`cmd/picod/main.go` 做的事情很直接：
+
+- 读取 `--port`，默认 `8080`。
+- 读取 `--workspace`，默认空；空时 `pkg/picod/server.go` 会使用当前工作目录。
+- 创建 `picod.NewServer(config)`。
+- 用 `signal.NotifyContext` 处理 `SIGTERM` / interrupt，支持 HTTP server graceful shutdown。
+
+这和旧 `agentd` 的差异很明显：PicoD 不调用 `ctrl.GetConfigOrDie()`，不需要 Kubernetes kubeconfig，不注册 controller-runtime manager。它是普通 HTTP server，而不是 Kubernetes controller。
+
+### HTTP 路由和认证边界
+
+`pkg/picod/server.go` 初始化 Gin server，并注册两类路由：
+
+| 路由 | 是否鉴权 | 作用 |
+| --- | --- | --- |
+| `GET /health` | 否 | 健康检查，返回 `status/service/version/uptime` |
+| `POST /api/execute` | 是 | 执行命令 |
+| `POST /api/files` | 是 | 上传文件，支持 JSON base64 和 multipart |
+| `GET /api/files?path=...` | 是 | 列目录 |
+| `GET /api/files/*path` | 是 | 下载文件 |
+
+认证材料来自环境变量：
+
+```text
+PICOD_AUTH_PUBLIC_KEY
+```
+
+`pkg/picod/auth.go` 启动时从该环境变量读取 PEM 格式 RSA public key；如果没读到，server 直接启动失败。所有 `/api/*` 请求都必须带：
+
+```text
+Authorization: Bearer <jwt>
+```
+
+PicoD 用 public key 验证 JWT，只接受 RSA 签名，并要求 token 有 `exp` 和 `iat`。它不负责签发 token；签发侧在 Router。WorkloadManager / CodeInterpreter controller 负责把 Router identity secret 里的 public key 注入到 CodeInterpreter sandbox 环境变量里。
+
+> 分析：PicoD 的安全模型不是“自己判断谁是用户、谁有权限”，而是信任 Router 签发的 JWT。也就是说，PicoD 是 sandbox 内执行端，Router 是入口和鉴权/签名端，WorkloadManager 是创建和注入环境端。把这三个职责分清楚，才能正确判断改动影响面。
+
+### 命令执行能力
+
+`pkg/picod/execute.go` 的 `POST /api/execute` 接收：
+
+```json
+{
+  "command": ["python3", "-c", "print(1+1)"],
+  "timeout": "60s",
+  "working_dir": ".",
+  "env": {"KEY": "VALUE"}
+}
+```
+
+核心行为：
+
+- `command[0]` 是可执行文件，后续元素是参数。
+- 默认 timeout 是代码里的 `60s`。
+- 默认工作目录是 PicoD 的 `workspaceDir`。
+- 如果请求指定 `working_dir`，会先通过 workspace 路径检查，再在需要时创建目录。
+- `env` 会追加到当前进程环境里。
+- 通过 `exec.CommandContext` 执行命令；这在代码里显式允许，因为 PicoD 的职责就是在 sandbox 中执行用户命令。
+- 返回 `stdout`、`stderr`、`exit_code`、`duration`、`start_time`、`end_time`。
+- timeout 时返回 exit code `124`。
+
+> 注释：PicoD 允许执行任意命令不是漏洞本身，而是 CodeInterpreter 的产品能力。真正的安全边界在 Router JWT、Kubernetes 网络可达性、sandbox/container 隔离、资源限制和 workspace/path 限制上。
+
+### 文件 API 和 workspace 边界
+
+`pkg/picod/files.go` 提供三类文件能力：
+
+- 上传：`POST /api/files`，支持 multipart 或 JSON base64。
+- 下载：`GET /api/files/<path>`。
+- 列目录：`GET /api/files?path=<path>`。
+
+PicoD 维护一个 `workspaceDir`：
+
+- 如果启动时传 `--workspace`，使用该目录。
+- 如果没传，使用当前工作目录。
+- 当前 upstream PicoD Dockerfile 的工作目录是 `/root/`；PR #403 只把 binary 安装路径改到 `/usr/local/bin/picod`，没有改变 `WORKDIR /root/`，所以默认 workspace 语义不变。
+
+路径保护主要靠 `sanitizePath` 和 `mkdirSafe`：
+
+- 把绝对路径按 workspace 内相对路径处理。
+- 用 `filepath.Rel` 防止 `..` 路径逃逸。
+- 对已存在路径尝试解析 symlink，避免通过 symlink 指向 workspace 外部。
+- `mkdirSafe` 额外处理创建目录时已有父路径包含 symlink 的场景。
+
+这说明 PicoD 至少有明确的 workspace jail 设计意图。后续如果专门审 PicoD security，可以继续把文件上传、symlink、并发写入、权限 mode、workspace 默认目录作为专项测试面。
+
+### 和 Router / WorkloadManager / Store 的关系
+
+当前主链路可以理解成：
+
+```text
+SDK / User
+  -> Router
+  -> Store lookup session entrypoint
+  -> reverse proxy to sandbox Pod
+  -> PicoD /api/execute or /api/files
+```
+
+WorkloadManager 在另一侧负责：
+
+```text
+CodeInterpreter create
+  -> build Sandbox / SandboxClaim
+  -> inject PICOD_AUTH_PUBLIC_KEY when authMode=picod
+  -> wait for sandbox entrypoint ready
+  -> write session entry into Store
+```
+
+PicoD 自己不写 Store，也不知道 session 是否 expired。它只看到 Router 转发进来的已签名请求。
+
+### 和 agentd 的关键区别
+
+| 维度 | PicoD | 旧 `agentd` |
+| --- | --- | --- |
+| 运行位置 | sandbox Pod 内 | 需要连 Kubernetes API 的 controller 进程 |
+| 是否默认使用 | 是，CodeInterpreter 使用 `ghcr.io/volcano-sh/picod:latest` | 否，官方 release / Helm / e2e 默认不启动 |
+| 主要职责 | 执行命令、文件 API、JWT 验证 | 读 Sandbox annotation，按 idle timeout 删除 Sandbox |
+| 是否处理用户请求 | 是 | 否 |
+| 是否 watch CRD | 否 | 是，watch `agent-sandbox` `Sandbox` |
+| 是否管理 Store | 否 | 否 |
+| 删除后是否影响代码执行 | 不能删 PicoD；它是当前执行端 | 删除旧 `agentd` 不影响当前 PicoD 执行链路 |
+
+> 分析：这就是 Day29 cleanup PR 的核心答辩点。我们删除的是旧 `agentd` controller，不是 PicoD。PicoD 才是当前 CodeInterpreter 的 sandbox 内 daemon；因此所有文档中 “AgentD handles execution” 的说法都应该改成 PicoD。
+
 ## 清理 agentd 的 PR 工作记录
 
 追加工作时间：2026-06-25
@@ -735,16 +869,61 @@ rg -n -i "agentd|build-agentd|cmd/agentd|pkg/agentd|ghcr.io/volcano-sh/agentd|Ag
 
 ## 下一步建议
 
-分析阶段已经结束，当前更合适的下一步是开 cleanup PR，而不是继续追功能实现。
+更新于 2026-06-25：分析阶段、fork CI 阶段和 upstream PR 创建阶段都已经完成，现在进入 review gate 阶段。
 
-1. 等 fork PR #8 的 CI 完整结果。
-2. 如果 CI 失败，先在 fork 分支修复并重新跑，不通知 upstream。
-3. 如果 CI 全绿，用户确认 upstream PR title/body 后，从 `ranxi2001:cleanup/remove-unused-agentd` 向 `volcano-sh/agentcube:main` 创建 upstream PR。
-4. PR 说明里把 `agentd` 的历史/未使用性质讲清楚，避免 reviewer 误以为删除的是 PicoD。
-5. 如果 reviewer 要求 issue 先行，再把本报告里的运行证据整理成英文 issue comment。
+### PR #403：删除 unused agentd
+
+当前状态：
+
+- Upstream PR: <https://github.com/volcano-sh/agentcube/pull/403>
+- Head: `314e138 cleanup: remove unused agentd component`
+- Checks: 当前查询结果为 failed `0`、pending `0`，CI 已跑完且没有失败。
+- 状态：`mergeable=true`，`mergeable_state=unstable`。这里的 `unstable` 更像是等待 review / lgtm / approve / tide gate，不是 merge conflict 或测试失败。
+
+建议下一步：
+
+1. 不主动再 push commit，也不主动发评论；先等 reviewer / OWNER 反馈。
+2. 如果 reviewer 问 `docker/Dockerfile.picod` 是否超 scope，按本报告的 scope 取舍口径答复：它服务于 `agentd -> picod` 文档迁移后的示例可执行性；如果 maintainer 更偏好最小 scope，可以拆成 follow-up。
+3. 如果 reviewer 要求删除 Dockerfile 改动，直接 amend PR：文档示例回到当前镜像真实路径 `/root/picod`，另开独立 cleanup PR 标准化 PicoD binary path。
+4. 如果 reviewer 只要求解释，不改代码，则先让用户确认英文回复全文，再发 upstream comment。
+5. 不把 PicoD 行为改动、Sleep/Resume、agent-sandbox v0.5.x 或其他 cleanup 混入 #403。
+
+### PR #387：agent-sandbox current stable compatibility
+
+当前状态：
+
+- Upstream PR: <https://github.com/volcano-sh/agentcube/pull/387>
+- Head: `c2633c5`
+- Checks: 当前查询结果为 failed `0`、pending `0`。
+- `zhzhuang-zju` 评论 `thanks` + `/assign` 后，PR assignee 已是 `zhzhuang-zju`。
+
+`/assign` 的含义：
+
+- 这是 Prow/GitHub bot 命令，表示评论者把 PR/issue 分配给自己。
+- 它不是 `/lgtm`，也不是 `/approve`。
+- 当前信号是“有人愿意跟进这个 PR”，不是“PR 已经通过 review”。
+
+建议下一步：
+
+1. 继续等待 `zhzhuang-zju` 或 requested reviewers 的正式 review。
+2. 不主动扩展 #387 到 `agent-sandbox v0.5.x` / `v1beta1`；继续坚持 #387 是 current stable `v0.4.6` compatibility scope。
+3. 如果 reviewer 提到 v0.5.x，再引用 Day18 结论：v0.5.x 涉及 `v1alpha1 -> v1beta1`、`TemplateRef -> WarmPoolRef`、`Replicas -> OperatingMode`，应拆成 follow-up。
+4. 如果 reviewer 只给 `/lgtm` 但没有 `/approve`，继续等 approver；不要催 maintainer。
+5. 如果出现新的 review comment，先分类是否属于 #387 引入的问题，再决定是当前 PR 修、follow-up 修，还是仅解释。
+
+### PicoD 后续学习/改动建议
+
+PicoD 是当前 CodeInterpreter 的真实 data-plane daemon，后续如果要继续做 PicoD 专项，建议不要混进 #403，而是单独开 topic：
+
+1. PicoD auth flow：Router private key、WorkloadManager public key cache、`PICOD_AUTH_PUBLIC_KEY` 注入、PicoD JWT verify。
+2. PicoD execute flow：timeout、working dir、env、stdout/stderr/exit code、错误模型。
+3. PicoD file API security：workspace jail、absolute path as relative、symlink escape、multipart / JSON base64、file mode。
+4. PicoD runtime image：root/non-root、workspace 默认目录、Python 依赖、binary path 标准化。
+5. PicoD e2e：`go test ./cmd/picod ./pkg/picod -count=1`、Docker image smoke、SDK `CodeInterpreterClient` 到 `/api/execute` / `/api/files` 的端到端测试。
 
 ## 本轮没有做的事
 
-- 没有创建 upstream PR；只准备并推送了 fork 分支，并创建了 fork-only CI PR。
-- 没有修改当前 WorkloadManager / Router / PicoD 主链路行为。
-- 没有跑完整 e2e 集群场景；本轮做的是单测、构建、lint、codegen、docs build 和 e2e package 静态检查。
+- 没有在 upstream PR 里主动回复 `/assign` 或 Gemini comment；所有 upstream-facing comment 仍需用户确认 exact text。
+- 没有修改当前 WorkloadManager / Router / PicoD server 业务逻辑；#403 只调整 PicoD 镜像 binary path 和文档示例，PicoD HTTP API 行为不变。
+- 没有把 Sleep/Resume、PicoD security audit、agent-sandbox v0.5.x 迁移混入 #403。
+- 本地 `docker build -f docker/Dockerfile.picod ...` 曾因拉取 `golang:1.26.4` layer 卡住被中止；最终镜像构建能力由 GitHub build check 覆盖。
