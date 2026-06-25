@@ -19,6 +19,8 @@
 
 > Sandbox 和 Pod 的关系：`Sandbox` 不是 `Pod` 的新名字，也不是另一个容器。`Sandbox` 是 agent-sandbox 暴露给 AgentCube 的沙箱运行时对象，负责表达“这个沙箱是谁、属于哪个 warm pool 或 claim、是否 Ready、生命周期怎么清理、它对应哪个 Pod”。`Pod` 则是 Kubernetes 真正调度到节点上的运行实例，里面通常有一个 `code-interpreter` container，有 Pod IP，Router 最终转发请求时连接的是这个 Pod IP。可以简单理解为：Sandbox 是控制面/身份/生命周期层的对象，Pod 是数据面/进程/网络层的对象。#387 的关键修正就是不能跳过 Sandbox 直接按名字猜 Pod，而要先通过 `SandboxClaim.status.sandbox.name` 找到被分配的 Sandbox，再从这个 Sandbox 的 annotation 或 ownerRef 关系找到真实 Pod。
 
+> 为什么这里必须通过 `status.sandbox.name`：Kubernetes 普通读取对象时使用的是 `namespace/name`，而 `SandboxClaim.status.sandbox.name` 是 agent-sandbox controller 完成 adoption 后写回的 serving Sandbox 对象名。这个 `name` 不是按 claim 名猜 Pod 名，也不是用来替代 UID；它是 WorkloadManager 能够 `GET Sandbox(namespace, name)` 的入口。拿到这个 Sandbox 以后，WorkloadManager 才能继续读 Ready condition、Pod-name annotation 和 ownerRef 关系来定位真实 Pod。UID 更适合用来验证“是不是同一个预热对象”，但不能单独作为普通 Kubernetes get 的 key；claim name 则仍要保留在 Store 里，用于 delete/GC 删除 `SandboxClaim`。
+
 > PicoD 是什么：PicoD 是 AgentCube 放在默认 code-interpreter runtime 镜像里的一个小 HTTP daemon，不是 Kubernetes 控制器，也不是新的 Kubernetes 资源。Router 找到 Pod IP 以后，请求实际打到 Pod 里的 PicoD；PicoD 监听默认 `8080`，提供 `/health`，以及需要 JWT 鉴权的 `/api/execute` 和 `/api/files`。当用户通过 SDK/API 要执行代码或读写文件时，Router 只是转发请求，真正调用 `exec.CommandContext` 执行命令、限制工作目录、处理 stdout/stderr、上传下载文件的是 PicoD。这里说“用户代码”更准确地说是这个 runtime 镜像或 workspace 里的代码/依赖/文件，由 PicoD 在同一个 sandbox 运行环境里执行；不应理解成一定还有一个单独的“用户代码容器”。
 
 目标：这次不再只解释 `agent-sandbox` API 接口适配，而是从实际项目运行流程理解 #387 的 warm pool adoption 数据流：warm pool 对象怎么创建、claim 怎么拿到 serving Sandbox、Pod 怎么被观测、WorkloadManager 为什么不能把 warm claim 当成同名 Sandbox 等待、Store 最终应该保存 claim 名还是 adopted Sandbox 名。
@@ -98,6 +100,7 @@ PR #387 的核心不是简单把 `agent-sandbox` 升到 `v0.4.6`，而是修正 
 - 旧 warm-pool 观测假设更像：从 `SandboxWarmPool -> Pod` 直接找 Pod，或者把 `SandboxClaim name` 当成 serving Sandbox / Pod 名去推断。
 - #387 需要适配的真实模型是：`SandboxWarmPool -> pre-warmed Sandbox -> Pod`；请求到来后创建 `SandboxClaim`，`agent-sandbox` controller 从 warm pool 中 adopt 一个已有 Sandbox，并把 serving Sandbox 名写到 `SandboxClaim.status.sandbox.name`。
 - AgentCube 必须通过 `SandboxClaim.status.sandbox.name` 找 adopted Sandbox，再从 adopted Sandbox 的 `agents.x-k8s.io/pod-name` annotation 或 owner/label 关系找到 Pod。
+- 这里依赖 `name` 的原因是 Kubernetes API 的直接读取入口是 `namespace/name`：claim status 里的 name 是 controller 公布的 adopted Sandbox 对象名，UID 用于校验连续性，claim name 用于后续删除 claim，三者不能混用。
 - Store 中仍应保存 `Kind=SandboxClaim` 和 `Name=<claim name>`，因为后续 delete / GC 应删除 claim；但 `SandboxID`、entrypoint、Pod IP 必须来自 adopted Sandbox / Pod。
 
 Day30 追加了一轮 L1 white-box 实测，直接驱动 `SandboxTemplate` / `SandboxWarmPool` / `SandboxClaim` / `Sandbox` / `Pod`，不经过 CodeInterpreter API：
