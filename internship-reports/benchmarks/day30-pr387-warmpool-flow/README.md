@@ -45,6 +45,7 @@ The second run passed the L1 data-flow assertions:
 | `11-after-delete-all-objects.yaml` | Full raw object dump after claim deletion |
 | `12-namespace-cleanup.txt` | Namespace cleanup evidence |
 | `13-cluster-cleanup.txt` | k3d cluster cleanup evidence |
+| `14-pr387-live-codeinterpreter-breakpoint-result.txt` | Full PR #387 head CodeInterpreter/Router/PicoD breakpoint result |
 | `trace_math_dataflow_breakpoints.py` | Reusable white-box breakpoint script: math payload through WorkloadManager, SandboxClaim adoption, adopted Sandbox/Pod, Router, and PicoD |
 | `failed-*` | First attempt with missing PicoD public key; object graph existed but Pods were not Ready |
 
@@ -62,3 +63,35 @@ flowchart LR
 ```
 
 AgentCube should therefore keep `Kind=SandboxClaim` and `Name=<claim name>` for delete/GC, while deriving `SandboxID`, Pod name, and entrypoints from the adopted Sandbox/Pod.
+
+## PR #387 Head Live Breakpoint Result
+
+After the L1 object-flow probe, the same breakpoint script was run against the actual PR #387 WorkloadManager/Router code path:
+
+- PR head: `c2633c5` on `/home/agentcube-agent-sandbox-latest` branch `rebase/pr387-on-bed6bd4`.
+- Runtime: local PR-built `workloadmanager` on `19080` and `agentcube-router` on `19081`.
+- Controller during test: `agent-sandbox-controller:v0.4.6`.
+- Workload: `CodeInterpreter/pr387-math-ci`, `warmPoolSize=2`.
+- Result: `TRACE DATAFLOW TEST PASSED`.
+
+The run passed all breakpoints from live session create through cleanup:
+
+```text
+SandboxClaim/pr387-math-ci-j4gbks6g
+  status.sandbox.name = pr387-math-ci-4fzgd
+  status.sandbox.podIPs = [10.42.0.92]
+
+adopted Sandbox/pr387-math-ci-4fzgd
+  uid = e5965ac8-86e1-4974-8a15-04a226ef9d5f
+  ownerRef = SandboxClaim/pr387-math-ci-j4gbks6g
+
+Pod/pr387-math-ci-4fzgd
+  ip = 10.42.0.92
+  ownerRef = Sandbox/pr387-math-ci-4fzgd
+
+Router/PicoD
+  /api/files wrote gaokao_trace_e61d2fbf48e4.py
+  /api/execute returned answer = 2
+```
+
+Cleanup also passed: deleting the session removed the claim, adopted Sandbox, and adopted Pod, and the warm pool refilled to `readyReplicas=2`.
