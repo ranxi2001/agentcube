@@ -604,6 +604,35 @@ c.JSON(http.StatusInternalServerError, ...)
 
 以下草稿今天不发。若后续用户确认，可以作为 #400 review comment 或 issue comment 的基础。
 
+### 推荐发送短版
+
+这版是当前建议复制到 GitHub 的版本，聚焦一个已复测的 bug，不混入其它非 blocking 观察。
+
+````md
+I re-verified this locally on the current PR head (`3e4ac99`). The existing PicoD tests pass:
+
+```bash
+go test ./pkg/picod -count=1
+go test -race ./pkg/picod -count=1
+go test ./pkg/picod -run TestMetrics_Exposition -count=20
+```
+
+There is still a metrics coverage gap: `s.metrics.Middleware()` is registered after `maxBodySizeMiddleware()`, so oversized requests rejected with `413` are not recorded in `picod_http_requests_total` / `picod_http_request_duration_seconds`.
+
+Temporary local repro:
+
+1. Send `POST /api/execute` with `ContentLength > MaxBodySize`.
+2. PicoD returns `413 Request Entity Too Large`.
+3. `server.metrics.Registry.Gather()` has no `picod_http_requests_total{method="POST", path="/api/execute", status_code="413"}` sample.
+4. Moving the metrics middleware before `maxBodySizeMiddleware()` makes the same test pass.
+
+Suggested fix: register the metrics middleware before the body-size limiter and add a regression test for the `413` path.
+````
+
+### 完整版草稿
+
+这版保留了更多背景和后续测试建议，如果 reviewer 希望展开讨论再用。
+
 ```md
 I did a local pass over the current head (`3e4ac99`) and the PicoD package tests pass for me:
 
@@ -629,6 +658,71 @@ Two smaller follow-ups:
 - It would be useful to add a regression test for unmatched routes to ensure the path label stays fixed as `unmatched` and never uses the raw URL path.
 ```
 
+## 二次复测记录
+
+用户要求“再测一次”后，我在同一个隔离 worktree `/home/agentcube-pr400-review` 对 PR #400 当前 head 重新验证：
+
+```bash
+gh pr view 400 --repo volcano-sh/agentcube --json number,title,state,headRefOid,updatedAt
+```
+
+结果确认 head 仍是：
+
+```text
+3e4ac99f25f1d557c964371edcaba1be87a6089a
+```
+
+重新跑基础测试：
+
+```bash
+go test ./pkg/picod -count=1
+go test -race ./pkg/picod -count=1
+go test ./pkg/picod -run TestMetrics_Exposition -count=20
+```
+
+结果：
+
+```text
+ok  	github.com/volcano-sh/agentcube/pkg/picod	4.607s
+ok  	github.com/volcano-sh/agentcube/pkg/picod	6.186s
+ok  	github.com/volcano-sh/agentcube/pkg/picod	2.329s
+```
+
+重新加入临时测试 `TestTempMetricsRecordsMaxBodyRejection`，在当前 PR 上仍失败：
+
+```text
+=== RUN   TestTempMetricsRecordsMaxBodyRejection
+[GIN] 2026/06/26 - 17:33:02 | 413 |        50.6µs |       127.0.0.1 | POST     "/api/execute"
+    metrics_order_temp_test.go:57: missing picod_http_requests_total sample for POST /api/execute 413
+--- FAIL: TestTempMetricsRecordsMaxBodyRejection (0.58s)
+FAIL
+```
+
+临时把 `s.metrics.Middleware()` 移到 `maxBodySizeMiddleware()` 前，同一测试通过：
+
+```text
+=== RUN   TestTempMetricsRecordsMaxBodyRejection
+[GIN] 2026/06/26 - 17:33:17 | 413 |      54.388µs |       127.0.0.1 | POST     "/api/execute"
+--- PASS: TestTempMetricsRecordsMaxBodyRejection (0.65s)
+PASS
+```
+
+复测后已恢复：
+
+```bash
+git checkout -- pkg/picod/server.go
+rm -f pkg/picod/metrics_order_temp_test.go
+git status --short --branch
+```
+
+结果：
+
+```text
+## HEAD (no branch)
+```
+
+> 分析：二次复测确认这个问题不是缓存、误读或已修复后的过期结论；截至 PR head `3e4ac99`，oversized request 的 `413` 仍不进入 HTTP metrics。
+
 ## 今天的产出
 
 1. 确认 #400 是适合 Day31 的 review 目标，而不是继续等待 #387 / #403。
@@ -640,6 +734,7 @@ Two smaller follow-ups:
 7. 临时调整 middleware 顺序并证明该修法可以让 `413` 进入 metrics。
 8. 删除所有临时测试和临时代码，保持 PR worktree clean。
 9. 形成可选 upstream review 草稿，等待用户确认后才可能发布。
+10. 按用户要求完成二次复测，并把推荐发送短版评论放入独立 Markdown 代码块，方便复制到 GitHub。
 
 ## 下一步
 
