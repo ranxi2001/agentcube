@@ -113,6 +113,7 @@
 | 完成 Week 3 社区最新讨论与双层架构问题面总结 | [Day 26](day26-week3-community-latest-and-two-layer-architecture-bug-surface.md) 已把 #401/#397/#394/#395/#392/#388 最新 issue 信号和 Day22-25 的实测/设计/review 汇总成上层 session/API contract 与下层 runtime/provider substrate 两层问题面 |
 | 完成 Agent Infra 职业能力地图与实习目标管理 | [Day 27](day27-agent-infra-career-roadmap-and-internship-goals.md) 已把 Agent Infra 拆成技术分层、岗位方向、能力等级、当前短板、后续 4 周目标和每周看板 |
 | 完成 Agent Substrate 架构吃透与 AgentCube 差异化设计方向 | [Day 28](day28-agent-substrate-architecture-and-agentcube-differentiation.md) 已把 counter drawio / explainer / Substrate 源码证据转成 AgentCube future design 判断；2026-06-26 已按最新源码 `4bbd39f322c6` 复核，图和 explainer 已明确限定为 gVisor counter 路径，并补 micro-VM runtime 变体 caveat |
+| 完成 Substrate 竞品分析、缺陷升级与 AgentCube 开源 PRD | [Day 32](day32-substrate-competitive-analysis-and-agentcube-prd.md) 已综合 Day28、`design.md` 和 AgentCube 会话运行时架构拆解，形成竞品分析、缺陷升级、Session Runtime Control Plane PRD、功能/非功能需求、验收指标、路线图和开源打法 |
 | 完成 PR #387 warm pool adoption 数据流 review | [Day 30](day30-pr387-warm-pool-dataflow-review.md) 已从运行时对象流、claim status 观测、Pod 查找、Store/Router 语义和 delete/GC identity 拆解 #387，不再停留在 API import / interface 适配层面 |
 | 完成 PR #400 PicoD Prometheus metrics 本地 review | [Day 31](day31-picod-prometheus-metrics-review.md) 已验证 PicoD metrics PR 的测试状态、middleware 顺序缺口、指标语义问题和可选 upstream review 草稿 |
 
