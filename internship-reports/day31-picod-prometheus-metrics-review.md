@@ -723,6 +723,26 @@ git status --short --branch
 
 > 分析：二次复测确认这个问题不是缓存、误读或已修复后的过期结论；截至 PR head `3e4ac99`，oversized request 的 `413` 仍不进入 HTTP metrics。
 
+## Upstream 评论状态
+
+用户已在 PR #400 下发布本地复测评论：
+
+- 评论链接：https://github.com/volcano-sh/agentcube/pull/400#issuecomment-4808403017
+- 发布时间：2026-06-26T09:46:57Z
+- 评论账号：`@ranxi2001`
+- 评论对象：PR #400 issue comment，不是 line-level review comment。
+
+评论内容基于本报告的完整草稿，包含：
+
+- `go test ./pkg/picod -count=1`
+- `go test -race ./pkg/picod -count=1`
+- `go test ./pkg/picod -run TestMetrics_Exposition -count=20`
+- `s.metrics.Middleware()` 在 `maxBodySizeMiddleware()` 后导致 `413` early rejection 不进入 `picod_http_requests_total` / `picod_http_request_duration_seconds`
+- 临时测试证明 oversized `POST /api/execute` 返回 413 但没有 `picod_http_requests_total{method="POST", path="/api/execute", status_code="413"}` sample
+- 建议把 metrics middleware 移到 body-size limiter 前，并补 regression test
+
+下一步只跟踪作者或 maintainer 回复，不主动继续补评论。若作者 push 新 commit，需要先重新抓 PR head，再复测 `413` metrics 行为，不要基于旧 head 继续讨论。
+
 ## 今天的产出
 
 1. 确认 #400 是适合 Day31 的 review 目标，而不是继续等待 #387 / #403。
@@ -735,6 +755,7 @@ git status --short --branch
 8. 删除所有临时测试和临时代码，保持 PR worktree clean。
 9. 形成可选 upstream review 草稿，等待用户确认后才可能发布。
 10. 按用户要求完成二次复测，并把推荐发送短版评论放入独立 Markdown 代码块，方便复制到 GitHub。
+11. 用户已把基于本报告的 #400 review comment 发到 upstream，链接已记录；后续等待作者/maintainer 回复。
 
 ## 下一步
 
