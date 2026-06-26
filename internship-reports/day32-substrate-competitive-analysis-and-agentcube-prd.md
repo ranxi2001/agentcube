@@ -13,6 +13,136 @@
 | [AgentCube 会话运行时架构拆解](agentcube-session-runtime-architecture-breakdown.md) | 架构图解释、真实 Ready/Paused 请求流、状态机、CAS workflow、失败补偿 |
 | [AgentCube 会话运行时架构图](agentcube-session-runtime-architecture.drawio) / [高清 PNG](agentcube-session-runtime-architecture.drawio.png) | 本文 PRD 的视觉架构依据 |
 
+## 图解总览
+
+如果只想快速看懂本文，先看这一节。Day32 的核心不是再写一篇长文字，而是把 Substrate 的可学习点、AgentCube 的缺口、产品 PRD 和开源打法串成一条可执行路线。
+
+### 1. AgentCube 会话运行时目标架构图
+
+![AgentCube 会话运行时架构图](agentcube-session-runtime-architecture.drawio.png)
+
+> 注释：这张图是本文 PRD 的主图。它把 AgentCube 目标架构压缩成五条主线：Router activation gate、Session lifecycle workflow、CAS-backed Store / Placement、RuntimeProvider abstraction、Kubernetes capacity pool。图里的线色也区分了请求/控制调用、状态读写、数据面 proxy 和容量/健康信号。
+
+### 2. 从 Substrate 竞品能力到 AgentCube 机会
+
+```mermaid
+flowchart LR
+    Substrate["Agent Substrate<br/>强项：actor substrate<br/>Router resume-before-proxy<br/>Store CAS / workflow<br/>gVisor + micro-VM runtime class"]
+    Learn["可学习边界<br/>控制面 / 状态面 / 数据面 / runtime 面<br/>低频 CRD + 高频 Store<br/>worker assignment + snapshot capability"]
+    Limits["Substrate 可利用缺口<br/>部署重<br/>API 偏底层<br/>multiplex 主要是时间复用<br/>preservation 语义依赖 runtime"]
+    AgentCubeNow["AgentCube 当前基础<br/>Kubernetes-native<br/>agent-sandbox / warm pool<br/>Router / WorkloadManager / Store / SDK<br/>CodeInterpreter 场景清楚"]
+    Target["AgentCube 目标<br/>Session Runtime Control Plane<br/>Provider-extensible Runtime Layer<br/>Open Benchmark / Conformance Asset<br/>Future AgentSlot density"]
+
+    Substrate --> Learn
+    Substrate --> Limits
+    Learn --> Target
+    Limits --> Target
+    AgentCubeNow --> Target
+```
+
+> 分析：AgentCube 不需要和 Substrate 在第一天比谁的底层 runtime 更激进。更好的路线是把 Substrate 的系统边界转译成 AgentCube 自己的 Session、RuntimeProvider、Store CAS、Router activation 和 benchmark/conformance 资产。
+
+### 3. 缺陷升级成产品需求
+
+```mermaid
+flowchart TB
+    subgraph Defects["当前缺陷 / 缺口"]
+        D1["Router 只 proxy<br/>不理解 Paused"]
+        D2["Store 偏 endpoint 保存<br/>缺少 status / version"]
+        D3["Provider 细节散落<br/>agent-sandbox 升级扩散"]
+        D4["保存上下文语义模糊<br/>文件 / 内存 / token / socket 不清楚"]
+        D5["benchmark 只测局部<br/>无法公平比较 runtime"]
+    end
+
+    subgraph Risks["工程风险"]
+        R1["请求打到旧 endpoint"]
+        R2["并发 resume 重复启动或写回旧状态"]
+        R3["每次 CRD/API 变化都扩大 diff"]
+        R4["社区误解 pause/resume 能力"]
+        R5["开源讨论缺少可信数据"]
+    end
+
+    subgraph Requirements["升级后的 PRD 需求"]
+        P1["Router activation gate<br/>owner/auth 后 resume-before-proxy"]
+        P2["CAS-backed SessionPlacement<br/>status + runtimeHandle + placementVersion"]
+        P3["RuntimeProvider adapter<br/>CRD 细节只在 provider 内部"]
+        P4["Preservation Level L0-L4<br/>明确恢复承诺"]
+        P5["Benchmark / Conformance suite<br/>cold/warm/pause/resume/delete cleanup"]
+    end
+
+    D1 --> R1 --> P1
+    D2 --> R2 --> P2
+    D3 --> R3 --> P3
+    D4 --> R4 --> P4
+    D5 --> R5 --> P5
+```
+
+> 注释：这张图是本文所谓“缺陷升级分析”的核心。缺陷不是拿来抱怨当前系统不够好，而是转成可 review、可测试、可拆 PR 的产品需求。
+
+### 4. PRD 闭环架构
+
+```mermaid
+flowchart TB
+    subgraph UserLayer["用户入口"]
+        SDK["SDK / API<br/>Session contract"]
+        Client["Agent / CodeInterpreter client"]
+    end
+
+    subgraph ControlPlane["Session Runtime Control Plane"]
+        Router["Router<br/>owner/auth<br/>resume-before-proxy"]
+        WLM["WorkloadManager<br/>lifecycle workflow<br/>create / pause / resume / delete"]
+        Store[("CAS-backed Store<br/>Session / Placement / version / timeout index")]
+    end
+
+    subgraph ProviderLayer["RuntimeProvider Layer"]
+        RP["RuntimeProvider<br/>capabilities + placement + probe"]
+        ASP["AgentSandboxProvider<br/>SandboxClaim -> Sandbox -> Pod"]
+        MW["MultiAgentWorkerProvider<br/>Worker Pod + AgentSlot"]
+        Local["DockerLocal / FakeProvider<br/>dev + test"]
+    end
+
+    subgraph Infra["Kubernetes / Runtime Infra"]
+        Pool["Capacity pool<br/>placeholder / warm worker Pods"]
+        Runtime["Runtime endpoint<br/>workspace / tool server / agent process"]
+        Bench["Benchmark / Conformance<br/>p50 / p95 / p99<br/>cleanup / preservation level"]
+    end
+
+    Client --> SDK --> Router
+    Router --> Store
+    Router -->|Paused| WLM
+    WLM --> Store
+    WLM --> RP
+    RP --> ASP
+    RP --> MW
+    RP --> Local
+    ASP --> Pool
+    MW --> Pool
+    RP --> Runtime
+    Router -->|Ready proxy| Runtime
+    Bench -.-> Router
+    Bench -.-> WLM
+    Bench -.-> RP
+    Bench -.-> Store
+```
+
+> 分析：PRD 的闭环不是只补一个接口，而是让入口、控制面、状态面、provider、runtime、benchmark 都围绕同一个 Session contract 工作。
+
+### 5. 开源贡献路线图
+
+```mermaid
+flowchart LR
+    A["docs: Session lifecycle contract<br/>状态机 / 非目标 / preservation level"]
+    B["test: fake provider lifecycle<br/>Store CAS / failure injection"]
+    C["router tests<br/>owner/auth -> resume -> endpoint refresh"]
+    D["AgentSandboxProvider adapter<br/>等 #387 稳定后包 provider"]
+    E["benchmark/conformance suite<br/>cold / warm / pause / resume / cleanup"]
+    F["proposal: MultiAgent Worker / AgentSlot<br/>空间复用差异化"]
+
+    A --> B --> C --> D --> E --> F
+```
+
+> 分析：这条路线刻意避免“一次性大重构”。AgentCube 要拿到更好的开源成绩，靠的是小 PR、强测试、清晰非目标、公开 benchmark 和持续 review 证据。
+
 ## 一句话结论
 
 Agent Substrate 给 AgentCube 最大的启发不是“去复制 gVisor / micro-VM checkpoint”，而是证明 **Agent runtime 的竞争核心已经从 sandbox 创建速度，升级为长期 session 的生命周期控制面**。
