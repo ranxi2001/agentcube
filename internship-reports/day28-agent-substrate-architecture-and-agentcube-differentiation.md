@@ -27,6 +27,7 @@
 | Day22 runbook | [day22-opensandbox-agent-substrate-runtime-runbook.md](day22-opensandbox-agent-substrate-runtime-runbook.md) | 端到端实测计划和本机 kind 阻塞证据 |
 | Day24/25 Sleep/Resume | [day24-sandbox-sleep-resume-design-note.md](day24-sandbox-sleep-resume-design-note.md), [day25-sleep-resume-code-review-and-architecture-retrospective.md](day25-sleep-resume-code-review-and-architecture-retrospective.md) | AgentCube session lifecycle、Store CAS、Router/GC split 的设计基础 |
 | Agent Substrate 本地源码 | `/tmp/agent-substrate` @ `bbafda0` | 读取 proto、router、resume/suspend workflow、CRD types |
+| 2026-06-26 源码复核 | `/tmp/agent-substrate` @ `4bbd39f322c6` | 复核 Day28 判断是否仍成立，重点看 micro-VM、SandboxConfig、Worker cache、Claude Code multiplex demo 和 router/control-plane 状态机变化 |
 
 Draw.io 文件校验：
 
@@ -35,6 +36,203 @@ Draw.io 文件校验：
 ```
 
 结果：`0 error(s), 0 warning(s)`。已将内部节点归入对应 swimlane / Worker Pod 容器，并调整跨层边线，避免 draw.io 中出现泳道覆盖节点或边线穿过关键节点的问题。
+
+## 2026-06-26 源码复核结论
+
+本次按用户要求重新 clone 了 Agent Substrate 源码，而不是复用旧 `/tmp/agent-substrate` 缓存。旧目录已经不存在，新 clone 路径仍放在 `/tmp/agent-substrate`，不放进 AgentCube 仓库，避免污染 `intern` 分支。
+
+```text
+git clone https://github.com/agent-substrate/substrate.git /tmp/agent-substrate
+git -C /tmp/agent-substrate log -1 --decorate --date=short --pretty=fuller
+```
+
+当前复核版本：
+
+```text
+commit 4bbd39f322c6844c4f7048aa6e96c276c5a25898
+AuthorDate: 2026-06-26
+CommitDate: 2026-06-25
+Subject: ateom-microvm: give the micro-VM guest DNS so name-based egress works (#315)
+```
+
+和 Day28 旧基线 `bbafda0d3729` 相比，当前 `HEAD` 已经前进很多。`git diff --stat bbafda0d3729..HEAD` 显示约 211 个文件变化，核心新增包括：
+
+- `cmd/ateom-microvm/`：Kata + Cloud Hypervisor micro-VM runtime 路径。
+- `pkg/api/v1alpha1/sandboxconfig_types.go`：新增 cluster-scoped `SandboxConfig`，把 sandbox runtime binary/assets 从模板中拆出。
+- `pkg/api/v1alpha1/workerpool_types.go` / `actortemplate_types.go`：新增 `sandboxClass`，当前枚举为 `gvisor` / `microvm`。
+- `cmd/ateapi/internal/workercache/`：新增 in-memory worker cache，调度热路径不再每次都直接全量读 Store。
+- `demos/claude-code-multiplex/`：新增或扩展 Claude Code multiplex demo。
+- `docs/glossary.md` / `docs/architecture.md` / `docs/api-guide.md`：官方文档更明确地区分 CRD 低频配置、Store 高频状态、Worker/Actor 生命周期和 sandbox classes。
+
+> 分析：这次复核没有推翻 Day28 的大方向，反而强化了“Substrate 是一个高密度 actor/session substrate，而不只是 gVisor checkpoint demo”的判断。但 Day28 里有两处需要精确化：第一，Substrate 现在不只 gVisor，已经开始引入 micro-VM runtime class；第二，`multiplex` 一词在 Substrate 当前语义中主要还是“多个 Actor 在少量 Worker Pods 上按时间复用”，不是“一个 Worker Pod 内同时并发多个 AgentSlot”。
+
+### 复核结论表
+
+| Day28 原判断 | 2026-06-26 源码复核结果 | 需要调整的口径 |
+| --- | --- | --- |
+| Substrate 把系统拆成控制面、状态面、数据面、runtime 面 | 成立。`Control` gRPC、Redis/ValKey Store、Envoy ext_proc router、atelet/ateom runtime 分层仍清晰 | 可以继续作为 AgentCube Sleep/Resume 的参考结构 |
+| Router 是 activation gate，proxy 前触发 resume | 成立。`cmd/atenet/internal/router/extproc.go` 从 Host 解析 actor id，调用 `ActorResumer.ResumeActor`，再把 `:authority` 改成 worker IP:80 | AgentCube Router 后续也应在 proxy 前 owner check + resume + endpoint refresh |
+| Store CAS / version 是并发正确性要求 | 成立。Store 接口的 `UpdateActor` / `UpdateWorker` 都要求 `expectedVersion`；workflow 遇到 `ErrPersistenceRetry` 会重试或返回 `Aborted` | AgentCube Store CAS 设计不是过度设计，而是 resume/suspend 必需 |
+| Worker 同一时刻只承载一个 Actor | 成立且被官方 glossary 明确化：Worker hosts at most one Actor at a time | Day28 的 MultiAgent Worker Pod 方向仍是 AgentCube 的差异化，不是 Substrate 已实现能力 |
+| Substrate 是 gVisor checkpoint 路线 | 需要修正。当前已经有 `sandboxClass=gvisor|microvm`、`SandboxConfig` 和 `cmd/ateom-microvm` | 应改成“checkpoint/restore substrate，多 runtime class 演进中”，不能只说 gVisor |
+| memory + disk checkpoint | 需要更细化。文档仍讲 process/filesystem progress，但 micro-VM 文档说明 rootfs 写入在 restore 时 reset-to-golden，主要保留 guest RAM；gVisor 路径仍走 runsc checkpoint | AgentCube 不能笼统承诺“文件状态一定保留”，要按 provider / preservation level 描述 |
+| Session identity 不绑定 Pod | 成立。`SessionIdentity` service 已有实现目录，并在 proto 中说明 session 可迁移到不同 physical workers | AgentCube owner/auth/credential 后续不能绑定旧 Pod IP/Pod 名 |
+
+## 2026-06-26 源码复核细节
+
+### 1. 当前源码确认：控制面 API contract 更强
+
+`pkg/proto/ateapipb/ateapi.proto` 仍是最关键的 contract 文件。当前 `Control` service 包含：
+
+- `GetActor`
+- `CreateActor`
+- `UpdateActor`
+- `SuspendActor`
+- `PauseActor`
+- `ResumeActor`
+- `DeleteActor`
+- `ListWorkers`
+- `ListActors`
+- `DebugClear`
+
+`Actor.Status` 仍有：
+
+```text
+STATUS_RESUMING
+STATUS_RUNNING
+STATUS_SUSPENDING
+STATUS_SUSPENDED
+STATUS_PAUSING
+STATUS_PAUSED
+```
+
+新增值得注意的是 `Actor.worker_selector` 和 `Actor.worker_pool_name`。这说明它已经从“ActorTemplate 固定引用某个 WorkerPool”的简单模型，演进到 template selector + actor selector + sandbox class 的组合调度。
+
+> 注释：`worker_selector` 是每个 Actor 自己的 placement constraint；`worker_pool_name` 是当前已经分配到的 Worker 所属 pool，用来在 suspend/pause 时释放正确的 worker。这个细节对 AgentCube 很有启发：一旦 session 可以迁移或被不同 provider 承载，Store 里不能只存 endpoint，还要存 runtime handle / provider identity / version。
+
+### 2. Router resume-before-proxy 判断仍然成立
+
+当前 `cmd/atenet/internal/router/extproc.go` 的热路径是：
+
+1. `newRequestMetadata` 读取 `:authority` / `Host`。
+2. `parseActorID` 要求 host 后缀为 `actors.resources.substrate.ate.dev`。
+3. `s.resumer.ResumeActor(ctx, actorID)` 调用控制面。
+4. 从返回的 `Actor.AteomPodIp` 取 worker IP。
+5. 将 Envoy `:authority` header 改成 `workerIP:80`。
+
+`cmd/atenet/internal/router/resumer.go` 用 `singleflight.Group` 对同一 actor 的并发 resume 去重，并且对 `codes.Aborted` 做指数退避重试。
+
+> 分析：这直接对应 AgentCube 后续 Router 设计。AgentCube 当前 Router 已经知道 session id 和 Store entrypoint，但 Sleep/Resume 后应该新增的不是“遇到 Paused 直接 proxy”，而是：先验证 owner/auth，再调用 WorkloadManager resume，resume 成功后重新读 Store / 使用返回的新 entrypoint，最后再 proxy。并发 resume 也要单飞或依赖 Store CAS，否则会重复启动或写旧 endpoint。
+
+### 3. Workflow 是可重入状态机，不是单函数
+
+`cmd/ateapi/internal/controlapi/workflow.go` 定义了通用 `WorkflowStep`：
+
+- `IsComplete`：判断步骤是否已经完成。
+- `Execute`：执行并持久化状态。
+- `RetryBackoff`：对 Store version conflict 做步骤级重试。
+
+`ActorWorkflow.ResumeActor` 的步骤：
+
+```text
+LoadActorForResume
+AssignWorker
+CallAteletRestore
+FinalizeRunning
+```
+
+`ActorWorkflow.SuspendActor` 的步骤：
+
+```text
+LoadActorForSuspend
+MarkSuspending
+CallAteletSuspend
+FinalizeSuspended
+```
+
+`ActorWorkflow.PauseActor` 的步骤：
+
+```text
+LoadActorForPause
+MarkPausing
+CallAteletPause
+FinalizePaused
+```
+
+其中 `AssignWorkerStep` 会先从 worker cache 找 free worker，再 `UpdateWorker(expectedVersion)` 抢占 worker，随后把 actor 标记为 `RESUMING` 并写入 `AteomPodNamespace/Name/IP/UID/WorkerPoolName`。`FinalizeSuspendedStep` / `FinalizePausedStep` 则先释放 worker，再清 actor location 并写入 latest snapshot info。
+
+> 分析：这是 Day24/25 AgentCube Store CAS 设计的强证据。暂停/恢复不是一次性 RPC 成功就结束，而是一组“可部分完成、可重试、可观察”的状态变更。AgentCube 如果只在 WorkloadManager handler 里同步调用 provider，再直接覆盖 Store，会很难处理 provider 成功但 final Store CAS 失败、worker 已释放但 actor location 未清、router 重试看到 transition state 等问题。
+
+### 4. Worker cache 说明热路径已经从“能跑”走向“高频调度”
+
+当前新增 `cmd/ateapi/internal/workercache/workercache.go`。它通过 `store.Interface.WatchWorkers` 维护内存 worker 快照，`Workers()` 在调度时返回当前已知 worker 列表。watch 断开时 cache 会标记 not ready 并重新 sync。
+
+这比 Day28 初读时更明确地说明：
+
+- Substrate 已经把 Worker 调度当作高频热路径。
+- Redis/ValKey 不只是普通持久层，还要支持 watch / pubsub / cache sync。
+- 后续 scheduler 可能会继续加 by-node、by-label 等索引。
+
+> 注释：这里的 cache 不是为了替代 Store 的 source of truth，而是为了避免每次 resume 都走昂贵的全量查询。AgentCube 当前规模还不一定需要类似 worker cache，但如果未来做 MultiAgent Worker Pod / AgentSlot，`session -> worker -> slot` 的 placement index 也会成为热路径。
+
+### 5. `Claude Code Multiplex` 不是单 Pod 多 AgentSlot
+
+当前 `demos/claude-code-multiplex/README.md` 写得很清楚：三个 Claude Code agents 共享两个 Agent Substrate pods。manifest 也写明：
+
+```text
+2 worker replicas for 3 actors
+3 actors competing for 2 worker pods
+```
+
+也就是说，这个 demo 展示的是：
+
+- Actor 数量 > Worker Pod 数量。
+- 同一时刻最多两个 actors running。
+- 第三个 actor suspended，等 worker 释放后再 resume。
+
+它不是：
+
+- 一个 Worker Pod 内同时跑多个 agent slots。
+- 一个 ateom 同时承载多个 active actors。
+- per-slot workspace / credential / resource accounting。
+
+> 分析：这让 Day28 的差异化方向更准确。AgentCube 的 MultiAgent Worker Pod / AgentSlot multiplexing 不是“Substrate 已经做了所以照搬”，而是另一个容量模型：Substrate 当前主线是时间复用，AgentCube 可以探索空间复用。但空间复用会带来隔离、noisy neighbor、workspace leakage、credential leakage、per-slot metrics 和 Pod failure blast radius 等更高风险。
+
+### 6. `SandboxConfig` / `sandboxClass` 强化了 provider abstraction 判断
+
+当前源码新增 `pkg/api/v1alpha1/sandboxconfig_types.go`：
+
+- `SandboxClassGvisor = "gvisor"`
+- `SandboxClassMicroVM = "microvm"`
+- `SandboxConfig` 是 cluster-scoped resource。
+- `SandboxConfig.spec.assets` 用 architecture -> asset name -> `{url, sha256}` 描述 runtime assets。
+
+`WorkerPool.spec.sandboxClass` 和 `ActorTemplate.spec.sandboxClass` 都会作为硬调度 gate。`ActorTemplate` 的注释还保留 TODO，说明 sandbox class 的 discoverability、default、配置边界仍未完全定型。
+
+> 分析：这和 AgentCube 的 RuntimeProvider / SubstrateProvider 方向高度一致。Substrate 没有把 runtime binary 细节塞进每个 ActorTemplate，而是抽成 `SandboxConfig`。AgentCube 也不应该让 `agent-sandbox v0.4/v0.5`、Docker/local、OpenSandbox-like、E2B-like、future multi-slot worker 的差异散落到 SDK、Router、Store 和 WorkloadManager handler 里。
+
+### 7. micro-VM 路径说明“preservation level”必须说清楚
+
+当前文档已经把 micro-VM runtime 写进 `docs/architecture.md`：`ateom-microvm` 使用 Kata + Cloud Hypervisor，要求 `/dev/kvm` 和支持嵌套虚拟化的节点。它的 restore 语义有一个关键点：
+
+- guest RAM 通过 Cloud Hypervisor memory snapshot 保留。
+- `/dev/vdb` rootfs 在 restore 时 reset-to-golden。
+- runtime 写入 rootfs 的内容不会自然跨 resume 保留。
+
+这和 Day28 原文中“memory + disk checkpoint”的说法需要精确化。对 gVisor 路径，文档仍描述 runsc checkpoint/restore；对 micro-VM 路径，至少当前文档强调的是 guest RAM continuity + rootfs reset。
+
+> 分析：AgentCube 后续写 Sleep/Resume proposal 时，应明确 preservation level，而不是笼统说 pause 会保存“上下文”。例如 L1 workspace/rootfs、L2 process restart + workspace、L3 memory snapshot、L4 memory + writable disk 都是不同承诺。用户真正关心的是恢复后文件、进程内存、网络连接、token、workspace、tool server 状态分别是否保留。
+
+### 8. 当前源码也暴露出仍在早期演进
+
+当前 README 仍明确说明项目处于 very early development，API 几乎肯定变化。源码里也有几个能说明“不应照搬”的信号：
+
+- `ateapi.proto` 顶部仍有 `TODO: Here and everywhere, s/Session/Actor to align with the glossary.`，说明命名还在收敛。
+- `ActorTemplate.spec.sandboxClass` 注释里还有关于 class discoverability / default / 配置语义的 TODO。
+- `FinalizePausedStep` 里有 TODO：worker 不属于当前 actor 时怎么办、node name 缺失是否需要进入 crashed 状态。
+- `Worker cache` 还有 TODO：增加 metrics、周期性 relist，避免 missed watch events 造成 drift。
+
+> 分析：这些不是否定 Substrate 的价值，而是提醒 AgentCube 不能把它当成熟规范照搬。正确用法是学习边界和问题分解：控制面状态机、Router activation gate、runtime class、state store、worker assignment、snapshot portability，然后用 AgentCube 自己的 Session contract 和测试矩阵重新设计。
 
 ## 一句话结论
 
