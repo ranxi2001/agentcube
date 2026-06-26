@@ -1,0 +1,270 @@
+<mxfile host="Electron">
+  <diagram name="AgentCube Session Runtime" id="0">
+    <mxGraphModel dx="4564" dy="2671" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1120" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=24;fontStyle=1;fontColor=#1f2937;align=left;verticalAlign=middle;" value="AgentCube 会话运行时架构图" vertex="1">
+          <mxGeometry height="40" width="520" x="60" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=13;fontColor=#4b5563;align=left;verticalAlign=middle;" value="请求先经过 Router 激活门；高频状态进入 CAS Store；runtime 差异由 Provider 隔离；Kubernetes 只承载资源边界和容量池。" vertex="1">
+          <mxGeometry height="30" width="1180" x="60" y="76" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9ca3af;fontColor=#1f2937;fontSize=12;align=left;spacingLeft=10;" value="连线图例&#xa;蓝色实线：请求 / 控制调用&#xa;紫色实线：状态读写 / CAS / Placement&#xa;绿色实线：数据面代理 / runtime endpoint&#xa;灰色虚线：容量 / 健康 / capability 信号" vertex="1">
+          <mxGeometry height="92" width="320" x="1318" y="14" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-control-line" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#2563eb;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1570" y="41" as="sourcePoint" />
+            <mxPoint x="1610" y="41" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-state-line" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#7c3aed;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1570" y="59" as="sourcePoint" />
+            <mxPoint x="1610" y="59" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-data-line" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#16a34a;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1570" y="77" as="sourcePoint" />
+            <mxPoint x="1610" y="77" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-signal-line" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6b7280;strokeWidth=2;dashed=1;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1570" y="95" as="sourcePoint" />
+            <mxPoint x="1610" y="95" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lane-router" parent="1" style="swimlane;startSize=32;rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;" value="Router / Activation Plane" vertex="1">
+          <mxGeometry height="150" width="980" x="60" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="client-sdk" parent="lane-router" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f2937;fontSize=13;" value="Client / SDK&#xa;sessionID" vertex="1">
+          <mxGeometry height="58" width="150" x="30" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="router" parent="lane-router" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontColor=#1f2937;fontStyle=1;fontSize=13;" value="AgentCube Router&#xa;owner/auth&#xa;resume-before-proxy" vertex="1">
+          <mxGeometry height="82" width="210" x="250" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ready-proxy" parent="lane-router" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;fontSize=13;" value="Ready 路径&#xa;proxy refreshed endpoint" vertex="1">
+          <mxGeometry height="58" width="170" x="770" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-store" parent="1" style="swimlane;startSize=32;rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#1f2937;" value="State / Placement Plane" vertex="1">
+          <mxGeometry height="710" width="520" x="1118" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="store" parent="lane-store" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#1f2937;fontStyle=1;fontSize=13;" value="CAS-backed Store&#xa;expected version&#xa;source of truth" vertex="1">
+          <mxGeometry height="120" width="210" x="80" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="store-session" parent="lane-store" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8ff;strokeColor=#9673a6;fontColor=#1f2937;fontSize=12;" value="Session&#xa;status / owner / ttl&#xa;placementVersion" vertex="1">
+          <mxGeometry height="72" width="170" x="310" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="store-placement" parent="lane-store" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8ff;strokeColor=#9673a6;fontColor=#1f2937;fontSize=12;" value="SessionPlacement&#xa;provider / worker / slot&#xa;endpoint / handle / version" vertex="1">
+          <mxGeometry height="82" width="170" x="310" y="145" as="geometry" />
+        </mxCell>
+        <mxCell id="state-machine" parent="lane-store" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;fontSize=12;align=left;spacingLeft=12;" value="Session 状态机&#xa;Creating -&gt; Ready&#xa;Ready -&gt; Pausing -&gt; Paused&#xa;Paused -&gt; Resuming -&gt; Ready&#xa;Deleting / Deleted / Failed" vertex="1">
+          <mxGeometry height="130" width="400" x="80" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="store-cache" parent="lane-store" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;fontSize=12;" value="Placement cache / watch&#xa;session -&gt; worker -&gt; slot&#xa;加速热路径，不替代 Store" vertex="1">
+          <mxGeometry height="82" width="400" x="80" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="provider-capability" parent="lane-store" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;fontSize=12;" value="RuntimeCapabilities&#xa;preservation L0-L4&#xa;isolation / snapshot / assets" vertex="1">
+          <mxGeometry height="70" width="400" x="80" y="613" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-lifecycle" parent="1" style="swimlane;startSize=32;rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f2937;" value="Session Lifecycle Control Plane" vertex="1">
+          <mxGeometry height="230" width="980" x="60" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="workload-manager" parent="lane-lifecycle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f2937;fontStyle=1;fontSize=13;" value="WorkloadManager&#xa;create / pause / resume / delete&#xa;可重入 workflow" vertex="1">
+          <mxGeometry height="86" width="210" x="20" y="48" as="geometry" />
+        </mxCell>
+        <mxCell id="step-mark" parent="lane-lifecycle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontColor=#1f2937;fontSize=12;" value="1. MarkResuming&#xa;CAS" vertex="1">
+          <mxGeometry height="58" width="120" x="290" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="step-reserve" parent="lane-lifecycle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontColor=#1f2937;fontSize=12;" value="2. Reserve&#xa;worker / slot" vertex="1">
+          <mxGeometry height="58" width="120" x="445" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="step-provider" parent="lane-lifecycle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontColor=#1f2937;fontSize=12;" value="3. Provider&#xa;resume / create" vertex="1">
+          <mxGeometry height="58" width="120" x="600" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="step-probe" parent="lane-lifecycle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontColor=#1f2937;fontSize=12;" value="4. Probe&#xa;endpoint" vertex="1">
+          <mxGeometry height="58" width="120" x="755" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="step-finalize" parent="lane-lifecycle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;fontSize=12;" value="5. FinalizeReady&#xa;CAS" vertex="1">
+          <mxGeometry height="58" width="120" x="755" y="142" as="geometry" />
+        </mxCell>
+        <mxCell id="pause-flow" parent="lane-lifecycle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;fontSize=12;" value="Pause/Suspend: MarkPausing CAS -&gt; ProviderPause/Checkpoint -&gt; Release slot -&gt; FinalizePaused CAS" vertex="1">
+          <mxGeometry height="42" width="430" x="290" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="e-wlm-step1" edge="1" parent="lane-lifecycle" source="workload-manager" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="step-mark" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="230" y="100" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lane-runtime" parent="1" style="swimlane;startSize=32;rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;" value="RuntimeProvider Abstraction + Runtime Data Plane" vertex="1">
+          <mxGeometry height="250" width="980" x="60" y="613" as="geometry" />
+        </mxCell>
+        <mxCell id="runtime-provider" parent="lane-runtime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;fontStyle=1;fontSize=13;" value="RuntimeProvider&#xa;Create / Pause / Resume / Delete / Probe&#xa;adapter hides backend details" vertex="1">
+          <mxGeometry height="86" width="240" x="30" y="72" as="geometry" />
+        </mxCell>
+        <mxCell id="agent-sandbox-provider" parent="lane-runtime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontColor=#1f2937;fontSize=12;" value="AgentSandboxProvider&#xa;SandboxClaim -&gt; Sandbox -&gt; Pod" vertex="1">
+          <mxGeometry height="62" width="190" x="320" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="multi-agent-provider" parent="lane-runtime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontColor=#1f2937;fontSize=12;" value="MultiAgentWorkerProvider&#xa;Worker Pod + AgentSlots" vertex="1">
+          <mxGeometry height="62" width="190" x="320" y="145" as="geometry" />
+        </mxCell>
+        <mxCell id="other-providers" parent="lane-runtime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;fontSize=12;dashed=1;" value="Other Providers&#xa;DockerLocal / OpenSandbox-like / MicroVM" vertex="1">
+          <mxGeometry height="62" width="210" x="560" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="runtime-endpoint" parent="lane-runtime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#1f2937;fontSize=12;" value="Runtime endpoint&#xa;workspace / tool server / agent process" vertex="1">
+          <mxGeometry height="70" width="140" x="810" y="145" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-k8s" parent="1" style="swimlane;startSize=32;rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;" value="Kubernetes Foundation + Pool / Capacity Control" vertex="1">
+          <mxGeometry height="167" width="1550" x="60" y="903" as="geometry" />
+        </mxCell>
+        <mxCell id="sandbox-workspace" parent="lane-k8s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;fontSize=12;" value="SandboxWorkspace&#xa;namespace / quota / policy" vertex="1">
+          <mxGeometry height="62" width="190" x="40" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="workspace-controller" parent="lane-k8s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#1f2937;fontSize=12;" value="WorkspaceController&#xa;ReservationManager" vertex="1">
+          <mxGeometry height="62" width="190" x="268" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="placeholder-pods" parent="lane-k8s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#1f2937;fontSize=12;" value="placeholder Pods&#xa;warm worker Pods&#xa;capacity, not lifecycle" vertex="1">
+          <mxGeometry height="82" width="150" x="587" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="worker-pods" parent="lane-k8s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1f2937;fontSize=12;" value="Worker Pod / AgentSlot&#xa;per-slot workspace / credential / port / quota" vertex="1">
+          <mxGeometry height="82" width="230" x="830" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="node-state" parent="lane-k8s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f2937;fontSize=12;" value="SandboxNodeState&#xa;reserved / allocated / free&#xa;image-cache / provider health" vertex="1">
+          <mxGeometry height="82" width="220" x="1144" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="crd-boundary" parent="lane-k8s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontColor=#1f2937;fontSize=12;dashed=1;" value="低频期望状态走 CRD / Kubernetes；高频 Session 与 Placement 状态走 Store。" vertex="1">
+          <mxGeometry height="62" width="125" x="1390" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="e-client-router" edge="1" parent="1" source="client-sdk" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;" target="router" value="request">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-router-store" edge="1" parent="1" source="router" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.943;exitY=0.026;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitPerimeter=0;entryPerimeter=0;strokeColor=#7c3aed;strokeWidth=2;" target="store" value="GetSession / auth">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="508" y="160" />
+              <mxPoint x="1303" y="160" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-store-router" edge="1" parent="1" source="store" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.003;exitY=0.829;exitDx=0;exitDy=0;exitPerimeter=0;edgeStyle=orthogonalEdgeStyle;entryX=0.959;entryY=0.975;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#7c3aed;strokeWidth=2;" target="router" value="status + endpoint">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1197" y="280" />
+              <mxPoint x="859" y="280" />
+              <mxPoint x="859" y="250" />
+            </Array>
+            <mxPoint x="1180" y="320" as="sourcePoint" />
+            <mxPoint x="520" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-router-wlm" edge="1" parent="1" source="router" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;" target="workload-manager" value="Paused: ResumeSession">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="415" y="280" />
+              <mxPoint x="185" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-router-ready-proxy" edge="1" parent="1" source="router" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;" target="ready-proxy" value="Ready">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-step1-step2" edge="1" parent="1" source="step-mark" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;" target="step-reserve" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-step2-step3" edge="1" parent="1" source="step-reserve" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;" target="step-provider" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-step3-step4" edge="1" parent="1" source="step-provider" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;" target="step-probe" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-step4-step5" edge="1" parent="1" source="step-probe" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;" target="step-finalize" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-wlm-store-cas" edge="1" parent="1" source="workload-manager" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;entryX=0.537;entryY=0.984;entryDx=0;entryDy=0;exitX=0.96;exitY=0.007;exitDx=0;exitDy=0;exitPerimeter=0;entryPerimeter=0;strokeColor=#7c3aed;strokeWidth=2;" target="store" value="CAS transitions">
+          <mxGeometry relative="1" x="0.01" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="282" y="340" />
+              <mxPoint x="1311" y="340" />
+            </Array>
+            <mxPoint x="290" y="366" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-step-provider-runtime-provider" edge="1" parent="1" source="step-provider" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;" target="runtime-provider" value="provider contract">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="720" y="430" />
+              <mxPoint x="800" y="430" />
+              <mxPoint x="800" y="570" />
+              <mxPoint x="210" y="570" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-runtime-agent-sandbox" edge="1" parent="1" source="runtime-provider" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;" target="agent-sandbox-provider" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-runtime-multi-agent" edge="1" parent="1" source="runtime-provider" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.65;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;" target="multi-agent-provider" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-providers-other" edge="1" parent="1" source="agent-sandbox-provider" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#6b7280;strokeWidth=2;dashed=1;" target="other-providers" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-providers-endpoint" edge="1" parent="1" source="other-providers" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#7c3aed;strokeWidth=2;" target="runtime-endpoint" value="placement endpoint">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ready-endpoint" edge="1" parent="1" source="ready-proxy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#16a34a;strokeWidth=3;" target="runtime-endpoint" value="proxy">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1070" y="211" />
+              <mxPoint x="1070" y="793" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-workspace-controller-pods" edge="1" parent="1" source="workspace-controller" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#6b7280;strokeWidth=2;dashed=1;" target="placeholder-pods" value="maintain warm pool">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-workspace-controller-workspace" edge="1" parent="1" source="workspace-controller" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#6b7280;strokeWidth=2;dashed=1;" target="sandbox-workspace" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-pods-workers" edge="1" parent="1" source="placeholder-pods" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#6b7280;strokeWidth=2;dashed=1;" target="worker-pods" value="allocate capacity">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-workers-node-state" edge="1" parent="1" source="worker-pods" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#6b7280;strokeWidth=2;dashed=1;" target="node-state" value="report health">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-k8s-store" edge="1" parent="1" source="node-state" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#7c3aed;strokeWidth=2;" target="store-cache" value="worker capacity / endpoint records">
+          <mxGeometry relative="1" x="-0.1111" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1300" y="860" />
+              <mxPoint x="1618" y="860" />
+              <mxPoint x="1618" y="621" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-runtime-k8s" edge="1" parent="1" source="multi-agent-provider" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#2563eb;strokeWidth=2;" target="worker-pods" value="adapter controls CRD / Pod / slot">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="790" y="789" />
+              <mxPoint x="790" y="850" />
+              <mxPoint x="1005" y="850" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-store-capability-runtime" edge="1" parent="1" source="provider-capability" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;exitX=0;exitY=0.5;exitDx=0;exitDy=0;strokeColor=#6b7280;strokeWidth=2;dashed=1;" value="capabilities guide scheduling">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1100" y="768" />
+              <mxPoint x="1100" y="603" />
+              <mxPoint x="270" y="603" />
+            </Array>
+            <mxPoint x="270" y="683" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

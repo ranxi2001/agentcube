@@ -4,6 +4,12 @@
 
 AgentCube is a Go-first Kubernetes project with Python tooling and docs. Core binaries live under `cmd/`: `workload-manager`, `router`, `picod`, `agentd`, and the Python CLI in `cmd/cli`. Shared Go packages are in `pkg/`, including API types in `pkg/apis/runtime/v1alpha1`, routing in `pkg/router`, lifecycle logic in `pkg/workloadmanager`, and storage in `pkg/store`. Generated clients are under `client-go/`. Deployment assets are in `manifests/charts/base` and `docker/`. The Python SDK is in `sdk-python/`; integrations are under `integrations/`. Tests are colocated as `*_test.go`, with broader scenarios in `test/e2e/`.
 
+## Local Shell Rules
+
+PowerShell is disabled for this workspace. Even if the execution environment reports `shell=powershell`, do not run native PowerShell commands, PowerShell snippets, `.ps1` scripts, or PowerShell-style filesystem operations. Invoke terminal commands through Bash only, using `bash -lc '...'` from the tool layer when needed.
+
+Use Bash/POSIX syntax inside the command body. Prefer repository-relative paths or Git Bash/MSYS-style paths such as `/c/Users/ranxi/Desktop/Project/agentcube/...`; if a Windows program requires Windows paths, convert them inside Bash with `cygpath -w`.
+
 ## Build, Test, and Development Commands
 
 - `make build-all`: builds `workloadmanager`, `agentd`, and `agentcube-router` into `bin/`.

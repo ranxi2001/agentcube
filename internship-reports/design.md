@@ -2,6 +2,10 @@
 
 > 状态：本文件是内部设计草稿，用来把 [Day28 Agent Substrate 架构复核](day28-agent-substrate-architecture-and-agentcube-differentiation.md) 和 [counter 架构图](agent-substrate-counter-architecture.drawio) 中得到的判断落到 AgentCube 后续设计里。它不是已经合入 upstream 的实现说明。
 
+> 图示：如果只想先看整体关系，先打开 [AgentCube 会话运行时架构图](agentcube-session-runtime-architecture.drawio)。这张图把本文压缩成 Router 激活门、Session lifecycle、CAS Store、RuntimeProvider 和 Kubernetes capacity pool 五条主线。
+> 图例：蓝色实线表示请求或控制调用，紫色实线表示 Store 状态读写 / CAS / Placement，绿色实线表示数据面代理到 runtime endpoint，灰色虚线表示容量、健康或 capability 信号。
+> 配套拆解：[AgentCube 会话运行时架构拆解](agentcube-session-runtime-architecture-breakdown.md) 用 Mermaid 展开真实请求流、Paused 恢复流、状态机、CAS workflow、RuntimeProvider 和 Kubernetes capacity pool 的设计合理性。
+
 ## 一句话结论
 
 原始设计只强调 **Kubernetes placeholder Pod + 二级 sandbox scheduler**，还停留在“如何更快创建 sandbox”的层面。基于 Agent Substrate 最新源码复核后，AgentCube 的设计重心应该升级为：

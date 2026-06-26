@@ -26,6 +26,7 @@
 | Day21 调研 | [day21-opensandbox-agent-substrate-study.md](day21-opensandbox-agent-substrate-study.md) | AgentCube / OpenSandbox / Agent Substrate 三方源码级对比 |
 | Day22 runbook | [day22-opensandbox-agent-substrate-runtime-runbook.md](day22-opensandbox-agent-substrate-runtime-runbook.md) | 端到端实测计划和本机 kind 阻塞证据 |
 | Day24/25 Sleep/Resume | [day24-sandbox-sleep-resume-design-note.md](day24-sandbox-sleep-resume-design-note.md), [day25-sleep-resume-code-review-and-architecture-retrospective.md](day25-sleep-resume-code-review-and-architecture-retrospective.md) | AgentCube session lifecycle、Store CAS、Router/GC split 的设计基础 |
+| AgentCube 架构图设计 | [agentcube-session-runtime-architecture.drawio](agentcube-session-runtime-architecture.drawio), [agentcube-session-runtime-architecture.drawio.png](agentcube-session-runtime-architecture.drawio.png), [agentcube-session-runtime-architecture-breakdown.md](agentcube-session-runtime-architecture-breakdown.md) | 把 Substrate 复核结论转化成 AgentCube 会话运行时架构图和配套拆解 |
 | Agent Substrate 本地源码 | `/tmp/agent-substrate` @ `bbafda0` | 读取 proto、router、resume/suspend workflow、CRD types |
 | 2026-06-26 源码复核 | `/tmp/agent-substrate` @ `4bbd39f322c6` | 复核 Day28 判断是否仍成立，重点看 micro-VM、SandboxConfig、Worker cache、Claude Code multiplex demo 和 router/control-plane 状态机变化 |
 
@@ -721,15 +722,17 @@ type RuntimeProvider interface {
 
 ## 下一步建议
 
-### 1. 继续补 AgentCube 自己的架构图
+### 1. 已完成 AgentCube 自己的架构图设计
 
-基于今天的 Substrate 图，下一步可以画 AgentCube future architecture：
+基于今天的 Substrate 图和 Day24/25 的 Sleep/Resume 设计，我们已经补出了 AgentCube 会话运行时架构图：
 
-- 当前 AgentCube：Router / WorkloadManager / Store / agent-sandbox / PicoD / AgentD。
-- Sleep/Resume MVP：Session lifecycle service + Store CAS + RuntimeProvider。
-- 高密度版本：MultiAgent Worker Pod + AgentSlot + slot supervisor。
+- 可编辑源图：[agentcube-session-runtime-architecture.drawio](agentcube-session-runtime-architecture.drawio)。
+- 高清导出图：[agentcube-session-runtime-architecture.drawio.png](agentcube-session-runtime-architecture.drawio.png)。
+- 配套拆解文档：[agentcube-session-runtime-architecture-breakdown.md](agentcube-session-runtime-architecture-breakdown.md)。
 
-建议继续用 Draw.io 做正式图，用 Mermaid 放在报告里做可读解释。
+这张图不是简单复刻 Agent Substrate，而是把 AgentCube 自己的目标拆成五条主线：Router activation gate、Session lifecycle workflow、CAS-backed Store / Placement、RuntimeProvider abstraction、Kubernetes capacity pool。图中也明确区分了蓝色请求/控制调用、紫色状态读写/CAS/Placement、绿色数据面 proxy/runtime endpoint、灰色虚线容量/健康/capability 信号，避免把所有箭头都理解成同一种调用关系。
+
+> 分析：这一步说明 Day28 的价值已经从“看懂 Substrate”推进到“反推 AgentCube 的架构边界”。Substrate 提供的是参考结构：低频 CRD + 高频 Store、Router resume-before-proxy、可重入 workflow、runtime class / provider boundary。AgentCube 的图则改用自己的 Session、RuntimeProvider、AgentSlot、Store CAS 和 Kubernetes capacity pool 语义，服务后续 Sleep/Resume MVP 和高密度 session hosting 设计。
 
 ### 2. 写 MultiAgent Worker 的最小 proposal
 
