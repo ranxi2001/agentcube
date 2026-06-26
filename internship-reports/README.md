@@ -41,3 +41,4 @@
 - [Day 28：Agent Substrate 架构吃透与 AgentCube 差异化设计方向](day28-agent-substrate-architecture-and-agentcube-differentiation.md)
 - [Day 29：先分析 `cmd/agentd` 组件的作用](day29-agentd-component-role-analysis.md)
 - [Day 30：PR #387 Warm Pool Adoption 数据流 Review](day30-pr387-warm-pool-dataflow-review.md)
+- [Day 31：PR #400 PicoD Prometheus Metrics Review](day31-picod-prometheus-metrics-review.md)

@@ -1,6 +1,6 @@
 # 实习任务 TODO
 
-更新时间：2026-06-25
+更新时间：2026-06-26
 
 这个文档用于管理实习期间的后续任务。日报记录每天做了什么，TODO 记录“现在还要做什么、优先级是什么、做到哪里、卡在哪里”。
 
@@ -37,6 +37,7 @@
 | P0 | 系统化整理 Agent Infra 职业能力地图与实习目标管理 | DONE | 不适用 | 中 | 低 | 0.5 天 | [Day 27](day27-agent-infra-career-roadmap-and-internship-goals.md) 已把 Agent Infra 拆成 runtime、Kubernetes control plane、session lifecycle、tool protocol、Router/API、安全、observability/eval、开源 review 八条能力线，并映射到当前 AgentCube 实习证据和后续 4 周目标 | 后续周总结按 Day27 的能力闭环写：问题定义、证据、设计判断、测试、review 材料、skill 沉淀 |
 | P0 | 深入吃透 Agent Substrate 架构并提炼 AgentCube 差异化方向 | DONE | 不适用 | 中高 | 低 | 0.5 天 | [Day 28](day28-agent-substrate-architecture-and-agentcube-differentiation.md) 已基于 drawio 架构图、explainer、Day21/22 和 `/tmp/agent-substrate` 源码，拆解控制面、状态面、数据面、runtime 面，并提出 AgentCube 两个方向：MultiAgent Worker Pod / AgentSlot multiplexing、RuntimeProvider / provider abstraction | 后续可继续画 AgentCube future architecture drawio，或写 MultiAgent Worker 最小 proposal；暂不发 upstream |
 | P0 | 删除未使用的 `agentd` 组件 | REVIEW | upstream PR [#403](https://github.com/volcano-sh/agentcube/pull/403) | 中 | 低 | 0.5 天 | [Day 29](day29-agentd-component-role-analysis.md) 已记录分析、mentor 确认、fork CI、upstream PR、Gemini review 处理、Dockerfile scope 取舍和 PicoD 源码速读；PR 分支基于 `upstream/main bed6bd4`，commit `314e138 cleanup: remove unused agentd component` 已更新 upstream PR #403；删除 `cmd/agentd` / `pkg/agentd`，移除 `build-agentd`，同步 docs/e2e wording，修正 `Picod (Agent Daemon)` 语义残留，并把 PicoD image binary path / ENTRYPOINT 对齐到 `/usr/local/bin/picod`；当前查询 #403 checks 已无 failed/pending | 等待 #403 正式 review、`/lgtm`、`/approve` 和 tide；不主动再 push/comment；如 reviewer 质疑 Dockerfile scope，按 Day29 口径解释或拆 follow-up |
+| P0 | Review PR #400 PicoD Prometheus metrics | REVIEW | PR [#400](https://github.com/volcano-sh/agentcube/pull/400) 无 assignee | 中 | 低 | 0.5 天 | [Day 31](day31-picod-prometheus-metrics-review.md) 已完成本地 review：`go test ./pkg/picod -count=1`、`go test -race ./pkg/picod -count=1`、`TestMetrics_Exposition -count=20` 通过；临时测试证明 `maxBodySizeMiddleware` 早于 metrics middleware 会导致 `413` 请求不进入 `picod_http_requests_total`；同时记录 `active_executions` 指标语义和 scrape scope 限制 | 若用户确认参与 #400 review，可发送 Day31 中压缩后的英文 comment；否则继续做本地 review，不抢作者实现 |
 | P0 | 项目二次梳理学习 | DONE | 不适用 | 中 | 低 | 0.5 天 | [Day 20](day20-agent-sandbox-v02-v03-v05-wip-pr-implementations-and-project-study.md) 已完成：按 Router、WorkloadManager、Store、PicoD、agent-sandbox、codegen、auth、测试分层重新梳理当前 main 的真实实现；并补充 `agent-sandbox v0.2.1` / `v0.3.10` / `v0.5.0rc1` 三段 WIP PR / validation PR 实现记录，形成从 dependency-only 到 warm-pool adoption / codegen drift / v1beta1 API migration 的演进证据；fork-only 归档/验证 PR [#6](https://github.com/ranxi2001/agentcube/pull/6) / [#7](https://github.com/ranxi2001/agentcube/pull/7) / [#5](https://github.com/ranxi2001/agentcube/pull/5) 均已通过 fork CI | 后续改代码前按 Day20 的阅读顺序和测试矩阵定位影响面；#387 review 可引用 Day20 的 0.2/0.3/0.4/0.5 对比 |
 | P0 | 补 Agent 端到端 benchmark | TODO | 不适用 | 中 | 中 | 1-2 天 | 已有 shortest path 单次结果和 sandbox benchmark | 重复测试 LLM + Agent planning + tool call + AgentCube sandbox 的完整链路 |
 | P0 | 补多轮 p50/p95/p99 benchmark | DOING | 不适用 | 中 | 低 | 0.5-1 天 | 已有 AgentCube sandbox p50/p95 和 warmPoolSize 曲线 | 增加 p99；统一输出格式；补 Agent/math-agent 多轮统计 |
@@ -113,6 +114,7 @@
 | 完成 Agent Infra 职业能力地图与实习目标管理 | [Day 27](day27-agent-infra-career-roadmap-and-internship-goals.md) 已把 Agent Infra 拆成技术分层、岗位方向、能力等级、当前短板、后续 4 周目标和每周看板 |
 | 完成 Agent Substrate 架构吃透与 AgentCube 差异化设计方向 | [Day 28](day28-agent-substrate-architecture-and-agentcube-differentiation.md) 已把 counter drawio / explainer / Substrate 源码证据转成 AgentCube future design 判断，重点是 MultiAgent Worker Pod 和 provider abstraction |
 | 完成 PR #387 warm pool adoption 数据流 review | [Day 30](day30-pr387-warm-pool-dataflow-review.md) 已从运行时对象流、claim status 观测、Pod 查找、Store/Router 语义和 delete/GC identity 拆解 #387，不再停留在 API import / interface 适配层面 |
+| 完成 PR #400 PicoD Prometheus metrics 本地 review | [Day 31](day31-picod-prometheus-metrics-review.md) 已验证 PicoD metrics PR 的测试状态、middleware 顺序缺口、指标语义问题和可选 upstream review 草稿 |
 
 ## 卡点记录模板
 
