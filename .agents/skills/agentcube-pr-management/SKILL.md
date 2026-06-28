@@ -22,8 +22,8 @@ Use this skill for AgentCube upstream PR work: branch prep, template filling, is
 - Use clean topic branches from `upstream/main`; do not open PRs from fork `main`.
 - Treat fork `main` as a clean mirror of `upstream/main`. Keep internship reports, local benchmark records, Chinese notes, and local skills on fork `intern`, not on `main`.
 - Do not open an upstream PR, draft PR, WIP PR, issue, or upstream review/comment without explicit user confirmation immediately before posting. Prepare the branch, diff, tests, and exact body/comment locally first, then ask for approval.
-- Prefer fork-only validation for CI experiments. Use fork branches, fork PRs, local Actions, or local tests to validate uncertain fixes before involving `volcano-sh/agentcube`.
-- For GitHub Actions configured on `pull_request`, pushing a fork branch is not enough to run the full CI matrix. Create a fork PR against `main` or a `release-*` base branch to trigger workflows that filter pull request base branches.
+- Prefer fork-only validation for CI experiments. Use fork branches, any push-triggered fork Actions/checks that actually exist, local Actions when available, or local tests to validate uncertain fixes before involving `volcano-sh/agentcube`.
+- Do not create PRs against the personal fork just to run CI. This creates noisy self-PR history and can hurt contribution-quality signals. In AgentCube, most full CI workflows are `pull_request`-triggered for `main` / `release-*`, so a standalone `feat/*` push usually will not run the full matrix. Record the missing coverage and compensate with local tests or the eventual upstream PR checks after user-approved submission.
 - Open upstream PRs only when the change is ready for community review or the user explicitly asks to involve upstream. Do not create upstream PRs merely to trigger CI for a private validation path.
 - Keep internship reports, raw benchmark results, and Chinese-only notes out of upstream PRs unless explicitly intended.
 - For other contributors' PRs, do not draft comments, conclusions, or review suggestions until you have read the PR body, changed files, proposal/design docs, key implementation/tests, and existing human review discussion.
@@ -47,7 +47,7 @@ Approval request must include:
 - Diff summary and tests run.
 - Why upstream attention is needed now.
 
-If the goal is only to run CI, use fork CI first. Do not ask maintainers to validate work that can be validated in the fork.
+If the goal is only to run CI, use local tests and any fork branch push checks that exist first. Do not ask maintainers to validate work that can be validated before upstream review.
 
 ## Branch Workflow
 
@@ -135,26 +135,23 @@ git push --force-with-lease origin <original-pr-branch>
 
 For prerequisite upgrades, keep the branch minimal. Example: if `agent-sandbox` requires a newer Go version, first create a standalone Go/toolchain upgrade branch from `upstream/main`, update only the project/toolchain files needed for the original project to build and test, and prove the unmodified original project works with the new Go version. Do not inherit the dependency-upgrade feature branch just to test the prerequisite. Once the prerequisite PR merges, rebase the dependency-upgrade PR onto `main`.
 
-For open-source review hygiene, prefer smaller, focused PRs over one long-running PR that accumulates review fixes, CI infrastructure changes, unrelated cleanup, and follow-up features. If a fix is only used to validate a path before rebasing back into the original PR, keep the validation in the fork and record it in the local internship report so later reviewers can reconstruct why the branch existed.
+For open-source review hygiene, prefer smaller, focused PRs over one long-running PR that accumulates review fixes, CI infrastructure changes, unrelated cleanup, and follow-up features. If a fix is only used to validate a path before rebasing back into the original PR, keep the validation in a fork branch and record it in the local internship report so later reviewers can reconstruct why the branch existed.
 
-### Fork CI Validation PRs
+### Fork Branch CI Validation
 
-Use a fork PR when the goal is to run GitHub Actions without notifying upstream maintainers.
+Use a fork branch push when the goal is to see whether available GitHub Actions run without notifying upstream maintainers. This does not guarantee full CI for ordinary `feat/*` branches.
 
 - Push the validation head branch to `origin`.
-- If the desired diff is stacked on top of another local or fork branch, create a fork-only base branch that points at that baseline commit.
-- Name the base branch `release-<topic>` when the repository workflows filter `pull_request.branches` to `main` and `release-*`; otherwise only unfiltered workflows may run.
-- Open the PR in `ranxi2001/agentcube`, not `volcano-sh/agentcube`, and use the official PR template even for validation PRs.
-- Use `[WIP]` in the title if the fork PR is only for validation and should not be merged.
-- State clearly in the body that the PR is fork-only CI validation and not an upstream review request.
-- Watch the PR head SHA checks, not only branch push status. If CI fails, inspect the job logs and uploaded artifacts before changing code.
+- Watch the commit SHA checks after the push, not only branch status.
+- If CI fails, inspect the job logs and uploaded artifacts before changing code.
+- Do not open a PR against `ranxi2001/agentcube` just to trigger `pull_request` workflows.
+- If the needed workflow is `pull_request`-only, state that push validation did not cover it and rely on local tests plus the eventual upstream PR checks after explicit user approval.
 
 Example:
 
 ```bash
-git push origin <baseline-sha>:refs/heads/release-<topic>-base
 git push origin <head-branch>:<head-branch>
-# Create a fork PR: base release-<topic>-base, head <head-branch>.
+# Then inspect the GitHub Actions/checks attached to the pushed commit SHA.
 ```
 
 ### Open PR Rebase Validation
@@ -218,7 +215,7 @@ docker build -f docker/Dockerfile.router -t agentcube-go<version>-router:test .
 docker build -f docker/Dockerfile.picod -t agentcube-go<version>-picod:test .
 ```
 
-Validate the branch in the fork first. If replacing an earlier trial PR, open a new clean fork PR and mark the old fork PR as superseded so reviewers and CI evidence do not point at the wrong Go patch version.
+Validate the branch locally and, if useful, by pushing a fork validation branch and checking any push-triggered commit checks. If replacing an earlier trial branch, record the old branch as superseded in the local report so later evidence does not point at the wrong Go patch version.
 
 ### Dependency Release / RC Triage
 

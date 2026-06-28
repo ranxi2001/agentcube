@@ -23,7 +23,7 @@
 - PR 必须来自干净 topic 分支，不从 fork `main` 直接提交。
 - 每个 PR 只做一个主题，避免把实习报告、原始 benchmark 日志、中文-only 笔记混进 upstream PR。
 - 任何 upstream-facing 操作都要先得到用户明确确认，包括创建 PR / draft PR / WIP PR、issue、comment、review comment、`/assign`、request review 或 mention 维护者。
-- 不把 upstream PR 当临时 CI runner；只为验证 CI 时优先用 fork 分支、fork PR、本地测试或 fork Actions。
+- 不把 upstream PR 或 self-fork PR 当临时 CI runner；只为验证 CI 时优先用本地测试、本地 Actions，以及 fork 分支 push 后实际存在的 Actions/checks。当前仓库完整 CI 主要由真实 PR 触发，普通 `feat/*` push 通常不覆盖完整矩阵。
 - 阅读、分析、复现别人的 PR 时，默认只做本地记录；不需要维护者验证的内容不要直接发到社区。
 - 不机械理解为“一个 PR 不能更新”。属于当前 PR 引入的问题可以在验证后 clean update 当前 PR；独立前置条件或仓库级兼容性变化要从 `upstream/main` 拆纯净 PR。
 - 例如依赖升级需要更高 Go 版本时，Go/toolchain 升级本身应先作为独立 PR 从 `upstream/main` 提交，只修改原始项目需要的 Go / CI / toolchain 文件并证明原始项目能跑通；依赖升级 PR 等该前置 PR 合入后再 rebase。
@@ -291,7 +291,7 @@ NONE
 - 无用户可见变化写 `NONE`。
 - 有用户可见变化时，用一句话说明变化。
 
-未完成但确实需要 upstream 提前看到的 PR，标题使用 `[WIP] <title>`。不要使用 `[DO NOT MERGE]` 这类自拟标题约定；如果只是为了跑 CI 或验证 bot，改用 fork PR / fork CI。
+未完成但确实需要 upstream 提前看到的 PR，标题使用 `[WIP] <title>`。不要使用 `[DO NOT MERGE]` 这类自拟标题约定；如果只是为了跑 CI 或验证 bot，先用本地测试、本地 Actions，以及 fork 分支 push 后实际存在的 checks；普通 `feat/*` push 没有完整 CI 时要明确记录覆盖缺口。
 
 ## PR 提交前检查清单
 
@@ -303,7 +303,7 @@ NONE
 | Issue | 有对应 issue 时写 `Fixes #...`；讨论或部分工作写 `Refs #...` |
 | PR 认领 @ | PR 前确认 issue assignee、`/assign` 评论和已打开 PR；如果已有活跃认领人，优先做 review / 复现反馈，不重复实现 |
 | 模板 | 使用 `.github/PULL_REQUEST_TEMPLATE.md` 原始结构，draft / WIP 也不能跳过 |
-| CI 验证 | 需要验证 CI 但不需要社区 review 时，先用 fork PR / fork Actions / 本地测试，不向 upstream 提交临时 PR |
+| CI 验证 | 需要验证 CI 但不需要社区 review 时，先跑本地测试 / 本地 Actions，并查看 fork 分支 push 是否产生 checks；当前仓库普通 `feat/*` push 通常没有完整 CI，不向自己的 fork 仓库提 PR，也不向 upstream 提交临时 PR |
 | 前置依赖 | Go/toolchain、CI 基线、通用测试基础设施等独立前置条件，从 `upstream/main` 单独建纯净分支验证原始项目，不继承 feature PR 的其它修改 |
 | 测试 | bugfix / feature 必须有单测或说明为什么无法加 |
 | Go 格式 | 运行 `make fmt` 或相关 gofmt |
