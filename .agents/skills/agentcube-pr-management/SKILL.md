@@ -154,6 +154,32 @@ git push origin <head-branch>:<head-branch>
 # Then inspect the GitHub Actions/checks attached to the pushed commit SHA.
 ```
 
+### Fork-Only Push CI Workflow
+
+If ordinary branch push has no useful checks and the user wants CI confidence before opening a real upstream PR, use the fork-only push validation workflow template. This workflow is local/fork infrastructure only. Do not include `.github/workflows/fork-push-validation.yml` in an upstream PR diff.
+
+Safe flow:
+
+```bash
+git fetch upstream main
+git switch -c <topic-branch> upstream/main
+# apply the actual code change and commit it normally
+git switch -c ci/<topic>-validation
+git show intern:.agents/skills/agentcube-pr-management/scripts/install_fork_push_ci.sh | bash
+git push origin ci/<topic>-validation:ci/<topic>-validation
+# inspect GitHub Actions on the pushed commit SHA
+```
+
+After CI passes, continue upstream preparation from the clean topic branch that does not contain the fork-only workflow commit:
+
+```bash
+git switch <topic-branch>
+git log --oneline
+git diff upstream/main...
+```
+
+If the validation branch needs a code fix, either fix it first on `ci/<topic>-validation` and cherry-pick only the code fix back to `<topic-branch>`, or fix `<topic-branch>` and recreate the validation branch. Never cherry-pick the fork-only workflow commit into the upstream PR branch.
+
 ### Open PR Rebase Validation
 
 When a prerequisite PR has merged and an open dependent PR needs rebasing, do not immediately force-push the open PR branch. First create a local or fork-only validation branch from the current PR head and test the rebased result:

@@ -58,7 +58,7 @@
 - `origin/intern`：保存实习报告、中文分析、TODO、skills、本地 benchmark 记录。
 - upstream PR：必须从最新 `upstream/main` 新建干净 topic branch，只包含一个 focused change。
 - 上游 PR / issue / review：必须使用官方模板和英文，不能把中文实习记录、raw benchmark、私密配置或无关清理混进去。
-- 只想跑 CI 时，先看 fork 分支 push 是否有 Actions/checks；当前仓库完整 CI 主要由真实 PR 触发，不要为了验证向自己的 fork 仓库提 PR，也不要为了验证随意打扰上游维护者。
+- 只想跑 CI 时，先看 fork 分支 push 是否有 Actions/checks；当前仓库完整 CI 主要由真实 PR 触发。需要提前验证时，用 `.agents/skills/agentcube-pr-management/` 下的 fork-only push CI 模板在 `ci/<topic>` 分支跑，不要为了验证向自己的 fork 仓库提 PR，也不要把该 workflow 带进 upstream PR。
 - 任何真实 token、API key、kubeconfig、Redis 密码、模型凭证都不能进入提交。
 
 ## 常用本地入口

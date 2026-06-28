@@ -1,0 +1,132 @@
+name: Fork Push Validation
+
+on:
+  push:
+    branches:
+      - "ci/**"
+      - "test/**"
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+      - "docs/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-push-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-tests:
+    name: Go tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Check formatting
+        run: make fmt-check
+
+      - name: Run non-e2e Go tests
+        run: |
+          go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$' | xargs go test -count=1
+
+      - name: Run package race coverage
+        run: |
+          go test -race -v -coverprofile=coverage.out -coverpkg=./pkg/... ./pkg/...
+
+  lint-codegen:
+    name: Lint and codegen
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run golangci-lint
+        run: make lint
+
+      - name: Verify generated files
+        run: make gen-check
+
+  build:
+    name: Build binaries and images
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build binaries
+        run: make build-all
+
+      - name: Build workloadmanager image
+        run: make docker-build
+
+      - name: Build router image
+        run: make docker-build-router
+
+      - name: Build picod image
+        run: make docker-build-picod
+
+  python:
+    name: Python lint and SDK tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Python lint
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ruff
+          python -m ruff check . --config pyproject.toml
+
+      - name: Run Python SDK tests
+        working-directory: sdk-python
+        run: |
+          python -m pip install pytest
+          python -m pip install -e .
+          python -m pytest tests/ -v
+
+  spelling-copyright:
+    name: Spelling and copyright
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run codespell
+        run: |
+          python -m pip install codespell
+          mkdir -p /tmp/skip_backup
+          find . -name "pyproject.toml" -exec cp --parents {} /tmp/skip_backup/ \;
+          find . -name "package-lock.json" -exec cp --parents {} /tmp/skip_backup/ \;
+          find . -name "package.json" -exec cp --parents {} /tmp/skip_backup/ \;
+          find . -name "pyproject.toml" -delete
+          find . -name "package-lock.json" -delete
+          find . -name "package.json" -delete
+          codespell \
+            --check-filenames \
+            --skip .git,go.sum,*.png,*.jpg,*.svg,*.gif,*.sum,bin,vendor,node_modules \
+            --ignore-words-list fo,nam,te,notin,NotIn \
+            .
+
+      - name: Verify copyright headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y moreutils
+          make gen-copyright
+          git diff --exit-code
