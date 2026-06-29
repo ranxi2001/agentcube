@@ -23,6 +23,8 @@
 ![Agent Substrate Counter Actor 架构图](agent-substrate-counter-architecture.png)
 
 > 注释：这张图是本文竞品分析的参考图。它把 Substrate 的核心链路画成一个 Counter Actor 示例：Kubernetes 主要负责预创建 Worker Pod 和 CRD 资源，真正的 Actor 生命周期由 ate-api、atenet-router、Redis/ValKey 状态、atelet/ateom 和 gVisor sandbox 串起来；请求进入 router 后先 ResumeActor，再转发到恢复后的 Worker endpoint。
+>
+> 术语说明：这里的 Counter Actor 不是一种特殊 Kubernetes 资源，而是 Substrate demo 里的“计数器应用 + Actor 生命周期模型”。Counter 表示业务逻辑只是维护请求计数，Actor 表示这个应用实例由 Substrate 管理 resume、suspend、checkpoint 和 restore；如果暂停恢复后计数还能继续递增，就能直观看出状态恢复链路是否有效。
 
 ### 2. AgentCube 会话运行时目标架构图
 
