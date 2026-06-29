@@ -11,6 +11,7 @@
 - [本地 Codex Skills：Issue 讨论与 PR 管理](../skills)
 - [Week 1 周会汇报：AgentCube 调研、测评与 Codex 协作](week1-summary-brief.md)
 - [Week 2 总结：从写代码转向审代码与工程判断](week2-summary.md)
+- [Week 3 总结：从功能适配转向 Session Runtime Control Plane](week3-summary.md)
 - [Day 1：跟着 Getting Started 跑通 AgentCube](day1-getting-started.md)
 - [Day 2：从编程语言和技术栈理解 AgentCube 的实现](day2-implementation-tech-stack.md)
 - [Day 3：从跑通架构到运行真实 Agent 工作流](day3-real-agent-workflow.md)
@@ -42,3 +43,4 @@
 - [Day 29：先分析 `cmd/agentd` 组件的作用](day29-agentd-component-role-analysis.md)
 - [Day 30：PR #387 Warm Pool Adoption 数据流 Review](day30-pr387-warm-pool-dataflow-review.md)
 - [Day 31：PR #400 PicoD Prometheus Metrics Review](day31-picod-prometheus-metrics-review.md)
+- [Day 32：Substrate 竞品分析、缺陷升级与 AgentCube 开源 PRD](day32-substrate-competitive-analysis-and-agentcube-prd.md)
