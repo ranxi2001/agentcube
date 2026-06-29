@@ -30,7 +30,7 @@
 
 | 专题 | 重点文档 |
 | --- | --- |
-| 周总结和能力复盘 | [week1-summary-brief.md](internship-reports/week1-summary-brief.md), [week2-summary.md](internship-reports/week2-summary.md), [week3-summary.md](internship-reports/week3-summary.md) |
+| 周总结和能力复盘 | [week1-summary.md](internship-reports/week1-summary.md), [week2-summary.md](internship-reports/week2-summary.md), [week3-summary.md](internship-reports/week3-summary.md) |
 | 开源社区与贡献规范 | [day9-open-source-community-and-fork-sync.md](internship-reports/day9-open-source-community-and-fork-sync.md), [open-source-contribution-format-standard.md](internship-reports/open-source-contribution-format-standard.md) |
 | AgentCube roadmap 和竞品基准 | [day11-cloud-agent-sandbox-projects.md](internship-reports/day11-cloud-agent-sandbox-projects.md), [day12-agentcube-roadmap-from-cubesandbox.md](internship-reports/day12-agentcube-roadmap-from-cubesandbox.md) |
 | `agent-sandbox` stable 适配 | [day16-agent-sandbox-latest-adaptation.md](internship-reports/day16-agent-sandbox-latest-adaptation.md), [day19-pr387-code-review-prep.md](internship-reports/day19-pr387-code-review-prep.md) |

@@ -9,7 +9,7 @@
 - [实习任务 TODO](todo.md)
 - [开源贡献与社区讨论格式标准](open-source-contribution-format-standard.md)
 - [本地 Codex Skills：Issue 讨论与 PR 管理](../skills)
-- [Week 1 周会汇报：AgentCube 调研、测评与 Codex 协作](week1-summary-brief.md)
+- [Week 1 周会汇报：AgentCube 调研、测评与 Codex 协作](week1-summary.md)
 - [Week 2 总结：从写代码转向审代码与工程判断](week2-summary.md)
 - [Week 3 总结：从功能适配转向 Session Runtime Control Plane](week3-summary.md)
 - [Day 1：跟着 Getting Started 跑通 AgentCube](day1-getting-started.md)
