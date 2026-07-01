@@ -9,10 +9,10 @@
 | 输入 | 用途 |
 | --- | --- |
 | [Day28：Agent Substrate 架构吃透与 AgentCube 差异化设计方向](day28-agent-substrate-architecture-and-agentcube-differentiation.md) | 竞品参考、Substrate 控制面/状态面/数据面/runtime 面拆解、差异化方向 |
-| [Agent Substrate Counter Actor 架构图](agent-substrate-counter-architecture.png) / [drawio 源文件](agent-substrate-counter-architecture.drawio) / [高清 PNG](agent-substrate-counter-architecture.drawio.png) | 竞品参考的视觉架构依据，说明 Counter Actor 从 WorkerPool / ActorTemplate 到 router ResumeActor、ate-api 状态、Worker Pod 内 gVisor sandbox、ateom / atelet、checkpoint / restore 的完整链路 |
+| [Agent Substrate Counter Actor 架构图](day28-agent-substrate-counter-architecture.png) / [drawio 源文件](day28-agent-substrate-counter-architecture.drawio) / [高清 PNG](day28-agent-substrate-counter-architecture.drawio.png) | 竞品参考的视觉架构依据，说明 Counter Actor 从 WorkerPool / ActorTemplate 到 router ResumeActor、ate-api 状态、Worker Pod 内 gVisor sandbox、ateom / atelet、checkpoint / restore 的完整链路 |
 | [AgentCube 架构设计优化：基于 Agent Substrate 复核后的版本](design.md) | AgentCube 六面架构、RuntimeProvider、SessionPlacement、preservation level、分阶段路线 |
-| [AgentCube 会话运行时架构拆解](agentcube-session-runtime-architecture-breakdown.md) | 架构图解释、真实 Ready/Paused 请求流、状态机、CAS workflow、失败补偿 |
-| [AgentCube 会话运行时架构图](agentcube-session-runtime-architecture.drawio) / [高清 PNG](agentcube-session-runtime-architecture.drawio.png) | 本文 PRD 的视觉架构依据 |
+| [AgentCube 会话运行时架构拆解](day28-agentcube-session-runtime-architecture-breakdown.md) | 架构图解释、真实 Ready/Paused 请求流、状态机、CAS workflow、失败补偿 |
+| [AgentCube 会话运行时架构图](day28-agentcube-session-runtime-architecture.drawio) / [高清 PNG](day28-agentcube-session-runtime-architecture.drawio.png) | 本文 PRD 的视觉架构依据 |
 
 ## 图解总览
 
@@ -20,7 +20,7 @@
 
 ### 1. Agent Substrate Counter Actor 参考架构图
 
-![Agent Substrate Counter Actor 架构图](agent-substrate-counter-architecture.png)
+![Agent Substrate Counter Actor 架构图](day28-agent-substrate-counter-architecture.png)
 
 > 注释：这张图是本文竞品分析的参考图。它把 Substrate 的核心链路画成一个 Counter Actor 示例：Kubernetes 主要负责预创建 Worker Pod 和 CRD 资源，真正的 Actor 生命周期由 ate-api、atenet-router、Redis/ValKey 状态、atelet/ateom 和 gVisor sandbox 串起来；请求进入 router 后先 ResumeActor，再转发到恢复后的 Worker endpoint。
 >
@@ -28,7 +28,7 @@
 
 ### 2. AgentCube 会话运行时目标架构图
 
-![AgentCube 会话运行时架构图](agentcube-session-runtime-architecture.drawio.png)
+![AgentCube 会话运行时架构图](day28-agentcube-session-runtime-architecture.drawio.png)
 
 > 注释：这张图是本文 PRD 的主图。它把 AgentCube 目标架构压缩成五条主线：Router activation gate、Session lifecycle workflow、CAS-backed Store / Placement、RuntimeProvider abstraction、Kubernetes capacity pool。图里的线色也区分了请求/控制调用、状态读写、数据面 proxy 和容量/健康信号。
 

@@ -40,6 +40,8 @@ Do not be stingy with explanatory notes in internship reports, design notes, arc
 
 For daily reports and review retrospectives, do not create a new day file for the same topic too early. If the topic is still the same investigation or review thread, continue the existing report until it has at least 600 lines before considering a new file. Prefer one substantial, coherent report over many thin fragments.
 
+Name internship report assets so their owner is obvious from the filename. Daily-report images, draw.io sources, exported PNGs, `.url` shortcuts, and companion explainer files should start with the owning day prefix, for example `day33-e2b-architecture-protocol-overview.png` or `day28-agentcube-session-runtime-architecture.drawio`. Weekly report files should start with `weekN-...`, not project-name-first names such as `agentcube week1.md`.
+
 At the start of each new Agent work loop, read root `PROGRESS.md` before diving into reports or code. At the end of the loop, update it only with short state needed for the next run: last work, current blockers, ruled-out paths, next step, and stop conditions. Keep long-form daily records in `internship-reports/` and task inventory in `internship-reports/todo.md`; do not let `PROGRESS.md` become a second report.
 
 ## Knowledge Capture Guidelines

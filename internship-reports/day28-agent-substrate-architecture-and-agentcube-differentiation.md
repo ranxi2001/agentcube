@@ -21,19 +21,19 @@
 
 | 类型 | 路径 / 来源 | 用途 |
 | --- | --- | --- |
-| Draw.io 架构图 | [agent-substrate-counter-architecture.drawio](agent-substrate-counter-architecture.drawio) | 作为 counter demo 的完整组件图 |
-| 图解说明 | [agent-substrate-counter-architecture-explainer.txt](agent-substrate-counter-architecture-explainer.txt) | 解释图中 1-19 步流程 |
+| Draw.io 架构图 | [day28-agent-substrate-counter-architecture.drawio](day28-agent-substrate-counter-architecture.drawio) | 作为 counter demo 的完整组件图 |
+| 图解说明 | [day28-agent-substrate-counter-architecture-explainer.txt](day28-agent-substrate-counter-architecture-explainer.txt) | 解释图中 1-19 步流程 |
 | Day21 调研 | [day21-opensandbox-agent-substrate-study.md](day21-opensandbox-agent-substrate-study.md) | AgentCube / OpenSandbox / Agent Substrate 三方源码级对比 |
 | Day22 runbook | [day22-opensandbox-agent-substrate-runtime-runbook.md](day22-opensandbox-agent-substrate-runtime-runbook.md) | 端到端实测计划和本机 kind 阻塞证据 |
 | Day24/25 Sleep/Resume | [day24-sandbox-sleep-resume-design-note.md](day24-sandbox-sleep-resume-design-note.md), [day25-sleep-resume-code-review-and-architecture-retrospective.md](day25-sleep-resume-code-review-and-architecture-retrospective.md) | AgentCube session lifecycle、Store CAS、Router/GC split 的设计基础 |
-| AgentCube 架构图设计 | [agentcube-session-runtime-architecture.drawio](agentcube-session-runtime-architecture.drawio), [agentcube-session-runtime-architecture.drawio.png](agentcube-session-runtime-architecture.drawio.png), [agentcube-session-runtime-architecture-breakdown.md](agentcube-session-runtime-architecture-breakdown.md) | 把 Substrate 复核结论转化成 AgentCube 会话运行时架构图和配套拆解 |
+| AgentCube 架构图设计 | [day28-agentcube-session-runtime-architecture.drawio](day28-agentcube-session-runtime-architecture.drawio), [day28-agentcube-session-runtime-architecture.drawio.png](day28-agentcube-session-runtime-architecture.drawio.png), [day28-agentcube-session-runtime-architecture-breakdown.md](day28-agentcube-session-runtime-architecture-breakdown.md) | 把 Substrate 复核结论转化成 AgentCube 会话运行时架构图和配套拆解 |
 | Agent Substrate 本地源码 | `/tmp/agent-substrate` @ `bbafda0` | 读取 proto、router、resume/suspend workflow、CRD types |
 | 2026-06-26 源码复核 | `/tmp/agent-substrate` @ `4bbd39f322c6` | 复核 Day28 判断是否仍成立，重点看 micro-VM、SandboxConfig、Worker cache、Claude Code multiplex demo 和 router/control-plane 状态机变化 |
 
 Draw.io 文件校验：
 
 ```text
-/root/.local/bin/python3.11 .agents/skills/drawio-skill/scripts/validate.py internship-reports/agent-substrate-counter-architecture.drawio
+/root/.local/bin/python3.11 .agents/skills/drawio-skill/scripts/validate.py internship-reports/day28-agent-substrate-counter-architecture.drawio
 ```
 
 结果：`0 error(s), 0 warning(s)`。已将内部节点归入对应 swimlane / Worker Pod 容器，并调整跨层边线，避免 draw.io 中出现泳道覆盖节点或边线穿过关键节点的问题。
@@ -726,9 +726,9 @@ type RuntimeProvider interface {
 
 基于今天的 Substrate 图和 Day24/25 的 Sleep/Resume 设计，我们已经补出了 AgentCube 会话运行时架构图：
 
-- 可编辑源图：[agentcube-session-runtime-architecture.drawio](agentcube-session-runtime-architecture.drawio)。
-- 高清导出图：[agentcube-session-runtime-architecture.drawio.png](agentcube-session-runtime-architecture.drawio.png)。
-- 配套拆解文档：[agentcube-session-runtime-architecture-breakdown.md](agentcube-session-runtime-architecture-breakdown.md)。
+- 可编辑源图：[day28-agentcube-session-runtime-architecture.drawio](day28-agentcube-session-runtime-architecture.drawio)。
+- 高清导出图：[day28-agentcube-session-runtime-architecture.drawio.png](day28-agentcube-session-runtime-architecture.drawio.png)。
+- 配套拆解文档：[day28-agentcube-session-runtime-architecture-breakdown.md](day28-agentcube-session-runtime-architecture-breakdown.md)。
 
 这张图不是简单复刻 Agent Substrate，而是把 AgentCube 自己的目标拆成五条主线：Router activation gate、Session lifecycle workflow、CAS-backed Store / Placement、RuntimeProvider abstraction、Kubernetes capacity pool。图中也明确区分了蓝色请求/控制调用、紫色状态读写/CAS/Placement、绿色数据面 proxy/runtime endpoint、灰色虚线容量/健康/capability 信号，避免把所有箭头都理解成同一种调用关系。
 
@@ -778,8 +778,8 @@ SuspendActor -> second router request -> ResumeActor -> counter value preserved
 
 已完成：
 
-- 把 `agent-substrate-counter-architecture.drawio` 纳入实习报告材料。
-- 把 `agent-substrate-counter-architecture-explainer.txt` 纳入实习报告材料。
+- 把 `day28-agent-substrate-counter-architecture.drawio` 纳入实习报告材料。
+- 把 `day28-agent-substrate-counter-architecture-explainer.txt` 纳入实习报告材料。
 - 基于 drawio、explainer、Day21/22 和 Substrate 源码，形成本文档。
 - 明确 AgentCube 可借鉴的四面结构：控制面、状态面、数据面、runtime 面。
 - 明确 AgentCube 两个差异化方向：MultiAgent Worker Pod 和 RuntimeProvider / provider abstraction。
