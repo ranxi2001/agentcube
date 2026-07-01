@@ -8,6 +8,7 @@
 
 ## Last Run
 
+- 2026-07-02 已把用户提供的 `internship-reports/E2B架构与协议22全景图.png` 插入 Day33 `internship-reports/day33-e2b-protocol-and-agent-era-docker-study.md` 的“图解总览”部分；图用于快速建立 E2B SDK/Gateway/Sandbox/基础设施/生态关系，正文仍以 OpenAPI、envd proto 和 SDK 源码拆解为准。
 - 2026-07-01 已新增 `internship-reports/day33-e2b-protocol-and-agent-era-docker-study.md`：基于本地 clone `/tmp/e2b-research` @ `2b7dd17` 读取 E2B 官方 README、`spec/openapi.yml`、`spec/envd/process/process.proto`、`spec/envd/filesystem/filesystem.proto` 和 Python SDK，明确所谓 E2B protocol 不是 OCI/MCP 这类中立标准，而是 SDK + REST lifecycle + envd RPC + template/snapshot/network/volume 产品面的事实兼容对象。核心结论：E2B 像“Agent 时代 Docker”是因为它试图占住 agent sandbox 的默认开发者抽象层，类似 Docker 当年把 image/container/exec/files/network/volume/logs 打包成默认入口；AgentCube 当前不能声称 E2B-compatible，后续应单独做 facade proposal 和 official SDK conformance test。
 - 2026-06-29 已新增 `internship-reports/week3-summary.md`：把 Day24-Day32 的 Sleep/Resume 控制面设计、Store CAS / Router activation / RuntimeProvider 边界、Agent Substrate 竞品复核、AgentCube 架构图和 Day29-Day31 的 #403/#387/#400 review 收束为 Week3 能力复盘；同时更新 `internship-reports/README.md`、根 `README.md` 和 `internship-reports/todo.md` 入口。
 - 2026-06-29 已按用户反馈补齐 `internship-reports/day32-substrate-competitive-analysis-and-agentcube-prd.md` 遗漏的 Agent Substrate Counter Actor 架构图：输入材料表新增 `agent-substrate-counter-architecture.png` / drawio / 高清 PNG，图解总览新增 Substrate 参考架构图和简短链路注释，用于支撑后续 Substrate -> AgentCube PRD 对比。
