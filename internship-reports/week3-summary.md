@@ -185,8 +185,8 @@ mentor 反馈后，本周修正了一个流程规则：不要为了跑 CI 向个
 | [Day26：社区最新讨论与双层架构问题面](day26-week3-community-latest-and-two-layer-architecture-bug-surface.md) | 把最新 issue 和本地实测/设计映射到上层 contract 与下层 runtime capability |
 | [Day27：Agent Infra 职业能力地图](day27-agent-infra-career-roadmap-and-internship-goals.md) | 八条能力线、职业方向、短板和后续 4 周目标 |
 | [Day28：Agent Substrate 架构吃透](day28-agent-substrate-architecture-and-agentcube-differentiation.md) | Substrate counter demo、源码复核、四面拆解、AgentCube 差异化 |
-| [Agent Substrate Counter Actor 架构图](agent-substrate-counter-architecture.png) | 竞品架构视觉证据，说明 WorkerPool / ActorTemplate / router / ate-api / gVisor / checkpoint 链路 |
-| [AgentCube 会话运行时架构图](agentcube-session-runtime-architecture.drawio.png) | AgentCube 目标架构图，覆盖 Router activation、Store CAS、RuntimeProvider 和 capacity pool |
+| [Agent Substrate Counter Actor 架构图](day28-agent-substrate-counter-architecture.png) | 竞品架构视觉证据，说明 WorkerPool / ActorTemplate / router / ate-api / gVisor / checkpoint 链路 |
+| [AgentCube 会话运行时架构图](day28-agentcube-session-runtime-architecture.drawio.png) | AgentCube 目标架构图，覆盖 Router activation、Store CAS、RuntimeProvider 和 capacity pool |
 | [Day29：agentd 组件作用分析](day29-agentd-component-role-analysis.md) | unused agentd 删除前的组件考古、PicoD 对照、PR #403 scope 解释 |
 | [Day30：PR #387 warm pool 数据流 review](day30-pr387-warm-pool-dataflow-review.md) | v0.4.6 object-flow 实测、claim adoption、Store identity、Router 数据流 |
 | [Day31：PR #400 PicoD metrics review](day31-picod-prometheus-metrics-review.md) | Prometheus middleware 顺序 bug、测试命令、英文 review comment 草稿和上游评论记录 |

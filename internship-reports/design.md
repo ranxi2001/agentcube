@@ -1,10 +1,10 @@
 # AgentCube 架构设计优化：基于 Agent Substrate 复核后的版本
 
-> 状态：本文件是内部设计草稿，用来把 [Day28 Agent Substrate 架构复核](day28-agent-substrate-architecture-and-agentcube-differentiation.md) 和 [counter 架构图](agent-substrate-counter-architecture.drawio) 中得到的判断落到 AgentCube 后续设计里。它不是已经合入 upstream 的实现说明。
+> 状态：本文件是内部设计草稿，用来把 [Day28 Agent Substrate 架构复核](day28-agent-substrate-architecture-and-agentcube-differentiation.md) 和 [counter 架构图](day28-agent-substrate-counter-architecture.drawio) 中得到的判断落到 AgentCube 后续设计里。它不是已经合入 upstream 的实现说明。
 
-> 图示：如果只想先看整体关系，先打开 [AgentCube 会话运行时架构图](agentcube-session-runtime-architecture.drawio)。这张图把本文压缩成 Router 激活门、Session lifecycle、CAS Store、RuntimeProvider 和 Kubernetes capacity pool 五条主线。
+> 图示：如果只想先看整体关系，先打开 [AgentCube 会话运行时架构图](day28-agentcube-session-runtime-architecture.drawio)。这张图把本文压缩成 Router 激活门、Session lifecycle、CAS Store、RuntimeProvider 和 Kubernetes capacity pool 五条主线。
 > 图例：蓝色实线表示请求或控制调用，紫色实线表示 Store 状态读写 / CAS / Placement，绿色实线表示数据面代理到 runtime endpoint，灰色虚线表示容量、健康或 capability 信号。
-> 配套拆解：[AgentCube 会话运行时架构拆解](agentcube-session-runtime-architecture-breakdown.md) 用 Mermaid 展开真实请求流、Paused 恢复流、状态机、CAS workflow、RuntimeProvider 和 Kubernetes capacity pool 的设计合理性。
+> 配套拆解：[AgentCube 会话运行时架构拆解](day28-agentcube-session-runtime-architecture-breakdown.md) 用 Mermaid 展开真实请求流、Paused 恢复流、状态机、CAS workflow、RuntimeProvider 和 Kubernetes capacity pool 的设计合理性。
 
 ## 一句话结论
 
@@ -28,7 +28,7 @@ Kubernetes resource pool
 | 输入 | 关键结论 | 对本设计的影响 |
 | --- | --- | --- |
 | [Day28 复核报告](day28-agent-substrate-architecture-and-agentcube-differentiation.md) | Substrate 的价值是 actor/session substrate，不只是 gVisor checkpoint | AgentCube 设计从 sandbox creation 扩展到 session lifecycle substrate |
-| [counter drawio](agent-substrate-counter-architecture.drawio) | 请求经 DNS/Router 进入，Router 调 `ResumeActor`，控制面分配 worker，再转发到 worker IP | AgentCube Router 应设计 `resume-before-proxy` |
+| [counter drawio](day28-agent-substrate-counter-architecture.drawio) | 请求经 DNS/Router 进入，Router 调 `ResumeActor`，控制面分配 worker，再转发到 worker IP | AgentCube Router 应设计 `resume-before-proxy` |
 | Substrate `Store CAS / version` | `UpdateActor` / `UpdateWorker` 都带 expected version | AgentCube Store CAS 是并发 resume/suspend 的正确性要求 |
 | Substrate `Worker cache` | 调度热路径不应每次全量扫 Store | AgentCube 后续 `session -> worker -> slot` 也需要 placement cache 或索引 |
 | Substrate `SandboxConfig` / `sandboxClass` | runtime assets 与 template 解耦，gVisor / micro-VM 可并存 | AgentCube 需要 `RuntimeProvider` / `RuntimeClassConfig` |

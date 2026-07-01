@@ -2,8 +2,8 @@ Agent Substrate Counter 架构图解说
 ==================================
 
 图文件：
-- Draw.io: /root/.copilot/session-state/44f68afd-f6d4-4fc6-af4c-883125403058/files/agent-substrate-counter-architecture.drawio
-- PNG:     /root/.copilot/session-state/44f68afd-f6d4-4fc6-af4c-883125403058/files/agent-substrate-counter-architecture.png
+- Draw.io: /root/.copilot/session-state/44f68afd-f6d4-4fc6-af4c-883125403058/files/day28-agent-substrate-counter-architecture.drawio
+- PNG:     /root/.copilot/session-state/44f68afd-f6d4-4fc6-af4c-883125403058/files/day28-agent-substrate-counter-architecture.png
 
 一、整体理解
 ------------

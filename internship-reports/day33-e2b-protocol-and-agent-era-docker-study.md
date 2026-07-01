@@ -4,7 +4,7 @@
 
 ## 图解总览
 
-![E2B 架构与协议全景图](E2B架构与协议22全景图.png)
+![E2B 架构与协议全景图](day33-e2b-architecture-protocol-overview.png)
 
 > 注释：这张图用于快速建立 E2B 的整体心智模型：客户端 SDK / API、Gateway、sandbox 管理、执行环境、基础设施和生态集成之间的关系。具体协议和兼容性边界仍以本文后面对 E2B 官方 OpenAPI、envd proto 和 SDK 源码的拆解为准。
 
@@ -210,6 +210,29 @@ SDK 连接配置支持：
 - Docker 生态核心是 image；E2B 生态核心是 template + sandbox session + SDK。
 
 > 分析：所以“Agent 时代 Docker”不是说 E2B 一定会替代 Docker，也不是说它一定会成为 OCI 级标准。更准确的说法是：如果 agent 应用需要一个默认 sandbox API，E2B 现在在抢这个默认入口。
+
+## 云大厂为什么会拥抱 E2B-like 抽象
+
+这里的“拥抱”不一定表示云大厂已经押注 E2B 这家公司，更准确地说，是它们会拥抱 E2B 代表的 agent sandbox 默认接口层。
+
+| 原因 | 云厂商视角 | 对 E2B-like 抽象的意义 |
+| --- | --- | --- |
+| Agent 需要安全执行环境 | LLM agent 会写代码、跑 shell、读写文件、访问网络；没有隔离沙箱就会遇到安全、合规、成本失控问题 | sandbox 从可选工具变成 agent 平台基础设施 |
+| 它能带来云资源消耗 | 每个 sandbox 背后都是 VM/microVM/container、存储、网络、日志、镜像、调度 | agent 越多，sandbox 越多，云资源消耗越大 |
+| 它降低开发者门槛 | 开发者不想先学 Firecracker、Kubernetes、NetworkPolicy、snapshot、egress 才能跑 agent | `Sandbox.create()`、`commands.run()`、`files.write()` 变成默认入口 |
+| 它适合托管服务化 | 云厂商擅长把流行接口变成 managed service | 类似 Docker -> EKS/GKE/AKS，E2B-like sandbox 可变成 managed agent sandbox |
+| 它帮助承接 AI 应用生态 | LangChain、LlamaIndex、CrewAI、AutoGPT、MCP、Code Interpreter 都需要工具执行层 | E2B-compatible API 能降低迁移成本 |
+| 云厂商有安全合规优势 | 云上可以叠加 IAM、KMS、VPC、审计、日志、私有网络、数据边界 | E2B-like 能力更容易升级成企业级 agent runtime |
+
+> 分析：云厂商拥抱 Docker，并不是因为 Docker 本身消耗资源少，而是因为 container 抽象放大了云资源消费并标准化了应用交付。E2B-like sandbox 也类似：它把 agent 执行环境标准化，背后会持续消耗计算、存储、网络、安全和观测能力。
+
+但云大厂不一定会无条件依赖 E2B 本身。更可能出现三条路径：
+
+1. 支持 E2B-style / E2B-compatible API，吸引已有 agent 应用迁移。
+2. 推出自家的 managed agent sandbox service。
+3. 投资、合作、收购，或者直接复制这一层接口和 SDK 体验。
+
+> 分析：所以 AgentCube 需要学习的不是“照搬 E2B 公司”，而是它占住的接口位置。真正有价值的是 facade、compatibility ladder 和 conformance suite，而不是仅仅说自己也能跑 code interpreter。
 
 ## 和现有竞品 / AgentCube 的位置对比
 

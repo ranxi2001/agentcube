@@ -1,6 +1,6 @@
 # AgentCube 会话运行时架构拆解
 
-> 配套图：[`agentcube-session-runtime-architecture.drawio`](agentcube-session-runtime-architecture.drawio)
+> 配套图：[`day28-agentcube-session-runtime-architecture.drawio`](day28-agentcube-session-runtime-architecture.drawio)
 >
 > 状态：本文是设计拆解文档，用来解释架构图中的对象边界、真实流转、合理性和收益。它不是声明这些能力已经全部合入 upstream；其中 Sleep/Resume、Store CAS、RuntimeProvider 和 MultiAgent Worker / AgentSlot 属于后续设计方向或分阶段落地目标。
 
