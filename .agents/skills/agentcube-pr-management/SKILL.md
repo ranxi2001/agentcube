@@ -213,6 +213,7 @@ Recommended upstream shape:
 - Add `concurrency` with `cancel-in-progress: true` so force-pushes cancel stale runs.
 - Reuse project commands such as `make fmt-check`, non-e2e Go tests, package race coverage, `make lint`, `make gen-check`, `make build-all`, Docker image builds, Python lint, SDK tests, codespell, and copyright.
 - Consider keeping full `make e2e` out of the default push workflow unless maintainers explicitly want that cost on every branch push.
+- If codespell and copyright run in the same job, restore any files temporarily removed before codespell before running `make gen-copyright`; otherwise copyright verification can fail on the deletion diff rather than a real header problem.
 
 Before opening such a PR, prepare the exact workflow diff, local validation, and PR body, then ask the user to approve the upstream-facing action.
 

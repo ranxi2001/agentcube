@@ -124,6 +124,10 @@ jobs:
             --ignore-words-list fo,nam,te,notin,NotIn \
             .
 
+      - name: Restore files removed before codespell
+        run: |
+          cd /tmp/skip_backup && find . -type f -exec cp --parents {} "$GITHUB_WORKSPACE"/ \;
+
       - name: Verify copyright headers
         run: |
           sudo apt-get update
