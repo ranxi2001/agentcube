@@ -73,17 +73,19 @@
 
 ## 总体架构
 
-新架构按职责拆成七层。
+新架构按职责拆成七层。E2B-like SDK 兼容主入口应标注在 **接入层**：它是面向 Python / TypeScript SDK、REST API 和上层 Agent framework 的 facade / adapter，负责把 E2B 风格的 `Sandbox.create()`、`connect()`、`kill()`、`commands.run()`、`files.*` 等调用翻译成 AgentCube 内部 API / gRPC。
 
-| 层 | 组件 | 责任 |
-| --- | --- | --- |
-| 接入层 | CLI / SDK、Web UI、API / gRPC | 面向用户和上层 Agent framework，提供创建、连接、执行、恢复、销毁等接口 |
-| 路由层 | Cluster-ctl Router、Sandbox Group 池 | 统一入口、鉴权、负载均衡、流量路由、按 sandbox group 分发请求 |
-| 集群控制层 | Cluster-ctl 控制平面、SandboxPool CRD、Template CRD、Pool Controller、Template Controller、Reconciler | 负责全局策略、声明式资源池、模板版本、状态对齐和异常修复 |
-| 功能独立模块 | Sandbox 控制器 | 管理 sandbox 创建、领取、生命周期调度的独立能力，减少主控制面耦合 |
-| 节点执行层 | Worker Node、占位 Pod、placeholder-agent、node-ctl | 在节点本地执行高频生命周期操作，避免每次请求都走完整 Kubernetes 调度链路 |
-| 沙箱运行层 | Sandbox 运行区、sandbox-ctl、microVM / lightweight isolation | 承载真实 sandbox，提供进程 / 文件系统 / 网络隔离和 snapshot / restore |
-| 存储与缓存层 | L1 本地 SSD、L2 AZ 缓存、L3 对象存储 | 缓存模板、rootfs、snapshot、chunk，降低启动和恢复 I/O 延迟 |
+| 层 | 组件 | 责任 | E2B-like SDK 兼容标注 |
+| --- | --- | --- | --- |
+| 接入层 | CLI / SDK、Web UI、API / gRPC、E2B-like SDK Facade | 面向用户和上层 Agent framework，提供创建、连接、执行、恢复、销毁等接口 | **主入口**：兼容 E2B SDK / REST 调用形态，把 E2B-like API 转成内部 API |
+| 路由层 | Cluster-ctl Router、Sandbox Group 池 | 统一入口、鉴权、负载均衡、流量路由、按 sandbox group 分发请求 | 支撑 `connect`、`pause/resume`、`timeout`、`kill` 等 lifecycle 路由 |
+| 集群控制层 | Cluster-ctl 控制平面、SandboxPool CRD、Template CRD、Pool Controller、Template Controller、Reconciler | 负责全局策略、声明式资源池、模板版本、状态对齐和异常修复 | 支撑 sandbox / template / metadata 的 desired state |
+| 功能独立模块 | Sandbox 控制器 | 管理 sandbox 创建、领取、生命周期调度的独立能力，减少主控制面耦合 | 承接 facade 转换后的 sandbox lifecycle 操作 |
+| 节点执行层 | Worker Node、占位 Pod、placeholder-agent、node-ctl | 在节点本地执行高频生命周期操作，避免每次请求都走完整 Kubernetes 调度链路 | 执行 node-local create / restore / pause / delete |
+| 沙箱运行层 | Sandbox 运行区、sandbox-ctl、microVM / lightweight isolation | 承载真实 sandbox，提供进程 / 文件系统 / 网络隔离和 snapshot / restore | 支撑 `commands.run`、process stream、`files.*` 等执行面兼容 |
+| 存储与缓存层 | L1 本地 SSD、L2 AZ 缓存、L3 对象存储 | 缓存模板、rootfs、snapshot、chunk，降低启动和恢复 I/O 延迟 | 支撑 template、snapshot、volume、workspace / file 数据兼容 |
+
+> 注释：如果画在架构图里，建议把 `E2B-like SDK Facade` 放在接入层，与 CLI / SDK、API / gRPC 并列；再用虚线标注它向下依赖三类能力：路由层 lifecycle、沙箱运行层 commands / files / process、存储缓存层 template / snapshot。这样不会误解成“只在 SDK 层写一层 wrapper 就完成 E2B 兼容”。
 
 > 分析：最关键的架构变化是控制面和数据面的分工。集群控制面看全局，节点本地控制器处理高频局部决策，缓存层处理数据路径，Router 处理请求路径。每一层只持有自己必须知道的状态，避免单个中心组件变成所有事件的串行瓶颈。
 
