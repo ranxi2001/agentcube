@@ -8,6 +8,7 @@
 
 ## Last Run
 
+- 2026-07-02 已新增 Day36 `internship-reports/day36-k8s-slow-resource-control-plane-design.md`：按当前项目管理分工，明确 node-ctl / sandbox-ctl / microVM / cache 快路径暂由其他人负责，本轮聚焦 K8s 生态内慢资源控制面。文档用 Mermaid 展开快慢资源双轨体系、`SandboxPoolTemplate` 全局策略 CRD、`SandboxPool` 节点实例 CRD、Template Controller / Pool Controller 职责边界、创建 / 更新 / override / 故障恢复流程、状态机、状态所有权、node-ctl 最小接口契约和后续 fake controller / placeholder spike 落地切片。README/TODO 已补 Day36 入口。
 - 2026-07-02 已按用户要求在 Day32 `internship-reports/day32-substrate-competitive-analysis-and-agentcube-prd.md` 文末追加“Day35 新版本设计后的 PRD 修订”：将 Day32 标记为历史版 / v1 设计，保留 Substrate 对比、Session lifecycle、Router activation、Store CAS、RuntimeProvider 和 benchmark/conformance 思路，同时明确过期点和 Day35 后的新主线：K8s CRD 资源池、占位 Pod、node-local lifecycle、microVM、run-builder、L1/L2/L3 缓存、E2B-like SDK Facade。TODO 的 Day32 里程碑也已同步说明。
 - 2026-07-02 已按用户要求整理 Day35 架构材料：`Agentcube新架构方案.png` -> `internship-reports/day35-agentcube-new-architecture-proposal.png`；外部参考 CRD 设计文档不作为 Day35 日报文件包装，已移动到 `docs/design/k8s-crd-sandbox-resource-pool-lifecycle-control-design.md` 并去掉 Day35 头部说明。新增 `internship-reports/day35-agentcube-architecture-iteration-conclusion.md`，记录三期会议迭代后的 AgentCube 新架构结论：K8s 管慢资源和资源边界，node-ctl / sandbox-ctl 管节点本地高频生命周期，microVM + run-builder + L1/L2/L3 缓存支撑低延迟和高密度，E2B-compatible 只作为后续 facade / conformance 方向。README/TODO 已补入口。
 - 2026-07-02 已按用户追问在 Day35 总体架构七层表中标注 E2B-like SDK 兼容位置：主入口放在接入层的 `E2B-like SDK Facade`，负责把 E2B SDK / REST 调用翻译成 AgentCube 内部 API；完整兼容还依赖路由层 lifecycle、沙箱运行层 commands/files/process、存储缓存层 template/snapshot。

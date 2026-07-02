@@ -48,3 +48,4 @@
 - [Day 33：E2B 协议面与 Agent 时代 Docker 调研](day33-e2b-protocol-and-agent-era-docker-study.md)
 - [Day 34：AgentCube Push CI 工作流方案与 PR 准备](day34-agentcube-push-ci-workflow-pr-prep.md)
 - [Day 35：三期会议迭代讨论后的 AgentCube 新架构结论分析](day35-agentcube-architecture-iteration-conclusion.md)
+- [Day 36：项目分工与 K8s 慢资源控制面深入设计](day36-k8s-slow-resource-control-plane-design.md)
