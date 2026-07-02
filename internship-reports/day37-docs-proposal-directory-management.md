@@ -304,6 +304,38 @@ Commit: 2cc5732 docs: add proposal index and template
 
 > 注释：后续不要自动 push、comment 或 request review。若 maintainer 反馈，先判断是否属于本 PR scope，再让用户确认 exact update / comment。
 
+### PR review 更新
+
+PR 创建后，`gemini-code-assist[bot]` 提出一个有效的一致性问题：
+
+- 文件：`docs/proposals/README.md`
+- 问题：README 的 template section 清单遗漏了 `risks and mitigations`。
+- 原因：`docs/proposals/proposal-template.md` 中存在 `## Risks and Mitigations`，README 清单应保持同步。
+
+这个建议属于当前 PR scope 内的文档一致性修复，因此已按用户确认更新：
+
+```text
+2cc5732 -> 8e8c455 docs: add proposal index and template
+```
+
+修复内容：
+
+```markdown
+- design details
+- risks and mitigations
+- test plan
+```
+
+验证：
+
+```bash
+git diff --check
+```
+
+结果：通过。
+
+> 注释：本次只 force-with-lease 更新 PR 分支，没有回复 review comment、没有 request review、没有 mention maintainer。更新后 GitHub Actions 重新运行。
+
 ## 今日结论
 
 AgentCube 当前“以前的提案”主要存放在 `docs/design/`，但缺少目录索引和统一模板。Karmada 的 `docs/proposals/` 证明了 proposal 独立目录的价值，但它缺少顶层 README，所以 AgentCube 可以在借鉴它的同时补上更好的入口体验。
