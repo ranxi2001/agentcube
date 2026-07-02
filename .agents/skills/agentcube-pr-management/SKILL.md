@@ -44,6 +44,7 @@ Approval request must include:
 - Target repo and branch.
 - Whether it is upstream-facing or fork-only.
 - Title and full body/comment, using the official template when applicable.
+- Body/comment formatting check: normal prose should use natural GitHub Markdown paragraphs, without manual hard-wrapping inside sentences.
 - Diff summary and tests run.
 - Why upstream attention is needed now.
 
@@ -521,6 +522,8 @@ Let the bot guide exact approval requirements; do not over-tag reviewers unless 
 
 Always use the repository's official `.github/PULL_REQUEST_TEMPLATE.md` exactly as the base for upstream PRs, including draft and WIP PRs. Do not replace it with a self-designed style. Fill every section; use `NONE` inside the release-note block when there is no user-facing change.
 
+Format PR bodies and upstream comments for GitHub rendering, not terminal width. Do not hard-wrap normal prose at 80 columns or split a sentence only because it is long. Use line breaks for paragraph boundaries, headings, bullet items, tables, code fences, and release-note blocks. For long bullets, prefer rewriting the sentence or splitting the idea into separate bullets instead of adding continuation lines purely for column width. Before asking the user to approve exact upstream text, review the raw Markdown and collapse accidental line breaks inside ordinary paragraphs.
+
 ````md
 **What type of PR is this?**
 
@@ -618,6 +621,7 @@ python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 379
 - Do not create upstream PRs, draft PRs, WIP PRs, issues, or comments without immediate user approval of the exact title/body/comment.
 - Do not use upstream PRs as disposable CI runners. Validate in the fork first when maintainer review is not needed.
 - Do not ignore the official PR template, even for draft or WIP PRs.
+- Do not manually hard-wrap PR bodies, issue bodies, or upstream comments. Keep ordinary prose as natural Markdown paragraphs unless a list, table, code block, or template block requires line breaks.
 - Use `[WIP]` for unfinished upstream PRs when the user approves posting one; do not use `[DO NOT MERGE]`.
 - Do not comment on or mention maintainers in read-only PR analysis unless the user approves and upstream input is genuinely needed.
 - Do not merge unrelated formatting with behavior changes.
