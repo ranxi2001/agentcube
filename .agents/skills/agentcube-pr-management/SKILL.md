@@ -143,6 +143,7 @@ Use a fork branch push when the goal is to see whether available GitHub Actions 
 
 - Push the validation head branch to `origin`.
 - Watch the commit SHA checks after the push, not only branch status.
+- Prefer the local `check_push_ci.py` helper for push-triggered Actions runs.
 - If CI fails, inspect the job logs and uploaded artifacts before changing code.
 - Do not open a PR against `ranxi2001/agentcube` just to trigger `pull_request` workflows.
 - If the needed workflow is `pull_request`-only, state that push validation did not cover it and rely on local tests plus the eventual upstream PR checks after explicit user approval.
@@ -151,12 +152,21 @@ Example:
 
 ```bash
 git push origin <head-branch>:<head-branch>
-# Then inspect the GitHub Actions/checks attached to the pushed commit SHA.
+python3 .agents/skills/agentcube-pr-management/scripts/check_push_ci.py \
+  --repo ranxi2001/agentcube \
+  --branch <head-branch> \
+  --sha "$(git rev-parse HEAD)" \
+  --watch \
+  --interval 60
 ```
 
 ### Fork-Only Push CI Workflow
 
 If ordinary branch push has no useful checks and the user wants CI confidence before opening a real upstream PR, use the fork-only push validation workflow template. This workflow is local/fork infrastructure only. Do not include `.github/workflows/fork-push-validation.yml` in an upstream PR diff.
+
+AgentCube differs from Karmada here: Karmada's main CI workflows already include `push`, while AgentCube's core build/lint/codegen/e2e/codespell/copyright/coverage workflows are mainly `pull_request`-triggered. The check script can only observe workflow runs that GitHub created; it cannot make a `pull_request`-only workflow run on branch push. For fork-only push CI, the validation branch must contain a push-triggered workflow file.
+
+Technically, adding the push workflow to the fork default branch would make future fork branches that contain that workflow trigger on push. Do not use `origin/main` for that in this workspace, because fork `main` is reserved as a clean mirror of `upstream/main`. If a permanent fork-only base is needed, use a dedicated branch such as `ci/base` or continue installing the workflow only on disposable `ci/<topic>-validation` branches.
 
 Safe flow:
 
@@ -167,8 +177,20 @@ git switch -c <topic-branch> upstream/main
 git switch -c ci/<topic>-validation
 git show intern:.agents/skills/agentcube-pr-management/scripts/install_fork_push_ci.sh | bash
 git push origin ci/<topic>-validation:ci/<topic>-validation
-# inspect GitHub Actions on the pushed commit SHA
+python3 .agents/skills/agentcube-pr-management/scripts/check_push_ci.py \
+  --repo ranxi2001/agentcube \
+  --branch ci/<topic>-validation \
+  --sha "$(git rev-parse HEAD)" \
+  --watch \
+  --interval 60
 ```
+
+`check_push_ci.py` exit codes:
+
+- `0`: all matching runs are terminal and non-failing.
+- `1`: at least one matching run failed, timed out, was cancelled, or ended in an unknown terminal state.
+- `2`: at least one matching run is still queued or running.
+- `3`: no matching Actions run was found. Check whether the workflow file was installed before push, whether the branch matches `ci/**`, `test/**`, `feat/**`, `fix/**`, `chore/**`, or `docs/**`, and whether Actions are enabled in the fork.
 
 After CI passes, continue upstream preparation from the clean topic branch that does not contain the fork-only workflow commit:
 
@@ -179,6 +201,20 @@ git diff upstream/main...
 ```
 
 If the validation branch needs a code fix, either fix it first on `ci/<topic>-validation` and cherry-pick only the code fix back to `<topic-branch>`, or fix `<topic-branch>` and recreate the validation branch. Never cherry-pick the fork-only workflow commit into the upstream PR branch.
+
+### Upstreamable Push CI Proposal
+
+It is technically possible to submit an upstream PR that adds Karmada-style branch push CI. Treat it as a contributor-experience CI feature, not a private CI workaround. Prefer a focused workflow named like `Branch Push Validation` instead of changing release/publish workflows or blindly duplicating every existing PR workflow.
+
+Recommended upstream shape:
+
+- Trigger on `push` for contributor-style branch patterns or `branches-ignore: dependabot/**`; avoid release tags and publish paths.
+- Keep `permissions: contents: read`; do not use secrets, package publishing, or deployment permissions.
+- Add `concurrency` with `cancel-in-progress: true` so force-pushes cancel stale runs.
+- Reuse project commands such as `make fmt-check`, non-e2e Go tests, package race coverage, `make lint`, `make gen-check`, `make build-all`, Docker image builds, Python lint, SDK tests, codespell, and copyright.
+- Consider keeping full `make e2e` out of the default push workflow unless maintainers explicitly want that cost on every branch push.
+
+Before opening such a PR, prepare the exact workflow diff, local validation, and PR body, then ask the user to approve the upstream-facing action.
 
 ### Open PR Rebase Validation
 
