@@ -1,0 +1,289 @@
+# Day 37：Docs Proposal 目录设计与提案管理调研
+
+日期：2026-07-02
+
+## 今日目标
+
+当前 AgentCube 仓库没有专门的 `docs/proposals/` 目录。历史提案和设计文档主要放在 `docs/design/`，但该目录没有 README 索引，读者点进目录后很难快速判断：
+
+1. 现在有哪些提案。
+2. 每份提案对应哪个模块。
+3. 新提案应该放在哪里。
+4. 提案应该使用什么模板。
+5. 历史设计文档和未来正式 proposal 的关系是什么。
+
+本轮目标是先调研现状，再在 AgentCube 上开一个干净分支，做一个小而清晰的 proposal 管理改进。
+
+> 注释：这类改动虽然只是文档目录管理，但它属于开源协作基础设施。提案目录越清楚，后续像 SandboxPool、E2B facade、Sleep/Resume、benchmark suite 这种设计就越容易被维护者和新人检索、讨论和延续。
+
+## 参考对象：Karmada docs/proposals
+
+参考链接：
+
+- <https://github.com/karmada-io/karmada/tree/master/docs/proposals>
+- <https://github.com/karmada-io/karmada/tree/master/docs/proposals/proposal-template>
+
+本地调研方式：
+
+```bash
+rm -rf /tmp/karmada-proposals
+git clone --depth 1 --filter=blob:none --sparse https://github.com/karmada-io/karmada.git /tmp/karmada-proposals
+cd /tmp/karmada-proposals
+git sparse-checkout set docs/proposals
+find docs/proposals -maxdepth 3 -type f | sort
+```
+
+### Karmada 目录结构观察
+
+Karmada 的 proposal 目录大致是：
+
+```text
+docs/proposals/
+  proposal-template/
+    proposal-template.md
+  caching/
+    README.md
+  cleanup-propagated-resources/
+    README.md
+  scheduling/
+    521-scheduler-estimator/
+      README.md
+    activation-preference/
+      lazy-activation-preference.md
+  hpa/
+    federated-hpa.md
+    statics/
+      ...
+  resource-aggregation-proxy/
+    README.md
+    *.drawio
+    *.svg
+```
+
+统计结果：
+
+| 项 | 结果 |
+| --- | --- |
+| `docs/proposals` 一级子目录数量 | 28 |
+| max depth 2 内 Markdown 文件数量 | 31 |
+| 其中 `README.md` 数量 | 15 |
+| 其他 Markdown proposal 文件数量 | 16 |
+| 顶层 `docs/proposals/README.md` | 未发现 |
+| 模板位置 | `docs/proposals/proposal-template/proposal-template.md` |
+
+> 分析：Karmada 的优点是把 proposal 从普通 docs 中拆出来，并允许每个大 proposal 形成独立目录，图片和 drawio 资产可以就近存放。缺点是顶层没有 README 索引，点开 `docs/proposals/` 后只能看到文件夹列表，不知道哪些是调度、failover、operator、networking，也不知道哪个 proposal 是当前推荐阅读入口。
+
+### Karmada 模板结构
+
+Karmada 的模板接近 Kubernetes Enhancement Proposal 的简化版，包含：
+
+- front matter：title、authors、reviewers、approvers、creation-date。
+- `Summary`
+- `Motivation`
+- `Goals`
+- `Non-Goals`
+- `Proposal`
+- `User Stories`
+- `Notes/Constraints/Caveats`
+- `Risks and Mitigations`
+- `Design Details`
+- `Test Plan`
+- `Alternatives`
+
+> 注释：这个结构适合 AgentCube 复用，因为 AgentCube 后续要讨论的 proposal 大多也是跨组件设计：CRD、controller、router、runtime、SDK、benchmark、安全和缓存。模板至少要逼迫作者写清楚目标、非目标、测试计划和替代方案。
+
+## AgentCube 当前提案存放方式
+
+本地调研命令：
+
+```bash
+find docs -maxdepth 4 -type f | sort
+rg -n "proposal|Proposal|design|Design|方案|提案|architecture|Architecture|roadmap|Roadmap|RFC|rfc" docs README.md README-ZH.md .github CONTRIBUTING.md -g '*.md'
+```
+
+关键发现：
+
+1. `CONTRIBUTING.md` 当前写着：major design decisions go through design docs in `docs/design/`。
+2. `README-ZH.md` 说明 AgentCube 仍处于提案和早期设计阶段，并指向 Volcano 初始 issue。
+3. Docusaurus 架构文档里的 `Architecture Overview` 指向 `docs/design/agentcube-proposal.md`。
+4. 现有设计文档主要集中在 `docs/design/`，但没有 README。
+5. 文件命名不统一：有 `*-proposal.md`，也有 `*-Design.md`，还有普通的 `router-proposal.md` / `picod-proposal.md`。
+
+### AgentCube 现有设计文档列表
+
+基于最新 `upstream/main f9c37d5`，当前 `docs/design/` 下的 Markdown 文档为：
+
+| 文件 | 标题 / 主题 | 观察 |
+| --- | --- | --- |
+| `docs/design/agentcube-proposal.md` | AgentCube Design Proposal | 有完整 front matter，是总体架构入口 |
+| `docs/design/runtime-template-proposal.md` | Sandbox Template for Agent and CodeInterpreter Runtimes | 有 proposal 风格 front matter |
+| `docs/design/picod-proposal.md` | PicoD Design Document | 设计文档风格，无 proposal front matter |
+| `docs/design/PicoD-Plain-Authentication-Design.md` | Picod Plain Authentication Design | 设计文档风格，标题大小写略不统一 |
+| `docs/design/router-proposal.md` | Router Submodule Design Document | 设计文档风格 |
+| `docs/design/auth-proposal.md` | AgentCube Authentication and Authorization Design | 有 front matter，内容是 proposal |
+| `docs/design/keycloak-proposal.md` | Keycloak Integration Design | proposal 内容，但无统一 front matter |
+| `docs/design/AgentRun-CLI-Design.md` | AgentCube CLI Design | 设计文档风格，文件名使用大写 |
+
+> 分析：AgentCube 不是没有 proposal，而是 proposal 和 design doc 混在 `docs/design/` 下，缺少面向读者的索引。直接搬迁这些文件会破坏现有链接，因此第一步不应该大规模移动文件，而应该先新增 `docs/proposals/README.md` 做统一入口和历史索引。
+
+## 设计取舍
+
+### 不直接搬迁 `docs/design`
+
+我没有把历史文件从 `docs/design/` 移到 `docs/proposals/`，原因是：
+
+1. 现有 README、Docusaurus 页面和外部链接已经指向 `docs/design/agentcube-proposal.md`。
+2. 文件搬迁会制造较大的 diff，但真正解决的问题只是“入口和索引不清晰”。
+3. docs-only 小 PR 更容易 review，也更适合作为 proposal 管理的第一步。
+
+### 新增 proposal 入口
+
+建议新增：
+
+```text
+docs/proposals/
+  README.md
+  proposal-template.md
+```
+
+其中：
+
+- `README.md` 解释 proposal 目录用途、推荐布局、状态值、review guidance，并索引现有 `docs/design` 历史提案。
+- `proposal-template.md` 提供统一 proposal 模板。
+- `CONTRIBUTING.md` 更新为：新重大设计进入 `docs/proposals/`，历史设计文档仍保留在 `docs/design/`，并从 proposal README 索引。
+
+> 注释：这是一个兼容式迁移方案。它先建立新入口，不破坏历史链接；后续如果社区同意，再逐步把新 proposal 写到 `docs/proposals/`，而不是一次性重排所有文档。
+
+## 已创建的 AgentCube 分支
+
+干净工作树：
+
+```text
+/tmp/agentcube-proposals-index
+```
+
+分支：
+
+```text
+docs/proposals-management
+```
+
+基线：
+
+```text
+upstream/main f9c37d5fee30134230470366ee1ec13e562440a0
+```
+
+提交：
+
+```text
+50116ca docs: add proposal index and template
+```
+
+已推送到 fork：
+
+```text
+origin docs/proposals-management
+```
+
+### 分支改动
+
+```text
+CONTRIBUTING.md                     |   4 +-
+docs/proposals/README.md            |  97 ++++++++++++++++++
+docs/proposals/proposal-template.md |  99 ++++++++++++++++++
+```
+
+具体变更：
+
+1. 新增 `docs/proposals/README.md`。
+   - 说明 proposal 目录用途。
+   - 规定新 proposal 的推荐布局。
+   - 索引 `docs/design/` 中的历史设计文档。
+   - 定义 `draft / provisional / implemented / deferred / rejected / obsolete` 状态值。
+   - 给出 review guidance。
+2. 新增 `docs/proposals/proposal-template.md`。
+   - 包含 title、authors、reviewers、approvers、creation-date、last-updated、status、tracking-issue。
+   - 包含 Summary、Motivation、Goals、Non-Goals、Proposal、User Stories、Design Details、Risks and Mitigations、Test Plan、Alternatives、Implementation Plan。
+3. 更新 `CONTRIBUTING.md`。
+   - 从 “Major design decisions go through design docs in `docs/design/`”
+   - 改为 “Major design decisions go through proposals in `docs/proposals/`”
+   - 同时说明历史 `docs/design/` 文件仍保留并由 README 索引。
+
+## 验证
+
+在 proposal 管理分支执行：
+
+```bash
+git diff --cached --check
+```
+
+提交前结果：通过。
+
+本次是 docs-only 变更，没有运行 Go 测试、Docusaurus build 或 e2e。
+
+> 分析：这个变更不触碰 Docusaurus 站点源码和项目代码，因此不需要 Go 测试。后续如果把 `docs/proposals` 接入 Docusaurus sidebar，再需要运行 `cd docs/agentcube && npm run build`。
+
+## 可以准备的 upstream PR 文本
+
+当前还没有创建 upstream PR。若后续要提交，可以使用这个方向：
+
+```text
+Title: docs: add proposal index and template
+```
+
+PR 说明要点：
+
+````markdown
+**What type of PR is this?**
+
+/kind documentation
+
+**What this PR does / why we need it**:
+
+This PR adds a dedicated `docs/proposals/` entry point for AgentCube design proposals.
+
+AgentCube already has several design and proposal documents under `docs/design/`,
+but there is no proposal index or template that helps contributors discover the
+existing proposal surface or start a new proposal consistently.
+
+This PR:
+
+- adds `docs/proposals/README.md` with proposal layout guidance, status values,
+  review guidance, and an index of existing `docs/design/` documents;
+- adds `docs/proposals/proposal-template.md`;
+- updates `CONTRIBUTING.md` to point major design decisions to `docs/proposals/`
+  while keeping existing historical design documents under `docs/design/`.
+
+**Which issue(s) this PR fixes**:
+
+NONE
+
+**Special notes for your reviewer**:
+
+- Scope: docs-only proposal management.
+- Existing `docs/design/` files are not moved, so current links remain stable.
+- Tests: `git diff --cached --check`
+- AI assistance: Used Codex to inspect existing docs structure, compare Karmada's proposal layout, and draft this PR. I reviewed and validated the changes.
+
+**Does this PR introduce a user-facing change?**:
+
+```release-note
+NONE
+```
+````
+
+> 注释：创建 upstream PR 前仍需要用户确认 exact title / body / target。当前只完成了 fork 分支准备，不进行 upstream-facing 动作。
+
+## 今日结论
+
+AgentCube 当前“以前的提案”主要存放在 `docs/design/`，但缺少目录索引和统一模板。Karmada 的 `docs/proposals/` 证明了 proposal 独立目录的价值，但它缺少顶层 README，所以 AgentCube 可以在借鉴它的同时补上更好的入口体验。
+
+最稳妥的第一步不是搬迁历史文件，而是：
+
+1. 新增 `docs/proposals/README.md`。
+2. 新增 `docs/proposals/proposal-template.md`。
+3. 在 README 中索引现有 `docs/design/` 历史提案。
+4. 更新 `CONTRIBUTING.md`，让新重大设计以后进入 `docs/proposals/`。
+
+这样既解决“点开目录不知道有哪些提案”的问题，也避免一次性重构文档路径带来的链接风险。
