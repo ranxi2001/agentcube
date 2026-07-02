@@ -204,15 +204,18 @@ If the validation branch needs a code fix, either fix it first on `ci/<topic>-va
 
 ### Upstreamable Push CI Proposal
 
-It is technically possible to submit an upstream PR that adds Karmada-style branch push CI. Treat it as a contributor-experience CI feature, not a private CI workaround. Prefer a focused workflow named like `Branch Push Validation` instead of changing release/publish workflows or blindly duplicating every existing PR workflow.
+It is technically possible to submit an upstream PR that adds Karmada-style branch push CI. Treat it as a contributor-experience CI feature, not a private CI workaround.
+
+If the goal is for fork branch pushes and PRs to use the same CI logic, prefer adding a `push` trigger to the existing validation workflows instead of creating a separate permanent push-only workflow. A separate workflow is acceptable for fork-only temporary validation, but upstream should avoid two long-lived CI definitions that can drift.
 
 Recommended upstream shape:
 
-- Trigger on `push` for contributor-style branch patterns or `branches-ignore: dependabot/**`; avoid release tags and publish paths.
-- Keep `permissions: contents: read`; do not use secrets, package publishing, or deployment permissions.
-- Add `concurrency` with `cancel-in-progress: true` so force-pushes cancel stale runs.
-- Reuse project commands such as `make fmt-check`, non-e2e Go tests, package race coverage, `make lint`, `make gen-check`, `make build-all`, Docker image builds, Python lint, SDK tests, codespell, and copyright.
-- Consider keeping full `make e2e` out of the default push workflow unless maintainers explicitly want that cost on every branch push.
+- Add `push.branches-ignore: ["dependabot/**"]` to existing validation workflows such as `main.yml`, `lint.yml`, `codegen-check.yml`, `e2e.yml`, `codespell.yml`, `copyright-check.yml`, `python-lint.yml`, `python-sdk-tests.yml`, and `test-coverage.yml`.
+- Preserve the existing `pull_request`, `merge_group`, and `workflow_call` configuration so PR behavior and merge-queue behavior do not change.
+- Do not add branch push triggers to release, publish, or workflow-approval workflows such as image publishing, PyPI publishing, plugin publishing, or `pull_request_target` approval automation.
+- Keep the workflow commands identical between push and PR paths. This is the main reason to prefer Karmada-style trigger sharing over a second push-only workflow.
+- Avoid secrets, package publishing, or deployment permissions in branch push validation paths.
+- If maintainers worry about cost, discuss whether heavy jobs such as e2e should remain PR-only; the tradeoff is lower cost versus losing exact push/PR parity.
 - If codespell and copyright run in the same job, restore any files temporarily removed before codespell before running `make gen-copyright`; otherwise copyright verification can fail on the deletion diff rather than a real header problem.
 
 Before opening such a PR, prepare the exact workflow diff, local validation, and PR body, then ask the user to approve the upstream-facing action.
