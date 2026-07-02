@@ -346,6 +346,10 @@ Fork `main` 验证：
 
 ## PR 文稿草稿
 
+Upstream PR:
+
+<https://github.com/volcano-sh/agentcube/pull/416>
+
 Title:
 
 ```text
@@ -454,4 +458,4 @@ gh run list \
 1. 本地没有 `helm`，所以没有直接在本机复现 `helm package --version latest` 的报错。
 2. 旧 run 的 `gh run view --log-failed` 不是每次都能稳定吐出日志细节，但 run/job metadata 能稳定证明失败步骤都是 `Package Helm chart`。
 3. 这个 workflow 有 `packages: write` 权限，修复前不应随意在 fork 或 upstream 上反复触发发布路径。
-4. 如果要开 upstream PR，需要先确认社区期望：main 是否应该发布 Helm chart，还是 chart 只在 tag release 发布。
+4. 已创建 upstream PR #416，后续等待 CI、maintainer review、`/lgtm`、`/approve` 和 tide。不要自动追加 commit 或评论；如果 review 反馈需要改 release 策略，先让用户确认 exact diff/comment。
