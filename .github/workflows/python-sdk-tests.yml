@@ -1,6 +1,9 @@
 name: Python SDK Tests
 
 on:
+  push:
+    branches-ignore:
+      - "dependabot/**"
   pull_request:
   merge_group:
 

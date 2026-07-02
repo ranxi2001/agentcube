@@ -1,6 +1,9 @@
 name: Agentcube E2E Tests
 
 on:
+  push:
+    branches-ignore:
+      - "dependabot/**"
   pull_request:
     branches:
       - main
