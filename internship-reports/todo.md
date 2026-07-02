@@ -1,6 +1,6 @@
 # 实习任务 TODO
 
-更新时间：2026-07-01
+更新时间：2026-07-02
 
 这个文档用于管理实习期间的后续任务。日报记录每天做了什么，TODO 记录“现在还要做什么、优先级是什么、做到哪里、卡在哪里”。
 
@@ -22,6 +22,7 @@
 | P0 | 固定开源贡献和社区讨论格式标准 | DONE | 不适用 | 中 | 低 | 0.5 天 | [格式标准](open-source-contribution-format-standard.md) 已整理官方 issue / PR / proposal / benchmark / review 格式 | 后续 issue、proposal、PR 前按 checklist 检查 |
 | P0 | 建立 issue 讨论和 PR 管理本地 skills | DONE | 不适用 | 中 | 低 | 0.5 天 | [issue skill](../.agents/skills/agentcube-issue-discussion/SKILL.md)、[PR skill](../.agents/skills/agentcube-pr-management/SKILL.md) 已创建 | 后续社区讨论和 PR 准备用对应 skill 工作流 |
 | P0 | 建立干净 upstream PR 分支 | DONE | 不适用 | 中 | 低 | 0.5 天 | [Day 10](day10-warmpoolavailable-poc.md) 已在 `/home/agentcube-pr265` 基于 `upstream/main` 创建 `feat/warmpool-available-condition` | fork `intern` 保留实习报告；fork `main` 只同步 `upstream/main`；PR 分支只放 #265 代码改动 |
+| P0 | 准备 AgentCube push CI upstream PR | REVIEW | 不适用 | 中 | 低 | 0.5 天 | [Day 34](day34-agentcube-push-ci-workflow-pr-prep.md) 已完成 Karmada-style shared workflow 方案：基于最新 `upstream/main d3eb47a` 的 clean branch `ci/enable-push-validation`，commit `bb2a6e5` 只给 9 个验证 workflow 增加 `push.branches-ignore`；fork branch push 已触发并通过 9/9 验证 workflow；报告解释了 PR checks 11 个但只改 9 个 workflow 的原因 | 用户确认 exact PR title/body/target 后再开 upstream PR |
 | P0 | 跟进 `TokenCache` 不检查 JWT `exp` 的问题 | WATCH | @HarshitPal25 | 中 | 低 | 0.5 天 | [Week 2](week2-summary.md) 已列为跟进项；来源 #375 | 已有人认领，先不重复开 PR；跟踪其 PR，必要时做 review / 复现测试 |
 | P0 | 对齐 SnapStart / warm pool benchmark 口径 | WATCH | #365 无 assignee；#366/#379 @lyuyun | 中 | 低 | 1 天 | [Day 12](day12-agentcube-roadmap-from-cubesandbox.md) 已整理 #366 实验验证矩阵、补跑 plain Pod / warm pool 本机数据，并在 [#366](https://github.com/volcano-sh/agentcube/pull/366#issuecomment-4714612811) 发布评论；来源 #365/#366/#379 | 重复评论已删除；跟踪维护者是否希望整理 proposal patch / docs PR |
 | P0 | 学习 Karmada Kubernetes-native 控制面设计 | DONE | 不适用 | 中 | 低 | 1 天 | [Day 13](day13-karmada-project-study.md) 已完成：项目定位、组件、核心资源链路、Binding/Work 控制器初读、成功原因和 AgentCube 对比 | 后续如继续学习，再单独开 scheduler / status aggregation 深读任务 |
@@ -115,6 +116,7 @@
 | 完成 Agent Substrate 架构吃透与 AgentCube 差异化设计方向 | [Day 28](day28-agent-substrate-architecture-and-agentcube-differentiation.md) 已把 counter drawio / explainer / Substrate 源码证据转成 AgentCube future design 判断；2026-06-26 已按最新源码 `4bbd39f322c6` 复核，图和 explainer 已明确限定为 gVisor counter 路径，并补 micro-VM runtime 变体 caveat |
 | 完成 Substrate 竞品分析、缺陷升级与 AgentCube 开源 PRD | [Day 32](day32-substrate-competitive-analysis-and-agentcube-prd.md) 已综合 Day28、`design.md` 和 AgentCube 会话运行时架构拆解，形成竞品分析、缺陷升级、Session Runtime Control Plane PRD、功能/非功能需求、验收指标、路线图和开源打法 |
 | 完成 E2B 协议面与“Agent 时代 Docker”调研 | [Day 33](day33-e2b-protocol-and-agent-era-docker-study.md) 已把 E2B 拆成 SDK、REST lifecycle、envd process/filesystem RPC、template/snapshot/network/volume 产品面，并形成 AgentCube E2B facade / conformance test 后续方向 |
+| 完成 AgentCube push CI 工作流方案与 PR 准备 | [Day 34](day34-agentcube-push-ci-workflow-pr-prep.md) 已形成 Karmada-style shared workflow 方案、clean branch diff、9/11 checks 解释、fork push validation 证据和英文 upstream PR 草稿 |
 | 完成 PR #387 warm pool adoption 数据流 review | [Day 30](day30-pr387-warm-pool-dataflow-review.md) 已从运行时对象流、claim status 观测、Pod 查找、Store/Router 语义和 delete/GC identity 拆解 #387，不再停留在 API import / interface 适配层面 |
 | 完成 PR #400 PicoD Prometheus metrics 本地 review | [Day 31](day31-picod-prometheus-metrics-review.md) 已验证 PicoD metrics PR 的测试状态、middleware 顺序缺口、指标语义问题和可选 upstream review 草稿 |
 | 完成 Week 3 总结：从功能适配转向 Session Runtime Control Plane | [Week 3](week3-summary.md) 已把 Day24-Day32 的 Sleep/Resume 设计、Substrate 竞品复核、AgentCube 架构图、#387/#400/#403 review、开源流程修正和下周建议收束成能力复盘 |

@@ -46,3 +46,4 @@
 - [Day 31：PR #400 PicoD Prometheus Metrics Review](day31-picod-prometheus-metrics-review.md)
 - [Day 32：Substrate 竞品分析、缺陷升级与 AgentCube 开源 PRD](day32-substrate-competitive-analysis-and-agentcube-prd.md)
 - [Day 33：E2B 协议面与 Agent 时代 Docker 调研](day33-e2b-protocol-and-agent-era-docker-study.md)
+- [Day 34：AgentCube Push CI 工作流方案与 PR 准备](day34-agentcube-push-ci-workflow-pr-prep.md)
