@@ -243,56 +243,83 @@ Helm 官方 chart 文档说明：
 - chart version 应遵循 SemVer
 - 非 SemVer 名称会被拒绝
 - `appVersion` 和 chart `version` 不是同一个东西，`appVersion` 不需要是 SemVer
+- Helm 文档还说明，带前导 `v` 的版本会尝试被 coercion 成合法语义版本；这和 `latest` 这种完全非版本字符串不是同一类问题
 
 参考：
 
 - <https://helm.sh/docs/topics/charts/>
 
-> 注释：所以修复方向不是简单把 `appVersion` 改掉，而是要拆开 `IMAGE_TAG` 和 `CHART_VERSION`。`latest` 可以继续用于 image tag，但不能用于 chart version。
+> 注释：`latest` 可以作为 image tag，但不能作为 chart `version`。初版修复曾考虑拆出 `CHART_VERSION`，但这会顺手改变 release tag 下的 chart package / OCI tag 命名；收敛后的 #416 不做这个迁移，只通过移除 `main` release publishing 来避免 `latest` 进入 chart version。
 
-## 修复方向重新收敛
+## 修复方向再次收敛：只修 main 误发布
 
-经过 fork `main` 实际 push 验证后，本次 PR 不建议再保留“main merge 后继续 build/push latest images”的行为。
+用户复核后指出：不能把 Helm chart package / OCI tag 从 `vX.Y.Z` 改成 `X.Y.Z`。这会改变已经对外可见的 chart 包命名和安装方式，不应夹在一个 release workflow bugfix 里。
 
-新的修复原则是：
+因此本次 PR #416 的收敛原则调整为：
 
-1. Release artifacts 只应该由 release tag 触发。
-2. `main` merge 只应该触发验证类 CI，不应该触发镜像和 Helm chart 发布。
-3. tag release 场景下，Docker image tag 可以继续使用 `v1.2.3`，但 Helm chart version 应使用合法 SemVer `1.2.3`。
+1. Release artifacts 只由 release tag 触发。
+2. `main` merge 只触发验证类 CI，不触发镜像和 Helm chart 发布。
+3. tag release 下继续沿用当前已有命名约定：Docker image tag、Helm chart `version`、Helm chart `appVersion`、`.tgz` 文件名和 GHCR chart tag 都使用原始 Git tag，例如 `v1.2.3`。
+4. 不在 #416 中引入 `CHART_VERSION=${TAG#v}`，也不把 `agentcube-v1.2.3.tgz` 改成 `agentcube-1.2.3.tgz`。
 
-> 分析：这个调整比最初“main 仍推 latest 镜像、Helm chart 只在 tag 发布”的方案更干净。主分支合并是代码集成事件，不是产品发布事件；如果每次 merge 都构建并推送镜像，会让文档、CI、proposal 这类非发布改动也消耗 registry / runner 资源，并且一旦发布步骤失败，GitHub 会在 main merge commit 上长期显示红色 X，容易让维护者误以为刚合入的 PR 本身有质量问题。
+> 分析：这次失败的直接原因是 `main` push 下 `TAG=latest` 被写入 chart `version`，不是 tag release 下的 `vX.Y.Z` 已经被证明失败。当前 GHCR package 历史已经有 `v0.1.0` / `v0.1.0-rc.0` 这类 chart tag，说明 `v` 前缀至少是现有发布兼容面的一部分。是否要把 Helm chart 版本全面迁移到无 `v` SemVer，是独立的发布兼容性决策，需要文档、release note 和迁移说明，不属于 #416 的最小修复范围。
 
-## 为什么要同时修两个点
+## 为什么只修一个点
 
-第一，tag release 的 Helm chart version 要修。
+这次 bugfix 应该只消除 `main` merge 触发 release artifact 发布的问题。
 
-当前 workflow 使用同一个 `TAG` 同时表示 Docker image tag、Helm chart `version` 和 Helm chart `appVersion`。这在 `main` push 时直接导致 `TAG=latest` 被写入 chart version，Helm 报 `chart.metadata.version "latest" is invalid`。在 tag release 时，Git tag 通常是 `v1.2.3`，这个值适合作为 image tag 和 appVersion，但 chart `version` 应该是 SemVer `1.2.3`。因此 PR 中保留 `TAG=${github.ref_name}` 给镜像和 appVersion 使用，同时新增 `CHART_VERSION=${TAG#v}` 给 Helm chart package 使用。
+原 workflow 的失败链路是：
 
-第二，main merge 不应该发布镜像。
+```text
+main push -> TAG=latest -> helm package --version latest -> invalid chart.metadata.version
+```
 
-`main` 上的 merge commit 应该证明代码通过 build、lint、codegen、coverage、e2e 等验证，而不是每次都发布 `latest` 镜像。发布镜像会拉长 main push 的反馈时间，消耗 GitHub Actions runner 和 GHCR 写入资源，还会让无关 PR 的合并结果被发布流水线污染。Day38 这次实际观察到，9 个验证 workflow 已经陆续通过，真正拖慢的是 `Build and Push Release Images` 里的三张镜像 build/push；这个 workflow 不适合作为每次 main merge 的默认动作。
+只要删除 `push.branches: [main]`，这个链路就不存在了。tag push 仍然设置：
+
+```text
+TAG=v1.2.3
+```
+
+并继续用于：
+
+```text
+Docker image tag: v1.2.3
+Chart.yaml version: v1.2.3
+Chart.yaml appVersion: v1.2.3
+Chart package file: agentcube-v1.2.3.tgz
+GHCR chart tag: charts/agentcube:v1.2.3
+```
 
 > 注释：如果社区后续确实需要持续发布开发版镜像，更合适的方式是单独设计 nightly / manual / scheduled dev-image workflow，或者明确只在特定分支发布。不要把 release artifact publish 和普通 main merge 绑定在一起。
 
 ## 最终实现记录
 
-用户确认采用“main merge 不发布镜像”的方向后，已将修复分支改成 tag-only release workflow：
+用户确认采用“main merge 不发布镜像”的方向后，先创建了 PR #416：
 
 - Worktree: `/tmp/agentcube-release-chart-fix`
 - Branch: `ci/fix-release-chart-version`
 - Base: `upstream/main` at `7cfeb8c`
-- Commit: `bfbcab9 ci: publish release artifacts only for tags`
+- Initial commit: `bfbcab9 ci: publish release artifacts only for tags`
 - Changed file: `.github/workflows/build-push-release.yml`
 - Fork branch: <https://github.com/ranxi2001/agentcube/tree/ci/fix-release-chart-version>
-- Compare view: <https://github.com/volcano-sh/agentcube/compare/main...ranxi2001:agentcube:ci/fix-release-chart-version>
+- Upstream PR: <https://github.com/volcano-sh/agentcube/pull/416>
 
-最终改动内容：
+初版 `bfbcab9` 同时做了两件事：删除 `main` trigger，并把 Helm chart version 从 `vX.Y.Z` 规范化为 `X.Y.Z`。用户复核后认为第二点会改变 chart package / GHCR chart tag，不希望包含在 #416 中。
+
+本轮已在本地准备 scope correction，尚未推送到 open PR：
+
+- Worktree: `/tmp/agentcube-pr416-scope-fix`
+- Local branch: `fix/pr416-preserve-chart-version`
+- Candidate commit: `c799198 ci: preserve release chart version tags`
+- Commit status: local only, not pushed
+
+收敛后的目标改动内容：
 
 1. 从 `Build and Push Release Images` workflow 中移除 `push.branches: [main]`。
 2. 保留 release tag 触发：`v*.*.*` 和 `v*.*.*-*`。
 3. tag push 时设置 `TAG=${github.ref_name}`，例如 `v1.2.3`。
-4. 额外生成 `CHART_VERSION=${TAG#v}`，例如 `v1.2.3 -> 1.2.3`。
-5. Docker image tag 和 Helm `appVersion` 继续使用原始 tag，Helm chart package / push 使用 `CHART_VERSION`。
+4. 不生成 `CHART_VERSION`。
+5. Docker image tag、Helm `version`、Helm `appVersion` 和 chart package filename 都继续使用 `TAG`，也就是当前已有的 `vX.Y.Z` 命名。
 
 核心 diff 逻辑：
 
@@ -307,42 +334,32 @@ on:
 ```bash
 RELEASE_TAG="${{ github.ref_name }}"
 echo "TAG=${RELEASE_TAG}" >> "$GITHUB_ENV"
-echo "CHART_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
 ```
 
 ```bash
-helm package "${CHART_PATH}" --version "${CHART_VERSION}" --app-version "${TAG}"
-helm push "agentcube-${CHART_VERSION}.tgz" "oci://ghcr.io/${REPOSITORY_OWNER_LOWER}/charts"
+helm package "${CHART_PATH}" --version "${TAG}" --app-version "${TAG}"
+helm push "agentcube-${TAG}.tgz" "oci://ghcr.io/${REPOSITORY_OWNER_LOWER}/charts"
 ```
 
-本地验证结果：
+本轮本地验证结果：
 
 ```text
-git diff --check upstream/main...HEAD
+git -C /tmp/agentcube-pr416-scope-fix diff --check
 PASS
 
-actionlint -ignore 'too old to run on GitHub Actions' .github/workflows/build-push-release.yml
+git -C /tmp/agentcube-pr416-scope-fix diff upstream/main --check
 PASS
-
-helm lint manifests/charts/base
-1 chart(s) linted, 0 chart(s) failed
-
-CHART_VERSION=1.2.3 TAG=v1.2.3 helm package ...
-v1.2.3 -> agentcube-1.2.3.tgz
-
-CHART_VERSION=1.2.3-alpha TAG=v1.2.3-alpha helm package ...
-v1.2.3-alpha -> agentcube-1.2.3-alpha.tgz
 ```
 
 Fork `main` 验证：
 
 - 临时把旧方案 `dd7cb96` 推到 fork `main` 后，GitHub 创建了 10 个 push runs：9 个验证 workflow 加 `Build and Push Release Images`。9 个验证 workflow 已成功，release workflow 长时间停在 `Build and push images`，后续已取消，避免继续消耗资源。
-- 把最终方案 `bfbcab9` 推到 fork `main` 后，GitHub 只创建了 9 个验证 workflow，没有创建 `Build and Push Release Images` run。这直接验证了 main merge 不再触发镜像发布。
+- 把 tag-only trigger 方案 `bfbcab9` 推到 fork `main` 后，GitHub 只创建了 9 个验证 workflow，没有创建 `Build and Push Release Images` run。这直接验证了 main merge 不再触发镜像发布。候选修正 `c799198` 不改 trigger，只回退 chart version normalization，因此该 fork-main trigger 验证结论仍然适用。
 - `bfbcab9` 的 9/9 个验证 workflow 全部成功：Lint、Python SDK Tests、Copyright Check、Codespell、Python Lint、Codegen Check、Agentcube CI Workflow、Test Coverage、Agentcube E2E Tests。
 
-`actionlint` 原始运行会提示当前 workflow 已存在的 `actions/checkout@v3`、`actions/setup-go@v4`、`docker/setup-buildx-action@v2` 版本过旧问题。该提示在 `upstream/main` 原文件上同样存在，不是本次修复引入；为了保持最小 PR，本次没有顺手升级 action 版本。
+当前工作区的 Git Bash 环境没有 `go`、`helm`、`actionlint`，因此本轮 scope correction 没有重新跑 actionlint 或 Helm package。初版 `bfbcab9` 的旧验证里包含 `actionlint`、`helm lint` 和无 `v` package simulation，但这些 package simulation 已不再代表最终期望行为，应从 PR body 中删除。
 
-> 分析：这个修复同时解决了两个问题：release tag 下 Helm chart version 使用合法 SemVer；main merge 下不再发布镜像和 chart，从而减少资源消耗，并避免 release publish failure 给普通 merge commit 挂红色 X。
+> 分析：收敛后的修复只解决一个问题：main merge 下不再发布镜像和 chart，从而避免 `TAG=latest` 进入 Helm chart `version`，也避免 release publish failure 给普通 merge commit 挂红色 X。tag release 的 chart 包命名保持历史兼容。
 
 ## PR 文稿草稿
 
@@ -369,27 +386,24 @@ The current `Build and Push Release Images` workflow runs on both `main` branch 
 
 This PR changes the release publishing workflow to run only for release tags. A merge into `main` should run validation workflows such as build, lint, codegen, coverage, and e2e, but it should not publish release images or Helm charts for every merge commit. Keeping artifact publishing tag-driven avoids unnecessary runner and registry usage, and prevents unrelated `main` merge commits from showing a red failed release workflow after their PR checks have already passed.
 
-For tag releases, this PR also separates the Docker image tag from the Helm chart version. A tag such as `v1.2.3` is still used as the image tag and chart `appVersion`, while the Helm chart package version is normalized to `1.2.3`.
+For tag releases, this PR preserves the existing release artifact naming. A tag such as `v1.2.3` is still used as the Docker image tag, Helm chart `version`, Helm chart `appVersion`, chart package filename, and GHCR chart tag. A broader migration from `vX.Y.Z` chart tags to `X.Y.Z` chart tags is intentionally out of scope for this bugfix.
 
 **Which issue(s) this PR fixes**:
 
-NONE
+Fixes #417
 
 **Special notes for your reviewer**:
 
 - Scope: only `.github/workflows/build-push-release.yml` is changed.
 - `main` pushes no longer trigger release artifact publishing.
-- Release tags matching `v*.*.*` and `v*.*.*-*` still build and push images and Helm charts.
+- Release tags matching `v*.*.*` and `v*.*.*-*` still build and push images and Helm charts using the existing `vX.Y.Z` tag naming.
 - AI assistance: Used Codex to inspect the failing workflow, validate the GitHub Actions behavior on a fork, and draft this PR text. I reviewed and validated the changes.
 
 Validation:
 
-- `git diff --check upstream/main...HEAD`
-- `actionlint -ignore 'too old to run on GitHub Actions' .github/workflows/build-push-release.yml`
-- `helm lint manifests/charts/base`
-- Local Helm package simulation for `v1.2.3 -> agentcube-1.2.3.tgz`
-- Local Helm package simulation for `v1.2.3-alpha -> agentcube-1.2.3-alpha.tgz`
-- Fork `main` push validation for commit `bfbcab9`: GitHub created the 9 validation workflows, did not create `Build and Push Release Images`, and all 9 validation workflows succeeded
+- `git diff --check`
+- `git diff upstream/main --check`
+- Fork `main` push validation for commit `bfbcab9`: GitHub created the 9 validation workflows, did not create `Build and Push Release Images`, and all 9 validation workflows succeeded. The follow-up scope correction only preserves existing chart tag naming and does not change the tag-only trigger behavior.
 
 **Does this PR introduce a user-facing change?**:
 
@@ -458,4 +472,4 @@ gh run list \
 1. 本地没有 `helm`，所以没有直接在本机复现 `helm package --version latest` 的报错。
 2. 旧 run 的 `gh run view --log-failed` 不是每次都能稳定吐出日志细节，但 run/job metadata 能稳定证明失败步骤都是 `Package Helm chart`。
 3. 这个 workflow 有 `packages: write` 权限，修复前不应随意在 fork 或 upstream 上反复触发发布路径。
-4. 已创建 upstream PR #416，后续等待 CI、maintainer review、`/lgtm`、`/approve` 和 tide。不要自动追加 commit 或评论；如果 review 反馈需要改 release 策略，先让用户确认 exact diff/comment。
+4. 已创建 upstream PR #416，并在本地准备了候选修正 commit `c799198`；不要自动 push 到 open PR，也不要自动评论。若要更新 PR，先让用户确认 exact diff、PR body 和是否直接 push `c799198`。
