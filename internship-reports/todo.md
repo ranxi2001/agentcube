@@ -118,7 +118,7 @@
 | 完成 Substrate 竞品分析、缺陷升级与 AgentCube 开源 PRD | [Day 32](day32-substrate-competitive-analysis-and-agentcube-prd.md) 已综合 Day28、`design.md` 和 AgentCube 会话运行时架构拆解，形成竞品分析、缺陷升级、Session Runtime Control Plane PRD、功能/非功能需求、验收指标、路线图和开源打法 |
 | 完成 E2B 协议面与“Agent 时代 Docker”调研 | [Day 33](day33-e2b-protocol-and-agent-era-docker-study.md) 已把 E2B 拆成 SDK、REST lifecycle、envd process/filesystem RPC、template/snapshot/network/volume 产品面，并形成 AgentCube E2B facade / conformance test 后续方向 |
 | 完成 AgentCube push CI 工作流方案与 PR 准备 | [Day 34](day34-agentcube-push-ci-workflow-pr-prep.md) 已形成 Karmada-style shared workflow 方案、clean branch diff、9/11 checks 解释、fork push validation 证据和英文 upstream PR 草稿 |
-| 完成 AgentCube 三期架构迭代结论分析 | [Day 35](day35-agentcube-architecture-iteration-conclusion.md) 已把快慢资源分离、占位 Pod、node-ctl / sandbox-ctl、microVM、run-builder、L1/L2/L3 缓存、E2B-compatible facade 边界和风险拆分路线整理成会议结论；相关图和详细 CRD 设计已按 Day35 命名规范重命名 |
+| 完成 AgentCube 三期架构迭代结论分析 | [Day 35](day35-agentcube-architecture-iteration-conclusion.md) 已把快慢资源分离、占位 Pod、node-ctl / sandbox-ctl、microVM、run-builder、L1/L2/L3 缓存、E2B-compatible facade 边界和风险拆分路线整理成会议结论；架构图已按 Day35 命名，外部 CRD 参考设计已放入 `docs/design/` |
 | 完成 PR #387 warm pool adoption 数据流 review | [Day 30](day30-pr387-warm-pool-dataflow-review.md) 已从运行时对象流、claim status 观测、Pod 查找、Store/Router 语义和 delete/GC identity 拆解 #387，不再停留在 API import / interface 适配层面 |
 | 完成 PR #400 PicoD Prometheus metrics 本地 review | [Day 31](day31-picod-prometheus-metrics-review.md) 已验证 PicoD metrics PR 的测试状态、middleware 顺序缺口、指标语义问题和可选 upstream review 草稿 |
 | 完成 Week 3 总结：从功能适配转向 Session Runtime Control Plane | [Week 3](week3-summary.md) 已把 Day24-Day32 的 Sleep/Resume 设计、Substrate 竞品复核、AgentCube 架构图、#387/#400/#403 review、开源流程修正和下周建议收束成能力复盘 |
