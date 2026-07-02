@@ -32,6 +32,7 @@
 | --- | --- |
 | 周总结和能力复盘 | [week1-summary.md](internship-reports/week1-summary.md), [week2-summary.md](internship-reports/week2-summary.md), [week3-summary.md](internship-reports/week3-summary.md) |
 | 开源社区与贡献规范 | [day9-open-source-community-and-fork-sync.md](internship-reports/day9-open-source-community-and-fork-sync.md), [open-source-contribution-format-standard.md](internship-reports/open-source-contribution-format-standard.md) |
+| CI/CD 与发布工作流 | [day34-agentcube-push-ci-workflow-pr-prep.md](internship-reports/day34-agentcube-push-ci-workflow-pr-prep.md), [day38-release-image-ci-helm-chart-version-failure-analysis.md](internship-reports/day38-release-image-ci-helm-chart-version-failure-analysis.md) |
 | AgentCube roadmap 和竞品基准 | [day11-cloud-agent-sandbox-projects.md](internship-reports/day11-cloud-agent-sandbox-projects.md), [day12-agentcube-roadmap-from-cubesandbox.md](internship-reports/day12-agentcube-roadmap-from-cubesandbox.md) |
 | `agent-sandbox` stable 适配 | [day16-agent-sandbox-latest-adaptation.md](internship-reports/day16-agent-sandbox-latest-adaptation.md), [day19-pr387-code-review-prep.md](internship-reports/day19-pr387-code-review-prep.md) |
 | `agent-sandbox` v0.2 / v0.3 / v0.5 演进 | [day18-agent-sandbox-v05-forward-adaptation.md](internship-reports/day18-agent-sandbox-v05-forward-adaptation.md), [day20-agent-sandbox-v02-v03-v05-wip-pr-implementations-and-project-study.md](internship-reports/day20-agent-sandbox-v02-v03-v05-wip-pr-implementations-and-project-study.md) |
