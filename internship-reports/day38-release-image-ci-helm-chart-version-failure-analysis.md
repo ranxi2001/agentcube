@@ -306,12 +306,14 @@ GHCR chart tag: charts/agentcube:v1.2.3
 
 初版 `bfbcab9` 同时做了两件事：删除 `main` trigger，并把 Helm chart version 从 `vX.Y.Z` 规范化为 `X.Y.Z`。用户复核后认为第二点会改变 chart package / GHCR chart tag，不希望包含在 #416 中。
 
-本轮已在本地准备 scope correction，尚未推送到 open PR：
+本轮已按用户要求把 open PR 分支重写为单 commit，并 force-with-lease 推送：
 
 - Worktree: `/tmp/agentcube-pr416-scope-fix`
 - Local branch: `fix/pr416-preserve-chart-version`
-- Candidate commit: `c799198 ci: preserve release chart version tags`
-- Commit status: local only, not pushed
+- Final PR commit: `a6c4a82 ci: publish release artifacts only for tags`
+- Push result: `bfbcab9...a6c4a82 HEAD -> ci/fix-release-chart-version (forced update)`
+- PR body: 已通过 REST `PATCH /repos/volcano-sh/agentcube/issues/416` 更新为本节下方最终文稿
+- 线上复核：2026-07-02 再次用 GitHub API / raw URL 确认 PR head 为 `a6c4a8231829921ee235f63a752fca4932be948a`，raw workflow 中只包含 `TAG=${RELEASE_TAG}`、`helm package --version "${TAG}"` 和 `helm push "agentcube-${TAG}.tgz"`，没有 `CHART_VERSION` 或 `${RELEASE_TAG#v}`。
 
 收敛后的目标改动内容：
 
@@ -354,7 +356,7 @@ PASS
 Fork `main` 验证：
 
 - 临时把旧方案 `dd7cb96` 推到 fork `main` 后，GitHub 创建了 10 个 push runs：9 个验证 workflow 加 `Build and Push Release Images`。9 个验证 workflow 已成功，release workflow 长时间停在 `Build and push images`，后续已取消，避免继续消耗资源。
-- 把 tag-only trigger 方案 `bfbcab9` 推到 fork `main` 后，GitHub 只创建了 9 个验证 workflow，没有创建 `Build and Push Release Images` run。这直接验证了 main merge 不再触发镜像发布。候选修正 `c799198` 不改 trigger，只回退 chart version normalization，因此该 fork-main trigger 验证结论仍然适用。
+- 把 tag-only trigger 方案 `bfbcab9` 推到 fork `main` 后，GitHub 只创建了 9 个验证 workflow，没有创建 `Build and Push Release Images` run。这直接验证了 main merge 不再触发镜像发布。最终单 commit `a6c4a82` 保留同一个 tag-only trigger 行为，只移除了 chart version normalization，因此该 fork-main trigger 验证结论仍然适用。
 - `bfbcab9` 的 9/9 个验证 workflow 全部成功：Lint、Python SDK Tests、Copyright Check、Codespell、Python Lint、Codegen Check、Agentcube CI Workflow、Test Coverage、Agentcube E2E Tests。
 
 当前工作区的 Git Bash 环境没有 `go`、`helm`、`actionlint`，因此本轮 scope correction 没有重新跑 actionlint 或 Helm package。初版 `bfbcab9` 的旧验证里包含 `actionlint`、`helm lint` 和无 `v` package simulation，但这些 package simulation 已不再代表最终期望行为，应从 PR body 中删除。
@@ -403,7 +405,7 @@ Validation:
 
 - `git diff --check`
 - `git diff upstream/main --check`
-- Fork `main` push validation for commit `bfbcab9`: GitHub created the 9 validation workflows, did not create `Build and Push Release Images`, and all 9 validation workflows succeeded. The follow-up scope correction only preserves existing chart tag naming and does not change the tag-only trigger behavior.
+- Earlier fork `main` push validation for the same tag-only trigger behavior: GitHub created the 9 validation workflows, did not create `Build and Push Release Images`, and all 9 validation workflows succeeded. The current PR commit keeps that trigger behavior and preserves the existing `vX.Y.Z` chart tag naming.
 
 **Does this PR introduce a user-facing change?**:
 
@@ -472,4 +474,4 @@ gh run list \
 1. 本地没有 `helm`，所以没有直接在本机复现 `helm package --version latest` 的报错。
 2. 旧 run 的 `gh run view --log-failed` 不是每次都能稳定吐出日志细节，但 run/job metadata 能稳定证明失败步骤都是 `Package Helm chart`。
 3. 这个 workflow 有 `packages: write` 权限，修复前不应随意在 fork 或 upstream 上反复触发发布路径。
-4. 已创建 upstream PR #416，并在本地准备了候选修正 commit `c799198`；不要自动 push 到 open PR，也不要自动评论。若要更新 PR，先让用户确认 exact diff、PR body 和是否直接 push `c799198`。
+4. upstream PR #416 已 force-with-lease 更新到单 commit `a6c4a82`，PR body 已同步修正；后续等待 CI、maintainer review、`/lgtm`、`/approve` 和 tide。不要自动追加 commit 或评论，若 review 反馈需要改 release 策略，先确认 exact diff/comment。
