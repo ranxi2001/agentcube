@@ -396,6 +396,8 @@ helm package manifests/charts/base --version 1.2.3 --app-version v1.2.3
 - Base: `upstream/main` at `7cfeb8c`
 - Commit: `dd7cb96 ci: avoid packaging Helm chart with latest version`
 - Changed file: `.github/workflows/build-push-release.yml`
+- Fork branch: <https://github.com/ranxi2001/agentcube/tree/ci/fix-release-chart-version>
+- Compare view: <https://github.com/volcano-sh/agentcube/compare/main...ranxi2001:agentcube:ci/fix-release-chart-version>
 
 最小改动内容：
 
