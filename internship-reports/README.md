@@ -8,7 +8,7 @@
 
 - [实习任务 TODO](todo.md)
 - [开源贡献与社区讨论格式标准](open-source-contribution-format-standard.md)
-- [Windows 配置 WSL 开发环境迁移笔记](如何在windows配置wsl开发环境.md)
+- [Windows WSL Development Environment Setup](windows-wsl-development-environment-setup.md)
 - [本地 Codex Skills：Issue 讨论与 PR 管理](../skills)
 - [Week 1 工作计划与 Mentor 交流纪要](week1-agentcube-work-plan-and-mentor-notes.md)
 - [Week 1 周会汇报：AgentCube 调研、测评与 Codex 协作](week1-summary.md)

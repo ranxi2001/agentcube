@@ -1,6 +1,6 @@
 # 如何在 Windows 配置 WSL 开发环境
 
-本文记录 2026-07-02 在本机把 AgentCube 开发环境迁到 WSL 的配置过程。目标不是只让命令能跑，而是把日常开发入口从 Windows 文件系统迁到 WSL ext4 文件系统里，之后用 VS Code Remote - WSL 打开项目。
+本文记录 2026-07-02 在自用Windows机器把 AgentCube 开发环境迁到 WSL 的配置过程。目标不是只让命令能跑，而是把日常开发入口从 Windows 文件系统迁到 WSL ext4 文件系统里，之后用 VS Code Remote - WSL 打开项目。
 
 > 注释：WSL ext4 路径指的是 Linux 里的 `/home/ranxi/...`，不是 Windows 挂载进来的 `/mnt/c/...`。Go、Kubernetes、Docker、Helm 这类工具在 `/home` 下跑更接近 Linux CI，也能减少路径转换、换行、权限和性能问题。
 
@@ -265,13 +265,13 @@ MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc 'cd ~/projects/agentcube && cod
 ```bash
 wsl -d Ubuntu
 cd ~/projects/agentcube
-code internship-reports/如何在windows配置wsl开发环境.md
+code internship-reports/windows-wsl-development-environment-setup.md
 ```
 
 从 Windows Git Bash 直接打开：
 
 ```bash
-MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc 'cd ~/projects/agentcube && code internship-reports/如何在windows配置wsl开发环境.md'
+MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc 'cd ~/projects/agentcube && code internship-reports/windows-wsl-development-environment-setup.md'
 ```
 
 ### 打开其他项目
