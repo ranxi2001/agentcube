@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project to WSL"
+  short_description: "Open projects in WSL VS Code"
+  default_prompt: "Use $project2wsl to open this project from the WSL filesystem in VS Code."
