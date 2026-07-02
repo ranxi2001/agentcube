@@ -387,6 +387,69 @@ helm package manifests/charts/base --version 1.2.3 --app-version v1.2.3
 
 > 分析：这类修复适合单独开 PR，不应该混进 #414 push CI 或 #415 docs/proposals。它属于 release workflow bugfix，reviewer 关注点是发布语义，不是普通 CI 验证语义。
 
+## 最小修复实现记录
+
+用户确认可以尝试最小修复后，已在干净 worktree 中实现并验证：
+
+- Worktree: `/tmp/agentcube-release-chart-fix`
+- Branch: `ci/fix-release-chart-version`
+- Base: `upstream/main` at `7cfeb8c`
+- Commit: `dd7cb96 ci: avoid packaging Helm chart with latest version`
+- Changed file: `.github/workflows/build-push-release.yml`
+
+最小改动内容：
+
+1. tag push 时保留 Docker image tag 为原始 tag，例如 `v1.2.3`
+2. 额外生成 `CHART_VERSION=${RELEASE_TAG#v}`，例如 `v1.2.3 -> 1.2.3`
+3. main branch push 时仍设置 `TAG=latest`，继续发布 latest 镜像
+4. Helm registry login / chart package / chart push 三个步骤只在 `github.ref_type == 'tag'` 时执行
+5. chart package 使用 `CHART_VERSION` 作为 Helm chart version，使用 `TAG` 作为 appVersion 和 image tag
+
+核心 diff 逻辑：
+
+```yaml
+if [[ "${{ github.ref_type }}" == "tag" ]]; then
+  RELEASE_TAG="${{ github.ref_name }}"
+  echo "TAG=${RELEASE_TAG}" >> "$GITHUB_ENV"
+  echo "CHART_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+else
+  echo "TAG=latest" >> "$GITHUB_ENV"
+fi
+```
+
+```yaml
+- name: Package Helm chart
+  if: github.ref_type == 'tag'
+```
+
+```bash
+helm package "${CHART_PATH}" --version "${CHART_VERSION}" --app-version "${TAG}"
+helm push "agentcube-${CHART_VERSION}.tgz" "oci://ghcr.io/${REPOSITORY_OWNER_LOWER}/charts"
+```
+
+本地验证结果：
+
+```text
+git diff --check upstream/main...HEAD
+PASS
+
+actionlint -ignore 'too old to run on GitHub Actions' .github/workflows/build-push-release.yml
+PASS
+
+helm lint manifests/charts/base
+1 chart(s) linted, 0 chart(s) failed
+
+TAG=v1.2.3 CHART_VERSION=1.2.3 helm package ...
+v1.2.3 -> agentcube-1.2.3.tgz
+
+TAG=v1.2.3-alpha CHART_VERSION=1.2.3-alpha helm package ...
+v1.2.3-alpha -> agentcube-1.2.3-alpha.tgz
+```
+
+`actionlint` 原始运行会提示当前 workflow 已存在的 `actions/checkout@v3`、`actions/setup-go@v4`、`docker/setup-buildx-action@v2` 版本过旧问题。该提示在 `upstream/main` 原文件上同样存在，不是本次修复引入；为了保持最小 PR，本次没有顺手升级 action 版本。
+
+> 分析：这个修复让 main merge 后不再尝试用 `latest` 发布 Helm chart，因此能解决当前反复失败的 release CI；tag release 仍会发布镜像和 chart，并保证 chart version 是合法 SemVer。
+
 ## 本次排查命令记录
 
 查看目标 job 元数据：
@@ -448,4 +511,3 @@ gh run list \
 2. 旧 run 的 `gh run view --log-failed` 不是每次都能稳定吐出日志细节，但 run/job metadata 能稳定证明失败步骤都是 `Package Helm chart`。
 3. 这个 workflow 有 `packages: write` 权限，修复前不应随意在 fork 或 upstream 上反复触发发布路径。
 4. 如果要开 upstream PR，需要先确认社区期望：main 是否应该发布 Helm chart，还是 chart 只在 tag release 发布。
-
