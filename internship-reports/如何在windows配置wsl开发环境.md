@@ -64,13 +64,25 @@ export PATH="$HOME/go/bin:$PATH"
 /home/ranxi/projects/agentcube
 ```
 
+> 注释：VS Code 提示里的 “Linux file system” 指的是 `/home/<user>/...` 这类 WSL 内部路径。实际常用写法是 `~` 或 `$HOME`，本机就是 `/home/ranxi`。
+
+统一约定：
+
+```text
+所有开发项目根目录：/home/ranxi/projects
+AgentCube 项目目录：/home/ranxi/projects/agentcube
+Windows 旧项目目录：/mnt/c/Users/ranxi/Desktop/Project/agentcube
+```
+
 创建项目目录：
 
 ```bash
 mkdir -p ~/projects
 ```
 
-首次迁移时 clone 仓库：
+## 最快迁移流程
+
+如果项目已经是 Git 仓库，最推荐直接在 WSL 里重新 clone：
 
 ```bash
 cd ~/projects
@@ -81,6 +93,36 @@ git fetch --all --prune
 git switch intern
 ```
 
+现在本机已经完成这一步，当前 WSL 里的 AgentCube 路径是：
+
+```text
+/home/ranxi/projects/agentcube
+```
+
+打开它：
+
+```bash
+wsl -d Ubuntu
+cd ~/projects/agentcube
+code .
+```
+
+确认没有打开错：
+
+```bash
+pwd
+git status --short --branch
+```
+
+正确结果应该类似：
+
+```text
+/home/ranxi/projects/agentcube
+## intern...origin/intern
+```
+
+只要看到路径里有 `/mnt/c/Users/...`，就是还在 Windows 文件系统里，不是推荐开发目录。
+
 如果 `upstream` 已存在，就不用重复添加：
 
 ```bash
@@ -88,6 +130,109 @@ git remote -v
 ```
 
 > 注释：`origin` 是个人 fork，`upstream` 是官方仓库。实习报告、中文记录和本地技能继续放 `intern`；上游 PR topic branch 仍然从 `upstream/main` 单独创建。
+
+## Clone 还是复制
+
+### 方案 A：Git 项目优先 clone
+
+适合这种情况：
+
+- Windows 旧目录没有未提交改动；
+- 代码都已经 push 到远端；
+- 想要一个干净的 Linux 工作区。
+
+命令：
+
+```bash
+cd ~/projects
+git clone <repo-url>
+cd <project-name>
+code .
+```
+
+AgentCube 示例：
+
+```bash
+cd ~/projects
+git clone https://github.com/ranxi2001/agentcube.git
+cd agentcube
+git remote add upstream https://github.com/volcano-sh/agentcube.git
+git fetch --all --prune
+git switch intern
+code .
+```
+
+> 分析：clone 的好处是不会把 Windows 侧的缓存文件、权限状态、换行状态和临时文件一起搬进来。对开源项目和 Git 仓库，这是最稳的迁移方式。
+
+### 方案 B：有本地未提交改动时复制
+
+适合这种情况：
+
+- Windows 旧项目里有还没 commit 的实验文件；
+- 项目不是 Git 仓库；
+- 有一些本地大文件或配置暂时不想重新下载。
+
+从 Windows 旧目录复制到 WSL：
+
+```bash
+mkdir -p ~/projects
+cp -a /mnt/c/Users/ranxi/Desktop/Project/<project-name> ~/projects/
+cd ~/projects/<project-name>
+code .
+```
+
+复制 AgentCube 的例子：
+
+```bash
+mkdir -p ~/projects
+cp -a /mnt/c/Users/ranxi/Desktop/Project/agentcube ~/projects/agentcube-from-windows
+cd ~/projects/agentcube-from-windows
+code .
+```
+
+> 注释：这里故意复制到 `agentcube-from-windows`，避免覆盖已经 clone 好的 `~/projects/agentcube`。迁移时不要同时维护两个同名目录，否则很容易改错文件。
+
+如果你确认目标目录不存在，也可以复制成原名：
+
+```bash
+test ! -e ~/projects/other-project
+cp -a /mnt/c/Users/ranxi/Desktop/Project/other-project ~/projects/
+cd ~/projects/other-project
+code .
+```
+
+如果项目很大，推荐用 `rsync`，中断后可以重跑：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y rsync
+mkdir -p ~/projects/other-project
+rsync -a --info=progress2 /mnt/c/Users/ranxi/Desktop/Project/other-project/ ~/projects/other-project/
+```
+
+> 分析：`cp -a` 简单直接；`rsync -a` 更适合大项目、数据集、node_modules 很多的项目或复制过程中断的场景。注意源路径最后的 `/` 表示复制目录内容，不创建外层目录。
+
+### 方案 C：先 commit 再 clone
+
+如果 Windows 旧 AgentCube 目录有重要修改，最好先在旧目录 commit/push，再到 WSL 里 pull：
+
+```bash
+git status
+git add <files>
+git commit -m "docs: ..."
+git push origin intern:intern
+```
+
+然后在 WSL：
+
+```bash
+cd ~/projects/agentcube
+git fetch origin
+git switch intern
+git pull --ff-only
+```
+
+> 分析：对 Git 项目来说，commit/push 是比复制更可靠的迁移方式。复制适合临时救急，长期开发还是让 Git 作为同步边界。
 
 ## VS Code 使用方式
 
@@ -112,6 +257,101 @@ MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc 'cd ~/projects/agentcube && cod
 ```
 
 > 注释：从 Git Bash 调 `wsl.exe` 时加 `MSYS_NO_PATHCONV=1`，是为了防止 Git Bash 把 `/mnt/c/...` 或 Linux 参数误转换成 Windows 路径。
+
+### 打开单个文件
+
+打开 AgentCube WSL 项目里的迁移文档：
+
+```bash
+wsl -d Ubuntu
+cd ~/projects/agentcube
+code internship-reports/如何在windows配置wsl开发环境.md
+```
+
+从 Windows Git Bash 直接打开：
+
+```bash
+MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc 'cd ~/projects/agentcube && code internship-reports/如何在windows配置wsl开发环境.md'
+```
+
+### 打开其他项目
+
+统一把项目放在 `~/projects`：
+
+```bash
+cd ~/projects
+git clone <repo-url>
+cd <project-name>
+code .
+```
+
+已经复制或 clone 好的项目：
+
+```bash
+wsl -d Ubuntu
+cd ~/projects/<project-name>
+code .
+```
+
+### 从 Windows 文件资源管理器查看 WSL 文件
+
+可以在资源管理器地址栏输入：
+
+```text
+\\wsl.localhost\Ubuntu\home\ranxi\projects
+```
+
+> 注释：可以偶尔用资源管理器查看文件，但不要把 Windows 编辑器、Windows Node/Go/Python 工具链混进 WSL 项目目录里跑。日常编辑用 VS Code Remote - WSL。
+
+## 常用快捷方式
+
+在 WSL 里追加这些 alias/function：
+
+```bash
+cat >> ~/.bashrc <<'EOF'
+
+# AgentCube / WSL dev shortcuts
+alias dev='cd ~/projects'
+alias ac='cd ~/projects/agentcube'
+alias codeac='cd ~/projects/agentcube && code .'
+
+# Open any project under ~/projects with VS Code:
+#   cdev agentcube
+#   cdev other-project
+cdev() {
+  if [ -z "${1:-}" ]; then
+    echo "usage: cdev <project-dir-under-~/projects>" >&2
+    return 2
+  fi
+  cd "$HOME/projects/$1" && code .
+}
+
+# Create and enter a project directory under ~/projects:
+#   mkdev new-project
+mkdev() {
+  if [ -z "${1:-}" ]; then
+    echo "usage: mkdev <project-dir-under-~/projects>" >&2
+    return 2
+  fi
+  mkdir -p "$HOME/projects/$1"
+  cd "$HOME/projects/$1"
+}
+EOF
+
+source ~/.bashrc
+```
+
+以后常用命令：
+
+```bash
+dev          # 进入 ~/projects
+ac           # 进入 ~/projects/agentcube
+codeac       # 打开 AgentCube
+cdev foo     # 打开 ~/projects/foo
+mkdev bar    # 创建并进入 ~/projects/bar
+```
+
+> 分析：快捷命令的关键不是少打几个字，而是降低误开 `/mnt/c/...` 的概率。以后只要从 `codeac` / `cdev` 打开，默认就是 WSL ext4 路径。
 
 ## Docker Desktop 集成检查
 
