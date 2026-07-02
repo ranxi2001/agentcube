@@ -225,15 +225,15 @@ git diff --cached --check
 
 > 分析：这个变更不触碰 Docusaurus 站点源码和项目代码，因此不需要 Go 测试。后续如果把 `docs/proposals` 接入 Docusaurus sidebar，再需要运行 `cd docs/agentcube && npm run build`。
 
-## 可以准备的 upstream PR 文本
+## Upstream PR 创建记录
 
-当前还没有创建 upstream PR。若后续要提交，可以使用这个方向：
+创建 upstream PR 前准备的标题：
 
 ```text
 Title: docs: add proposal index and template
 ```
 
-PR 说明要点：
+创建时使用的 PR 说明要点：
 
 ````markdown
 **What type of PR is this?**
@@ -269,7 +269,9 @@ NONE
 - New proposals use a directory-based layout such as
   `docs/proposals/sandbox-pool-control-plane/README.md`, so images and
   supporting assets can be added later without changing the proposal path.
-- Tests: `git diff --check`
+- Optional template fields and sections are explicitly marked:
+  `tracking-issue`, `User Stories`, and `Implementation Plan`.
+- Tests: `git diff --check upstream/main...HEAD`
 - AI assistance: Used Codex to inspect existing docs structure, compare Karmada's proposal layout, and draft this PR. I reviewed and validated the changes.
 
 **Does this PR introduce a user-facing change?**:
@@ -279,7 +281,28 @@ NONE
 ```
 ````
 
-> 注释：创建 upstream PR 前仍需要用户确认 exact title / body / target。当前只完成了 fork 分支准备，不进行 upstream-facing 动作。
+用户确认 exact title / body / target 后，已创建 upstream PR：
+
+```text
+PR: https://github.com/volcano-sh/agentcube/pull/415
+Title: docs: add proposal index and template
+Base: volcano-sh:main
+Head: ranxi2001:docs/proposals-management
+Commit: 2cc5732 docs: add proposal index and template
+```
+
+创建后状态快照：
+
+| 项 | 状态 |
+| --- | --- |
+| PR state | open |
+| Draft | false |
+| Mergeable | mergeable |
+| Label | `kind/documentation` |
+| DCO | success |
+| Checks | 创建后 build / e2e / lint / codegen / docs-related checks 正在运行 |
+
+> 注释：后续不要自动 push、comment 或 request review。若 maintainer 反馈，先判断是否属于本 PR scope，再让用户确认 exact update / comment。
 
 ## 今日结论
 
