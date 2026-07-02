@@ -348,6 +348,41 @@ NONE
 
 ## 下一步
 
-1. 用户确认 exact title / body / target 后，再创建 upstream PR：`ranxi2001:ci/enable-push-validation` -> `volcano-sh:main`。
-2. 开 PR 前再跑一次 status 查询，确认 commit `bb2a6e5` 对应的 9 个 push workflow 仍可作为证据引用。
+2026-07-02 11:06 CST，用户确认后已创建 upstream PR：
+
+```text
+https://github.com/volcano-sh/agentcube/pull/414
+```
+
+PR 信息：
+
+| 字段 | 值 |
+| --- | --- |
+| Title | `ci: run validation workflows on branch push` |
+| Base | `volcano-sh:main` |
+| Head | `ranxi2001:ci/enable-push-validation` |
+| Commit | `bb2a6e558752a0a246f98c22e9353611f6417917` |
+| State | Open, non-draft |
+| Mergeability after checks | `MERGEABLE`, `UNSTABLE` because tide is waiting for review labels |
+| Labels | `kind/enhancement`, `size/M` |
+
+截至 `2026-07-02 11:15 CST`，PR checks 最终状态：
+
+- DCO: success.
+- Approve Workflows: success.
+- Agentcube CI Workflow / build: success.
+- Agentcube E2E Tests / e2e-test: success.
+- Codegen Check: success.
+- Codespell: success.
+- Copyright Check: success.
+- Lint / golangci-lint: success.
+- Python Lint: success.
+- Python SDK Tests: success.
+- Test Coverage: success.
+- tide: pending, because the PR still needs `approved` / `lgtm` labels. This is a review gate, not a CI failure.
+
+后续处理原则：
+
+1. 等待 maintainer review、`/lgtm`、`/approve` 和 tide。
+2. 不自动 push 新 commit，不自动发评论；如需回应 maintainer 或调整 scope，先给用户确认 exact update / comment。
 3. 如果 maintainer 质疑 CI 成本，优先解释本方案的目标是 push / PR 复用同一 workflow；如果社区希望降低成本，再讨论是否把 E2E 保持为 PR-only。
