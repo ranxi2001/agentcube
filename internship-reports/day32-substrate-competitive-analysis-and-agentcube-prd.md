@@ -4,6 +4,8 @@
 
 > 状态：本文是内部产品设计和开源策略草稿，综合 Day28、`design.md` 和 AgentCube 会话运行时架构拆解形成。它不是声明 AgentCube 已经实现完整 Sleep/Resume、RuntimeProvider 或 MultiAgent Worker，而是把竞品能力、当前缺口和可分阶段贡献的 PRD 梳理清楚。
 
+> 更新：Day35 三期架构讨论后，本文的 PRD 定位调整为“历史版 / v1 设计”。问题定义、Substrate 对比、Session lifecycle、RuntimeProvider 和 benchmark 资产仍有参考价值；但产品主线已从“Session Runtime Control Plane”进一步升级为“高并发 Agent 沙箱加速平台”，核心机制改为快慢资源分离、K8s CRD 资源池、占位 Pod、node-local lifecycle、microVM、run-builder、三级缓存和 E2B-like SDK Facade。文末新增“Day35 新版本设计后的 PRD 修订”记录过期点和替代方案。
+
 ## 输入材料
 
 | 输入 | 用途 |
@@ -861,3 +863,135 @@ AgentCube = Kubernetes-native Agent Session Runtime Control Plane
 ```
 
 这条路线既吸收了 Substrate 的架构边界，又保留了 AgentCube 自己的社区位置和产品差异化。
+
+## 附录：Day35 新版本设计后的 PRD 修订
+
+日期：2026-07-02
+
+关联新设计：
+
+- [Day35：三期会议迭代讨论后的 AgentCube 新架构结论分析](day35-agentcube-architecture-iteration-conclusion.md)
+- [AgentCube 新架构方案图](day35-agentcube-new-architecture-proposal.png)
+- [K8s CRD 沙箱资源池生命周期管理控制体系设计](../docs/design/k8s-crd-sandbox-resource-pool-lifecycle-control-design.md)
+
+### 修订结论
+
+Day32 的 PRD 仍然有价值，但它的定位需要下调为 **历史版架构探索**。它解决的问题是：AgentCube 如何从当前 sandbox / warm pool 基础升级成 Session Runtime Control Plane；Day35 新设计解决的问题更进一步：AgentCube 如何成为面向高并发 Agent 场景的 **sandbox acceleration platform**。
+
+> 注释：这里不是说 Day32 “完全错误”，而是说架构主语变了。Day32 的主语是 Session lifecycle 和 RuntimeProvider；Day35 的主语是高并发沙箱资源池、节点本地生命周期、microVM 快照恢复、模板 / 数据缓存和 E2B-like 开发者入口。
+
+### 什么仍然保留
+
+| Day32 内容 | 是否保留 | 原因 |
+| --- | --- | --- |
+| Substrate 竞品分析 | 保留 | 它仍然解释了为什么低频控制面和高频 runtime path 需要分离 |
+| Session lifecycle contract | 保留但下沉 | 仍然需要 create / ready / paused / resuming / deleting 等状态，但它不再是唯一主线，而是 sandbox pool 之上的用户会话语义 |
+| Router resume-before-proxy | 保留 | E2B-like `connect`、session 恢复和请求路由仍需要入口侧 activation gate |
+| Store CAS / placement version | 保留但重定位 | 仍然需要一致性控制，但 placement 将从单一 session placement 扩展到 sandbox group / node-local pool / runtime instance |
+| RuntimeProvider abstraction | 保留但扩展 | 仍然需要隔离不同 runtime，但新版本要覆盖 agent-sandbox、microVM、node-ctl / sandbox-ctl、cache / store 能力 |
+| benchmark / conformance suite | 强化 | 从 session lifecycle benchmark 扩展为 cold / warm / restore / ready-to-exec / cache hit / cleanup / E2B SDK conformance |
+
+> 分析：Day32 里真正可复用的是“边界意识”：入口、控制面、状态面、runtime provider 和测试资产必须分层。Day35 不是推翻这个边界，而是把边界具体落到了 Kubernetes 慢资源和节点本地快路径之间。
+
+### 什么已经过期
+
+| Day32 旧设计点 | 过期原因 | Day35 替代设计 |
+| --- | --- | --- |
+| 以 Session Runtime Control Plane 作为唯一目标架构 | 目标太偏控制面，不能充分解释冷启动、恢复速度、单节点密度和缓存复用 | 升级为高并发 Agent 沙箱加速平台 |
+| Kubernetes capacity pool 只是辅助概念 | 没有明确说明 Kubernetes 应该只管慢资源边界 | 明确采用 K8s CRD + 占位 Pod 锁定慢资源 |
+| RuntimeProvider 是主要抽象中心 | 对 node-local lifecycle、microVM、cache、network 的职责表达不够细 | 拆成 node-ctl、sandbox-ctl、cache-ctl、store-ctl、vswitch-ctl、run-builder、run-sandbox |
+| Warm pool / pause / resume 是主要性能优化路径 | 只覆盖运行时状态，不覆盖模板构建、snapshot 复用和数据访问路径 | 使用 sandbox pool + microVM snapshot + run-builder + L1/L2/L3 缓存 |
+| MultiAgent Worker / AgentSlot 是主要高密度方向 | 安全隔离、凭据、workspace、端口、资源计量风险过高，不应作为近期主线 | 高密度方向改为 node-local sandbox pool + microVM / lightweight isolation，AgentSlot 作为后续实验 |
+| E2B-like 只是 benchmark / 竞品对比对象 | Day33 之后已明确 E2B 是事实 API / SDK 兼容面，应进入产品入口层设计 | 在接入层标注 E2B-like SDK Facade，并用 conformance test 验证兼容范围 |
+
+> 注释：过期的是“优先级和架构主线”，不是所有技术词。比如 RuntimeProvider 仍然重要，但它不再单独承担全部架构解释任务；它要服务于 node-local sandbox runtime 和 E2B-like facade。
+
+### 新版 PRD 目标
+
+Day35 后，PRD 的目标应改成：
+
+```text
+AgentCube should evolve from a Kubernetes-native session runtime control plane
+into a high-concurrency Agent sandbox acceleration platform.
+```
+
+中文表达：
+
+> AgentCube 新版本架构的目标，是在 Kubernetes 原生控制面之上，通过 CRD 管理沙箱资源池，通过占位 Pod 锁定慢资源边界，通过 node-ctl / sandbox-ctl 下沉高频生命周期，通过 microVM 快照、run-builder 模板复用和 L1/L2/L3 缓存实现低延迟恢复和高密度承载，并在接入层提供 E2B-like SDK Facade。
+
+新版目标拆成四类：
+
+| 目标 | 新版定义 |
+| --- | --- |
+| 启动加速 | 从完整创建优化为模板 / snapshot / sandbox pool 恢复，目标 cold start `< 500ms`、restore p50 / PSO `< 80ms` |
+| 存储效率 | run-builder 前置构建，分块去重、模板复用、对象存储持久化、客户数据加密 |
+| 访问性能 | L1 本地 SSD、L2 AZ 缓存、L3 对象存储，降低 rootfs / snapshot / workspace I/O 延迟 |
+| 高密度隔离 | Kubernetes 外层资源边界 + node-local 内层 runtime，目标单节点数千级 sandbox，同时保留 microVM / seccomp / gVisor 等隔离能力 |
+
+### 新版功能需求
+
+| 编号 | 需求 | 说明 | 替代 Day32 哪部分 |
+| --- | --- | --- | --- |
+| FR1 | E2B-like SDK Facade | 接入层提供 E2B-like Python / TypeScript SDK / REST 适配，把 `Sandbox.create()`、`connect()`、`kill()`、`commands.run()`、`files.*` 翻译为内部 API / gRPC | 从“E2B-like benchmark 对比”升级为产品入口能力 |
+| FR2 | SandboxPoolTemplate / SandboxPool CRD | 用 CRD 表达全局资源池模板和每节点资源池状态，让 Kubernetes 管慢资源边界 | 替代模糊的 Kubernetes capacity pool |
+| FR3 | 占位 Pod / placeholder-agent | 由 Kubernetes 调度并锁定 CPU / Memory / 网络 / 存储边界，激活并守护 node-ctl | 细化 Day32 的 capacity pool |
+| FR4 | node-ctl / sandbox-ctl | 节点本地管理 sandbox create / restore / pause / delete / resource watermark | 替代“RuntimeProvider 单点抽象中心” |
+| FR5 | microVM / lightweight runtime | 提供强隔离、高密度和 snapshot / restore 能力 | 替代 Day32 后期 MultiAgent Worker 主线 |
+| FR6 | run-builder | 前置构建模板、rootfs、manifest、snapshot，减少运行时重复初始化 | 新增构建链路能力 |
+| FR7 | L1 / L2 / L3 cache | 本地 SSD、AZ cache、对象存储分层，支持模板、rootfs、snapshot、workspace 数据路径 | 新增数据路径能力 |
+| FR8 | benchmark / conformance suite | 统一验证 cold / warm / restore / ready-to-exec / cache hit / cleanup / E2B SDK conformance | 强化 Day32 benchmark schema |
+
+> 分析：新版功能需求更偏“平台基础设施”。Session lifecycle 仍然存在，但它变成了上层用户语义；底下需要 sandbox pool、runtime、cache、network 和 template build 共同支撑。
+
+### 新版非目标
+
+| 非目标 | 说明 |
+| --- | --- |
+| 不一次性实现完整 E2B drop-in compatibility | 先做 E2B-like facade 和 conformance subset，再逐步覆盖官方 SDK 行为 |
+| 不在第一版承诺生产级 microVM restore 指标 | `< 80ms` 需要真实 KVM / snapshot / filesystem benchmark 证明 |
+| 不把占位 Pod 跳过 cgroup 当成已验证事实 | 需要 RuntimeClass / CRI spike 验证 kubelet eviction、QoS、metrics 兼容性 |
+| 不把 MultiAgent Worker / AgentSlot 放进第一阶段主线 | 它仍是未来高密度实验，但安全隔离和资源计量风险高 |
+| 不把所有状态塞进 Kubernetes API server | K8s 管声明式慢状态，node-local 管高频 runtime 状态 |
+
+### 新版分阶段路线
+
+| 阶段 | 产出 | 验收标准 |
+| --- | --- | --- |
+| Phase 0：设计对齐 | Day35 架构 proposal、术语表、指标定义 | 明确 slow path / fast path、E2B-like facade、resource pool、node-local runtime 边界 |
+| Phase 1：接口契约 | E2B-like API facade draft、node-ctl / sandbox-ctl protobuf、RuntimeProvider capability table | API 有错误码、幂等语义、timeout、versioning |
+| Phase 2：CRD skeleton | SandboxPoolTemplate / SandboxPool CRD、fake reconciler tests | 不接真实 runtime 也能验证 ownerRef、status、generation、degraded 状态 |
+| Phase 3：placeholder spike | 最小 RuntimeClass / placeholder-agent / kubelet CRI 实验 | 证明占位 Pod 能被 kubelet 正常 create / status / delete，或及时否定跳过 cgroup 假设 |
+| Phase 4：node-local fake runtime | fake node-ctl + fake sandbox-ctl 生命周期状态机 | create / restore / pause / delete / watermark / backpressure 有 table-driven tests |
+| Phase 5：cache prototype | L1 local cache + L3 object store 最小路径 | rootfs / snapshot cache hit / miss / eviction 有可测数据 |
+| Phase 6：benchmark suite | cold / warm / restore / ready-to-exec / cleanup / cache hit 指标 | 输出 JSON schema、环境信息、p50 / p95 / p99 |
+| Phase 7：E2B conformance subset | 官方 E2B SDK create / connect / commands.run / files read-write / kill 最小验证 | 明确哪些是 compatible，哪些只是 E2B-like |
+
+### 对 Day32 结论的更新
+
+Day32 原结论：
+
+```text
+AgentCube = Kubernetes-native Agent Session Runtime Control Plane
+           + Provider-extensible Runtime Layer
+           + Open Benchmark / Conformance Asset
+           + Future MultiAgent Worker Density Advantage
+```
+
+Day35 后应更新为：
+
+```text
+AgentCube = Kubernetes-native Agent Sandbox Acceleration Platform
+           + Slow-resource CRD Control Plane
+           + Node-local Sandbox Runtime Fast Path
+           + Template / Snapshot / Cache Data Plane
+           + E2B-like SDK Facade and Conformance Asset
+```
+
+> 注释：`Session Runtime Control Plane` 仍然是上层能力，但它不再足以描述新版本架构。新版需要同时解释资源池、节点本地执行、模板构建、缓存路径和 SDK 兼容入口。
+
+### 后续文档处理建议
+
+1. Day32 保留为历史版 PRD，不删除，供复盘“为什么从 Session Runtime Control Plane 演进到 Sandbox Acceleration Platform”。
+2. Day35 作为当前最新架构结论的入口。
+3. 后续如果要对外写 proposal，不直接搬 Day32；以 Day35 为主线，只引用 Day32 的 Substrate 对比和 benchmark / conformance 思路。
+4. upstream 贡献仍然拆小：push CI、agent-sandbox compatibility、PicoD metrics、E2B facade proposal、CRD skeleton、benchmark suite，不能把 Day35 全部做成一个大 PR。

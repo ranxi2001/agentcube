@@ -44,6 +44,7 @@ Approval request must include:
 - Target repo and branch.
 - Whether it is upstream-facing or fork-only.
 - Title and full body/comment, using the official template when applicable.
+- Body/comment formatting check: normal prose should use natural GitHub Markdown paragraphs, without manual hard-wrapping inside sentences.
 - Diff summary and tests run.
 - Why upstream attention is needed now.
 
@@ -143,6 +144,7 @@ Use a fork branch push when the goal is to see whether available GitHub Actions 
 
 - Push the validation head branch to `origin`.
 - Watch the commit SHA checks after the push, not only branch status.
+- Prefer the local `check_push_ci.py` helper for push-triggered Actions runs.
 - If CI fails, inspect the job logs and uploaded artifacts before changing code.
 - Do not open a PR against `ranxi2001/agentcube` just to trigger `pull_request` workflows.
 - If the needed workflow is `pull_request`-only, state that push validation did not cover it and rely on local tests plus the eventual upstream PR checks after explicit user approval.
@@ -151,12 +153,21 @@ Example:
 
 ```bash
 git push origin <head-branch>:<head-branch>
-# Then inspect the GitHub Actions/checks attached to the pushed commit SHA.
+python3 .agents/skills/agentcube-pr-management/scripts/check_push_ci.py \
+  --repo ranxi2001/agentcube \
+  --branch <head-branch> \
+  --sha "$(git rev-parse HEAD)" \
+  --watch \
+  --interval 60
 ```
 
 ### Fork-Only Push CI Workflow
 
 If ordinary branch push has no useful checks and the user wants CI confidence before opening a real upstream PR, use the fork-only push validation workflow template. This workflow is local/fork infrastructure only. Do not include `.github/workflows/fork-push-validation.yml` in an upstream PR diff.
+
+AgentCube differs from Karmada here: Karmada's main CI workflows already include `push`, while AgentCube's core build/lint/codegen/e2e/codespell/copyright/coverage workflows are mainly `pull_request`-triggered. The check script can only observe workflow runs that GitHub created; it cannot make a `pull_request`-only workflow run on branch push. For fork-only push CI, the validation branch must contain a push-triggered workflow file.
+
+Technically, adding the push workflow to the fork default branch would make future fork branches that contain that workflow trigger on push. Do not use `origin/main` for that in this workspace, because fork `main` is reserved as a clean mirror of `upstream/main`. If a permanent fork-only base is needed, use a dedicated branch such as `ci/base` or continue installing the workflow only on disposable `ci/<topic>-validation` branches.
 
 Safe flow:
 
@@ -167,8 +178,20 @@ git switch -c <topic-branch> upstream/main
 git switch -c ci/<topic>-validation
 git show intern:.agents/skills/agentcube-pr-management/scripts/install_fork_push_ci.sh | bash
 git push origin ci/<topic>-validation:ci/<topic>-validation
-# inspect GitHub Actions on the pushed commit SHA
+python3 .agents/skills/agentcube-pr-management/scripts/check_push_ci.py \
+  --repo ranxi2001/agentcube \
+  --branch ci/<topic>-validation \
+  --sha "$(git rev-parse HEAD)" \
+  --watch \
+  --interval 60
 ```
+
+`check_push_ci.py` exit codes:
+
+- `0`: all matching runs are terminal and non-failing.
+- `1`: at least one matching run failed, timed out, was cancelled, or ended in an unknown terminal state.
+- `2`: at least one matching run is still queued or running.
+- `3`: no matching Actions run was found. Check whether the workflow file was installed before push, whether the branch matches `ci/**`, `test/**`, `feat/**`, `fix/**`, `chore/**`, or `docs/**`, and whether Actions are enabled in the fork.
 
 After CI passes, continue upstream preparation from the clean topic branch that does not contain the fork-only workflow commit:
 
@@ -179,6 +202,24 @@ git diff upstream/main...
 ```
 
 If the validation branch needs a code fix, either fix it first on `ci/<topic>-validation` and cherry-pick only the code fix back to `<topic-branch>`, or fix `<topic-branch>` and recreate the validation branch. Never cherry-pick the fork-only workflow commit into the upstream PR branch.
+
+### Upstreamable Push CI Proposal
+
+It is technically possible to submit an upstream PR that adds Karmada-style branch push CI. Treat it as a contributor-experience CI feature, not a private CI workaround.
+
+If the goal is for fork branch pushes and PRs to use the same CI logic, prefer adding a `push` trigger to the existing validation workflows instead of creating a separate permanent push-only workflow. A separate workflow is acceptable for fork-only temporary validation, but upstream should avoid two long-lived CI definitions that can drift.
+
+Recommended upstream shape:
+
+- Add `push.branches-ignore: ["dependabot/**"]` to existing validation workflows such as `main.yml`, `lint.yml`, `codegen-check.yml`, `e2e.yml`, `codespell.yml`, `copyright-check.yml`, `python-lint.yml`, `python-sdk-tests.yml`, and `test-coverage.yml`.
+- Preserve the existing `pull_request`, `merge_group`, and `workflow_call` configuration so PR behavior and merge-queue behavior do not change.
+- Do not add branch push triggers to release, publish, or workflow-approval workflows such as image publishing, PyPI publishing, plugin publishing, or `pull_request_target` approval automation.
+- Keep the workflow commands identical between push and PR paths. This is the main reason to prefer Karmada-style trigger sharing over a second push-only workflow.
+- Avoid secrets, package publishing, or deployment permissions in branch push validation paths.
+- If maintainers worry about cost, discuss whether heavy jobs such as e2e should remain PR-only; the tradeoff is lower cost versus losing exact push/PR parity.
+- If codespell and copyright run in the same job, restore any files temporarily removed before codespell before running `make gen-copyright`; otherwise copyright verification can fail on the deletion diff rather than a real header problem.
+
+Before opening such a PR, prepare the exact workflow diff, local validation, and PR body, then ask the user to approve the upstream-facing action.
 
 ### Open PR Rebase Validation
 
@@ -481,6 +522,8 @@ Let the bot guide exact approval requirements; do not over-tag reviewers unless 
 
 Always use the repository's official `.github/PULL_REQUEST_TEMPLATE.md` exactly as the base for upstream PRs, including draft and WIP PRs. Do not replace it with a self-designed style. Fill every section; use `NONE` inside the release-note block when there is no user-facing change.
 
+Format PR bodies and upstream comments for GitHub rendering, not terminal width. Do not hard-wrap normal prose at 80 columns or split a sentence only because it is long. Use line breaks for paragraph boundaries, headings, bullet items, tables, code fences, and release-note blocks. For long bullets, prefer rewriting the sentence or splitting the idea into separate bullets instead of adding continuation lines purely for column width. Before asking the user to approve exact upstream text, review the raw Markdown and collapse accidental line breaks inside ordinary paragraphs.
+
 ````md
 **What type of PR is this?**
 
@@ -578,6 +621,7 @@ python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 379
 - Do not create upstream PRs, draft PRs, WIP PRs, issues, or comments without immediate user approval of the exact title/body/comment.
 - Do not use upstream PRs as disposable CI runners. Validate in the fork first when maintainer review is not needed.
 - Do not ignore the official PR template, even for draft or WIP PRs.
+- Do not manually hard-wrap PR bodies, issue bodies, or upstream comments. Keep ordinary prose as natural Markdown paragraphs unless a list, table, code block, or template block requires line breaks.
 - Use `[WIP]` for unfinished upstream PRs when the user approves posting one; do not use `[DO NOT MERGE]`.
 - Do not comment on or mention maintainers in read-only PR analysis unless the user approves and upstream input is genuinely needed.
 - Do not merge unrelated formatting with behavior changes.

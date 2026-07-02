@@ -23,7 +23,7 @@
 - PR 必须来自干净 topic 分支，不从 fork `main` 直接提交。
 - 每个 PR 只做一个主题，避免把实习报告、原始 benchmark 日志、中文-only 笔记混进 upstream PR。
 - 任何 upstream-facing 操作都要先得到用户明确确认，包括创建 PR / draft PR / WIP PR、issue、comment、review comment、`/assign`、request review 或 mention 维护者。
-- 不把 upstream PR 或 self-fork PR 当临时 CI runner；只为验证 CI 时优先用本地测试、本地 Actions，以及 fork 分支 push 后实际存在的 Actions/checks。当前仓库完整 CI 主要由真实 PR 触发，普通 `feat/*` push 通常不覆盖完整矩阵。需要提前验证时，可以在 `ci/<topic>` 验证分支临时加入 fork-only push CI workflow，但不能把该 workflow 带进 upstream PR。
+- 不把 upstream PR 或 self-fork PR 当临时 CI runner；只为验证 CI 时优先用本地测试、本地 Actions，以及 fork 分支 push 后实际存在的 Actions/checks。当前仓库完整 CI 主要由真实 PR 触发，普通 `feat/*` push 通常不覆盖完整矩阵。需要提前验证时，可以在 `ci/<topic>` 验证分支临时加入 fork-only push CI workflow，但不能把该 workflow 带进普通功能 PR。技术上把 push workflow 放到个人 fork 的默认分支后，后续包含该 workflow 的分支 push 可以触发 Actions；但本仓库约定 `origin/main` 必须是 `upstream/main` 的干净镜像，不用它承载私有 CI 配置。若要上游化，应作为 contributor-experience CI 改进单独提案/PR，而不是作为个人预检 workaround。
 - 阅读、分析、复现别人的 PR 时，默认只做本地记录；不需要维护者验证的内容不要直接发到社区。
 - 不机械理解为“一个 PR 不能更新”。属于当前 PR 引入的问题可以在验证后 clean update 当前 PR；独立前置条件或仓库级兼容性变化要从 `upstream/main` 拆纯净 PR。
 - 例如依赖升级需要更高 Go 版本时，Go/toolchain 升级本身应先作为独立 PR 从 `upstream/main` 提交，只修改原始项目需要的 Go / CI / toolchain 文件并证明原始项目能跑通；依赖升级 PR 等该前置 PR 合入后再 rebase。
