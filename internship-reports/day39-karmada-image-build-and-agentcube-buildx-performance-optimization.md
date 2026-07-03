@@ -465,20 +465,42 @@ Fork workflow 验证：
 
 > 分析：因为 release workflow 只监听 `main` push 和 tag push，普通 branch push 不会触发完整 release image publish。若要复用真实 workflow，仍然需要临时 fork `main` 或新增 fork-only workflow。这个操作会触发 GHCR image publish，必须提前确认成本和恢复方式。
 
-## 当前 fork main 验证状态
+## 当前 fork main 验证结果
 
-当前仍有一个 fork run 在执行：
+当前 fork run 已完成：
 
 - Repo: `ranxi2001/agentcube`
 - Run: <https://github.com/ranxi2001/agentcube/actions/runs/28633043101>
 - Head: `427e618 ci: use valid chart version for latest releases`
 - Purpose: 验证 #416 新方案是否能在 `main` push 下发布 latest image 并用 chart `0.0.0`
-- State when writing: `build-and-push` still in progress
-- Rechecked at `2026-07-03T02:09:04Z`: still `build-and-push` in progress
+- Result: success
+- Job duration: `2026-07-03T01:47:11Z` -> `2026-07-03T02:12:20Z`, about 25m09s
 
-它还没有进入 Helm chart step。结合 upstream 旧 job，当前等待大概率仍是 multi-arch image build，而不是 chart 方案问题。
+关键结论：
 
-> 注释：fork `origin/main` 当前是临时测试 commit，不是干净 `upstream/main` 镜像。恢复到 `upstream/main` 会再次触发旧 broken release workflow，所以恢复前要先判断是否需要等待验证结果，或者恢复后立刻取消对应 run。
+1. #416 的 latest image + chart `0.0.0` 方向通过真实 fork workflow 验证。
+2. Helm chart packaging 不再失败：
+   - `TAG=latest`
+   - `CHART_VERSION=0.0.0`
+   - `APP_VERSION=latest`
+   - generated `agentcube-0.0.0.tgz`
+   - pushed `ghcr.io/ranxi2001/charts/agentcube:0.0.0`
+3. 真正耗时仍在 `Build and push images`，该 step 用了 `1487.1s`，约 24m47s。
+
+新的分段耗时：
+
+| Step / image | Duration | Key observation |
+| --- | ---: | --- |
+| `Build and push images` | 1487.1s | success, still dominates the whole job |
+| `workloadmanager:latest` | about 21m56s | `linux/arm64 go build ./cmd/workload-manager` took `1291.4s`; `linux/amd64` took `173.2s` |
+| `agentcube-router:latest` | about 39s | `linux/arm64 go build ./cmd/router` took `30.0s` |
+| `picod:latest` | about 2m12s | `linux/arm64 apt-get update && apt-get install -y python3` took `120.0s`; `linux/arm64 go build ./cmd/picod` took `8.7s` |
+| `Package Helm chart` | 0.1s | success |
+| `Push Helm chart` | 2.4s | success |
+
+> 分析：这次 run 把两个结论分清了。第一，#416 的 chart version 修复是正确的，`latest` image 发布也保住了。第二，release workflow 的用户体感仍然会很慢，原因不是 Helm，而是 multi-arch image build，尤其是 workloadmanager arm64 Go compiler 仍在 QEMU 里运行。
+
+> 注释：fork `origin/main` 当前仍是临时测试 commit，不是干净 `upstream/main` 镜像。恢复到 `upstream/main` 会触发 upstream 当前旧 workflow，因此要么等 #416 更新并合入后再恢复，要么恢复后准备立即取消对应 release run。
 
 ## 先验证不同方案，再开 issue
 
@@ -521,7 +543,7 @@ issue 里最好放对比数据，而不是只放推断。
 
 第一轮不一定要把 B/C/D 都实现成完整 PR。至少要完成：
 
-1. Baseline：使用 upstream 旧 job 和当前 fork run 提供真实 workflow 数据。
+1. Baseline：使用 upstream 旧 job 和 fork run `28633043101` 提供真实 workflow 数据。
 2. Scheme A：本地 buildx 或 fork validation branch 验证最小 Dockerfile 改动。
 3. Scheme B：可以先做局部 prototype，证明 Karmada-style 的方向是否比 Scheme A 还有明显收益。
 
@@ -544,14 +566,15 @@ I would like to discuss optimizing the multi-arch image build path used by the r
 
 **Why is this needed**:
 
-In a recent release workflow run, `Build and push images` took about 27 minutes before the Helm chart packaging step failed. The slowest part was the `workloadmanager` `linux/arm64` Go build, which took about `1415.0s`. This makes every `main` latest-image publish expensive and also delays feedback for release workflow fixes.
+In recent release workflow runs, `Build and push images` took about 25-27 minutes. In the older upstream run, the workflow then failed at Helm chart packaging because `latest` was used as the chart version. In the fork validation run for the chart-version fix, Helm packaging and chart push succeeded, but image publishing still took about `1487.1s`. The slowest part was the `workloadmanager` `linux/arm64` Go build, which took `1291.4s` in the fork run and `1415.0s` in the older upstream run.
 
 **Observed evidence**:
 
 | Source | Observation |
 | --- | --- |
-| Workflow run | `Build and push images` took about 27 minutes |
-| Workloadmanager image | `linux/arm64 go build ./cmd/workload-manager` took about `1415.0s` |
+| Upstream workflow run | `Build and push images` took about 27 minutes before Helm chart packaging failed |
+| Fork validation run | `Build and push images` took `1487.1s`; Helm chart `0.0.0` packaging and push succeeded |
+| Workloadmanager image | `linux/arm64 go build ./cmd/workload-manager` took `1291.4s` in the fork run and `1415.0s` in the older upstream run |
 | Router image | mostly reused build cache and finished much faster |
 | PicoD image | remaining cost was mostly the target-platform runtime package installation |
 

@@ -2,7 +2,7 @@
 
 日期：2026-07-02
 
-> 更新：2026-07-03 重新评估后，`main` push 完全停止发布镜像/Chart 的方案不再作为推荐方案。考虑到用户或贡献者可能直接使用 `latest` 镜像体验主分支最新系统，更合理的方向是保留 `main` push 的 latest image 发布，同时把 Docker image tag 和 Helm chart `version` 拆开：image tag 继续用 `latest`，chart `version` 使用固定特殊 SemVer `0.0.0`。下文早期的 tag-only 收敛记录保留为排查过程，最终建议见文末“重新评估后的推荐方案”。
+> 更新：2026-07-03 重新评估后，`main` push 完全停止发布镜像/Chart 的方案不再作为推荐方案。考虑到用户或贡献者可能直接使用 `latest` 镜像体验主分支最新系统，更合理的方向是保留 `main` push 的 latest image 发布，同时把 Docker image tag 和 Helm chart `version` 拆开：image tag 继续用 `latest`，chart `version` 使用固定特殊 SemVer `0.0.0`。下文早期的 tag-only 收敛记录保留为排查过程，最终建议见文末“重新评估后的推荐方案”。2026-07-03 已在 fork `main` 上完成真实 push workflow 验证：latest images、`agentcube-0.0.0.tgz` package 和 GHCR Helm chart push 均成功。
 
 ## 结论先行
 
@@ -663,7 +663,28 @@ helm package simulation for pre-release tag v1.2.3-alpha:
 PASS: agentcube-v1.2.3-alpha.tgz
 ```
 
-> 分析：下一步真正需要验证的是 GHCR 是否接受同一个 Helm OCI tag `0.0.0` 的重复 push。Karmada 在 DockerHub 上使用固定 `0.0.0`，但 AgentCube 用的是 GHCR，所以最终最好通过一次用户确认后的 PR/fork workflow 运行来验证 registry 行为。如果 GHCR 不允许覆盖同一 chart tag，再回退到 `0.0.0-main.N` 或其他 snapshot version 策略。
+Fork `main` 真实 workflow 验证：
+
+- Repo: `ranxi2001/agentcube`
+- Run: <https://github.com/ranxi2001/agentcube/actions/runs/28633043101>
+- Job: <https://github.com/ranxi2001/agentcube/actions/runs/28633043101/job/84913711568>
+- Event: `push`
+- Branch: `main`
+- Head SHA: `427e618eaec0749736a430ce8adcf7f9d075b783`
+- Result: success
+- Job duration: `2026-07-03T01:47:11Z` -> `2026-07-03T02:12:20Z`, about 25m09s
+
+关键日志：
+
+```text
+TAG: latest
+CHART_VERSION: 0.0.0
+APP_VERSION: latest
+Successfully packaged chart and saved it to: /home/runner/work/agentcube/agentcube/agentcube-0.0.0.tgz
+Pushed: ghcr.io/ranxi2001/charts/agentcube:0.0.0
+```
+
+> 分析：这次验证说明 GHCR 接受固定 `0.0.0` 作为 Helm chart OCI tag，且 `latest` image 发布没有被破坏。它还没有额外验证“重复 push 同一个 `0.0.0` tag 是否总是可覆盖”，但不建议为了这个再主动跑一次完整 release workflow，因为每次都会支付 25 分钟级 multi-arch image build 成本。如果后续 main push 重复失败，再考虑 `0.0.0-main.N` 等 snapshot version 方案。
 
 ### Reviewer 反馈与回复草稿
 
@@ -709,6 +730,17 @@ GitHub Actions API 显示，这个 job 总耗时约 27 分 19 秒：
 | `workloadmanager:latest` | ~24m | `linux/arm64` 的 `go build ./cmd/workload-manager` 用了 `1415.0s` |
 | `agentcube-router:latest` | ~42s | 大量复用前一个 buildx 缓存，`linux/arm64` `go build ./cmd/router` 约 `32.9s` |
 | `picod:latest` | ~2m18s | `linux/arm64` Ubuntu runtime `apt-get update && apt-get install -y python3` 约 `127.0s` |
+
+新的 fork 验证 run `28633043101` 也呈现同样瓶颈，但这次最终成功：
+
+| Step / image | Duration | Result / observation |
+| --- | ---: | --- |
+| `Build and push images` | 1487.1s, about 24m47s | success |
+| `workloadmanager:latest` | about 21m56s | `linux/arm64 go build ./cmd/workload-manager` took `1291.4s`; `linux/amd64` took `173.2s` |
+| `agentcube-router:latest` | about 39s | `linux/arm64 go build ./cmd/router` took `30.0s` |
+| `picod:latest` | about 2m12s | `linux/arm64 apt-get update && apt-get install -y python3` took `120.0s`; `linux/arm64 go build ./cmd/picod` took `8.7s` |
+| `Package Helm chart` | 0.1s | success, generated `agentcube-0.0.0.tgz` |
+| `Push Helm chart` | 2.4s | success, pushed `ghcr.io/ranxi2001/charts/agentcube:0.0.0` |
 
 核心慢点是第一个镜像的 arm64 Go 编译。当前 Makefile 三个 push target 都使用：
 
