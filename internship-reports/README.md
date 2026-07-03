@@ -52,3 +52,4 @@
 - [Day 36：项目分工与 K8s 慢资源控制面深入设计](day36-k8s-slow-resource-control-plane-design.md)
 - [Day 37：Docs Proposal 目录设计与提案管理调研](day37-docs-proposal-directory-management.md)
 - [Day 38：Release Image CI 中 Helm Chart Version 失败分析](day38-release-image-ci-helm-chart-version-failure-analysis.md)
+- [Day 39：Karmada Image Build 方式与 AgentCube Buildx 性能优化机会](day39-karmada-image-build-and-agentcube-buildx-performance-optimization.md)
