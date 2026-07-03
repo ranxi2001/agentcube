@@ -684,3 +684,68 @@ The fix now separates the Docker image tag from the Helm chart metadata. On `mai
 
 This avoids `helm package --version latest` without removing latest image publishing.
 ```
+
+### 为什么 Build and Push Release Images 看起来卡住
+
+针对旧失败 job：
+
+- Job: <https://github.com/volcano-sh/agentcube/actions/runs/28582345874/job/84745444791>
+- Run: <https://github.com/volcano-sh/agentcube/actions/runs/28582345874>
+- Head SHA: `7cfeb8c222f82ccbacc3048a6fd66d5bc255fb9f`
+
+GitHub Actions API 显示，这个 job 总耗时约 27 分 19 秒：
+
+| Step | Start | End | Duration | Result |
+| --- | --- | --- | ---: | --- |
+| `Build and push images` | 10:12:20 UTC | 10:39:20 UTC | 27m00s | success |
+| `Package Helm chart` | 10:39:20 UTC | 10:39:20 UTC | <1s | failure |
+
+也就是说，job 不是卡在 Helm chart 打包；Helm 失败是最后瞬间发生的。真正耗时在前面的三镜像多架构 build/push。
+
+进一步拆日志：
+
+| Image | Approx time | Key slow point |
+| --- | ---: | --- |
+| `workloadmanager:latest` | ~24m | `linux/arm64` 的 `go build ./cmd/workload-manager` 用了 `1415.0s` |
+| `agentcube-router:latest` | ~42s | 大量复用前一个 buildx 缓存，`linux/arm64` `go build ./cmd/router` 约 `32.9s` |
+| `picod:latest` | ~2m18s | `linux/arm64` Ubuntu runtime `apt-get update && apt-get install -y python3` 约 `127.0s` |
+
+核心慢点是第一个镜像的 arm64 Go 编译。当前 Makefile 三个 push target 都使用：
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 --push .
+```
+
+而 Dockerfile 的 builder stage 写法是：
+
+```dockerfile
+FROM golang:1.26.4-alpine AS builder
+ARG TARGETOS=linux
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build ...
+```
+
+在 GitHub 的 `ubuntu-latest` x86 runner 上，`linux/arm64` platform 的 builder stage 会通过 buildx/QEMU 跑 arm64 环境。对 Go 编译这种 CPU 密集型步骤来说，QEMU emulation 会非常慢，所以 `workloadmanager` 的 arm64 `go build` 被拉长到二十多分钟。
+
+> 分析：这解释了为什么 fork `main` 验证同样会“看起来卡住”。它不是新 chart version 方案导致的，而是原 release workflow 本来就要先构建并推送三个 multi-arch 镜像。只要保留 latest image 发布，这个路径就会先支付 multi-arch build 成本。
+
+可以考虑的后续优化方向：
+
+1. 让 Go builder stage 使用 native build platform：
+
+   ```dockerfile
+   FROM --platform=$BUILDPLATFORM golang:1.26.4-alpine AS builder
+   ARG TARGETOS
+   ARG TARGETARCH
+   RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build ...
+   ```
+
+   这样 Go 编译在 x86 runner 上原生执行，只输出 arm64 二进制，避免用 QEMU 跑 Go compiler。
+
+2. 增加跨 workflow 的 buildx cache，例如 GitHub Actions cache 或 registry cache，避免每次 main push 都冷构建第一个镜像。
+
+3. 如果社区接受成本优化，可以讨论 `main` push 只发布 `latest` amd64 镜像，release tag 再发布 multi-arch 镜像。不过这会改变 latest image 的平台覆盖，需要 maintainer 明确同意。
+
+4. `picod` 的 runtime stage 可以考虑预装 Python 的基础镜像或更轻量的 package 策略，减少 arm64 Ubuntu `apt-get install python3` 的 2 分钟级开销。
+
+> 注释：这些优化不应混入当前 #416。#416 的最小修复目标仍是让 Helm chart version 合法，同时保留 latest image 发布。buildx 加速可以作为后续单独 CI 性能 PR。
