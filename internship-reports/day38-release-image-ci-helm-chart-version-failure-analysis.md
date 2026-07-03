@@ -2,6 +2,8 @@
 
 日期：2026-07-02
 
+> 更新：2026-07-03 重新评估后，`main` push 完全停止发布镜像/Chart 的方案不再作为推荐方案。考虑到用户或贡献者可能直接使用 `latest` 镜像体验主分支最新系统，更合理的方向是保留 `main` push 的 latest image 发布，同时把 Docker image tag 和 Helm chart `version` 拆开：image tag 继续用 `latest`，chart `version` 使用固定特殊 SemVer `0.0.0`。下文早期的 tag-only 收敛记录保留为排查过程，最终建议见文末“重新评估后的推荐方案”。
+
 ## 结论先行
 
 这次看到的 CI 红点不是 `docs/proposals` PR 本身的验证失败，而是 PR 合并到 `main` 后触发的发布工作流失败。
@@ -363,7 +365,9 @@ Fork `main` 验证：
 
 > 分析：收敛后的修复只解决一个问题：main merge 下不再发布镜像和 chart，从而避免 `TAG=latest` 进入 Helm chart `version`，也避免 release publish failure 给普通 merge commit 挂红色 X。tag release 的 chart 包命名保持历史兼容。
 
-## PR 文稿草稿
+## 旧方案 PR 文稿草稿（已废弃）
+
+> 更新：这一版文稿对应 tag-only 方案。2026-07-03 收到 reviewer 反馈后，该方案已废弃；最新推荐方案和新 PR 文稿见下文“2026-07-03 重新评估后的推荐方案”。
 
 Upstream PR:
 
@@ -475,3 +479,208 @@ gh run list \
 2. 旧 run 的 `gh run view --log-failed` 不是每次都能稳定吐出日志细节，但 run/job metadata 能稳定证明失败步骤都是 `Package Helm chart`。
 3. 这个 workflow 有 `packages: write` 权限，修复前不应随意在 fork 或 upstream 上反复触发发布路径。
 4. upstream PR #416 已 force-with-lease 更新到单 commit `a6c4a82`，PR body 已同步修正；后续等待 CI、maintainer review、`/lgtm`、`/approve` 和 tide。不要自动追加 commit 或评论，若 review 反馈需要改 release 策略，先确认 exact diff/comment。
+
+## 2026-07-03 重新评估后的推荐方案
+
+用户进一步指出：完全取消 `main` push 的 release artifact 发布并不理想。AgentCube 仍然可能需要持续发布 `latest` 镜像，方便用户、贡献者或集成测试直接体验主分支最新系统。
+
+因此新的判断是：
+
+1. 不应把 `main` push 发布路径直接删掉。
+2. `latest` 仍然可以作为 Docker image tag。
+3. `latest` 不能作为 Helm chart `version`。
+4. 需要把 image tag、chart version、app version 拆成三个变量。
+5. `main` push 的 chart version 使用固定特殊 SemVer：`0.0.0`。
+
+> 分析：这次失败不是“不能发布 latest 镜像”，而是“不能把 latest 镜像标签复用为 Helm chart version”。修复点应该落在元数据拆分，而不是直接移除 main 发布能力。
+
+### Karmada 参考
+
+Karmada 的 `dockerhub-latest-chart.yml` 保留了 master 分支 push 后发布 latest chart 的路径，但它没有使用 `latest` 作为 chart version，而是在 package 和 push 时设置：
+
+```yaml
+env:
+  VERSION: 0.0.0
+```
+
+同时它通过 job-level `if` 限制只有官方仓库 master 分支执行，避免 fork 缺少 secret 或无意义消耗 Actions 时间。
+
+参考：
+
+- <https://github.com/karmada-io/karmada/blob/master/.github/workflows/dockerhub-latest-chart.yml>
+
+> 注释：Karmada 的设计说明了一个关键点：所谓 latest chart 不一定要在 Helm `version` 字段里写 `latest`。可以用一个固定特殊 SemVer 表示“开发版/主分支版”，再通过发布通道或文档说明它代表最新构建。
+
+### 为什么不用 run number
+
+曾考虑过用：
+
+```text
+0.0.0-main.<github.run_number>
+```
+
+它的优点是每次 main 构建都有唯一 chart version，便于追踪具体 run。
+
+但用户复核后指出这会造成不必要的 registry 侧版本堆积。这个判断是合理的：
+
+- 它不会污染 git 仓库。
+- 但它会让 GHCR chart package 中持续出现 `0.0.0-main.N` 这类临时版本。
+- 这些版本不是正式 release，也不是用户真正需要长期引用的版本。
+- 对“latest 体验入口”来说，固定 `0.0.0` 已经足够。
+
+> 分析：`run_number` 适合 nightly snapshot 或需要追踪每次构建产物的场景。当前目标只是让 main/latest 发布不失败，并提供一个可复用的 latest chart 入口，所以固定 `0.0.0` 更干净。
+
+### 推荐 workflow 语义
+
+新的 release metadata 语义应为：
+
+| 场景 | Docker image tag | Helm chart version | Helm appVersion | 说明 |
+| --- | --- | --- | --- | --- |
+| `main` push | `latest` | `0.0.0` | `latest` | 主分支开发版/latest 入口 |
+| release tag `v1.2.3` | `v1.2.3` | `v1.2.3` | `v1.2.3` | 保留现有 tag release 命名 |
+| pre-release tag `v1.2.3-alpha` | `v1.2.3-alpha` | `v1.2.3-alpha` | `v1.2.3-alpha` | 保留现有 pre-release 命名 |
+
+核心实现逻辑：
+
+```bash
+if [[ "${{ github.ref_type }}" == "tag" ]]; then
+  RELEASE_TAG="${{ github.ref_name }}"
+  echo "TAG=${RELEASE_TAG}" >> "$GITHUB_ENV"
+  echo "CHART_VERSION=${RELEASE_TAG}" >> "$GITHUB_ENV"
+  echo "APP_VERSION=${RELEASE_TAG}" >> "$GITHUB_ENV"
+else
+  echo "TAG=latest" >> "$GITHUB_ENV"
+  echo "CHART_VERSION=0.0.0" >> "$GITHUB_ENV"
+  echo "APP_VERSION=latest" >> "$GITHUB_ENV"
+fi
+```
+
+Helm package / push 使用 `CHART_VERSION`：
+
+```bash
+yq e -i '.version = env(CHART_VERSION) | .appVersion = env(APP_VERSION)' "${CHART_PATH}/Chart.yaml"
+helm package "${CHART_PATH}" --version "${CHART_VERSION}" --app-version "${APP_VERSION}"
+helm push "agentcube-${CHART_VERSION}.tgz" "oci://ghcr.io/${REPOSITORY_OWNER_LOWER}/charts"
+```
+
+镜像仍使用 `TAG`：
+
+```bash
+make docker-buildx-push IMAGE_REGISTRY="${IMAGE_REGISTRY}" WORKLOAD_MANAGER_IMAGE="workloadmanager:${TAG}"
+make docker-buildx-push-router IMAGE_REGISTRY="${IMAGE_REGISTRY}" ROUTER_IMAGE="agentcube-router:${TAG}"
+make docker-buildx-push-picod IMAGE_REGISTRY="${IMAGE_REGISTRY}" PICOD_IMAGE="picod:${TAG}"
+```
+
+> 注释：这里继续保留 tag release 下的 `vX.Y.Z` chart version / package / OCI tag 命名，因为用户已经明确不希望 #416 顺手把 release chart 从 `vX.Y.Z` 改成 `X.Y.Z`。是否要做 chart version 规范化，是另一个发布兼容性问题。
+
+### 新 PR 文稿方向
+
+旧标题：
+
+```text
+ci: publish release artifacts only for tags
+```
+
+已经不适合新方案，因为新方案会保留 `main` push 发布。
+
+推荐标题：
+
+```text
+ci: use semver chart version for latest releases
+```
+
+推荐 PR body：
+
+````md
+**What type of PR is this?**
+
+/kind bug
+
+**What this PR does / why we need it**:
+
+The `Build and Push Release Images` workflow publishes artifacts for both `main` branch pushes and release tag pushes. On `main` pushes it uses `TAG=latest`. That value is valid for Docker image tags, but the workflow also reused it as the Helm chart `version`, and Helm chart versions must be valid SemVer values. As a result, recent `main` merge commits repeatedly failed during chart packaging with `chart.metadata.version "latest" is invalid`.
+
+This PR keeps the `main` push publishing behavior so users can continue to consume latest images from the main branch, but separates image tags from Helm chart versions. For `main` pushes, Docker images still use `latest`, while the Helm chart uses the fixed development version `0.0.0` and `appVersion=latest`. For release tags, the workflow preserves the existing `vX.Y.Z` artifact naming behavior.
+
+**Which issue(s) this PR fixes**:
+
+Fixes #417
+
+**Special notes for your reviewer**:
+
+- Scope: only `.github/workflows/build-push-release.yml` is changed.
+- `main` pushes continue to publish latest images.
+- `main` pushes now package/push the Helm chart as version `0.0.0` instead of `latest`.
+- Release tags matching `v*.*.*` and `v*.*.*-*` keep the existing `vX.Y.Z` image tag, chart version, appVersion, package filename, and OCI chart tag behavior.
+- This follows the same idea as Karmada's latest chart workflow, where the latest chart is represented by a special SemVer value instead of `latest`.
+- AI assistance: Used Codex to inspect the failing workflow, compare the Karmada latest chart workflow, and draft this PR text. I reviewed and validated the changes.
+
+Validation:
+
+- `git diff upstream/main --check`
+- Local shell simulation of the release metadata branch logic:
+  - `main` push: `TAG=latest`, `CHART_VERSION=0.0.0`, `APP_VERSION=latest`
+  - `v1.2.3` tag: `TAG=v1.2.3`, `CHART_VERSION=v1.2.3`, `APP_VERSION=v1.2.3`
+  - `v1.2.3-alpha` tag: `TAG=v1.2.3-alpha`, `CHART_VERSION=v1.2.3-alpha`, `APP_VERSION=v1.2.3-alpha`
+
+**Does this PR introduce a user-facing change?**:
+
+```release-note
+NONE
+```
+````
+
+### 当前本地状态
+
+已在新的干净临时工作树中准备本地单 commit，但尚未推送 open PR #416：
+
+- Worktree: `/tmp/agentcube-pr416-final`
+- Local branch: `ci/fix-release-chart-version-final`
+- Base head: `upstream/main` at `7cfeb8c`
+- Local commit: `427e618 ci: use valid chart version for latest releases`
+- Changed file: `.github/workflows/build-push-release.yml`
+- Current decision: do not push until the exact diff, PR body, and reviewer reply are confirmed, because pushing this branch 会更新已经打开的 upstream PR #416。
+
+当前验证：
+
+```text
+git diff upstream/main --check
+PASS
+
+actionlint -ignore 'too old to run on GitHub Actions' .github/workflows/build-push-release.yml
+PASS
+
+helm lint manifests/charts/base
+PASS
+
+helm package simulation for main/latest:
+PASS: agentcube-0.0.0.tgz
+
+helm package simulation for release tag v1.2.3:
+PASS: agentcube-v1.2.3.tgz
+
+helm package simulation for pre-release tag v1.2.3-alpha:
+PASS: agentcube-v1.2.3-alpha.tgz
+```
+
+> 分析：下一步真正需要验证的是 GHCR 是否接受同一个 Helm OCI tag `0.0.0` 的重复 push。Karmada 在 DockerHub 上使用固定 `0.0.0`，但 AgentCube 用的是 GHCR，所以最终最好通过一次用户确认后的 PR/fork workflow 运行来验证 registry 行为。如果 GHCR 不允许覆盖同一 chart tag，再回退到 `0.0.0-main.N` 或其他 snapshot version 策略。
+
+### Reviewer 反馈与回复草稿
+
+Reviewer `zhzhuang-zju` 在 #416 中指出：
+
+```text
+We should not remove this trigger condition, because the latest image still needs to be uploaded.
+```
+
+这条反馈确认了旧 tag-only 方案的问题：它修掉了红色 X，但也误删了主分支 latest image 发布能力。
+
+建议回复：
+
+```md
+Thanks, agreed. I updated the approach to keep the `main` push trigger and continue publishing `latest` images.
+
+The fix now separates the Docker image tag from the Helm chart metadata. On `main` pushes, images still use `TAG=latest`, while the chart uses `CHART_VERSION=0.0.0` and `APP_VERSION=latest`. On release tags, the workflow keeps the existing `vX.Y.Z` values for image tags, chart version, appVersion, package filename, and OCI chart tag.
+
+This avoids `helm package --version latest` without removing latest image publishing.
+```
