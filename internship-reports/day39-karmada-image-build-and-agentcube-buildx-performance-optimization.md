@@ -502,6 +502,175 @@ Fork workflow 验证：
 
 > 注释：fork `origin/main` 当前仍是临时测试 commit，不是干净 `upstream/main` 镜像。恢复到 `upstream/main` 会触发 upstream 当前旧 workflow，因此要么等 #416 更新并合入后再恢复，要么恢复后准备立即取消对应 release run。
 
+## 本地 Scheme A 验证结果
+
+在本地 clean worktree `/tmp/agentcube-image-build-validation` 中基于 `upstream/main` 创建分支：
+
+```text
+ci/native-build-platform-images
+```
+
+该分支已按 upstream PR 标准整理成单一 DCO commit，并推送到 fork：
+
+```text
+Branch: ranxi2001/agentcube:ci/native-build-platform-images
+Commit: a20ab07 ci: build multi-arch images with native Go builder
+Base: upstream/main 7f5a730
+```
+
+> 注释：这是未来可以直接整理成 upstream PR 的真实 topic branch，只包含 Dockerfile 最小改动。用于跑 GitHub benchmark 的临时 workflow 不应提交到这个分支，避免污染 PR diff。
+
+该分支 push 后触发常规 push CI，9 个 workflow 全部成功。其中常规 Docker build 记录是：
+
+- `Agentcube CI Workflow / build`: <https://github.com/ranxi2001/agentcube/actions/runs/28636134337/job/84922780136>
+
+> 分析：这个 build 记录只能证明常规 CI build 没有被三行 Dockerfile 改动破坏。它不是 release workflow 的 multi-arch `Build and push images` 记录，也不能直接比较 baseline / Scheme A 的多架构构建耗时。后续需要 fork-only benchmark workflow 在 GitHub runner 上专门跑 buildx `cacheonly` 才能形成更有价值的对比数据。
+
+只做三处最小改动：
+
+```diff
+- FROM golang:1.26.4-alpine AS builder
++ FROM --platform=$BUILDPLATFORM golang:1.26.4-alpine AS builder
+```
+
+对应文件：
+
+```text
+docker/Dockerfile
+docker/Dockerfile.router
+docker/Dockerfile.picod
+```
+
+其中 PicoD 使用非 alpine Go image：
+
+```diff
+- FROM golang:1.26.4 AS builder
++ FROM --platform=$BUILDPLATFORM golang:1.26.4 AS builder
+```
+
+> 注释：`$BUILDPLATFORM` 是 buildx 提供的构建平台变量。在 GitHub x86 runner 上，它通常是 `linux/amd64`。`TARGETOS` / `TARGETARCH` 仍然来自目标镜像平台，所以 Go 仍然输出 `linux/arm64` 二进制，但 Go compiler 自己不再作为 arm64 进程在 QEMU 里运行。
+
+本地环境和工具：
+
+| Item | Value |
+| --- | --- |
+| Worktree | `/tmp/agentcube-image-build-validation` |
+| Base | `upstream/main` |
+| Branch | `ci/native-build-platform-images` |
+| Buildx builder | `agentcube-day39` |
+| Buildx driver | `docker-container` |
+| Buildx version | `0.30.1` |
+| Output mode | `--output=type=cacheonly` |
+| Platforms | `linux/amd64,linux/arm64` |
+| Cache mode | `--no-cache` for normal layer cache, cache mounts still used by Dockerfile |
+
+原始日志已归档：
+
+```text
+internship-reports/benchmarks/day39-release-image-build/scheme-a-workloadmanager-buildx.txt
+internship-reports/benchmarks/day39-release-image-build/scheme-a-router-buildx.txt
+internship-reports/benchmarks/day39-release-image-build/scheme-a-picod-buildx.txt
+```
+
+执行命令：
+
+```bash
+docker buildx build -f docker/Dockerfile \
+  --platform linux/amd64,linux/arm64 \
+  --progress=plain \
+  --no-cache \
+  --output=type=cacheonly \
+  .
+
+docker buildx build -f docker/Dockerfile.router \
+  --platform linux/amd64,linux/arm64 \
+  --progress=plain \
+  --no-cache \
+  --output=type=cacheonly \
+  .
+
+docker buildx build -f docker/Dockerfile.picod \
+  --platform linux/amd64,linux/arm64 \
+  --progress=plain \
+  --no-cache \
+  --output=type=cacheonly \
+  .
+```
+
+结果汇总：
+
+| Image / Dockerfile | Result | Total time | amd64 Go build | arm64 target Go build | Key observation |
+| --- | --- | ---: | ---: | ---: | --- |
+| `docker/Dockerfile` / workloadmanager | success | `553.93s` | `377.4s` | `380.0s` | arm64 target builder label changed to `linux/amd64->arm64 builder` |
+| `docker/Dockerfile.router` / router | success | `339.75s` | `265.7s` | `266.0s` | arm64 target builder label changed to `linux/amd64->arm64 builder` |
+| `docker/Dockerfile.picod` / picod | success | `1160.87s` | `85.9s` | `86.4s` | Go build fixed, but arm64 Ubuntu runtime `apt-get install python3` took `1111.1s` |
+
+关键日志证据：
+
+```text
+#26 [linux/amd64->arm64 builder 8/8] RUN ... GOARCH=arm64 go build ... ./cmd/workload-manager
+#26 DONE 380.0s
+
+#25 [linux/amd64->arm64 builder 8/8] RUN ... GOARCH=arm64 go build ... ./cmd/router
+#25 DONE 266.0s
+
+#19 [linux/amd64->arm64 builder 6/6] RUN ... GOARCH=arm64 go build ... ./cmd/picod
+#19 DONE 86.4s
+```
+
+进程观察也能佐证方向正确：在 workloadmanager 和 router 的编译阶段，本机看到的是 `/usr/local/go/pkg/tool/linux_amd64/compile` 和 `/usr/local/go/pkg/tool/linux_amd64/link`，而不是 arm64 Go compiler 通过 QEMU 运行。
+
+> 分析：这说明 Scheme A 的核心目标已经验证通过：三个 Go builder stage 都从“目标平台执行 Go compiler”变成了“构建平台执行 Go compiler + `GOARCH` 交叉输出”。本地绝对耗时不能直接和 GitHub Actions 比，但 builder label 和进程架构足以证明慢路径已经被切掉。
+
+同时，PicoD 暴露了另一个独立瓶颈：
+
+```text
+#10 [linux/arm64 stage-1 2/4] RUN apt-get update && apt-get install -y python3
+#10 DONE 1111.1s
+```
+
+本机进程检查时看到：
+
+```text
+/usr/libexec/qemu-binfmt/aarch64-binfmt-P /usr/bin/python3.12 ...
+/usr/libexec/qemu-binfmt/aarch64-binfmt-P /usr/bin/apt-get apt-get install -y python3
+```
+
+> 分析：这和 Go builder platform 修复是两个问题。Scheme A 能避免 QEMU 执行 Go compiler，但不能避免 target-platform runtime layer 中的 `RUN apt-get install python3`。PicoD 后续如果要继续优化，应该单独讨论 runtime image 方案，例如预制 base image、换更轻 runtime base、减少 package install、或避免在多平台 build 时执行重型目标平台安装脚本。
+
+本地 Scheme A 结论：
+
+1. 只改 3 个 Dockerfile 的 builder `FROM --platform=$BUILDPLATFORM` 可以通过三镜像 multi-arch buildx smoke。
+2. Go 编译阶段已经确认从 QEMU arm64 Go compiler 切换为宿主 amd64 Go compiler 交叉编译。
+3. workloadmanager 是最直接收益点，因为 GitHub baseline 中它的 arm64 Go build 曾达到 `1291.4s` / `1415.0s`。
+4. PicoD 的剩余慢点不在 Go builder，而在 arm64 Ubuntu runtime Python 安装，应作为 follow-up 记录。
+5. 真实 PR 分支已经按 DCO commit 推到 fork，可用于避免别人抢同一小修点。
+6. 下一步适合用 fork-only benchmark workflow 在 GitHub runner 上比较 baseline / Scheme A / Scheme B。临时 benchmark workflow 不应进入 upstream PR 分支。
+
+## Fork CI 分支策略
+
+为了让 GitHub Actions 上的数据更有说服力，同时避免创建无效 self-PR，可以把验证拆成两类分支：
+
+| Branch type | Purpose | Should become upstream PR? | Contains fork-only workflow? |
+| --- | --- | --- | --- |
+| `ci/native-build-platform-images` | 真实 Scheme A 改动，保持 PR diff 干净 | Yes, after issue / maintainer direction is clear | No |
+| `ci/image-build-baseline-benchmark` | GitHub runner baseline benchmark | No | Yes |
+| `ci/image-build-scheme-a-benchmark` | GitHub runner Scheme A benchmark | No | Yes |
+| optional `ci/image-build-scheme-b-benchmark` | Karmada-style prototype benchmark | No, unless later cleaned | Yes |
+
+> 分析：普通 branch push 现在会跑 #414 引入的常规 push CI，但它不会跑 `Build and Push Release Images`，也不会提供 multi-arch image build 分段数据。因此 benchmark 分支需要带 fork-only workflow，专门执行 `docker buildx build --platform linux/amd64,linux/arm64 --progress=plain --output=type=cacheonly` 并上传日志 artifact。这个 workflow 是验证工具，不应进入 upstream PR。
+
+建议 fork-only benchmark workflow 做到：
+
+1. 不登录 GHCR。
+2. 不 push image。
+3. 不 package / push Helm chart。
+4. 使用 `ubuntu-24.04`，`docker/setup-qemu-action`，`docker/setup-buildx-action`。
+5. 顺序构建 workloadmanager、router、picod，输出 `real` time 和 BuildKit plain log。
+6. 上传三份日志 artifact。
+
+> 注释：`--output=type=cacheonly` 适合这里，因为我们只比较构建路径和耗时，不需要把镜像发布到 registry。这样既能获得 GitHub runner 上的数据，又不会污染 GHCR。
+
 ## 先验证不同方案，再开 issue
 
 这里更适合先做数据型 issue，而不是直接提性能优化 PR。
@@ -536,7 +705,7 @@ issue 里最好放对比数据，而不是只放推断。
 | Case | Scope | What to measure | Expected value |
 | --- | --- | --- | --- |
 | Baseline | 当前 upstream workflow | `Build and push images` 总耗时，三个 image 的分段耗时，`linux/arm64 go build` 耗时 | 证明现状慢点在哪里 |
-| Scheme A | `FROM --platform=$BUILDPLATFORM` | 同样三镜像 multi-arch buildx，总耗时和 arm64 Go build 是否明显下降 | 证明最小 Dockerfile 改动是否足够 |
+| Scheme A | `FROM --platform=$BUILDPLATFORM` | 同样三镜像 multi-arch buildx，总耗时和 arm64 Go build 是否明显下降 | 已完成本地 smoke，证明三镜像 Go builder 都进入 `linux/amd64->arm64 builder` |
 | Scheme B | Karmada-style prebuild + runtime-only Dockerfile | 宿主机 `GOARCH=amd64/arm64 go build` 耗时、runtime-only buildx 耗时、总耗时 | 判断是否值得后续大改 Makefile / script |
 | Scheme C | workflow matrix | 三镜像并行后 wall-clock 时间和 runner minute 成本 | 判断是否值得牺牲 cache 复用换并行 |
 | Scheme D | buildx cache | cache miss / hit 下的耗时 | 判断是否作为 follow-up，而不是第一修复 |
@@ -544,7 +713,7 @@ issue 里最好放对比数据，而不是只放推断。
 第一轮不一定要把 B/C/D 都实现成完整 PR。至少要完成：
 
 1. Baseline：使用 upstream 旧 job 和 fork run `28633043101` 提供真实 workflow 数据。
-2. Scheme A：本地 buildx 或 fork validation branch 验证最小 Dockerfile 改动。
+2. Scheme A：本地 buildx 已验证最小 Dockerfile 改动，后续如需线上耗时数据再跑 fork workflow。
 3. Scheme B：可以先做局部 prototype，证明 Karmada-style 的方向是否比 Scheme A 还有明显收益。
 
 > 注释：本地 buildx 数据和 GitHub Actions 数据不能直接硬比绝对值，因为机器、网络、registry push、cache 状态不同。issue 中应该把它们分开：GitHub Actions baseline 证明线上痛点，本地验证证明改动方向，fork workflow 数据证明线上近似收益。
@@ -577,12 +746,14 @@ In recent release workflow runs, `Build and push images` took about 25-27 minute
 | Workloadmanager image | `linux/arm64 go build ./cmd/workload-manager` took `1291.4s` in the fork run and `1415.0s` in the older upstream run |
 | Router image | mostly reused build cache and finished much faster |
 | PicoD image | remaining cost was mostly the target-platform runtime package installation |
+| Local Scheme A smoke | changing only the three builder `FROM` lines to `FROM --platform=$BUILDPLATFORM ... AS builder` made all arm64 target Go builds run as `linux/amd64->arm64 builder`; workloadmanager, router, and picod all completed multi-arch buildx smoke successfully |
 
 **Possible implementation directions**:
 
 1. Minimal Dockerfile change: run the Go builder stage on `$BUILDPLATFORM` and keep using `TARGETOS` / `TARGETARCH` for cross compilation.
 2. Karmada-style image pipeline: prebuild `linux/amd64` and `linux/arm64` binaries on the host runner, then use a runtime-only multi-platform Dockerfile to assemble images.
-3. Follow-up workflow improvements: split images into a matrix and/or add buildx cache after the builder-platform issue is fixed.
+3. PicoD runtime-layer follow-up: avoid running the heavy arm64 Ubuntu/Python installation path through QEMU during multi-platform builds.
+4. Follow-up workflow improvements: split images into a matrix and/or add buildx cache after the builder-platform issue is fixed.
 
 **Related work**:
 
@@ -592,7 +763,7 @@ In recent release workflow runs, `Build and push images` took about 25-27 minute
 **Validation plan**:
 
 - Measure the current workflow baseline.
-- Validate the minimal `$BUILDPLATFORM` Dockerfile change locally and, if needed, on a fork validation branch.
+- Validate the minimal `$BUILDPLATFORM` Dockerfile change locally and, if needed, on a fork validation branch. The local smoke has already passed for the three Dockerfiles.
 - Compare the result with a small Karmada-style prebuild prototype before deciding whether a broader Makefile/script refactor is worth it.
 ```
 
@@ -611,12 +782,11 @@ In recent release workflow runs, `Build and push images` took about 25-27 minute
 推荐下一步：
 
 1. 等 #416 latest chart 修复方向稳定，避免同时改 release workflow 和 Dockerfile 性能。
-2. 新建本地验证分支：`ci/native-build-platform-images`。
-3. 先只改 3 个 Dockerfile 的 builder `FROM --platform=$BUILDPLATFORM`，跑本地 buildx smoke。
-4. 记录 baseline 和 Scheme A 的耗时对比。
-5. 视情况做一个 Karmada-style prebuild prototype，判断是否值得后续大改 Makefile / script。
-6. 先准备 upstream issue 文稿，说明问题、数据、候选方案和 #264 / #416 关系。
-7. issue 获得方向认可后，再把最小 Dockerfile 改动整理成独立 PR。
+2. 本地验证分支 `ci/native-build-platform-images` 已完成 Scheme A smoke，并已按 DCO commit 推到 fork。
+3. 创建 fork-only benchmark 分支，在 GitHub runner 上分别跑 baseline 和 Scheme A，拿到同一机器口径的数据。
+4. 准备 upstream issue 文稿，说明问题、数据、候选方案和 #264 / #416 关系。
+5. issue 获得方向认可后，再把 `ci/native-build-platform-images` 整理成独立 PR。
+6. 如果维护者认为 image build pipeline 需要统一，再做 Karmada-style prebuild prototype。
 
 ## 参考来源
 

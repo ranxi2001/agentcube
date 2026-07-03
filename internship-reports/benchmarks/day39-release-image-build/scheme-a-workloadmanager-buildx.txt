@@ -1,0 +1,218 @@
+command: docker buildx build -f docker/Dockerfile --platform linux/amd64,linux/arm64 --progress=plain --no-cache --output=type=cacheonly .
+start_utc: 2026-07-03T02:37:41Z
+#0 building with "agentcube-day39" instance using docker-container driver
+
+#1 [internal] booting buildkit
+#1 pulling image moby/buildkit:buildx-stable-1
+#1 pulling image moby/buildkit:buildx-stable-1 29.8s done
+#1 creating container buildx_buildkit_agentcube-day390
+#1 creating container buildx_buildkit_agentcube-day390 0.3s done
+#1 DONE 30.1s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile:
+#2 transferring dockerfile: 1.10kB done
+#2 DONE 0.0s
+
+#3 [linux/amd64 internal] load metadata for docker.io/library/alpine:3.19
+#3 ...
+
+#4 [linux/arm64 internal] load metadata for docker.io/library/alpine:3.19
+#4 DONE 3.1s
+
+#5 [linux/amd64 internal] load metadata for docker.io/library/golang:1.26.4-alpine
+#5 DONE 3.3s
+
+#3 [linux/amd64 internal] load metadata for docker.io/library/alpine:3.19
+#3 DONE 3.5s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 136B done
+#6 DONE 0.0s
+
+#7 [linux/arm64 stage-1 1/5] FROM docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1
+#7 resolve docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1 0.0s done
+#7 DONE 0.1s
+
+#8 [linux/amd64 stage-1 1/5] FROM docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1
+#8 resolve docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1 0.0s done
+#8 ...
+
+#9 [internal] load build context
+#9 transferring context: 866.01kB 0.1s done
+#9 DONE 0.2s
+
+#8 [linux/amd64 stage-1 1/5] FROM docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1
+#8 sha256:17a39c0ba978cc27001e9c56a480f98106e1ab74bd56eb302f9fd4cf758ea43f 0B / 3.42MB 0.2s
+#8 ...
+
+#7 [linux/arm64 stage-1 1/5] FROM docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1
+#7 sha256:5711127a7748d32f5a69380c27daf1382f2c6674ea7a60d2a3e338818590fea1 3.36MB / 3.36MB 0.3s done
+#7 extracting sha256:5711127a7748d32f5a69380c27daf1382f2c6674ea7a60d2a3e338818590fea1 0.1s done
+#7 DONE 0.5s
+
+#8 [linux/amd64 stage-1 1/5] FROM docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1
+#8 sha256:17a39c0ba978cc27001e9c56a480f98106e1ab74bd56eb302f9fd4cf758ea43f 1.05MB / 3.42MB 2.3s
+#8 sha256:17a39c0ba978cc27001e9c56a480f98106e1ab74bd56eb302f9fd4cf758ea43f 2.10MB / 3.42MB 2.7s
+#8 sha256:17a39c0ba978cc27001e9c56a480f98106e1ab74bd56eb302f9fd4cf758ea43f 3.15MB / 3.42MB 3.9s
+#8 sha256:17a39c0ba978cc27001e9c56a480f98106e1ab74bd56eb302f9fd4cf758ea43f 3.42MB / 3.42MB 4.4s
+#8 sha256:17a39c0ba978cc27001e9c56a480f98106e1ab74bd56eb302f9fd4cf758ea43f 3.42MB / 3.42MB 4.4s done
+#8 extracting sha256:17a39c0ba978cc27001e9c56a480f98106e1ab74bd56eb302f9fd4cf758ea43f 0.2s done
+#8 DONE 4.7s
+
+#10 [linux/amd64 builder 1/8] FROM docker.io/library/golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+#10 resolve docker.io/library/golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 0.0s done
+#10 sha256:f124a1a8b0465fbfdae5d4e915020961a3eacb88f68a3332fdecb9080f42f9fc 125B / 125B 0.6s done
+#10 sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 32B / 32B 0.6s done
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 1.05MB / 67.28MB 4.2s
+#10 sha256:6caf62d108d4ee5f44aa70f4c7bdcc49d52ef1e370151004797e4192269e7924 245.06kB / 245.06kB 0.7s done
+#10 sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4 1.05MB / 3.85MB 3.8s
+#10 sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4 2.10MB / 3.85MB 3.9s
+#10 sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4 3.15MB / 3.85MB 4.2s
+#10 sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4 3.85MB / 3.85MB 4.7s done
+#10 extracting sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4
+#10 extracting sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4 0.2s done
+#10 extracting sha256:6caf62d108d4ee5f44aa70f4c7bdcc49d52ef1e370151004797e4192269e7924
+#10 extracting sha256:6caf62d108d4ee5f44aa70f4c7bdcc49d52ef1e370151004797e4192269e7924 0.1s done
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 5.24MB / 67.28MB 8.3s
+#10 ...
+
+#11 [linux/arm64 stage-1 2/5] RUN apk --no-cache add ca-certificates
+#11 0.247 fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/main/aarch64/APKINDEX.tar.gz
+#11 ...
+
+#10 [linux/amd64 builder 1/8] FROM docker.io/library/golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 9.44MB / 67.28MB 11.6s
+#10 ...
+
+#12 [linux/amd64 stage-1 2/5] RUN apk --no-cache add ca-certificates
+#12 0.089 fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/main/x86_64/APKINDEX.tar.gz
+#12 ...
+
+#10 [linux/amd64 builder 1/8] FROM docker.io/library/golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 13.63MB / 67.28MB 14.9s
+#10 ...
+
+#12 [linux/amd64 stage-1 2/5] RUN apk --no-cache add ca-certificates
+#12 11.43 fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/community/x86_64/APKINDEX.tar.gz
+#12 13.00 (1/1) Installing ca-certificates (20250911-r0)
+#12 13.09 Executing busybox-1.36.1-r20.trigger
+#12 13.11 Executing ca-certificates-20250911-r0.trigger
+#12 13.16 OK: 8 MiB in 16 packages
+#12 DONE 13.3s
+
+#13 [linux/amd64 stage-1 3/5] WORKDIR /app
+#13 DONE 0.0s
+
+#10 [linux/amd64 builder 1/8] FROM docker.io/library/golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 14.68MB / 67.28MB 20.0s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 19.92MB / 67.28MB 22.8s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 24.12MB / 67.28MB 26.7s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 28.31MB / 67.28MB 30.8s
+#10 ...
+
+#11 [linux/arm64 stage-1 2/5] RUN apk --no-cache add ca-certificates
+#11 20.58 fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/community/aarch64/APKINDEX.tar.gz
+#11 29.28 (1/1) Installing ca-certificates (20250911-r0)
+#11 ...
+
+#10 [linux/amd64 builder 1/8] FROM docker.io/library/golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+#10 ...
+
+#11 [linux/arm64 stage-1 2/5] RUN apk --no-cache add ca-certificates
+#11 30.96 Executing busybox-1.36.1-r20.trigger
+#11 31.03 Executing ca-certificates-20250911-r0.trigger
+#11 31.60 OK: 9 MiB in 16 packages
+#11 DONE 31.9s
+
+#14 [linux/arm64 stage-1 3/5] WORKDIR /app
+#14 DONE 0.0s
+
+#10 [linux/amd64 builder 1/8] FROM docker.io/library/golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 32.51MB / 67.28MB 33.9s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 36.70MB / 67.28MB 37.5s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 40.89MB / 67.28MB 40.7s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 45.09MB / 67.28MB 44.3s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 49.28MB / 67.28MB 47.6s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 53.48MB / 67.28MB 51.0s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 57.67MB / 67.28MB 54.3s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 61.87MB / 67.28MB 57.8s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 66.06MB / 67.28MB 61.1s
+#10 sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 67.28MB / 67.28MB 62.0s done
+#10 extracting sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b
+#10 extracting sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 4.6s done
+#10 extracting sha256:f124a1a8b0465fbfdae5d4e915020961a3eacb88f68a3332fdecb9080f42f9fc
+#10 extracting sha256:f124a1a8b0465fbfdae5d4e915020961a3eacb88f68a3332fdecb9080f42f9fc 0.0s done
+#10 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 0.0s done
+#10 DONE 67.0s
+
+#15 [linux/amd64->arm64 builder 2/8] WORKDIR /workspace
+#15 DONE 0.7s
+
+#16 [linux/amd64->arm64 builder 3/8] COPY go.mod go.sum ./
+#16 DONE 0.0s
+
+#17 [linux/amd64->arm64 builder 4/8] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#17 ...
+
+#18 [linux/amd64 builder 4/8] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#18 ...
+
+#17 [linux/amd64->arm64 builder 4/8] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#17 DONE 71.1s
+
+#18 [linux/amd64 builder 4/8] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#18 DONE 71.1s
+
+#19 [linux/amd64->arm64 builder 5/8] COPY cmd/ cmd/
+#19 DONE 0.1s
+
+#20 [linux/amd64 builder 5/8] COPY cmd/ cmd/
+#20 DONE 0.1s
+
+#21 [linux/amd64->arm64 builder 6/8] COPY pkg/ pkg/
+#21 DONE 0.1s
+
+#22 [linux/amd64 builder 6/8] COPY pkg/ pkg/
+#22 DONE 0.1s
+
+#23 [linux/amd64->arm64 builder 7/8] COPY client-go/ client-go/
+#23 DONE 0.1s
+
+#24 [linux/amd64 builder 7/8] COPY client-go/ client-go/
+#24 DONE 0.1s
+
+#25 [linux/amd64 builder 8/8] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o workloadmanager ./cmd/workload-manager
+#25 ...
+
+#26 [linux/amd64->arm64 builder 8/8] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=arm64     go build -ldflags="-s -w" -o workloadmanager ./cmd/workload-manager
+#26 ...
+
+#25 [linux/amd64 builder 8/8] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o workloadmanager ./cmd/workload-manager
+#25 DONE 377.4s
+
+#26 [linux/amd64->arm64 builder 8/8] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=arm64     go build -ldflags="-s -w" -o workloadmanager ./cmd/workload-manager
+#26 ...
+
+#27 [linux/amd64 stage-1 4/5] COPY --from=builder /workspace/workloadmanager .
+#27 DONE 0.2s
+
+#26 [linux/amd64->arm64 builder 8/8] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=arm64     go build -ldflags="-s -w" -o workloadmanager ./cmd/workload-manager
+#26 ...
+
+#28 [linux/amd64 stage-1 5/5] RUN adduser -D -u 1000 apiserver
+#28 DONE 0.2s
+
+#26 [linux/amd64->arm64 builder 8/8] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=arm64     go build -ldflags="-s -w" -o workloadmanager ./cmd/workload-manager
+#26 DONE 380.0s
+
+#29 [linux/arm64 stage-1 4/5] COPY --from=builder /workspace/workloadmanager .
+#29 DONE 0.2s
+
+#30 [linux/arm64 stage-1 5/5] RUN adduser -D -u 1000 apiserver
+#30 DONE 0.3s
+real 553.93
+user 0.73
+sys 0.35
+end_utc: 2026-07-03T02:46:55Z
+exit_status: 0
