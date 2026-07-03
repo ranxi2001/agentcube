@@ -1,0 +1,50 @@
+branch=ci/image-build-scheme-a-benchmark
+sha=60e584919d235898078be2f51452a3463adc4246
+runner_os=Linux
+runner_arch=X64
+Docker version 28.0.4, build b8034c0
+github.com/docker/buildx v0.35.0 a319e5b15052cf6557ceb666eb8ff6e32380b782
+NAME/NODE                                           DRIVER/ENDPOINT                   STATUS    BUILDKIT   PLATFORMS
+builder-c130d7b0-c995-4037-8028-e7fc65f06a0c*       docker-container                                       
+ \_ builder-c130d7b0-c995-4037-8028-e7fc65f06a0c0    \_ unix:///var/run/docker.sock   running   v0.30.0    linux/amd64 (+3), linux/arm64, linux/386
+default                                             docker                                                 
+ \_ default                                          \_ default                       running   v0.20.2    linux/amd64 (+3), linux/arm64, linux/386
+Name:          builder-c130d7b0-c995-4037-8028-e7fc65f06a0c
+Driver:        docker-container
+Last Activity: 2026-07-03 03:34:58 +0000 UTC
+
+Nodes:
+Name:                  builder-c130d7b0-c995-4037-8028-e7fc65f06a0c0
+Endpoint:              unix:///var/run/docker.sock
+Status:                running
+BuildKit daemon flags: --allow-insecure-entitlement security.insecure --allow-insecure-entitlement network.host
+BuildKit version:      v0.30.0
+Platforms:             linux/amd64, linux/amd64/v2, linux/amd64/v3, linux/arm64, linux/386
+Labels:
+ org.mobyproject.buildkit.worker.executor:         oci
+ org.mobyproject.buildkit.worker.hostname:         5ec3bef322c9
+ org.mobyproject.buildkit.worker.network:          host
+ org.mobyproject.buildkit.worker.oci.process-mode: sandbox
+ org.mobyproject.buildkit.worker.selinux.enabled:  false
+ org.mobyproject.buildkit.worker.snapshotter:      overlayfs
+GC Policy rule#0:
+ All:            false
+ Filters:        type==source.local,type==exec.cachemount,type==source.git.checkout
+ Keep Duration:  48h0m0s
+ Max Used Space: 488.3MiB
+GC Policy rule#1:
+ All:            false
+ Keep Duration:  1440h0m0s
+ Reserved Space: 9.313GiB
+ Max Used Space: 93.13GiB
+ Min Free Space: 27.01GiB
+GC Policy rule#2:
+ All:            false
+ Reserved Space: 9.313GiB
+ Max Used Space: 93.13GiB
+ Min Free Space: 27.01GiB
+GC Policy rule#3:
+ All:            true
+ Reserved Space: 9.313GiB
+ Max Used Space: 93.13GiB
+ Min Free Space: 27.01GiB

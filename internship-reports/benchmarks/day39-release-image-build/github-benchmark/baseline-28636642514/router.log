@@ -1,0 +1,132 @@
+name=router
+dockerfile=docker/Dockerfile.router
+start_utc=2026-07-03T03:58:44Z
+#0 building with "builder-c8e71274-4f04-49bf-b146-7480220a9b24" instance using docker-container driver
+
+#1 [internal] load build definition from Dockerfile.router
+#1 transferring dockerfile: 1.08kB done
+#1 DONE 0.0s
+
+#2 [auth] library/golang:pull token for registry-1.docker.io
+#2 DONE 0.0s
+
+#3 [auth] library/alpine:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#4 [linux/amd64 internal] load metadata for docker.io/library/golang:1.26.4-alpine
+#4 ...
+
+#5 [linux/arm64 internal] load metadata for docker.io/library/golang:1.26.4-alpine
+#5 DONE 0.3s
+
+#6 [linux/arm64 internal] load metadata for docker.io/library/alpine:3.19
+#6 DONE 0.3s
+
+#7 [linux/amd64 internal] load metadata for docker.io/library/alpine:3.19
+#7 DONE 0.3s
+
+#8 [internal] load .dockerignore
+#8 transferring context: 136B done
+#8 DONE 0.0s
+
+#4 [linux/amd64 internal] load metadata for docker.io/library/golang:1.26.4-alpine
+#4 DONE 0.3s
+
+#9 [linux/amd64 builder 1/8] FROM docker.io/library/golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+#9 resolve docker.io/library/golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 done
+#9 DONE 0.0s
+
+#10 [linux/arm64 stage-1 1/5] FROM docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1
+#10 resolve docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1 done
+#10 DONE 0.0s
+
+#11 [linux/arm64 stage-1 2/5] RUN apk --no-cache add ca-certificates
+#11 CACHED
+
+#12 [linux/arm64 stage-1 3/5] WORKDIR /app
+#12 CACHED
+
+#13 [linux/amd64 stage-1 1/5] FROM docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1
+#13 resolve docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1 done
+#13 DONE 0.0s
+
+#14 [linux/arm64 builder 1/8] FROM docker.io/library/golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+#14 resolve docker.io/library/golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 0.0s done
+#14 DONE 0.0s
+
+#15 [linux/amd64 stage-1 2/5] RUN apk --no-cache add ca-certificates
+#15 CACHED
+
+#16 [linux/amd64 stage-1 3/5] WORKDIR /app
+#16 CACHED
+
+#17 [internal] load build context
+#17 transferring context: 9.51kB 0.0s done
+#17 DONE 0.0s
+
+#18 [linux/arm64 builder 6/8] COPY pkg/ pkg/
+#18 CACHED
+
+#19 [linux/arm64 builder 2/8] WORKDIR /workspace
+#19 CACHED
+
+#20 [linux/arm64 builder 5/8] COPY cmd/ cmd/
+#20 CACHED
+
+#21 [linux/arm64 builder 4/8] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#21 CACHED
+
+#22 [linux/arm64 builder 3/8] COPY go.mod go.sum ./
+#22 CACHED
+
+#23 [linux/amd64 builder 4/8] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#23 CACHED
+
+#24 [linux/amd64 builder 6/8] COPY pkg/ pkg/
+#24 CACHED
+
+#25 [linux/amd64 builder 2/8] WORKDIR /workspace
+#25 CACHED
+
+#26 [linux/amd64 builder 3/8] COPY go.mod go.sum ./
+#26 CACHED
+
+#27 [linux/amd64 builder 5/8] COPY cmd/ cmd/
+#27 CACHED
+
+#28 [linux/amd64 builder 7/8] COPY client-go/ client-go/
+#28 CACHED
+
+#29 [linux/arm64 builder 7/8] COPY client-go/ client-go/
+#29 CACHED
+
+#30 [linux/arm64 builder 8/8] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=arm64     go build -ldflags="-s -w" -o agentcube-router ./cmd/router
+#30 ...
+
+#31 [linux/amd64 builder 8/8] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o agentcube-router ./cmd/router
+#31 DONE 4.0s
+
+#32 [linux/amd64 stage-1 4/5] COPY --from=builder /workspace/agentcube-router .
+#32 DONE 0.1s
+
+#30 [linux/arm64 builder 8/8] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=arm64     go build -ldflags="-s -w" -o agentcube-router ./cmd/router
+#30 ...
+
+#33 [linux/amd64 stage-1 5/5] RUN adduser -D -u 1000 router
+#33 DONE 0.2s
+
+#30 [linux/arm64 builder 8/8] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=arm64     go build -ldflags="-s -w" -o agentcube-router ./cmd/router
+#30 DONE 32.5s
+
+#34 [linux/arm64 stage-1 4/5] COPY --from=builder /workspace/agentcube-router .
+#34 DONE 0.0s
+
+#35 [linux/arm64 stage-1 5/5] RUN adduser -D -u 1000 router
+#35 DONE 0.1s
+WARNING: No output specified with docker-container driver. Build result will only remain in the build cache. To push result image into registry use --push or to load image into docker use --load
+real 33.19
+user 0.14
+sys 0.06
+status=0
+end_utc=2026-07-03T03:59:17Z
+elapsed_seconds=33

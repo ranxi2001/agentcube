@@ -1,0 +1,558 @@
+name=picod
+dockerfile=docker/Dockerfile.picod
+start_utc=2026-07-03T03:59:17Z
+#0 building with "builder-c8e71274-4f04-49bf-b146-7480220a9b24" instance using docker-container driver
+
+#1 [internal] load build definition from Dockerfile.picod
+#1 transferring dockerfile: 1.02kB done
+#1 DONE 0.0s
+
+#2 [auth] library/ubuntu:pull token for registry-1.docker.io
+#2 DONE 0.0s
+
+#3 [linux/amd64 internal] load metadata for docker.io/library/golang:1.26.4
+#3 ...
+
+#4 [linux/arm64 internal] load metadata for docker.io/library/golang:1.26.4
+#4 DONE 0.4s
+
+#3 [linux/amd64 internal] load metadata for docker.io/library/golang:1.26.4
+#3 DONE 0.4s
+
+#5 [linux/amd64 internal] load metadata for docker.io/library/ubuntu:24.04
+#5 DONE 0.5s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 136B done
+#6 DONE 0.0s
+
+#7 [linux/arm64 internal] load metadata for docker.io/library/ubuntu:24.04
+#7 DONE 0.5s
+
+#8 [linux/amd64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#8 resolve docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609 0.0s done
+#8 DONE 0.1s
+
+#9 [linux/arm64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#9 resolve docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609 0.0s done
+#9 DONE 0.1s
+
+#10 [linux/amd64 stage-1 1/4] FROM docker.io/library/ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+#10 resolve docker.io/library/ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90 0.0s done
+#10 ...
+
+#11 [internal] load build context
+#11 transferring context: 2.76MB 0.1s done
+#11 DONE 0.1s
+
+#10 [linux/amd64 stage-1 1/4] FROM docker.io/library/ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+#10 sha256:ca2678b20700c15185707964d9211b1a6406196114bf675f568b6025d37b3888 0B / 29.74MB 0.2s
+#10 sha256:ca2678b20700c15185707964d9211b1a6406196114bf675f568b6025d37b3888 29.74MB / 29.74MB 0.4s done
+#10 extracting sha256:ca2678b20700c15185707964d9211b1a6406196114bf675f568b6025d37b3888
+#10 extracting sha256:ca2678b20700c15185707964d9211b1a6406196114bf675f568b6025d37b3888 1.9s done
+#10 DONE 2.3s
+
+#9 [linux/arm64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#9 sha256:b04489f9a03d207c6fd744917a2f3105e3d0293f3c1d1b3999dccc9af6f5b968 126B / 126B 0.0s done
+#9 sha256:e53cbfef6214662fa67fd3db9b7b57e915eaa42e37aa64e2b3dfc24c3fa80cb0 98.42MB / 98.42MB 0.9s done
+#9 sha256:5cf605f6b62a65326644e598c84134d29702579734c83dfca4cedf5dad7fb6d3 67.59MB / 67.59MB 0.8s done
+#9 sha256:abe059c57e3bc40ea8086d6be574927bed6c0a000b182f3354b758009265e197 25.03MB / 25.03MB 0.6s done
+#9 sha256:c8a311258fd162f6aa0db134045a19154c81a2244ff9ed7620256c95ae5d6b69 49.68MB / 49.68MB 0.6s done
+#9 extracting sha256:c8a311258fd162f6aa0db134045a19154c81a2244ff9ed7620256c95ae5d6b69
+#9 ...
+
+#12 [linux/arm64 stage-1 1/4] FROM docker.io/library/ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+#12 resolve docker.io/library/ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90 0.0s done
+#12 sha256:4b987da45db4d6278590ab89840c7167ea397df222f3ee4cdb77c3e15694b1a9 28.88MB / 28.88MB 0.2s done
+#12 extracting sha256:4b987da45db4d6278590ab89840c7167ea397df222f3ee4cdb77c3e15694b1a9 2.1s done
+#12 DONE 2.4s
+
+#13 [linux/amd64 stage-1 2/4] RUN apt-get update && apt-get install -y python3
+#13 0.250 Get:1 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+#13 0.318 Get:2 http://archive.ubuntu.com/ubuntu noble InRelease [256 kB]
+#13 0.698 Get:3 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1417 kB]
+#13 ...
+
+#8 [linux/amd64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#8 sha256:09e821fe2d4bc3fa8873bdb939114850c34148b272b4e0c917af9e6f47c23a6c 126B / 126B 0.1s done
+#8 sha256:2f56f74443f60d1f5f878d9915f70362f58a81e76cf1481390cac0016385d5e8 102.27MB / 102.27MB 0.7s done
+#8 sha256:30d0db852850114cc79598cc8ab1ec19da54691d9e3267288bb3458d7488f125 67.78MB / 67.78MB 0.4s done
+#8 sha256:3f59c84a786323367a79d4959142649bb24b16c989bbaae7f273550b47325959 25.63MB / 25.63MB 0.1s done
+#8 sha256:aa3e9ef32f73c30e8b065800ee66429992d3bfea6a1fb8224afdd878ab5b994f 49.32MB / 49.32MB 0.4s done
+#8 extracting sha256:aa3e9ef32f73c30e8b065800ee66429992d3bfea6a1fb8224afdd878ab5b994f 2.3s done
+#8 DONE 3.1s
+
+#13 [linux/amd64 stage-1 2/4] RUN apt-get update && apt-get install -y python3
+#13 0.832 Get:4 http://archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+#13 0.832 Get:5 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1490 kB]
+#13 0.863 Get:6 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Packages [43.8 kB]
+#13 0.864 Get:7 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages [1020 kB]
+#13 0.972 Get:8 http://archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+#13 1.022 Get:9 http://archive.ubuntu.com/ubuntu noble/multiverse amd64 Packages [331 kB]
+#13 1.050 Get:10 http://archive.ubuntu.com/ubuntu noble/universe amd64 Packages [19.3 MB]
+#13 1.212 Get:11 http://archive.ubuntu.com/ubuntu noble/restricted amd64 Packages [117 kB]
+#13 1.226 Get:12 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages [1808 kB]
+#13 1.242 Get:13 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1490 kB]
+#13 1.257 Get:14 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [2111 kB]
+#13 1.284 Get:15 http://archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Packages [49.5 kB]
+#13 1.285 Get:16 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1336 kB]
+#13 1.295 Get:17 http://archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Packages [671 B]
+#13 1.295 Get:18 http://archive.ubuntu.com/ubuntu noble-backports/main amd64 Packages [48.9 kB]
+#13 1.296 Get:19 http://archive.ubuntu.com/ubuntu noble-backports/universe amd64 Packages [35.9 kB]
+#13 ...
+
+#8 [linux/amd64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#8 extracting sha256:3f59c84a786323367a79d4959142649bb24b16c989bbaae7f273550b47325959 1.0s done
+#8 DONE 4.1s
+
+#8 [linux/amd64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#8 extracting sha256:30d0db852850114cc79598cc8ab1ec19da54691d9e3267288bb3458d7488f125
+#8 ...
+
+#9 [linux/arm64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#9 extracting sha256:c8a311258fd162f6aa0db134045a19154c81a2244ff9ed7620256c95ae5d6b69 2.2s done
+#9 extracting sha256:abe059c57e3bc40ea8086d6be574927bed6c0a000b182f3354b758009265e197 0.9s done
+#9 DONE 4.5s
+
+#9 [linux/arm64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#9 extracting sha256:5cf605f6b62a65326644e598c84134d29702579734c83dfca4cedf5dad7fb6d3
+#9 extracting sha256:5cf605f6b62a65326644e598c84134d29702579734c83dfca4cedf5dad7fb6d3 3.5s done
+#9 extracting sha256:e53cbfef6214662fa67fd3db9b7b57e915eaa42e37aa64e2b3dfc24c3fa80cb0
+#9 ...
+
+#13 [linux/amd64 stage-1 2/4] RUN apt-get update && apt-get install -y python3
+#13 2.301 Fetched 31.2 MB in 2s (14.3 MB/s)
+#13 2.301 Reading package lists...
+#13 3.510 Reading package lists...
+#13 4.709 Building dependency tree...
+#13 4.992 Reading state information...
+#13 5.201 The following additional packages will be installed:
+#13 5.203   ca-certificates libexpat1 libpython3-stdlib libpython3.12-minimal
+#13 5.204   libpython3.12-stdlib libreadline8t64 libsqlite3-0 media-types netbase
+#13 5.204   openssl python3-minimal python3.12 python3.12-minimal readline-common tzdata
+#13 5.206 Suggested packages:
+#13 5.206   python3-doc python3-tk python3-venv python3.12-venv python3.12-doc binutils
+#13 5.206   binfmt-support readline-doc
+#13 5.298 The following NEW packages will be installed:
+#13 5.299   ca-certificates libexpat1 libpython3-stdlib libpython3.12-minimal
+#13 5.300   libpython3.12-stdlib libreadline8t64 libsqlite3-0 media-types netbase
+#13 5.300   openssl python3 python3-minimal python3.12 python3.12-minimal
+#13 5.300   readline-common tzdata
+#13 5.374 0 upgraded, 16 newly installed, 0 to remove and 6 not upgraded.
+#13 5.374 Need to get 8436 kB of archives.
+#13 5.374 After this operation, 30.2 MB of additional disk space will be used.
+#13 5.374 Get:1 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpython3.12-minimal amd64 3.12.3-1ubuntu0.13 [837 kB]
+#13 5.455 Get:2 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libexpat1 amd64 2.6.1-2ubuntu0.4 [88.2 kB]
+#13 5.479 Get:3 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3.12-minimal amd64 3.12.3-1ubuntu0.13 [2346 kB]
+#13 5.595 Get:4 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3-minimal amd64 3.12.3-0ubuntu2.1 [27.4 kB]
+#13 5.605 Get:5 http://archive.ubuntu.com/ubuntu noble/main amd64 media-types all 10.1.0 [27.5 kB]
+#13 5.617 Get:6 http://archive.ubuntu.com/ubuntu noble/main amd64 netbase all 6.4 [13.1 kB]
+#13 5.632 Get:7 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 tzdata all 2026a-0ubuntu0.24.04.1 [280 kB]
+#13 5.663 Get:8 http://archive.ubuntu.com/ubuntu noble/main amd64 readline-common all 8.2-4build1 [56.5 kB]
+#13 5.709 Get:9 http://archive.ubuntu.com/ubuntu noble/main amd64 libreadline8t64 amd64 8.2-4build1 [153 kB]
+#13 5.711 Get:10 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libsqlite3-0 amd64 3.45.1-1ubuntu2.6 [701 kB]
+#13 5.717 Get:11 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpython3.12-stdlib amd64 3.12.3-1ubuntu0.13 [2068 kB]
+#13 5.759 Get:12 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3.12 amd64 3.12.3-1ubuntu0.13 [662 kB]
+#13 5.776 Get:13 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpython3-stdlib amd64 3.12.3-0ubuntu2.1 [10.1 kB]
+#13 5.787 Get:14 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3 amd64 3.12.3-0ubuntu2.1 [23.0 kB]
+#13 5.796 Get:15 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 openssl amd64 3.0.13-0ubuntu3.11 [1003 kB]
+#13 5.823 Get:16 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 ca-certificates all 20260601~24.04.1 [139 kB]
+#13 6.009 debconf: delaying package configuration, since apt-utils is not installed
+#13 6.051 Fetched 8436 kB in 1s (16.5 MB/s)
+#13 6.074 Selecting previously unselected package libpython3.12-minimal:amd64.
+#13 6.074 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4381 files and directories currently installed.)
+#13 6.089 Preparing to unpack .../libpython3.12-minimal_3.12.3-1ubuntu0.13_amd64.deb ...
+#13 6.093 Unpacking libpython3.12-minimal:amd64 (3.12.3-1ubuntu0.13) ...
+#13 6.215 Selecting previously unselected package libexpat1:amd64.
+#13 6.219 Preparing to unpack .../libexpat1_2.6.1-2ubuntu0.4_amd64.deb ...
+#13 6.221 Unpacking libexpat1:amd64 (2.6.1-2ubuntu0.4) ...
+#13 6.255 Selecting previously unselected package python3.12-minimal.
+#13 6.259 Preparing to unpack .../python3.12-minimal_3.12.3-1ubuntu0.13_amd64.deb ...
+#13 6.270 Unpacking python3.12-minimal (3.12.3-1ubuntu0.13) ...
+#13 6.349 Setting up libpython3.12-minimal:amd64 (3.12.3-1ubuntu0.13) ...
+#13 6.356 Setting up libexpat1:amd64 (2.6.1-2ubuntu0.4) ...
+#13 6.361 Setting up python3.12-minimal (3.12.3-1ubuntu0.13) ...
+#13 7.843 Selecting previously unselected package python3-minimal.
+#13 7.855 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4700 files and directories currently installed.)
+#13 7.935 Preparing to unpack .../0-python3-minimal_3.12.3-0ubuntu2.1_amd64.deb ...
+#13 7.938 Unpacking python3-minimal (3.12.3-0ubuntu2.1) ...
+#13 7.980 Selecting previously unselected package media-types.
+#13 7.984 Preparing to unpack .../1-media-types_10.1.0_all.deb ...
+#13 7.987 Unpacking media-types (10.1.0) ...
+#13 8.050 Selecting previously unselected package netbase.
+#13 8.053 Preparing to unpack .../2-netbase_6.4_all.deb ...
+#13 8.055 Unpacking netbase (6.4) ...
+#13 8.103 Selecting previously unselected package tzdata.
+#13 8.103 Preparing to unpack .../3-tzdata_2026a-0ubuntu0.24.04.1_all.deb ...
+#13 8.103 Unpacking tzdata (2026a-0ubuntu0.24.04.1) ...
+#13 8.246 Selecting previously unselected package readline-common.
+#13 8.249 Preparing to unpack .../4-readline-common_8.2-4build1_all.deb ...
+#13 8.276 Unpacking readline-common (8.2-4build1) ...
+#13 8.367 Selecting previously unselected package libreadline8t64:amd64.
+#13 8.372 Preparing to unpack .../5-libreadline8t64_8.2-4build1_amd64.deb ...
+#13 8.392 Adding 'diversion of /lib/x86_64-linux-gnu/libhistory.so.8 to /lib/x86_64-linux-gnu/libhistory.so.8.usr-is-merged by libreadline8t64'
+#13 8.405 Adding 'diversion of /lib/x86_64-linux-gnu/libhistory.so.8.2 to /lib/x86_64-linux-gnu/libhistory.so.8.2.usr-is-merged by libreadline8t64'
+#13 8.410 Adding 'diversion of /lib/x86_64-linux-gnu/libreadline.so.8 to /lib/x86_64-linux-gnu/libreadline.so.8.usr-is-merged by libreadline8t64'
+#13 8.423 Adding 'diversion of /lib/x86_64-linux-gnu/libreadline.so.8.2 to /lib/x86_64-linux-gnu/libreadline.so.8.2.usr-is-merged by libreadline8t64'
+#13 8.429 Unpacking libreadline8t64:amd64 (8.2-4build1) ...
+#13 8.550 Selecting previously unselected package libsqlite3-0:amd64.
+#13 8.553 Preparing to unpack .../6-libsqlite3-0_3.45.1-1ubuntu2.6_amd64.deb ...
+#13 8.557 Unpacking libsqlite3-0:amd64 (3.45.1-1ubuntu2.6) ...
+#13 8.588 Selecting previously unselected package libpython3.12-stdlib:amd64.
+#13 8.591 Preparing to unpack .../7-libpython3.12-stdlib_3.12.3-1ubuntu0.13_amd64.deb ...
+#13 8.592 Unpacking libpython3.12-stdlib:amd64 (3.12.3-1ubuntu0.13) ...
+#13 8.776 Selecting previously unselected package python3.12.
+#13 8.798 Preparing to unpack .../8-python3.12_3.12.3-1ubuntu0.13_amd64.deb ...
+#13 8.800 Unpacking python3.12 (3.12.3-1ubuntu0.13) ...
+#13 8.843 Selecting previously unselected package libpython3-stdlib:amd64.
+#13 8.848 Preparing to unpack .../9-libpython3-stdlib_3.12.3-0ubuntu2.1_amd64.deb ...
+#13 8.849 Unpacking libpython3-stdlib:amd64 (3.12.3-0ubuntu2.1) ...
+#13 8.875 Setting up python3-minimal (3.12.3-0ubuntu2.1) ...
+#13 9.120 Selecting previously unselected package python3.
+#13 9.120 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 5706 files and directories currently installed.)
+#13 9.133 Preparing to unpack .../python3_3.12.3-0ubuntu2.1_amd64.deb ...
+#13 9.139 Unpacking python3 (3.12.3-0ubuntu2.1) ...
+#13 9.165 Selecting previously unselected package openssl.
+#13 9.168 Preparing to unpack .../openssl_3.0.13-0ubuntu3.11_amd64.deb ...
+#13 9.169 Unpacking openssl (3.0.13-0ubuntu3.11) ...
+#13 9.269 Selecting previously unselected package ca-certificates.
+#13 9.273 Preparing to unpack .../ca-certificates_20260601~24.04.1_all.deb ...
+#13 9.275 Unpacking ca-certificates (20260601~24.04.1) ...
+#13 9.467 Setting up media-types (10.1.0) ...
+#13 9.512 Setting up libsqlite3-0:amd64 (3.45.1-1ubuntu2.6) ...
+#13 9.521 Setting up tzdata (2026a-0ubuntu0.24.04.1) ...
+#13 9.607 debconf: unable to initialize frontend: Dialog
+#13 9.607 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#13 9.607 debconf: falling back to frontend: Readline
+#13 9.608 debconf: unable to initialize frontend: Readline
+#13 9.608 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.38.2 /usr/local/share/perl/5.38.2 /usr/lib/x86_64-linux-gnu/perl5/5.38 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.38 /usr/share/perl/5.38 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8.)
+#13 9.608 debconf: falling back to frontend: Teletype
+#13 9.687 Configuring tzdata
+#13 9.687 ------------------
+#13 9.687 
+#13 9.687 Please select the geographic area in which you live. Subsequent configuration
+#13 9.687 questions will narrow this down by presenting a list of cities, representing
+#13 9.687 the time zones in which they are located.
+#13 9.687 
+#13 9.688   1. Africa      4. Arctic    7. Australia  10. Pacific
+#13 9.688   2. America     5. Asia      8. Europe     11. Etc
+#13 9.688   3. Antarctica  6. Atlantic  9. Indian     12. Legacy
+#13 9.688 Geographic area: 
+#13 9.688 Use of uninitialized value $_[1] in join or string at /usr/share/perl5/Debconf/DbDriver/Stack.pm line 112.
+#13 9.699 
+#13 9.699 Current default time zone: '/UTC'
+#13 9.732 Local time is now:      Fri Jul  3 03:59:30 UTC 2026.
+#13 9.732 Universal Time is now:  Fri Jul  3 03:59:30 UTC 2026.
+#13 9.732 Run 'dpkg-reconfigure tzdata' if you wish to change it.
+#13 9.732 
+#13 9.741 Use of uninitialized value $val in substitution (s///) at /usr/share/perl5/Debconf/Format/822.pm line 84, <GEN6> line 4.
+#13 9.741 Use of uninitialized value $val in concatenation (.) or string at /usr/share/perl5/Debconf/Format/822.pm line 85, <GEN6> line 4.
+#13 9.777 Setting up netbase (6.4) ...
+#13 9.794 Setting up openssl (3.0.13-0ubuntu3.11) ...
+#13 9.812 Setting up readline-common (8.2-4build1) ...
+#13 9.834 Setting up ca-certificates (20260601~24.04.1) ...
+#13 9.976 debconf: unable to initialize frontend: Dialog
+#13 9.976 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#13 9.976 debconf: falling back to frontend: Readline
+#13 9.976 debconf: unable to initialize frontend: Readline
+#13 9.976 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.38.2 /usr/local/share/perl/5.38.2 /usr/lib/x86_64-linux-gnu/perl5/5.38 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.38 /usr/share/perl/5.38 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8.)
+#13 9.976 debconf: falling back to frontend: Teletype
+#13 ...
+
+#14 [linux/arm64 stage-1 2/4] RUN apt-get update && apt-get install -y python3
+#14 0.828 Get:1 http://ports.ubuntu.com/ubuntu-ports noble InRelease [256 kB]
+#14 1.080 Get:2 http://ports.ubuntu.com/ubuntu-ports noble-updates InRelease [126 kB]
+#14 1.081 Get:3 http://ports.ubuntu.com/ubuntu-ports noble-backports InRelease [126 kB]
+#14 1.083 Get:4 http://ports.ubuntu.com/ubuntu-ports noble-security InRelease [126 kB]
+#14 2.984 Get:5 http://ports.ubuntu.com/ubuntu-ports noble/multiverse arm64 Packages [274 kB]
+#14 3.193 Get:6 http://ports.ubuntu.com/ubuntu-ports noble/restricted arm64 Packages [113 kB]
+#14 3.210 Get:7 http://ports.ubuntu.com/ubuntu-ports noble/universe arm64 Packages [19.0 MB]
+#14 4.668 Get:8 http://ports.ubuntu.com/ubuntu-ports noble/main arm64 Packages [1776 kB]
+#14 5.560 Get:9 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 Packages [1368 kB]
+#14 5.754 Get:10 http://ports.ubuntu.com/ubuntu-ports noble-updates/multiverse arm64 Packages [80.1 kB]
+#14 5.768 Get:11 http://ports.ubuntu.com/ubuntu-ports noble-updates/restricted arm64 Packages [2178 kB]
+#14 5.977 Get:12 http://ports.ubuntu.com/ubuntu-ports noble-updates/universe arm64 Packages [2112 kB]
+#14 8.416 Get:13 http://ports.ubuntu.com/ubuntu-ports noble-backports/universe arm64 Packages [36.3 kB]
+#14 8.447 Get:14 http://ports.ubuntu.com/ubuntu-ports noble-backports/main arm64 Packages [48.9 kB]
+#14 8.459 Get:15 http://ports.ubuntu.com/ubuntu-ports noble-backports/multiverse arm64 Packages [671 B]
+#14 ...
+
+#9 [linux/arm64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#9 extracting sha256:e53cbfef6214662fa67fd3db9b7b57e915eaa42e37aa64e2b3dfc24c3fa80cb0 3.8s done
+#9 extracting sha256:a477eaf154b7c8070862d9db01681f78c8a60ce90e8936310f6a906696df475a
+#9 ...
+
+#13 [linux/amd64 stage-1 2/4] RUN apt-get update && apt-get install -y python3
+#13 11.01 Updating certificates in /etc/ssl/certs...
+#13 11.99 121 added, 0 removed; done.
+#13 12.04 Setting up libreadline8t64:amd64 (8.2-4build1) ...
+#13 12.04 Setting up libpython3.12-stdlib:amd64 (3.12.3-1ubuntu0.13) ...
+#13 12.04 Setting up python3.12 (3.12.3-1ubuntu0.13) ...
+#13 13.31 Setting up libpython3-stdlib:amd64 (3.12.3-0ubuntu2.1) ...
+#13 13.32 Setting up python3 (3.12.3-0ubuntu2.1) ...
+#13 13.33 running python rtupdate hooks for python3.12...
+#13 13.33 running python post-rtupdate hooks for python3.12...
+#13 13.47 Processing triggers for libc-bin (2.39-0ubuntu8.7) ...
+#13 13.50 Processing triggers for ca-certificates (20260601~24.04.1) ...
+#13 13.51 Updating certificates in /etc/ssl/certs...
+#13 14.11 0 added, 0 removed; done.
+#13 14.11 Running hooks in /etc/ca-certificates/update.d...
+#13 14.11 done.
+#13 ...
+
+#8 [linux/amd64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#8 extracting sha256:30d0db852850114cc79598cc8ab1ec19da54691d9e3267288bb3458d7488f125 3.5s done
+#8 extracting sha256:2f56f74443f60d1f5f878d9915f70362f58a81e76cf1481390cac0016385d5e8 3.9s done
+#8 extracting sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b
+#8 ...
+
+#14 [linux/arm64 stage-1 2/4] RUN apt-get update && apt-get install -y python3
+#14 11.25 Get:16 http://ports.ubuntu.com/ubuntu-ports noble-security/restricted arm64 Packages [2090 kB]
+#14 11.43 Get:17 http://ports.ubuntu.com/ubuntu-ports noble-security/main arm64 Packages [1055 kB]
+#14 11.51 Get:18 http://ports.ubuntu.com/ubuntu-ports noble-security/universe arm64 Packages [1533 kB]
+#14 11.58 Get:19 http://ports.ubuntu.com/ubuntu-ports noble-security/multiverse arm64 Packages [75.6 kB]
+#14 15.12 Fetched 32.4 MB in 15s (2217 kB/s)
+#14 15.12 Reading package lists...
+#14 ...
+
+#8 [linux/amd64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#8 extracting sha256:67aaa626ba3010d60ab55d9cdc69c0b12ebff5d1b5ece83ff220fb46a7709b3b 7.2s done
+#8 DONE 18.7s
+
+#8 [linux/amd64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#8 extracting sha256:09e821fe2d4bc3fa8873bdb939114850c34148b272b4e0c917af9e6f47c23a6c 0.0s done
+#8 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 done
+#8 DONE 18.7s
+
+#15 [linux/amd64 builder 2/6] WORKDIR /app
+#15 ...
+
+#9 [linux/arm64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#9 extracting sha256:a477eaf154b7c8070862d9db01681f78c8a60ce90e8936310f6a906696df475a 7.1s done
+#9 DONE 18.9s
+
+#9 [linux/arm64 builder 1/6] FROM docker.io/library/golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+#9 extracting sha256:b04489f9a03d207c6fd744917a2f3105e3d0293f3c1d1b3999dccc9af6f5b968 done
+#9 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 0.0s done
+#9 DONE 19.0s
+
+#16 [linux/arm64 builder 2/6] WORKDIR /app
+#16 ...
+
+#13 [linux/amd64 stage-1 2/4] RUN apt-get update && apt-get install -y python3
+#13 DONE 17.2s
+
+#16 [linux/arm64 builder 2/6] WORKDIR /app
+#16 DONE 0.6s
+
+#15 [linux/amd64 builder 2/6] WORKDIR /app
+#15 DONE 0.8s
+
+#17 [linux/amd64 stage-1 3/4] WORKDIR /root/
+#17 DONE 0.1s
+
+#18 [linux/arm64 builder 3/6] COPY go.mod go.sum ./
+#18 DONE 0.0s
+
+#19 [linux/amd64 builder 3/6] COPY go.mod go.sum ./
+#19 DONE 0.0s
+
+#20 [linux/amd64 builder 4/6] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#20 DONE 0.1s
+
+#21 [linux/arm64 builder 4/6] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#21 ...
+
+#22 [linux/amd64 builder 5/6] COPY . .
+#22 DONE 0.1s
+
+#23 [linux/amd64 builder 6/6] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o picod ./cmd/picod
+#23 ...
+
+#21 [linux/arm64 builder 4/6] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#21 DONE 0.9s
+
+#24 [linux/arm64 builder 5/6] COPY . .
+#24 DONE 0.1s
+
+#25 [linux/arm64 builder 6/6] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=arm64     go build -ldflags="-s -w" -o picod ./cmd/picod
+#25 ...
+
+#23 [linux/amd64 builder 6/6] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o picod ./cmd/picod
+#23 DONE 1.0s
+
+#26 [linux/amd64 stage-1 4/4] COPY --from=builder /app/picod /usr/local/bin/picod
+#26 DONE 0.0s
+
+#14 [linux/arm64 stage-1 2/4] RUN apt-get update && apt-get install -y python3
+#14 15.12 Reading package lists...
+#14 ...
+
+#25 [linux/arm64 builder 6/6] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=arm64     go build -ldflags="-s -w" -o picod ./cmd/picod
+#25 DONE 9.6s
+
+#14 [linux/arm64 stage-1 2/4] RUN apt-get update && apt-get install -y python3
+#14 15.12 Reading package lists...
+#14 28.56 Reading package lists...
+#14 38.43 Building dependency tree...
+#14 40.02 Reading state information...
+#14 41.41 The following additional packages will be installed:
+#14 41.41   ca-certificates libexpat1 libpython3-stdlib libpython3.12-minimal
+#14 41.42   libpython3.12-stdlib libreadline8t64 libsqlite3-0 media-types netbase
+#14 41.42   openssl python3-minimal python3.12 python3.12-minimal readline-common tzdata
+#14 41.42 Suggested packages:
+#14 41.42   python3-doc python3-tk python3-venv python3.12-venv python3.12-doc binutils
+#14 41.42   binfmt-support readline-doc
+#14 41.77 The following NEW packages will be installed:
+#14 41.77   ca-certificates libexpat1 libpython3-stdlib libpython3.12-minimal
+#14 41.77   libpython3.12-stdlib libreadline8t64 libsqlite3-0 media-types netbase
+#14 41.77   openssl python3 python3-minimal python3.12 python3.12-minimal
+#14 41.77   readline-common tzdata
+#14 43.98 0 upgraded, 16 newly installed, 0 to remove and 6 not upgraded.
+#14 43.98 Need to get 8294 kB of archives.
+#14 43.98 After this operation, 31.7 MB of additional disk space will be used.
+#14 43.98 Get:1 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 libpython3.12-minimal arm64 3.12.3-1ubuntu0.13 [833 kB]
+#14 44.08 Get:2 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 libexpat1 arm64 2.6.1-2ubuntu0.4 [77.5 kB]
+#14 44.09 Get:3 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 python3.12-minimal arm64 3.12.3-1ubuntu0.13 [2265 kB]
+#14 44.15 Get:4 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 python3-minimal arm64 3.12.3-0ubuntu2.1 [27.4 kB]
+#14 44.15 Get:5 http://ports.ubuntu.com/ubuntu-ports noble/main arm64 media-types all 10.1.0 [27.5 kB]
+#14 44.16 Get:6 http://ports.ubuntu.com/ubuntu-ports noble/main arm64 netbase all 6.4 [13.1 kB]
+#14 44.17 Get:7 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 tzdata all 2026a-0ubuntu0.24.04.1 [280 kB]
+#14 44.18 Get:8 http://ports.ubuntu.com/ubuntu-ports noble/main arm64 readline-common all 8.2-4build1 [56.5 kB]
+#14 44.19 Get:9 http://ports.ubuntu.com/ubuntu-ports noble/main arm64 libreadline8t64 arm64 8.2-4build1 [153 kB]
+#14 44.20 Get:10 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 libsqlite3-0 arm64 3.45.1-1ubuntu2.6 [705 kB]
+#14 44.22 Get:11 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 libpython3.12-stdlib arm64 3.12.3-1ubuntu0.13 [2037 kB]
+#14 44.27 Get:12 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 python3.12 arm64 3.12.3-1ubuntu0.13 [662 kB]
+#14 44.29 Get:13 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 libpython3-stdlib arm64 3.12.3-0ubuntu2.1 [10.1 kB]
+#14 44.30 Get:14 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 python3 arm64 3.12.3-0ubuntu2.1 [23.0 kB]
+#14 44.31 Get:15 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 openssl arm64 3.0.13-0ubuntu3.11 [985 kB]
+#14 44.34 Get:16 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 ca-certificates all 20260601~24.04.1 [139 kB]
+#14 45.41 debconf: delaying package configuration, since apt-utils is not installed
+#14 45.60 Fetched 8294 kB in 2s (3324 kB/s)
+#14 45.78 Selecting previously unselected package libpython3.12-minimal:arm64.
+#14 45.79 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4376 files and directories currently installed.)
+#14 45.80 Preparing to unpack .../libpython3.12-minimal_3.12.3-1ubuntu0.13_arm64.deb ...
+#14 45.81 Unpacking libpython3.12-minimal:arm64 (3.12.3-1ubuntu0.13) ...
+#14 46.14 Selecting previously unselected package libexpat1:arm64.
+#14 46.14 Preparing to unpack .../libexpat1_2.6.1-2ubuntu0.4_arm64.deb ...
+#14 46.14 Unpacking libexpat1:arm64 (2.6.1-2ubuntu0.4) ...
+#14 46.36 Selecting previously unselected package python3.12-minimal.
+#14 46.36 Preparing to unpack .../python3.12-minimal_3.12.3-1ubuntu0.13_arm64.deb ...
+#14 46.46 Unpacking python3.12-minimal (3.12.3-1ubuntu0.13) ...
+#14 46.72 Setting up libpython3.12-minimal:arm64 (3.12.3-1ubuntu0.13) ...
+#14 46.76 Setting up libexpat1:arm64 (2.6.1-2ubuntu0.4) ...
+#14 46.76 Setting up python3.12-minimal (3.12.3-1ubuntu0.13) ...
+#14 62.12 Selecting previously unselected package python3-minimal.
+#14 62.12 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4695 files and directories currently installed.)
+#14 62.14 Preparing to unpack .../0-python3-minimal_3.12.3-0ubuntu2.1_arm64.deb ...
+#14 62.15 Unpacking python3-minimal (3.12.3-0ubuntu2.1) ...
+#14 62.37 Selecting previously unselected package media-types.
+#14 62.37 Preparing to unpack .../1-media-types_10.1.0_all.deb ...
+#14 62.37 Unpacking media-types (10.1.0) ...
+#14 62.58 Selecting previously unselected package netbase.
+#14 62.58 Preparing to unpack .../2-netbase_6.4_all.deb ...
+#14 62.59 Unpacking netbase (6.4) ...
+#14 62.79 Selecting previously unselected package tzdata.
+#14 62.79 Preparing to unpack .../3-tzdata_2026a-0ubuntu0.24.04.1_all.deb ...
+#14 62.80 Unpacking tzdata (2026a-0ubuntu0.24.04.1) ...
+#14 63.12 Selecting previously unselected package readline-common.
+#14 63.12 Preparing to unpack .../4-readline-common_8.2-4build1_all.deb ...
+#14 63.13 Unpacking readline-common (8.2-4build1) ...
+#14 63.33 Selecting previously unselected package libreadline8t64:arm64.
+#14 63.34 Preparing to unpack .../5-libreadline8t64_8.2-4build1_arm64.deb ...
+#14 63.42 Adding 'diversion of /lib/aarch64-linux-gnu/libhistory.so.8 to /lib/aarch64-linux-gnu/libhistory.so.8.usr-is-merged by libreadline8t64'
+#14 63.47 Adding 'diversion of /lib/aarch64-linux-gnu/libhistory.so.8.2 to /lib/aarch64-linux-gnu/libhistory.so.8.2.usr-is-merged by libreadline8t64'
+#14 63.52 Adding 'diversion of /lib/aarch64-linux-gnu/libreadline.so.8 to /lib/aarch64-linux-gnu/libreadline.so.8.usr-is-merged by libreadline8t64'
+#14 63.56 Adding 'diversion of /lib/aarch64-linux-gnu/libreadline.so.8.2 to /lib/aarch64-linux-gnu/libreadline.so.8.2.usr-is-merged by libreadline8t64'
+#14 63.57 Unpacking libreadline8t64:arm64 (8.2-4build1) ...
+#14 63.79 Selecting previously unselected package libsqlite3-0:arm64.
+#14 63.79 Preparing to unpack .../6-libsqlite3-0_3.45.1-1ubuntu2.6_arm64.deb ...
+#14 63.79 Unpacking libsqlite3-0:arm64 (3.45.1-1ubuntu2.6) ...
+#14 64.02 Selecting previously unselected package libpython3.12-stdlib:arm64.
+#14 64.02 Preparing to unpack .../7-libpython3.12-stdlib_3.12.3-1ubuntu0.13_arm64.deb ...
+#14 64.03 Unpacking libpython3.12-stdlib:arm64 (3.12.3-1ubuntu0.13) ...
+#14 64.40 Selecting previously unselected package python3.12.
+#14 64.41 Preparing to unpack .../8-python3.12_3.12.3-1ubuntu0.13_arm64.deb ...
+#14 64.41 Unpacking python3.12 (3.12.3-1ubuntu0.13) ...
+#14 64.62 Selecting previously unselected package libpython3-stdlib:arm64.
+#14 64.62 Preparing to unpack .../9-libpython3-stdlib_3.12.3-0ubuntu2.1_arm64.deb ...
+#14 64.62 Unpacking libpython3-stdlib:arm64 (3.12.3-0ubuntu2.1) ...
+#14 64.79 Setting up python3-minimal (3.12.3-0ubuntu2.1) ...
+#14 67.35 Selecting previously unselected package python3.
+#14 67.36 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 5701 files and directories currently installed.)
+#14 67.38 Preparing to unpack .../python3_3.12.3-0ubuntu2.1_arm64.deb ...
+#14 67.47 Unpacking python3 (3.12.3-0ubuntu2.1) ...
+#14 67.70 Selecting previously unselected package openssl.
+#14 67.70 Preparing to unpack .../openssl_3.0.13-0ubuntu3.11_arm64.deb ...
+#14 67.70 Unpacking openssl (3.0.13-0ubuntu3.11) ...
+#14 67.95 Selecting previously unselected package ca-certificates.
+#14 67.96 Preparing to unpack .../ca-certificates_20260601~24.04.1_all.deb ...
+#14 67.96 Unpacking ca-certificates (20260601~24.04.1) ...
+#14 68.16 Setting up media-types (10.1.0) ...
+#14 68.17 Setting up libsqlite3-0:arm64 (3.45.1-1ubuntu2.6) ...
+#14 68.18 Setting up tzdata (2026a-0ubuntu0.24.04.1) ...
+#14 69.16 debconf: unable to initialize frontend: Dialog
+#14 69.16 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#14 69.16 debconf: falling back to frontend: Readline
+#14 69.17 debconf: unable to initialize frontend: Readline
+#14 69.17 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/aarch64-linux-gnu/perl/5.38.2 /usr/local/share/perl/5.38.2 /usr/lib/aarch64-linux-gnu/perl5/5.38 /usr/share/perl5 /usr/lib/aarch64-linux-gnu/perl-base /usr/lib/aarch64-linux-gnu/perl/5.38 /usr/share/perl/5.38 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8.)
+#14 69.17 debconf: falling back to frontend: Teletype
+#14 69.73 Configuring tzdata
+#14 69.73 ------------------
+#14 69.73 
+#14 69.73 Please select the geographic area in which you live. Subsequent configuration
+#14 69.73 questions will narrow this down by presenting a list of cities, representing
+#14 69.73 the time zones in which they are located.
+#14 69.73 
+#14 69.73   1. Africa      4. Arctic    7. Australia  10. Pacific
+#14 69.74   2. America     5. Asia      8. Europe     11. Etc
+#14 69.74   3. Antarctica  6. Atlantic  9. Indian     12. Legacy
+#14 69.74 Geographic area: 
+#14 69.74 Use of uninitialized value $_[1] in join or string at /usr/share/perl5/Debconf/DbDriver/Stack.pm line 112.
+#14 69.92 
+#14 69.92 Current default time zone: '/UTC'
+#14 69.98 Local time is now:      Fri Jul  3 04:00:30 UTC 2026.
+#14 69.98 Universal Time is now:  Fri Jul  3 04:00:30 UTC 2026.
+#14 69.98 Run 'dpkg-reconfigure tzdata' if you wish to change it.
+#14 69.98 
+#14 69.99 Use of uninitialized value $val in substitution (s///) at /usr/share/perl5/Debconf/Format/822.pm line 84, <GEN6> line 4.
+#14 69.99 Use of uninitialized value $val in concatenation (.) or string at /usr/share/perl5/Debconf/Format/822.pm line 85, <GEN6> line 4.
+#14 70.05 Setting up netbase (6.4) ...
+#14 70.09 Setting up openssl (3.0.13-0ubuntu3.11) ...
+#14 70.13 Setting up readline-common (8.2-4build1) ...
+#14 70.20 Setting up ca-certificates (20260601~24.04.1) ...
+#14 71.33 debconf: unable to initialize frontend: Dialog
+#14 71.33 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#14 71.33 debconf: falling back to frontend: Readline
+#14 71.33 debconf: unable to initialize frontend: Readline
+#14 71.33 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/aarch64-linux-gnu/perl/5.38.2 /usr/local/share/perl/5.38.2 /usr/lib/aarch64-linux-gnu/perl5/5.38 /usr/share/perl5 /usr/lib/aarch64-linux-gnu/perl-base /usr/lib/aarch64-linux-gnu/perl/5.38 /usr/share/perl/5.38 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8.)
+#14 71.33 debconf: falling back to frontend: Teletype
+#14 81.01 Updating certificates in /etc/ssl/certs...
+#14 96.78 121 added, 0 removed; done.
+#14 96.96 Setting up libreadline8t64:arm64 (8.2-4build1) ...
+#14 96.96 Setting up libpython3.12-stdlib:arm64 (3.12.3-1ubuntu0.13) ...
+#14 96.97 Setting up python3.12 (3.12.3-1ubuntu0.13) ...
+#14 114.2 Setting up libpython3-stdlib:arm64 (3.12.3-0ubuntu2.1) ...
+#14 114.2 Setting up python3 (3.12.3-0ubuntu2.1) ...
+#14 114.3 running python rtupdate hooks for python3.12...
+#14 114.4 running python post-rtupdate hooks for python3.12...
+#14 116.0 Processing triggers for libc-bin (2.39-0ubuntu8.7) ...
+#14 116.1 Processing triggers for ca-certificates (20260601~24.04.1) ...
+#14 116.3 Updating certificates in /etc/ssl/certs...
+#14 128.6 0 added, 0 removed; done.
+#14 128.6 Running hooks in /etc/ca-certificates/update.d...
+#14 128.6 done.
+#14 DONE 128.8s
+
+#27 [linux/arm64 stage-1 3/4] WORKDIR /root/
+#27 DONE 0.0s
+
+#28 [linux/arm64 stage-1 4/4] COPY --from=builder /app/picod /usr/local/bin/picod
+#28 DONE 0.0s
+WARNING: No output specified with docker-container driver. Build result will only remain in the build cache. To push result image into registry use --push or to load image into docker use --load
+real 131.89
+user 0.36
+sys 0.18
+status=0
+end_utc=2026-07-03T04:01:29Z
+elapsed_seconds=132
