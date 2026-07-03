@@ -658,7 +658,7 @@ docker buildx build -f docker/Dockerfile.picod \
 | `ci/image-build-scheme-a-benchmark` | GitHub runner Scheme A benchmark | No | Yes |
 | optional `ci/image-build-scheme-b-benchmark` | Karmada-style prototype benchmark | No, unless later cleaned | Yes |
 
-> 分析：普通 branch push 现在会跑 #414 引入的常规 push CI，但它不会跑 `Build and Push Release Images`，也不会提供 multi-arch image build 分段数据。因此 benchmark 分支需要带 fork-only workflow，专门执行 `docker buildx build --platform linux/amd64,linux/arm64 --progress=plain --output=type=cacheonly` 并上传日志 artifact。这个 workflow 是验证工具，不应进入 upstream PR。
+> 分析：普通 branch push 现在会跑 #414 引入的常规 push CI，但它不会跑 `Build and Push Release Images`，也不会提供 multi-arch image build 分段数据。因此 benchmark 分支需要带 fork-only workflow，专门执行 `docker buildx build --platform linux/amd64,linux/arm64 --progress=plain .` 并上传日志 artifact。workflow 不登录 GHCR、不 push image、不 package Helm chart；不指定输出时 BuildKit 会把结果保留在 build cache 中，适合只测构建路径和耗时。这个 workflow 是验证工具，不应进入 upstream PR。
 
 建议 fork-only benchmark workflow 做到：
 
@@ -669,7 +669,20 @@ docker buildx build -f docker/Dockerfile.picod \
 5. 顺序构建 workloadmanager、router、picod，输出 `real` time 和 BuildKit plain log。
 6. 上传三份日志 artifact。
 
-> 注释：`--output=type=cacheonly` 适合这里，因为我们只比较构建路径和耗时，不需要把镜像发布到 registry。这样既能获得 GitHub runner 上的数据，又不会污染 GHCR。
+> 注释：这里不发布镜像，因为我们只比较构建路径和耗时，不需要把结果写入 registry。这样既能获得 GitHub runner 上的数据，又不会污染 GHCR。
+
+### 2026-07-03 fork-only benchmark 分支
+
+已按上述策略创建两个测评分支：
+
+| Branch | Base | Commit | Benchmark workflow run | Scope |
+| --- | --- | --- | --- | --- |
+| [`ci/image-build-baseline-benchmark`](https://github.com/ranxi2001/agentcube/tree/ci/image-build-baseline-benchmark) | `upstream/main` `7f5a730` | `4e737fc ci: add image build benchmark workflow` | <https://github.com/ranxi2001/agentcube/actions/runs/28636642514> | 只新增 fork-only benchmark workflow |
+| [`ci/image-build-scheme-a-benchmark`](https://github.com/ranxi2001/agentcube/tree/ci/image-build-scheme-a-benchmark) | `ci/native-build-platform-images` | `60e5849 ci: add image build benchmark workflow` | <https://github.com/ranxi2001/agentcube/actions/runs/28636642076> | Scheme A 三行 Dockerfile 改动 + fork-only benchmark workflow |
+
+这两个分支都会因为 push CI 配置额外触发常规验证 workflow，例如 build、lint、e2e、coverage 等。性能分析只使用 `Image Build Benchmark` workflow 的 job log / artifact，不用普通 push CI 的 Docker build 结果。
+
+> 分析：这里没有创建 self-PR，避免 fork 仓库产生无效 PR 记录。benchmark workflow 只存在于 `ci/image-build-*-benchmark` 临时分支里；真正可能用于 upstream PR 的 `ci/native-build-platform-images` 仍然保持干净，只包含 3 个 Dockerfile 的最小改动。
 
 ## 先验证不同方案，再开 issue
 
