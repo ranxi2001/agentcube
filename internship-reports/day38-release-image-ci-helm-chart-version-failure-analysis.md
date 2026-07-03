@@ -586,7 +586,7 @@ ci: publish release artifacts only for tags
 推荐标题：
 
 ```text
-ci: use semver chart version for latest releases
+ci: use valid chart version for latest releases
 ```
 
 推荐 PR body：
@@ -608,20 +608,15 @@ Fixes #417
 
 **Special notes for your reviewer**:
 
-- Scope: only `.github/workflows/build-push-release.yml` is changed.
-- `main` pushes continue to publish latest images.
-- `main` pushes now package/push the Helm chart as version `0.0.0` instead of `latest`.
-- Release tags matching `v*.*.*` and `v*.*.*-*` keep the existing `vX.Y.Z` image tag, chart version, appVersion, package filename, and OCI chart tag behavior.
-- This follows the same idea as Karmada's latest chart workflow, where the latest chart is represented by a special SemVer value instead of `latest`.
-- AI assistance: Used Codex to inspect the failing workflow, compare the Karmada latest chart workflow, and draft this PR text. I reviewed and validated the changes.
+This intentionally keeps latest image publishing on `main` pushes and only fixes the invalid Helm chart version used for latest chart publishing.
 
-Validation:
+Validation data:
 
-- `git diff upstream/main --check`
-- Local shell simulation of the release metadata branch logic:
-  - `main` push: `TAG=latest`, `CHART_VERSION=0.0.0`, `APP_VERSION=latest`
-  - `v1.2.3` tag: `TAG=v1.2.3`, `CHART_VERSION=v1.2.3`, `APP_VERSION=v1.2.3`
-  - `v1.2.3-alpha` tag: `TAG=v1.2.3-alpha`, `CHART_VERSION=v1.2.3-alpha`, `APP_VERSION=v1.2.3-alpha`
+- `main` push metadata: `TAG=latest`, `CHART_VERSION=0.0.0`, `APP_VERSION=latest`
+- Fork `main` push validation run: https://github.com/ranxi2001/agentcube/actions/runs/28633043101
+- Fork validation result: latest images were published, `agentcube-0.0.0.tgz` was packaged successfully, and `ghcr.io/ranxi2001/charts/agentcube:0.0.0` was pushed successfully.
+
+AI assistance was used to inspect the workflow behavior, validate the fork run result, and prepare this PR text. I reviewed and validated the final change.
 
 **Does this PR introduce a user-facing change?**:
 
@@ -630,16 +625,20 @@ NONE
 ```
 ````
 
-### 当前本地状态
+### 当前 upstream PR 状态
 
-已在新的干净临时工作树中准备本地单 commit，但尚未推送 open PR #416：
+用户确认后，已把最终方案更新到 upstream PR #416：
 
-- Worktree: `/tmp/agentcube-pr416-final`
-- Local branch: `ci/fix-release-chart-version-final`
-- Base head: `upstream/main` at `7cfeb8c`
-- Local commit: `427e618 ci: use valid chart version for latest releases`
+- PR: <https://github.com/volcano-sh/agentcube/pull/416>
+- Title: `ci: use valid chart version for latest releases`
+- Branch: `ranxi2001:ci/fix-release-chart-version`
+- Base: `volcano-sh:main`
+- Commit: `427e618 ci: use valid chart version for latest releases`
+- Push result: `a6c4a82...427e618 HEAD -> ci/fix-release-chart-version (forced update)`
 - Changed file: `.github/workflows/build-push-release.yml`
-- Current decision: do not push until the exact diff, PR body, and reviewer reply are confirmed, because pushing this branch 会更新已经打开的 upstream PR #416。
+- PR body 已更新为 latest image + chart `0.0.0` 方案。
+- 已回复 reviewer comment <https://github.com/volcano-sh/agentcube/pull/416#discussion_r3516898218>，说明已保留 `main` trigger 和 latest image 发布。
+- 更新后 PR `mergeable=MERGEABLE`，DCO / codespell / lint / Python checks 已成功，其余 checks 正在重新运行。
 
 当前验证：
 
@@ -686,7 +685,7 @@ Pushed: ghcr.io/ranxi2001/charts/agentcube:0.0.0
 
 > 分析：这次验证说明 GHCR 接受固定 `0.0.0` 作为 Helm chart OCI tag，且 `latest` image 发布没有被破坏。它还没有额外验证“重复 push 同一个 `0.0.0` tag 是否总是可覆盖”，但不建议为了这个再主动跑一次完整 release workflow，因为每次都会支付 25 分钟级 multi-arch image build 成本。如果后续 main push 重复失败，再考虑 `0.0.0-main.N` 等 snapshot version 方案。
 
-### Reviewer 反馈与回复草稿
+### Reviewer 反馈与回复
 
 Reviewer `zhzhuang-zju` 在 #416 中指出：
 
@@ -696,14 +695,51 @@ We should not remove this trigger condition, because the latest image still need
 
 这条反馈确认了旧 tag-only 方案的问题：它修掉了红色 X，但也误删了主分支 latest image 发布能力。
 
-建议回复：
+已回复：
 
 ```md
 Thanks, agreed. I updated the approach to keep the `main` push trigger and continue publishing `latest` images.
 
 The fix now separates the Docker image tag from the Helm chart metadata. On `main` pushes, images still use `TAG=latest`, while the chart uses `CHART_VERSION=0.0.0` and `APP_VERSION=latest`. On release tags, the workflow keeps the existing `vX.Y.Z` values for image tags, chart version, appVersion, package filename, and OCI chart tag.
 
-This avoids `helm package --version latest` without removing latest image publishing.
+I also validated the updated workflow with a fork `main` push: latest images were published, `agentcube-0.0.0.tgz` was packaged successfully, and `ghcr.io/ranxi2001/charts/agentcube:0.0.0` was pushed successfully.
+```
+
+### Copilot 评论 triage
+
+PR 更新后，Copilot 在 `.github/workflows/build-push-release.yml` 上新增评论：
+
+```text
+On main-branch pushes, CHART_VERSION is fixed to 0.0.0. This means every run republishes the same Helm chart version/OCI tag, which makes builds non-unique and can lead to clients/registries not picking up updates (and some registries may enforce tag immutability). Consider using a SemVer prerelease that stays valid but is unique per run (e.g., include the GitHub run number or short SHA) while keeping TAG=latest for images.
+```
+
+这条评论是有效 tradeoff 提醒，但它不是 maintainer 结论。
+
+当前判断：
+
+1. 固定 `0.0.0` 是有意选择，不是遗漏。
+2. 目标是提供一个稳定的 latest chart 入口，而不是为每次 `main` push 保留可审计的 snapshot chart。
+3. fork run 已证明 GHCR 至少接受首次 `ghcr.io/ranxi2001/charts/agentcube:0.0.0` push。
+4. 用户此前明确担心 `0.0.0-main.<run_number>` 这类临时版本污染仓库。
+5. 如果 maintainer 明确要求每次 main push 都生成唯一 chart version，再切换到 `0.0.0-main.${{ github.run_number }}` 或短 SHA prerelease 会更合适。
+
+用户确认后已直接回复 Copilot，不改代码：
+
+- Reply: <https://github.com/volcano-sh/agentcube/pull/416#discussion_r3517099151>
+
+回复原则：
+
+1. 解释固定 `0.0.0` 是有意作为 latest/development chart 稳定入口。
+2. 说明避免在 GHCR 累积 `0.0.0-main.<run_number>` 这类临时版本。
+3. 提供 fork `main` push 的实际成功验证。
+4. 保留维护者选择权：如果 maintainer 更希望 main branch chart 是 immutable per-run snapshot，再切到合法 prerelease 版本。
+
+已回复内容：
+
+```md
+Thanks for pointing this out. The fixed `0.0.0` version is intentional here: the `main` branch chart is meant to behave as a stable latest/development chart entry rather than a unique snapshot chart for every run. This avoids accumulating temporary chart versions such as `0.0.0-main.<run_number>` in GHCR.
+
+I validated that GHCR accepted the fork `main` push with `agentcube-0.0.0.tgz` and `ghcr.io/ranxi2001/charts/agentcube:0.0.0`. If maintainers prefer immutable per-run snapshot charts for `main`, I can switch the branch path to a valid prerelease version such as `0.0.0-main.${{ github.run_number }}`, while keeping Docker images tagged as `latest`.
 ```
 
 ### 为什么 Build and Push Release Images 看起来卡住
