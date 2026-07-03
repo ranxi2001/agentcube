@@ -851,6 +851,8 @@ I also ran two fork-only GitHub runner benchmarks that do not push images or cha
 
 > 分析：这不是 issue 内容错误，而是“从 issue 过渡到 PR”的表达可以更明确。对维护者来说，清晰的 PR scope 比继续堆更多 benchmark 数据更有价值，尤其是 #264 也在调整 build 入口，提前写明不与 #264 的 Makefile cleanup 竞争，可以降低 review 阻力。
 
+用户确认后已在 #419 追加 scope comment：<https://github.com/volcano-sh/agentcube/issues/419#issuecomment-4873610799>。评论明确第一阶段 PR 只做方向 1：三个 Go image Dockerfile 的 builder stage 运行在 `$BUILDPLATFORM`，继续使用 `TARGETOS` / `TARGETARCH` 交叉编译；不改 release trigger、artifact naming、Helm chart metadata、matrix、buildx cache，也不混入 PicoD runtime-layer 优化。Karmada-style prebuild pipeline、PicoD runtime-layer optimization、workflow matrix/cache 都作为 follow-up。
+
 ## 初步 upstream PR 价值判断
 
 这个性能优化值得作为独立贡献，因为它满足几个条件：
