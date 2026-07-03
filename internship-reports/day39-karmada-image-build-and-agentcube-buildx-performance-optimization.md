@@ -853,6 +853,50 @@ I also ran two fork-only GitHub runner benchmarks that do not push images or cha
 
 用户确认后已在 #419 追加 scope comment：<https://github.com/volcano-sh/agentcube/issues/419#issuecomment-4873610799>。评论明确第一阶段 PR 只做方向 1：三个 Go image Dockerfile 的 builder stage 运行在 `$BUILDPLATFORM`，继续使用 `TARGETOS` / `TARGETARCH` 交叉编译；不改 release trigger、artifact naming、Helm chart metadata、matrix、buildx cache，也不混入 PicoD runtime-layer 优化。Karmada-style prebuild pipeline、PicoD runtime-layer optimization、workflow matrix/cache 都作为 follow-up。
 
+### Upstream PR #420
+
+用户确认后已创建 upstream PR：
+
+- PR: [#420 ci: build multi-arch images with native Go builder](https://github.com/volcano-sh/agentcube/pull/420)
+- Base / head: `volcano-sh:main` <- `ranxi2001:ci/native-build-platform-images`
+- Commit: `0f58bdb ci: build multi-arch images with native Go builder`
+- Labels: `kind/enhancement`, `size/XS`
+- Files: `docker/Dockerfile`, `docker/Dockerfile.router`, `docker/Dockerfile.picod`
+
+PR scope 和 #419 comment 保持一致：第一阶段只做 Scheme A，把三个 Go image Dockerfile 的 builder stage 改为 `FROM --platform=$BUILDPLATFORM ... AS builder`，继续用 `TARGETOS` / `TARGETARCH` 交叉编译 multi-arch 二进制。不改 release trigger、image tag、Helm chart metadata、matrix、buildx cache，也不混入 PicoD runtime-layer 优化。
+
+与其它 PR 的关系：
+
+- #416 不冲突：#416 改 `.github/workflows/build-push-release.yml` 中 latest image / Helm chart metadata；#420 只改 Dockerfile builder stage。
+- #264 相关但不同范围：#264 仍 open 且 conflicting，改的是 `docker/Dockerfile.workloadmanager` 和 Makefile 等 build 入口；#420 不改 Makefile，也不迁移 image pipeline。
+
+验证记录：
+
+1. `git diff --check upstream/main...HEAD`
+2. `make build-all`
+3. `docker buildx build --builder agentcube-day39 --platform linux/amd64,linux/arm64 -f docker/Dockerfile --target builder --progress=plain .`
+4. `docker buildx build --builder agentcube-day39 --platform linux/amd64,linux/arm64 -f docker/Dockerfile.router --target builder --progress=plain .`
+5. `docker buildx build --builder agentcube-day39 --platform linux/amd64,linux/arm64 -f docker/Dockerfile.picod --target builder --progress=plain .`
+6. Fork push validation on `ranxi2001:ci/native-build-platform-images` commit `0f58bdb`: 9/9 workflows success.
+
+> 注释：本地 buildx smoke 使用 `--target builder` 是刻意缩小验证面。这个 PR 改的是 Go builder stage 的平台选择，因此 builder-stage multi-arch build 能直接证明 `linux/arm64` 目标 Go build 发生在 `linux/amd64->arm64 builder` 路径上；PicoD 的 Ubuntu/Python runtime layer 慢点已经在 #419 里作为 follow-up，不应阻塞本 PR。
+
+#### #420 初始评论分析
+
+#420 创建后，当前还没有真人维护者技术评论，只有流程 bot 和 AI reviewer 评论。
+
+流程 bot `volcano-sh-bot` 提示 PR 未 approve，需要 `docker/OWNERS` approver。对应 OWNER 文件是 `docker/OWNERS`，reviewer / approver 主要是 `acsoto` 和 `YaoZengzeng`。这是正常流程信号，不是技术问题。
+
+Copilot 在三个 Dockerfile 上都评论：`BUILDPLATFORM` 用在 `FROM --platform=$BUILDPLATFORM` 前没有声明 `ARG BUILDPLATFORM`，可能为空或失败。这个评论倾向于误报：本地 multi-arch buildx smoke 和 fork push validation 的 Docker build job 都已经成功，而且 Docker BuildKit 的 automatic platform args 可在 `FROM --platform=$BUILDPLATFORM` 中使用；如果要在后续 `RUN` 指令中使用 `BUILDPLATFORM`，才需要在 stage 内重新 `ARG BUILDPLATFORM`。当前 PR 没有在 stage 内使用 `BUILDPLATFORM`。
+
+Gemini 在三个 Dockerfile 上都建议把 `ARG TARGETOS` / `ARG TARGETARCH` 移到 `go mod download` 之后、`go build` 之前，以便 `go mod download` 层在 `amd64` / `arm64` 构建之间共享缓存。这个建议有工程合理性，但不是当前 PR 的正确性问题。当前 PR 的第一目标是切掉 QEMU arm64 Go compiler，benchmark 已经显示主要收益；移动 ARG 是更细的 cache refinement，可能可以作为本 PR 的小补丁，也可以留给后续 cache follow-up。
+
+当前建议：
+
+1. 暂不因为 Copilot 评论改代码；如果需要回复，可以用 buildx smoke / fork push Docker build success 作为证据说明 `BUILDPLATFORM` 在 `FROM` 中可用。
+2. Gemini 的 ARG 移动建议可以等待真人 reviewer 意见；如果维护者希望进一步优化缓存，再作为小范围 Dockerfile-only update 处理，并重新跑 builder-stage smoke 和 push validation。
+3. 不在 #420 中扩展到 matrix/cache、PicoD runtime layer 或 Karmada-style prebuild pipeline。
+
 ## 初步 upstream PR 价值判断
 
 这个性能优化值得作为独立贡献，因为它满足几个条件：
@@ -863,14 +907,12 @@ I also ran two fork-only GitHub runner benchmarks that do not push images or cha
 4. 用户可感知：main/latest release workflow 更快，减少 runner time 和发布等待。
 5. 社区可接受：不改变功能语义，不改变 artifact naming，不改变 chart 发布策略。
 
-推荐下一步：
+后续跟进：
 
-1. 等 #416 latest chart 修复方向稳定，避免同时改 release workflow 和 Dockerfile 性能。
-2. 本地验证分支 `ci/native-build-platform-images` 已完成 Scheme A smoke，并已按 DCO commit 推到 fork。
-3. fork-only benchmark 分支已完成 GitHub runner baseline / Scheme A 对比，证明最小 Dockerfile 改动有明确收益。
-4. 准备 upstream issue 文稿，说明问题、数据、候选方案和 #264 / #416 关系，并由用户确认后再发布。
-5. issue 获得方向认可后，再把 `ci/native-build-platform-images` 整理成独立 PR。
-6. 如果维护者认为 image build pipeline 需要统一，再做 Karmada-style prebuild prototype。
+1. 等 #420 的 upstream PR checks 全部结束，若失败先看日志再判断是否属于本 PR 范围。
+2. 等 reviewer 对 `$BUILDPLATFORM` builder-stage 方案的反馈；如果维护者希望统一 image build pipeline，再把 Karmada-style prebuild 作为 follow-up 讨论。
+3. 不在 #420 中扩大到 release workflow、Helm chart metadata、matrix/cache、PicoD runtime-layer 优化。
+4. #419 继续保留作为 release image build 性能优化总跟踪，#420 只关闭其中第一阶段 Go builder/QEMU 问题。
 
 ## 参考来源
 
