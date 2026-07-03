@@ -766,15 +766,22 @@ issue 里最好放对比数据，而不是只放推断。
 
 > 注释：本地 buildx 数据和 GitHub Actions 数据不能直接硬比绝对值，因为机器、网络、registry push、cache 状态不同。issue 中应该把它们分开：GitHub Actions baseline 证明线上痛点，本地验证证明改动方向，fork workflow 数据证明线上近似收益。
 
-### Upstream issue 草稿（待用户确认后发布）
+### Upstream issue #419
 
-这个问题更像 enhancement issue，而不是 bug report。建议标题：
+用户确认后已发布为 upstream issue：
+
+- Issue: [#419 Optimize multi-arch image build time in the release workflow](https://github.com/volcano-sh/agentcube/issues/419)
+- State: open
+- Author: `@ranxi2001`
+- Label: 当前无 label；尝试执行 `gh issue edit 419 --repo volcano-sh/agentcube --add-label "kind/enhancement"` 失败，GitHub 返回 `ranxi2001 does not have the correct permissions to execute AddLabelsToLabelable`
+
+发布标题：
 
 ```text
 Optimize multi-arch image build time in the release workflow
 ```
 
-issue body：
+发布正文：
 
 ```md
 **What would you like to be added**:
