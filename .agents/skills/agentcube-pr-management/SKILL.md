@@ -415,6 +415,7 @@ Before editing code:
   - `/kind security`
   - `/kind documentation`
   - `/kind feature`
+- For `kind/*` labels, use `/kind ...` after user confirmation. Do not rely on GitHub label API permissions from the fork, and do not use `/label kind/...` unless the repository's Prow config explicitly allows that label command.
 
 ### Code Rationale Matrix
 

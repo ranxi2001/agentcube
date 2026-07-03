@@ -43,6 +43,13 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
 8. Include cross-links using GitHub `#123` references and short context.
 9. If the same issue/PR analysis requires repeated API calls, version matrices, log extraction, or manual filtering, add or improve a script under this skill before the next similar run.
 
+## AgentCube Prow Commands
+
+- For `kind/*` labels on AgentCube issues or PRs, use a Prow comment such as `/kind enhancement`, `/kind feature`, `/kind bug`, or `/kind documentation`.
+- Do not use `gh issue edit --add-label` unless the token has upstream label permissions; fork contributors normally get `AddLabelsToLabelable` permission errors.
+- Do not use `/label kind/enhancement` for kind labels. In this repository, `/label` may be restricted to labels configured in Prow, while `/kind enhancement` correctly maps to `kind/enhancement`.
+- Use `/assign` when taking ownership of an issue or PR, then verify assignee state from the issue metadata or timeline.
+
 ## Fetching Thread Context
 
 Use the compact briefing script first:

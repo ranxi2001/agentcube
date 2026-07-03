@@ -773,7 +773,10 @@ issue 里最好放对比数据，而不是只放推断。
 - Issue: [#419 Optimize multi-arch image build time in the release workflow](https://github.com/volcano-sh/agentcube/issues/419)
 - State: open
 - Author: `@ranxi2001`
-- Label: 当前无 label；尝试执行 `gh issue edit 419 --repo volcano-sh/agentcube --add-label "kind/enhancement"` 失败，GitHub 返回 `ranxi2001 does not have the correct permissions to execute AddLabelsToLabelable`
+- Assignee: `@ranxi2001`，通过评论 `/assign` 完成
+- Label: `kind/enhancement`，通过评论 `/kind enhancement` 由 `volcano-sh-bot` 添加
+
+> 注释：直接执行 `gh issue edit 419 --repo volcano-sh/agentcube --add-label "kind/enhancement"` 会因为 fork contributor 没有 label API 权限失败，GitHub 返回 `ranxi2001 does not have the correct permissions to execute AddLabelsToLabelable`。评论 `/label kind/enhancement` 也不可用，bot 提示当前仓库的 `/label` 只允许少量配置过的 label。对 `kind/*` 标签应使用 Kubernetes/Prow 风格命令，例如 `/kind enhancement`。
 
 发布标题：
 
