@@ -474,10 +474,106 @@ Fork workflow 验证：
 - Head: `427e618 ci: use valid chart version for latest releases`
 - Purpose: 验证 #416 新方案是否能在 `main` push 下发布 latest image 并用 chart `0.0.0`
 - State when writing: `build-and-push` still in progress
+- Rechecked at `2026-07-03T02:09:04Z`: still `build-and-push` in progress
 
 它还没有进入 Helm chart step。结合 upstream 旧 job，当前等待大概率仍是 multi-arch image build，而不是 chart 方案问题。
 
 > 注释：fork `origin/main` 当前是临时测试 commit，不是干净 `upstream/main` 镜像。恢复到 `upstream/main` 会再次触发旧 broken release workflow，所以恢复前要先判断是否需要等待验证结果，或者恢复后立刻取消对应 run。
+
+## 先验证不同方案，再开 issue
+
+这里更适合先做数据型 issue，而不是直接提性能优化 PR。
+
+原因有三点：
+
+1. 现象和修复点跨了 CI、Dockerfile、Makefile 和 release workflow，不只是单行 Dockerfile 改动。
+2. 当前仓库已有 open PR [#264](https://github.com/volcano-sh/agentcube/pull/264) 在调整 workloadmanager build / image build 入口，虽然它不是 multi-arch 性能优化，但会碰到 Makefile 和 Docker image target 命名。直接提 PR 容易和 #264 的变更方向交叉。
+3. 性能优化 PR 最重要的是证明收益。如果没有 baseline / 方案 A / 方案 B 的耗时对比，reviewer 很难判断这是不是值得改的 CI 复杂度。
+
+> 分析：#416 修的是 release workflow 的正确性，Day39 讨论的是 release workflow 的性能。两者可以关联，但不应该混成同一个 PR。正确顺序是先让 #416 恢复 latest image + chart 发布能力，再用独立 issue 讨论 image build 耗时和优化方案。
+
+### 已搜索到的相关 upstream 记录
+
+按 `buildx`、`image build`、`release workflow`、`arm64` 搜索后，暂时没有看到专门讨论 buildx / arm64 构建性能的 open issue。
+
+相关但不完全同题的记录：
+
+| Link | State | Relevance |
+| --- | --- | --- |
+| [#264 make workloadmanager build more explicit](https://github.com/volcano-sh/agentcube/pull/264) | open | 调整 Makefile 和 workloadmanager image build 入口；后续性能 PR 需要避开或基于它 rebase |
+| [#285 Build and push helm oci charts](https://github.com/volcano-sh/agentcube/issues/285) | closed | Helm OCI chart 发布能力背景，不是 build 性能问题 |
+| [#288 push helm chart in release workflow](https://github.com/volcano-sh/agentcube/pull/288) | merged | 引入 Helm chart push，和 #416 的 chart version 问题相关，不是性能问题 |
+| [#416 ci: publish release artifacts only for tags](https://github.com/volcano-sh/agentcube/pull/416) | open | 当前正在修 latest image + chart version 正确性，build 慢是在验证中暴露的后续问题 |
+
+> 注释：这里说“暂时没有看到”是基于 GitHub issue / PR 关键词搜索，不等于社区一定没人关心。开 issue 前还应再按最终标题关键词搜一次，避免重复。
+
+### 建议验证矩阵
+
+issue 里最好放对比数据，而不是只放推断。
+
+| Case | Scope | What to measure | Expected value |
+| --- | --- | --- | --- |
+| Baseline | 当前 upstream workflow | `Build and push images` 总耗时，三个 image 的分段耗时，`linux/arm64 go build` 耗时 | 证明现状慢点在哪里 |
+| Scheme A | `FROM --platform=$BUILDPLATFORM` | 同样三镜像 multi-arch buildx，总耗时和 arm64 Go build 是否明显下降 | 证明最小 Dockerfile 改动是否足够 |
+| Scheme B | Karmada-style prebuild + runtime-only Dockerfile | 宿主机 `GOARCH=amd64/arm64 go build` 耗时、runtime-only buildx 耗时、总耗时 | 判断是否值得后续大改 Makefile / script |
+| Scheme C | workflow matrix | 三镜像并行后 wall-clock 时间和 runner minute 成本 | 判断是否值得牺牲 cache 复用换并行 |
+| Scheme D | buildx cache | cache miss / hit 下的耗时 | 判断是否作为 follow-up，而不是第一修复 |
+
+第一轮不一定要把 B/C/D 都实现成完整 PR。至少要完成：
+
+1. Baseline：使用 upstream 旧 job 和当前 fork run 提供真实 workflow 数据。
+2. Scheme A：本地 buildx 或 fork validation branch 验证最小 Dockerfile 改动。
+3. Scheme B：可以先做局部 prototype，证明 Karmada-style 的方向是否比 Scheme A 还有明显收益。
+
+> 注释：本地 buildx 数据和 GitHub Actions 数据不能直接硬比绝对值，因为机器、网络、registry push、cache 状态不同。issue 中应该把它们分开：GitHub Actions baseline 证明线上痛点，本地验证证明改动方向，fork workflow 数据证明线上近似收益。
+
+### 建议 issue 结构
+
+这个问题更像 enhancement issue，而不是 bug report。建议标题：
+
+```text
+Optimize multi-arch image build time in the release workflow
+```
+
+issue body 可以按这个结构写：
+
+```md
+**What would you like to be added**:
+
+I would like to discuss optimizing the multi-arch image build path used by the release workflow. The current workflow builds `linux/amd64` and `linux/arm64` images with Docker buildx, but the Go build currently runs inside the target-platform builder stage. On x86 GitHub runners, this makes the `linux/arm64` Go compiler run through QEMU.
+
+**Why is this needed**:
+
+In a recent release workflow run, `Build and push images` took about 27 minutes before the Helm chart packaging step failed. The slowest part was the `workloadmanager` `linux/arm64` Go build, which took about `1415.0s`. This makes every `main` latest-image publish expensive and also delays feedback for release workflow fixes.
+
+**Observed evidence**:
+
+| Source | Observation |
+| --- | --- |
+| Workflow run | `Build and push images` took about 27 minutes |
+| Workloadmanager image | `linux/arm64 go build ./cmd/workload-manager` took about `1415.0s` |
+| Router image | mostly reused build cache and finished much faster |
+| PicoD image | remaining cost was mostly the target-platform runtime package installation |
+
+**Possible implementation directions**:
+
+1. Minimal Dockerfile change: run the Go builder stage on `$BUILDPLATFORM` and keep using `TARGETOS` / `TARGETARCH` for cross compilation.
+2. Karmada-style image pipeline: prebuild `linux/amd64` and `linux/arm64` binaries on the host runner, then use a runtime-only multi-platform Dockerfile to assemble images.
+3. Follow-up workflow improvements: split images into a matrix and/or add buildx cache after the builder-platform issue is fixed.
+
+**Related work**:
+
+- #264 adjusts workloadmanager build / image build entrypoints, so any implementation should avoid conflicting with that Makefile cleanup.
+- #416 fixes the release workflow chart-version failure while keeping latest image publishing enabled.
+
+**Validation plan**:
+
+- Measure the current workflow baseline.
+- Validate the minimal `$BUILDPLATFORM` Dockerfile change locally and, if needed, on a fork validation branch.
+- Compare the result with a small Karmada-style prebuild prototype before deciding whether a broader Makefile/script refactor is worth it.
+```
+
+> 分析：issue body 里不应该直接承诺“我会实现方案 B”。更稳妥的说法是先讨论 optimization direction，并提供可验证数据。这样即使维护者更喜欢 #264 的 Makefile 方向，也可以把我们的数据变成 review 输入，而不是冲突 PR。
 
 ## 初步 upstream PR 价值判断
 
@@ -492,11 +588,12 @@ Fork workflow 验证：
 推荐下一步：
 
 1. 等 #416 latest chart 修复方向稳定，避免同时改 release workflow 和 Dockerfile 性能。
-2. 新建 clean branch：`ci/native-build-platform-images`。
-3. 只改 3 个 Dockerfile 的 builder `FROM --platform=$BUILDPLATFORM`。
-4. 本地跑 buildx smoke。
-5. 用 fork main 或 fork-only workflow 对比 `Build and push images` 耗时。
-6. 准备 upstream PR body，明确引用 Karmada-style prebuild 思路，但本 PR 采用更小的 native builder stage 优化。
+2. 新建本地验证分支：`ci/native-build-platform-images`。
+3. 先只改 3 个 Dockerfile 的 builder `FROM --platform=$BUILDPLATFORM`，跑本地 buildx smoke。
+4. 记录 baseline 和 Scheme A 的耗时对比。
+5. 视情况做一个 Karmada-style prebuild prototype，判断是否值得后续大改 Makefile / script。
+6. 先准备 upstream issue 文稿，说明问题、数据、候选方案和 #264 / #416 关系。
+7. issue 获得方向认可后，再把最小 Dockerfile 改动整理成独立 PR。
 
 ## 参考来源
 
