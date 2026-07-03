@@ -836,6 +836,21 @@ I also ran two fork-only GitHub runner benchmarks that do not push images or cha
 
 > 分析：issue body 里不应该直接承诺“我会实现方案 B”。更稳妥的说法是先讨论 optimization direction，并提供可验证数据。这样即使维护者更喜欢 #264 的 Makefile 方向，也可以把我们的数据变成 review 输入，而不是冲突 PR。
 
+### Issue 清晰度复核
+
+发布后复核 #419 正文，结论是问题陈述和性能证据已经足够清楚：正文明确指出 release workflow 的慢点来自 buildx 在 `linux/arm64` target builder stage 中通过 QEMU 执行 Go compiler，并给出了 upstream run、fork release-validation run、fork-only baseline / Scheme A benchmark 的对照数据。
+
+选项也基本说清楚了：正文列出四个方向，分别是最小 Dockerfile builder platform 改动、Karmada-style 预编译二进制再组装镜像、PicoD runtime layer follow-up、matrix/cache 等 workflow follow-up。
+
+不足在于 PR 计划仍然是“隐含的”：虽然正文写了 `A minimal first step`，但没有单独列出 `Planned PR scope` / `Non-goals` / `Follow-ups`。如果希望 reviewer 一眼看懂下一步，可以追加一条简短 comment，明确：
+
+1. 第一阶段 PR 只做 Scheme A：三个 Go image Dockerfile 的 builder stage 改为 `$BUILDPLATFORM`。
+2. 第一阶段不改 release trigger、artifact naming、Helm chart metadata、matrix/cache，也不把 PicoD runtime layer 优化混进来。
+3. 验证用已有 fork benchmark 和本地 multi-arch smoke，PR 中引用 #419 和 #416。
+4. Scheme B / PicoD runtime / matrix-cache 都留作 follow-up，等维护者确认方向后再拆。
+
+> 分析：这不是 issue 内容错误，而是“从 issue 过渡到 PR”的表达可以更明确。对维护者来说，清晰的 PR scope 比继续堆更多 benchmark 数据更有价值，尤其是 #264 也在调整 build 入口，提前写明不与 #264 的 Makefile cleanup 竞争，可以降低 review 阻力。
+
 ## 初步 upstream PR 价值判断
 
 这个性能优化值得作为独立贡献，因为它满足几个条件：
