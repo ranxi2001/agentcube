@@ -53,3 +53,4 @@
 - [Day 37：Docs Proposal 目录设计与提案管理调研](day37-docs-proposal-directory-management.md)
 - [Day 38：Release Image CI 中 Helm Chart Version 失败分析](day38-release-image-ci-helm-chart-version-failure-analysis.md)
 - [Day 39：Karmada Image Build 方式与 AgentCube Buildx 性能优化机会](day39-karmada-image-build-and-agentcube-buildx-performance-optimization.md)
+- [Day 40：AgentCube 最新社区 PR / Issue 动态观察](day40-agentcube-latest-community-pr-issue-trends.md)
