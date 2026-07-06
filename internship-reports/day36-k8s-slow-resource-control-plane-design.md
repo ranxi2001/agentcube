@@ -548,6 +548,159 @@ flowchart LR
 
 > 注释：这些接口都应该是资源池级接口，而不是 sandbox 级接口。不要让 Pool Controller 调 `CreateSandbox`、`PauseSandbox`、`RestoreSandbox`，否则慢资源控制面会重新侵入快路径。
 
+## 补充分析：占位 Pod 的实现分层与调度抽象
+
+占位 Pod 最容易被误解成“另一个 sandbox Pod”。更准确的定位是：**它只负责让 Kubernetes 看到一块被 AgentCube 资源池占用的慢资源边界，并把这个边界绑定到具体节点；真正的 sandbox 创建和复用仍由 node-ctl / sandbox-ctl 在节点本地完成。**
+
+> 注释：占位 Pod 的价值不是承载用户代码，而是复用 Kubernetes scheduler、kubelet、Pod status、QoS、eviction、event、RBAC 等机制。它相当于一个资源锚点，而不是运行时工作负载。
+
+### 实现分层：先普通 Pod，后 RuntimeClass spike
+
+第一版建议把占位 Pod 分成两个实现等级：
+
+| 等级 | 实现方式 | 好处 | 风险 / 限制 | 适合阶段 |
+| --- | --- | --- | --- | --- |
+| Level 1：普通占位 Pod | 创建一个标准 Pod，设置 `resources.requests == limits`，使用 Guaranteed QoS，容器内只跑轻量 `placeholder-agent` | 最符合 Kubernetes 语义，scheduler / kubelet / metrics / eviction 都可正常工作 | 会真实创建 Pod cgroup，不能证明“跳过 cgroup”的极致资源占用目标 | CRD skeleton、controller e2e、fake node-ctl 阶段 |
+| Level 2：RuntimeClass / CRI shim 占位 | 自定义 runtime handler 响应 kubelet CRI，为占位 Pod 返回 Running，但尽量不创建真实 workload cgroup | 可以逼近“只在调度层锁资源，不创建重资源实体”的目标 | 需要节点级 CRI/runtime 接入，不是普通 Pod 内进程能单独完成；和 kubelet、CRI、eviction、metrics、QoS 兼容风险高 | 单独 spike，验证后再进入主线 |
+
+> 分析：参考设计稿里提到 `placeholder-agent` 实现 CRI / RuntimeClass handler，但这在工程上不能简单理解为“Pod 里跑一个进程就能接管 kubelet CRI”。RuntimeClass handler 是节点 runtime 层能力，通常需要节点上预装 shim 或 runtime handler，并让 kubelet 通过 CRI socket 调用它。因此第一版更稳的路线，是先用普通 Guaranteed Pod 完成资源锚定和控制器闭环，把 skip-cgroup 放到后续 spike。
+
+### 占位 Pod 的推荐创建方式
+
+Template Controller 做节点展开时，不建议简单把 Pod 直接写死 `spec.nodeName` 后绕过 scheduler。更稳妥的做法是：
+
+1. Template Controller 根据 `SandboxPoolTemplate.spec.selector` / `nodeSelector` 选出候选节点。
+2. 对每个候选节点创建一个 `SandboxPool`，其中 `spec.nodeName` 明确写目标节点。
+3. 对每个候选节点创建一个 Placeholder Pod，但用 `requiredDuringSchedulingIgnoredDuringExecution` 节点亲和性锁定到该节点，而不是直接绕过 scheduler。
+4. Placeholder Pod 设置与 `resourcePolicy` 对齐的 CPU / Memory requests 和 limits，让 scheduler 完整执行资源 fit 检查。
+5. kube-scheduler 将 Pod bind 到目标节点后，Pool Controller 再根据 Pod status 和 node-ctl health 决定 `PoolReady`。
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sandbox-pool-placeholder-default-node-a
+  namespace: sandbox-system
+  labels:
+    sandbox-pool.io/template: default-pool
+    sandbox-pool.io/node: node-a
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values: ["node-a"]
+  priorityClassName: system-cluster-critical
+  tolerations:
+  - operator: Exists
+  containers:
+  - name: placeholder-agent
+    image: agentcube/placeholder-agent:latest
+    resources:
+      requests:
+        cpu: "8"
+        memory: "16Gi"
+      limits:
+        cpu: "8"
+        memory: "16Gi"
+```
+
+> 分析：直接设置 `spec.nodeName` 会绕过 kube-scheduler 的正常 bind 流程。虽然 scheduler 后续也能从已绑定 Pod 中看到资源占用，但这个 Pod 自身没有经过完整调度决策，不利于表达资源不足、taint/toleration、priority/preemption 等失败原因。用 required node affinity 可以既锁定目标节点，又保留 scheduler 的资源判断。
+
+### 抽象接口：慢路径和快路径分开
+
+调度抽象应该分两层，不要让一个接口同时承担 Kubernetes 慢资源编排和 sandbox 快路径创建。
+
+第一层是慢路径资源池接口，只供 Pool Controller 调用：
+
+```go
+type NodePoolControlClient interface {
+    GetVersion(ctx context.Context) (*VersionInfo, error)
+    ApplyResourcePolicy(ctx context.Context, req ApplyResourcePolicyRequest) (*ApplyResourcePolicyResponse, error)
+    GetPoolState(ctx context.Context, req GetPoolStateRequest) (*PoolState, error)
+    GetWatermark(ctx context.Context, req GetWatermarkRequest) (*Watermark, error)
+    DrainPool(ctx context.Context, req DrainPoolRequest) (*DrainPoolResponse, error)
+}
+```
+
+这层接口的语义是：
+
+- 幂等：同一个 `generation` 的 `ApplyResourcePolicy` 可以重复调用。
+- 资源池级：只处理 CPU / Memory / reserve / overcommit / watermark，不暴露单个 sandbox 详情。
+- 可观测：返回 `appliedGeneration`、实际 quota、拒绝原因和当前水位。
+- 有超时：Pool Controller 不能因为 node-ctl 卡住而阻塞 reconcile。
+
+第二层是快路径 sandbox placement / admission 接口，由 cluster-ctl、WorkloadManager 或未来的 sandbox scheduler 使用，不由 Pool Controller 使用：
+
+```go
+type PoolScheduler interface {
+    PickPool(ctx context.Context, req SandboxRequest, pools []PoolSnapshot) (*PoolRef, error)
+}
+
+type PoolAdmissionClient interface {
+    Reserve(ctx context.Context, req ReserveSandboxRequest) (*Reservation, error)
+    Commit(ctx context.Context, req CommitReservationRequest) error
+    Rollback(ctx context.Context, req RollbackReservationRequest) error
+}
+```
+
+> 注释：`PickPool` 是全局选择，输入可以来自 `SandboxPool.status.poolInfo` 的低频快照；`Reserve` 是节点本地强校验，必须由 node-ctl 根据实时水位决定是否接收。这样即使 K8s status 有几十秒延迟，node-ctl 仍能在最终 admission 阶段防止过载。
+
+### sandbox 请求的实际调度链路
+
+占位 Pod 只被 Kubernetes 调度一次；每个用户 sandbox 请求不再进入 kube-scheduler。推荐链路如下：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User as User / SDK
+    participant API as AgentCube API / cluster-ctl
+    participant Store as Pool snapshot / Store
+    participant SP as SandboxPool.status
+    participant NC as node-ctl
+    participant SC as sandbox-ctl
+
+    User->>API: Create sandbox / session
+    API->>Store: list PoolReady snapshots
+    Store->>SP: read Ready pools, poolInfo, watermark snapshot
+    API->>API: PickPool(policy, locality, template, watermarks)
+    API->>NC: ReserveSandbox(poolRef, templateRef, resources)
+    alt accepted
+        NC->>SC: create / restore sandbox locally
+        SC-->>NC: sandbox handle / endpoint
+        NC-->>API: Commit reservation + endpoint
+        API-->>User: session ready
+    else rejected or high watermark
+        NC-->>API: reject with reason
+        API->>API: retry another Pool or return backpressure
+    end
+```
+
+这个链路里的调度分工是：
+
+| 层次 | 调度对象 | 调度依据 | 调度频率 |
+| --- | --- | --- | --- |
+| kube-scheduler | Placeholder Pod | node selector、taint/toleration、CPU / Memory request、priority | 低频，资源池创建 / resize |
+| Template Controller | 哪些节点应有 `SandboxPool` | template selector、node label、finalizer、ownerRef | 低频，节点 / 模板变化 |
+| Pool Controller | 本节点策略是否同步 | PlaceholderReady、NodeCtlHealthy、generation、watermark | 中低频，reconcile / sync interval |
+| cluster-ctl / sandbox scheduler | 选哪个 Pool 承接 sandbox | `PoolReady`、poolInfo 快照、模板亲和性、租户策略 | 高频，每次 sandbox 请求 |
+| node-ctl | 是否最终接收 sandbox | 实时资源水位、reservation、overcommit、local runtime 状态 | 高频，本节点 admission |
+
+> 分析：这个分层能解释为什么“占位 Pod 锁资源”和“sandbox 快速创建”不矛盾。Kubernetes 只负责让集群层面少掉一块可调度资源；这块资源内部如何切给多个 sandbox，是 node-ctl 的本地资源池问题。
+
+### 第一版落地建议
+
+占位 Pod 不应该第一版就挑战所有 kubelet / CRI 假设。更合理的落地顺序是：
+
+1. 用普通 Guaranteed Pod 实现资源锚点，先让 `SandboxPoolTemplate -> SandboxPool -> Placeholder Pod -> PoolReady` 全链路跑通。
+2. node-ctl 先做 fake server，实现 `ApplyResourcePolicy`、`GetPoolState`、`GetVersion`、`GetWatermark`。
+3. cluster-ctl / WorkloadManager 先用 `PoolReady` 和 `poolInfo` 做简单选择，再通过 fake `Reserve` 验证 admission 语义。
+4. 只有在上述链路稳定后，再单独做 RuntimeClass / CRI shim spike，验证能否跳过真实 cgroup。
+5. 如果 skip-cgroup 被证明不可行，主架构仍保留：占位 Pod 继续作为标准 K8s 资源锚点，node-ctl 负责池内复用和超配控制。
+
 ## Template Controller Reconcile 草图
 
 ```mermaid
