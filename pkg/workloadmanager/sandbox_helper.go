@@ -25,8 +25,8 @@ import (
 
 	runtimev1alpha1 "github.com/volcano-sh/agentcube/pkg/apis/runtime/v1alpha1"
 	"github.com/volcano-sh/agentcube/pkg/common/types"
+	"github.com/volcano-sh/agentcube/pkg/workloadmanager/agentsandbox"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	sandboxv1alpha1 "sigs.k8s.io/agent-sandbox/api/v1alpha1"
 )
 
 const (
@@ -47,10 +47,10 @@ var sandboxEntrypointDial = func(ctx context.Context, endpoint string, timeout t
 	return conn.Close()
 }
 
-func buildSandboxPlaceHolder(sandboxCR *sandboxv1alpha1.Sandbox, entry *sandboxEntry) *types.SandboxInfo {
+func buildSandboxPlaceHolder(sandboxCR agentsandbox.Object, entry *sandboxEntry) *types.SandboxInfo {
 	var expiresAt time.Time
-	if sandboxCR.Spec.Lifecycle.ShutdownTime != nil {
-		expiresAt = sandboxCR.Spec.Lifecycle.ShutdownTime.Time
+	if shutdownTime := agentsandbox.SandboxShutdownTime(sandboxCR); shutdownTime != nil {
+		expiresAt = shutdownTime.Time
 	} else {
 		expiresAt = time.Now().Add(DefaultSandboxTTL)
 	}
@@ -70,11 +70,11 @@ func buildSandboxPlaceHolder(sandboxCR *sandboxv1alpha1.Sandbox, entry *sandboxE
 	}
 }
 
-func buildSandboxInfo(sandbox *sandboxv1alpha1.Sandbox, podIP string, entry *sandboxEntry) *types.SandboxInfo {
+func buildSandboxInfo(sandbox agentsandbox.Object, podIP string, entry *sandboxEntry) *types.SandboxInfo {
 	createdAt := sandbox.GetCreationTimestamp().Time
 	expiresAt := createdAt.Add(DefaultSandboxTTL)
-	if sandbox.Spec.Lifecycle.ShutdownTime != nil {
-		expiresAt = sandbox.Spec.Lifecycle.ShutdownTime.Time
+	if shutdownTime := agentsandbox.SandboxShutdownTime(sandbox); shutdownTime != nil {
+		expiresAt = shutdownTime.Time
 	}
 	accesses := make([]types.SandboxEntryPoint, 0, len(entry.Ports))
 	for _, port := range entry.Ports {
@@ -105,11 +105,9 @@ func buildSandboxInfo(sandbox *sandboxv1alpha1.Sandbox, podIP string, entry *san
 
 // getSandboxStatus extracts status from Sandbox CRD conditions.
 // Returns sandboxStatusReady when the sandbox is ready, sandboxStatusNotReady otherwise.
-func getSandboxStatus(sandbox *sandboxv1alpha1.Sandbox) string {
-	for _, condition := range sandbox.Status.Conditions {
-		if condition.Type == string(sandboxv1alpha1.SandboxConditionReady) && condition.Status == metav1.ConditionTrue {
-			return sandboxStatusReady
-		}
+func getSandboxStatus(sandbox agentsandbox.Object) string {
+	if agentsandbox.SandboxStatus(sandbox) == sandboxStatusReady {
+		return sandboxStatusReady
 	}
 	return sandboxStatusNotReady
 }

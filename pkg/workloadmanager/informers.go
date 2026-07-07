@@ -23,6 +23,7 @@ import (
 
 	cubeinformers "github.com/volcano-sh/agentcube/client-go/informers/externalversions"
 	cubelisters "github.com/volcano-sh/agentcube/client-go/listers/runtime/v1alpha1"
+	"github.com/volcano-sh/agentcube/pkg/workloadmanager/agentsandbox"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -39,16 +40,8 @@ var (
 		Version:  "v1alpha1",
 		Resource: "codeinterpreters",
 	}
-	SandboxGVR = schema.GroupVersionResource{
-		Group:    "agents.x-k8s.io",
-		Version:  "v1alpha1",
-		Resource: "sandboxes",
-	}
-	SandboxClaimGVR = schema.GroupVersionResource{
-		Group:    "extensions.agents.x-k8s.io",
-		Version:  "v1alpha1",
-		Resource: "sandboxclaims",
-	}
+	SandboxGVR      = agentsandbox.SandboxGVR
+	SandboxClaimGVR = agentsandbox.SandboxClaimGVR
 )
 
 type Informers struct {

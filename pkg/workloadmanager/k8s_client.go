@@ -26,6 +26,7 @@ import (
 	cubeversioned "github.com/volcano-sh/agentcube/client-go/clientset/versioned"
 	cubeinformers "github.com/volcano-sh/agentcube/client-go/informers/externalversions"
 	runtimev1alpha1 "github.com/volcano-sh/agentcube/pkg/apis/runtime/v1alpha1"
+	"github.com/volcano-sh/agentcube/pkg/workloadmanager/agentsandbox"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,8 +41,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	sandboxv1alpha1 "sigs.k8s.io/agent-sandbox/api/v1alpha1"
-	extensionsv1alpha1 "sigs.k8s.io/agent-sandbox/extensions/api/v1alpha1"
 )
 
 const (
@@ -126,9 +125,9 @@ func NewK8sClient() (*K8sClient, error) {
 		return nil, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
-	// Create scheme and register agent-sandbox types
+	// Create scheme and register agent-sandbox types through the compatibility adapter.
 	scheme := runtime.NewScheme()
-	if err := sandboxv1alpha1.AddToScheme(scheme); err != nil {
+	if err := agentsandbox.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add agent-sandbox scheme: %w", err)
 	}
 
@@ -214,7 +213,7 @@ func (c *K8sClient) GetOrCreateUserK8sClient(userToken, namespace, serviceAccoun
 }
 
 // createSandbox creates a Sandbox using the provided dynamic client
-func createSandbox(ctx context.Context, client dynamic.Interface, sandbox *sandboxv1alpha1.Sandbox) (*SandboxInfo, error) {
+func createSandbox(ctx context.Context, client dynamic.Interface, sandbox agentsandbox.Object) (*SandboxInfo, error) {
 	// Convert to unstructured for dynamic client
 	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(sandbox)
 	if err != nil {
@@ -224,7 +223,7 @@ func createSandbox(ctx context.Context, client dynamic.Interface, sandbox *sandb
 	unstructuredSandbox := &unstructured.Unstructured{Object: unstructuredObj}
 
 	// Create Sandbox
-	created, err := client.Resource(SandboxGVR).Namespace(sandbox.Namespace).Create(
+	created, err := client.Resource(SandboxGVR).Namespace(sandbox.GetNamespace()).Create(
 		ctx,
 		unstructuredSandbox,
 		metav1.CreateOptions{},
@@ -240,7 +239,7 @@ func createSandbox(ctx context.Context, client dynamic.Interface, sandbox *sandb
 }
 
 // createSandboxClaim creates a SandboxClaim using the provided dynamic client
-func createSandboxClaim(ctx context.Context, client dynamic.Interface, sandboxClaim *extensionsv1alpha1.SandboxClaim) error {
+func createSandboxClaim(ctx context.Context, client dynamic.Interface, sandboxClaim agentsandbox.Object) error {
 	// Convert to unstructured for dynamic client
 	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(sandboxClaim)
 	if err != nil {
@@ -250,7 +249,7 @@ func createSandboxClaim(ctx context.Context, client dynamic.Interface, sandboxCl
 	unstructuredSandbox := &unstructured.Unstructured{Object: unstructuredObj}
 
 	// Create SandboxClaim
-	_, err = client.Resource(SandboxClaimGVR).Namespace(sandboxClaim.Namespace).Create(
+	_, err = client.Resource(SandboxClaimGVR).Namespace(sandboxClaim.GetNamespace()).Create(
 		ctx,
 		unstructuredSandbox,
 		metav1.CreateOptions{},
@@ -291,12 +290,12 @@ func deleteSandboxClaim(ctx context.Context, client dynamic.Interface, namespace
 }
 
 // CreateSandboxClaim creates a new SandboxClaim using user's permissions
-func (u *UserK8sClient) CreateSandboxClaim(ctx context.Context, sandboxClaim *extensionsv1alpha1.SandboxClaim) error {
+func (u *UserK8sClient) CreateSandboxClaim(ctx context.Context, sandboxClaim agentsandbox.Object) error {
 	return createSandboxClaim(ctx, u.dynamicClient, sandboxClaim)
 }
 
 // CreateSandbox creates a new Sandbox using user's permissions
-func (u *UserK8sClient) CreateSandbox(ctx context.Context, sandbox *sandboxv1alpha1.Sandbox) (*SandboxInfo, error) {
+func (u *UserK8sClient) CreateSandbox(ctx context.Context, sandbox agentsandbox.Object) (*SandboxInfo, error) {
 	return createSandbox(ctx, u.dynamicClient, sandbox)
 }
 

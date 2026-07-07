@@ -28,14 +28,12 @@ import (
 	"github.com/volcano-sh/agentcube/pkg/api"
 	runtimev1alpha1 "github.com/volcano-sh/agentcube/pkg/apis/runtime/v1alpha1"
 	"github.com/volcano-sh/agentcube/pkg/common/types"
+	"github.com/volcano-sh/agentcube/pkg/workloadmanager/agentsandbox"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
-	sandboxv1alpha1 "sigs.k8s.io/agent-sandbox/api/v1alpha1"
-	extensionsv1alpha1 "sigs.k8s.io/agent-sandbox/extensions/api/v1alpha1"
 )
 
 // Constants for Router's identity resources
@@ -153,7 +151,7 @@ type buildSandboxClaimParams struct {
 }
 
 // buildSandboxObject builds a Sandbox object from parameters
-func buildSandboxObject(params *buildSandboxParams) *sandboxv1alpha1.Sandbox {
+func buildSandboxObject(params *buildSandboxParams) agentsandbox.Object {
 	if params.ttl == 0 {
 		params.ttl = DefaultSandboxTTL
 	}
@@ -173,90 +171,63 @@ func buildSandboxObject(params *buildSandboxParams) *sandboxv1alpha1.Sandbox {
 	podAnnotations := make(map[string]string, len(params.podAnnotations))
 	maps.Copy(podAnnotations, params.podAnnotations)
 
-	// Create Sandbox object using agent-sandbox types
-	sandbox := &sandboxv1alpha1.Sandbox{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "agents.x-k8s.io/v1alpha1",
-			Kind:       types.SandboxKind,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      params.sandboxName,
-			Namespace: params.namespace,
-			Labels: map[string]string{
-				SessionIdLabelKey:    params.sessionID,
-				WorkloadNameLabelKey: params.workloadName,
-				"managed-by":         "agentcube-workload-manager",
-			},
-			Annotations: map[string]string{
-				IdleTimeoutAnnotationKey: params.idleTimeout.String(),
-			},
-		},
-		Spec: sandboxv1alpha1.SandboxSpec{
-			PodTemplate: sandboxv1alpha1.PodTemplate{
-				Spec: params.podSpec,
-				ObjectMeta: sandboxv1alpha1.PodMetadata{
-					Labels:      podLabels,
-					Annotations: podAnnotations,
-				},
-			},
-			Lifecycle: sandboxv1alpha1.Lifecycle{
-				ShutdownTime: &shutdownTime,
-			},
-			Replicas: ptr.To[int32](1),
-		},
+	labels := map[string]string{
+		SessionIdLabelKey:    params.sessionID,
+		WorkloadNameLabelKey: params.workloadName,
+		"managed-by":         "agentcube-workload-manager",
+	}
+	annotations := map[string]string{
+		IdleTimeoutAnnotationKey: params.idleTimeout.String(),
 	}
 
 	// Ownership metadata for RLAC
 	if params.ownerID != "" {
-		sandbox.ObjectMeta.Annotations["agentcube.io/owner"] = params.ownerID
-		sandbox.ObjectMeta.Labels["agentcube.io/owner-hash"] = sha256Short(params.ownerID)
+		annotations["agentcube.io/owner"] = params.ownerID
+		labels["agentcube.io/owner-hash"] = sha256Short(params.ownerID)
 	}
 
-	return sandbox
+	return agentsandbox.NewSandbox(agentsandbox.SandboxParams{
+		Namespace:      params.namespace,
+		Name:           params.sandboxName,
+		ShutdownTime:   shutdownTime,
+		PodSpec:        params.podSpec,
+		PodLabels:      podLabels,
+		PodAnnotations: podAnnotations,
+		Labels:         labels,
+		Annotations:    annotations,
+	})
 }
 
-func buildSandboxClaimObject(params *buildSandboxClaimParams) *extensionsv1alpha1.SandboxClaim {
+func buildSandboxClaimObject(params *buildSandboxClaimParams) agentsandbox.Object {
 	idleTimeout := params.idleTimeout
 	if idleTimeout == 0 {
 		idleTimeout = DefaultSandboxIdleTimeout
 	}
-	sandboxClaim := &extensionsv1alpha1.SandboxClaim{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "extensions.agents.x-k8s.io/v1alpha1",
-			Kind:       types.SandboxClaimsKind,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      params.name,
-			Namespace: params.namespace,
-			Labels: map[string]string{
-				SessionIdLabelKey:   params.sessionID,
-				SandboxNameLabelKey: params.name,
-			},
-			Annotations: map[string]string{
-				IdleTimeoutAnnotationKey: idleTimeout.String(),
-			},
-		},
-		Spec: extensionsv1alpha1.SandboxClaimSpec{
-			TemplateRef: extensionsv1alpha1.SandboxTemplateRef{
-				Name: params.sandboxTemplateName,
-			},
-		},
+	labels := map[string]string{
+		SessionIdLabelKey:   params.sessionID,
+		SandboxNameLabelKey: params.name,
 	}
-	// Set owner reference to the CodeInterpreter that creates this SandboxClaim
-	if params.ownerReference != nil {
-		sandboxClaim.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*params.ownerReference}
+	annotations := map[string]string{
+		IdleTimeoutAnnotationKey: idleTimeout.String(),
 	}
 
 	// Ownership metadata for RLAC
 	if params.ownerID != "" {
-		sandboxClaim.ObjectMeta.Annotations["agentcube.io/owner"] = params.ownerID
-		sandboxClaim.ObjectMeta.Labels["agentcube.io/owner-hash"] = sha256Short(params.ownerID)
+		annotations["agentcube.io/owner"] = params.ownerID
+		labels["agentcube.io/owner-hash"] = sha256Short(params.ownerID)
 	}
 
-	return sandboxClaim
+	return agentsandbox.NewSandboxClaim(agentsandbox.SandboxClaimParams{
+		Namespace:      params.namespace,
+		Name:           params.name,
+		WarmPoolName:   params.sandboxTemplateName,
+		Labels:         labels,
+		Annotations:    annotations,
+		OwnerReference: params.ownerReference,
+	})
 }
 
-func buildSandboxByAgentRuntime(namespace string, name string, ownerID string, ifm *Informers) (*sandboxv1alpha1.Sandbox, *sandboxEntry, error) {
+func buildSandboxByAgentRuntime(namespace string, name string, ownerID string, ifm *Informers) (agentsandbox.Object, *sandboxEntry, error) {
 	agentRuntimeObj, err := ifm.AgentRuntimeLister.AgentRuntimes(namespace).Get(name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -322,7 +293,7 @@ func buildCodeInterpreterEnvVars(templateEnv []corev1.EnvVar, authMode runtimev1
 	return envVars
 }
 
-func buildSandboxByCodeInterpreter(namespace string, codeInterpreterName string, ownerID string, informer *Informers) (*sandboxv1alpha1.Sandbox, *extensionsv1alpha1.SandboxClaim, *sandboxEntry, error) {
+func buildSandboxByCodeInterpreter(namespace string, codeInterpreterName string, ownerID string, informer *Informers) (agentsandbox.Object, agentsandbox.Object, *sandboxEntry, error) {
 	codeInterpreterObj, err := informer.CodeInterpreterLister.CodeInterpreters(namespace).Get(codeInterpreterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -377,19 +348,18 @@ func buildSandboxByCodeInterpreter(namespace string, codeInterpreterName string,
 				UID:        codeInterpreterObj.UID,
 			},
 		})
-		simpleSandbox := &sandboxv1alpha1.Sandbox{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      sandboxName,
-				Labels: map[string]string{
-					SessionIdLabelKey: sessionID,
-				},
-			},
-		}
+		ttl := DefaultSandboxTTL
 		if codeInterpreterObj.Spec.MaxSessionDuration != nil {
-			shutdownTime := metav1.NewTime(time.Now().Add(codeInterpreterObj.Spec.MaxSessionDuration.Duration))
-			simpleSandbox.Spec.Lifecycle.ShutdownTime = &shutdownTime
+			ttl = codeInterpreterObj.Spec.MaxSessionDuration.Duration
 		}
+		simpleSandbox := agentsandbox.NewSandbox(agentsandbox.SandboxParams{
+			Namespace:    namespace,
+			Name:         sandboxName,
+			ShutdownTime: metav1.NewTime(time.Now().Add(ttl)),
+			Labels: map[string]string{
+				SessionIdLabelKey: sessionID,
+			},
+		})
 		sandboxEntry.Kind = types.SandboxClaimsKind
 		return simpleSandbox, sandboxClaim, sandboxEntry, nil
 	}

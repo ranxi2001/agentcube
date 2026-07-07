@@ -36,8 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	runtimev1alpha1 "github.com/volcano-sh/agentcube/pkg/apis/runtime/v1alpha1"
-	sandboxv1alpha1 "sigs.k8s.io/agent-sandbox/api/v1alpha1"
-	extensionsv1alpha1 "sigs.k8s.io/agent-sandbox/extensions/api/v1alpha1"
+	"github.com/volcano-sh/agentcube/pkg/workloadmanager/agentsandbox"
 )
 
 // CodeInterpreterReconciler reconciles a CodeInterpreter object
@@ -141,23 +140,15 @@ func (r *CodeInterpreterReconciler) ensureSandboxTemplate(ctx context.Context, c
 	}
 
 	templateName := ci.Name
-	sandboxTemplate := &extensionsv1alpha1.SandboxTemplate{}
+	sandboxTemplate := agentsandbox.NewSandboxTemplateObject()
 	err := r.Get(ctx, types.NamespacedName{Name: templateName, Namespace: ci.Namespace}, sandboxTemplate)
 
 	// Convert CodeInterpreterSandboxTemplate to PodTemplate
-	podTemplate := r.convertToPodTemplate(template, ci)
+	podSpec := r.convertToPodSpec(template, ci)
 
 	if errors.IsNotFound(err) {
 		// Create new SandboxTemplate
-		sandboxTemplate = &extensionsv1alpha1.SandboxTemplate{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      templateName,
-				Namespace: ci.Namespace,
-			},
-			Spec: extensionsv1alpha1.SandboxTemplateSpec{
-				PodTemplate: podTemplate,
-			},
-		}
+		sandboxTemplate = agentsandbox.NewSandboxTemplate(ci.Namespace, templateName, podSpec)
 
 		// Set owner reference
 		if err := controllerutil.SetControllerReference(ci, sandboxTemplate, r.Scheme); err != nil {
@@ -175,8 +166,12 @@ func (r *CodeInterpreterReconciler) ensureSandboxTemplate(ctx context.Context, c
 	}
 
 	// Update existing SandboxTemplate if needed
-	if !r.podTemplateEqual(sandboxTemplate.Spec.PodTemplate, podTemplate) {
-		sandboxTemplate.Spec.PodTemplate = podTemplate
+	if existingPodSpec, ok := agentsandbox.SandboxTemplatePodSpec(sandboxTemplate); !ok {
+		return ctrl.Result{}, fmt.Errorf("unexpected SandboxTemplate object type %T", sandboxTemplate)
+	} else if !r.podTemplateEqual(existingPodSpec, podSpec) {
+		if ok := agentsandbox.SetSandboxTemplatePodSpec(sandboxTemplate, podSpec); !ok {
+			return ctrl.Result{}, fmt.Errorf("unexpected SandboxTemplate object type %T", sandboxTemplate)
+		}
 		if err := r.Update(ctx, sandboxTemplate); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update SandboxTemplate: %w", err)
 		}
@@ -193,23 +188,12 @@ func (r *CodeInterpreterReconciler) ensureSandboxWarmPool(ctx context.Context, c
 
 	templateName := ci.Name
 	warmPoolName := ci.Name
-	warmPool := &extensionsv1alpha1.SandboxWarmPool{}
+	warmPool := agentsandbox.NewSandboxWarmPoolObject()
 	err := r.Get(ctx, types.NamespacedName{Name: warmPoolName, Namespace: ci.Namespace}, warmPool)
 
 	if errors.IsNotFound(err) {
 		// Create new SandboxWarmPool
-		warmPool = &extensionsv1alpha1.SandboxWarmPool{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      warmPoolName,
-				Namespace: ci.Namespace,
-			},
-			Spec: extensionsv1alpha1.SandboxWarmPoolSpec{
-				Replicas: *ci.Spec.WarmPoolSize,
-				TemplateRef: extensionsv1alpha1.SandboxTemplateRef{
-					Name: templateName,
-				},
-			},
-		}
+		warmPool = agentsandbox.NewSandboxWarmPool(ci.Namespace, warmPoolName, templateName, *ci.Spec.WarmPoolSize)
 
 		// Set owner reference
 		if err := controllerutil.SetControllerReference(ci, warmPool, r.Scheme); err != nil {
@@ -228,16 +212,23 @@ func (r *CodeInterpreterReconciler) ensureSandboxWarmPool(ctx context.Context, c
 
 	// Update existing SandboxWarmPool if needed
 	needsUpdate := false
-	if warmPool.Spec.Replicas != *ci.Spec.WarmPoolSize {
-		warmPool.Spec.Replicas = *ci.Spec.WarmPoolSize
+	replicas, currentTemplateName, ok := agentsandbox.SandboxWarmPoolSpec(warmPool)
+	if !ok {
+		return fmt.Errorf("unexpected SandboxWarmPool object type %T", warmPool)
+	}
+	if replicas != *ci.Spec.WarmPoolSize {
+		replicas = *ci.Spec.WarmPoolSize
 		needsUpdate = true
 	}
-	if warmPool.Spec.TemplateRef.Name != templateName {
-		warmPool.Spec.TemplateRef.Name = templateName
+	if currentTemplateName != templateName {
+		currentTemplateName = templateName
 		needsUpdate = true
 	}
 
 	if needsUpdate {
+		if ok := agentsandbox.SetSandboxWarmPoolSpec(warmPool, replicas, currentTemplateName); !ok {
+			return fmt.Errorf("unexpected SandboxWarmPool object type %T", warmPool)
+		}
 		if err := r.Update(ctx, warmPool); err != nil {
 			return fmt.Errorf("failed to update SandboxWarmPool: %w", err)
 		}
@@ -249,7 +240,7 @@ func (r *CodeInterpreterReconciler) ensureSandboxWarmPool(ctx context.Context, c
 // deleteSandboxWarmPool deletes the SandboxWarmPool if it exists
 func (r *CodeInterpreterReconciler) deleteSandboxWarmPool(ctx context.Context, ci *runtimev1alpha1.CodeInterpreter) error {
 	warmPoolName := ci.Name
-	warmPool := &extensionsv1alpha1.SandboxWarmPool{}
+	warmPool := agentsandbox.NewSandboxWarmPoolObject()
 	err := r.Get(ctx, types.NamespacedName{Name: warmPoolName, Namespace: ci.Namespace}, warmPool)
 	if errors.IsNotFound(err) {
 		return nil
@@ -269,7 +260,7 @@ func (r *CodeInterpreterReconciler) deleteSandboxWarmPool(ctx context.Context, c
 // deleteSandboxTemplate deletes the SandboxTemplate if it exists
 func (r *CodeInterpreterReconciler) deleteSandboxTemplate(ctx context.Context, ci *runtimev1alpha1.CodeInterpreter) error {
 	templateName := ci.Name
-	sandboxTemplate := &extensionsv1alpha1.SandboxTemplate{}
+	sandboxTemplate := agentsandbox.NewSandboxTemplateObject()
 	err := r.Get(ctx, types.NamespacedName{Name: templateName, Namespace: ci.Namespace}, sandboxTemplate)
 	if errors.IsNotFound(err) {
 		return nil
@@ -286,8 +277,8 @@ func (r *CodeInterpreterReconciler) deleteSandboxTemplate(ctx context.Context, c
 	return nil
 }
 
-// convertToPodTemplate converts CodeInterpreterSandboxTemplate to sandboxv1alpha1.PodTemplate
-func (r *CodeInterpreterReconciler) convertToPodTemplate(template *runtimev1alpha1.CodeInterpreterSandboxTemplate, ci *runtimev1alpha1.CodeInterpreter) sandboxv1alpha1.PodTemplate {
+// convertToPodSpec converts CodeInterpreterSandboxTemplate to the pod spec used by agent-sandbox.
+func (r *CodeInterpreterReconciler) convertToPodSpec(template *runtimev1alpha1.CodeInterpreterSandboxTemplate, ci *runtimev1alpha1.CodeInterpreter) corev1.PodSpec {
 	// Normalize RuntimeClassName: if it's an empty string, set it to nil
 	runtimeClassName := template.RuntimeClassName
 	if runtimeClassName != nil && *runtimeClassName == "" {
@@ -322,15 +313,13 @@ func (r *CodeInterpreterReconciler) convertToPodTemplate(template *runtimev1alph
 		RuntimeClassName: runtimeClassName,
 	}
 
-	return sandboxv1alpha1.PodTemplate{
-		Spec: podSpec,
-	}
+	return podSpec
 }
 
 // podTemplateEqual checks if two PodTemplates are equal
-func (r *CodeInterpreterReconciler) podTemplateEqual(a, b sandboxv1alpha1.PodTemplate) bool {
+func (r *CodeInterpreterReconciler) podTemplateEqual(a, b corev1.PodSpec) bool {
 	// Use reflect.DeepEqual for a comprehensive comparison.
-	return reflect.DeepEqual(a.Spec, b.Spec)
+	return reflect.DeepEqual(a, b)
 }
 
 // SetupWithManager sets up the controller with the Manager.

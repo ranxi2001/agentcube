@@ -34,11 +34,12 @@ import (
 	runtimev1alpha1 "github.com/volcano-sh/agentcube/pkg/apis/runtime/v1alpha1"
 	"github.com/volcano-sh/agentcube/pkg/common/types"
 	"github.com/volcano-sh/agentcube/pkg/store"
+	"github.com/volcano-sh/agentcube/pkg/workloadmanager/agentsandbox"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	sandboxv1alpha1 "sigs.k8s.io/agent-sandbox/api/v1alpha1"
-	"sigs.k8s.io/agent-sandbox/controllers"
+	sandboxv1beta1 "sigs.k8s.io/agent-sandbox/api/v1beta1"
 	extensionsv1alpha1 "sigs.k8s.io/agent-sandbox/extensions/api/v1alpha1"
 )
 
@@ -48,18 +49,28 @@ type fakeStore struct {
 	updateErr   error
 	storeCalls  int
 	updateCalls int
+	stored      *types.SandboxInfo
+	updated     *types.SandboxInfo
 }
 
 func (f *fakeStore) Ping(_ context.Context) error { return nil }
 func (f *fakeStore) GetSandboxBySessionID(_ context.Context, _ string) (*types.SandboxInfo, error) {
 	return nil, store.ErrNotFound
 }
-func (f *fakeStore) StoreSandbox(_ context.Context, _ *types.SandboxInfo) error {
+func (f *fakeStore) StoreSandbox(_ context.Context, info *types.SandboxInfo) error {
 	f.storeCalls++
+	if info != nil {
+		copied := *info
+		f.stored = &copied
+	}
 	return f.storeErr
 }
-func (f *fakeStore) UpdateSandbox(_ context.Context, _ *types.SandboxInfo) error {
+func (f *fakeStore) UpdateSandbox(_ context.Context, info *types.SandboxInfo) error {
 	f.updateCalls++
+	if info != nil {
+		copied := *info
+		f.updated = &copied
+	}
 	return f.updateErr
 }
 func (f *fakeStore) DeleteSandboxBySessionID(_ context.Context, _ string) error { return nil }
@@ -80,7 +91,7 @@ func readySandbox() *sandboxv1alpha1.Sandbox {
 			Name:              "sandbox-1",
 			Namespace:         "ns-1",
 			UID:               "uid-123",
-			Annotations:       map[string]string{controllers.SandboxPodNameAnnotation: "pod-1"},
+			Annotations:       map[string]string{sandboxv1alpha1.SandboxPodNameAnnotation: "pod-1"},
 			CreationTimestamp: metav1.Now(),
 		},
 		Status: sandboxv1alpha1.SandboxStatus{Conditions: []metav1.Condition{{
@@ -191,14 +202,14 @@ func TestServerCreateSandbox(t *testing.T) {
 	patches := gomonkey.NewPatches()
 	defer patches.Reset()
 
-	patches.ApplyFunc(createSandbox, func(_ context.Context, _ dynamic.Interface, sandbox *sandboxv1alpha1.Sandbox) (*SandboxInfo, error) {
+	patches.ApplyFunc(createSandbox, func(_ context.Context, _ dynamic.Interface, sandbox agentsandbox.Object) (*SandboxInfo, error) {
 		createCalls++
 		if cur.createSandboxErr != nil {
 			return nil, cur.createSandboxErr
 		}
-		return &SandboxInfo{Name: sandbox.Name, Namespace: sandbox.Namespace}, nil
+		return &SandboxInfo{Name: sandbox.GetName(), Namespace: sandbox.GetNamespace()}, nil
 	})
-	patches.ApplyFunc(createSandboxClaim, func(_ context.Context, _ dynamic.Interface, _ *extensionsv1alpha1.SandboxClaim) error {
+	patches.ApplyFunc(createSandboxClaim, func(_ context.Context, _ dynamic.Interface, _ agentsandbox.Object) error {
 		claimCalls++
 		return cur.createClaimErr
 	})
@@ -237,7 +248,7 @@ func TestServerCreateSandbox(t *testing.T) {
 				resultChan <- SandboxStatusUpdate{Sandbox: sb.DeepCopy()}
 			}
 
-			claim := (*extensionsv1alpha1.SandboxClaim)(nil)
+			var claim agentsandbox.Object
 			if tt.sandboxClaim {
 				claim = &extensionsv1alpha1.SandboxClaim{ObjectMeta: metav1.ObjectMeta{Name: sb.Name, Namespace: sb.Namespace}}
 			}
@@ -270,12 +281,84 @@ func TestServerCreateSandbox(t *testing.T) {
 	}
 }
 
+func TestServerCreateSandboxClaimKeepsClaimIdentity(t *testing.T) {
+	fakeStoreInst := &fakeStore{}
+	server := &Server{
+		config:      &Config{SandboxReadyProbeTimeout: 5 * time.Millisecond, SandboxReadyProbeInterval: time.Millisecond},
+		k8sClient:   &K8sClient{},
+		storeClient: fakeStoreInst,
+	}
+
+	claimName := "claim-1"
+	adoptedSandboxName := "warm-sandbox-1"
+	placeholderObj := agentsandbox.NewSandbox(agentsandbox.SandboxParams{
+		Namespace:    "ns-1",
+		Name:         claimName,
+		ShutdownTime: metav1.Now(),
+	})
+	placeholder, ok := placeholderObj.(*sandboxv1beta1.Sandbox)
+	require.True(t, ok)
+	claim := &extensionsv1alpha1.SandboxClaim{ObjectMeta: metav1.ObjectMeta{Name: claimName, Namespace: "ns-1"}}
+	adoptedSandbox := &sandboxv1beta1.Sandbox{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              adoptedSandboxName,
+			Namespace:         "ns-1",
+			UID:               "adopted-uid",
+			Annotations:       map[string]string{sandboxv1beta1.SandboxPodNameAnnotation: "warm-pod-1"},
+			CreationTimestamp: metav1.Now(),
+		},
+		Status: sandboxv1beta1.SandboxStatus{Conditions: []metav1.Condition{{
+			Type:   string(sandboxv1beta1.SandboxConditionReady),
+			Status: metav1.ConditionTrue,
+		}}},
+	}
+
+	resultChan := make(chan SandboxStatusUpdate, 1)
+	resultChan <- SandboxStatusUpdate{Sandbox: adoptedSandbox}
+
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+
+	claimCalls := 0
+	patches.ApplyFunc(createSandboxClaim, func(_ context.Context, _ dynamic.Interface, got agentsandbox.Object) error {
+		claimCalls++
+		require.Equal(t, claimName, got.GetName())
+		return nil
+	})
+	patches.ApplyFunc(deleteSandboxClaim, func(_ context.Context, _ dynamic.Interface, _, _ string) error {
+		t.Fatal("deleteSandboxClaim should not be called on successful creation")
+		return nil
+	})
+	patches.ApplyMethod(reflect.TypeOf((*K8sClient)(nil)), "GetSandboxPodIP", func(_ *K8sClient, _ context.Context, namespace, sandboxName, podName string) (string, error) {
+		require.Equal(t, "ns-1", namespace)
+		require.Equal(t, adoptedSandboxName, sandboxName)
+		require.Equal(t, "warm-pod-1", podName)
+		return "10.0.0.9", nil
+	})
+	patches.ApplyPrivateMethod(reflect.TypeOf(server), "waitForSandboxEntryPointsReady", func(_ *Server, _ context.Context, _ string, _ *sandboxEntry) error {
+		return nil
+	})
+
+	entry := makeEntry()
+	entry.Kind = types.SandboxClaimsKind
+	resp, err := server.createSandbox(context.Background(), nil, placeholder, claim, entry, resultChan)
+
+	require.NoError(t, err)
+	require.Equal(t, 1, claimCalls)
+	require.Equal(t, claimName, resp.SandboxName)
+	require.NotNil(t, fakeStoreInst.updated)
+	require.Equal(t, types.SandboxClaimsKind, fakeStoreInst.updated.Kind)
+	require.Equal(t, claimName, fakeStoreInst.updated.Name)
+	require.Equal(t, string(adoptedSandbox.UID), fakeStoreInst.updated.SandboxID)
+}
+
 func newFakeServer() *Server {
 	return &Server{
-		config:            &Config{SandboxReadyProbeTimeout: 5 * time.Millisecond, SandboxReadyProbeInterval: time.Millisecond},
-		k8sClient:         &K8sClient{},
-		sandboxController: &SandboxReconciler{},
-		storeClient:       &fakeStore{},
+		config:                 &Config{SandboxReadyProbeTimeout: 5 * time.Millisecond, SandboxReadyProbeInterval: time.Millisecond},
+		k8sClient:              &K8sClient{},
+		sandboxController:      &SandboxReconciler{},
+		sandboxClaimController: &SandboxClaimReconciler{},
+		storeClient:            &fakeStore{},
 	}
 }
 
@@ -416,12 +499,12 @@ func TestHandleSandboxCreate(t *testing.T) {
 			c.Request = req
 
 			sb, entry := makeSandbox(tc.kind, "ns", "sandbox-1")
-			claim := &extensionsv1alpha1.SandboxClaim{ObjectMeta: metav1.ObjectMeta{Name: sb.Name, Namespace: sb.Namespace}}
+			claim := agentsandbox.Object(&extensionsv1alpha1.SandboxClaim{ObjectMeta: metav1.ObjectMeta{Name: sb.Name, Namespace: sb.Namespace}})
 
 			patches := gomonkey.NewPatches()
 			defer patches.Reset()
 
-			patches.ApplyFunc(buildSandboxByAgentRuntime, func(_, _, _ string, _ *Informers) (*sandboxv1alpha1.Sandbox, *sandboxEntry, error) {
+			patches.ApplyFunc(buildSandboxByAgentRuntime, func(_, _, _ string, _ *Informers) (agentsandbox.Object, *sandboxEntry, error) {
 				if tc.kind != types.AgentRuntimeKind {
 					return nil, nil, errors.New("unexpected kind")
 				}
@@ -431,7 +514,7 @@ func TestHandleSandboxCreate(t *testing.T) {
 				return sb, entry, nil
 			})
 
-			patches.ApplyFunc(buildSandboxByCodeInterpreter, func(_, _, _ string, _ *Informers) (*sandboxv1alpha1.Sandbox, *extensionsv1alpha1.SandboxClaim, *sandboxEntry, error) {
+			patches.ApplyFunc(buildSandboxByCodeInterpreter, func(_, _, _ string, _ *Informers) (agentsandbox.Object, agentsandbox.Object, *sandboxEntry, error) {
 				if tc.kind != types.CodeInterpreterKind {
 					return nil, nil, nil, errors.New("unexpected kind")
 				}
@@ -442,7 +525,7 @@ func TestHandleSandboxCreate(t *testing.T) {
 			})
 
 			createCalls := 0
-			patches.ApplyPrivateMethod(reflect.TypeOf(fakeServer), "createSandbox", func(_ *Server, _ context.Context, _ dynamic.Interface, _ *sandboxv1alpha1.Sandbox, _ *extensionsv1alpha1.SandboxClaim, _ *sandboxEntry, _ <-chan SandboxStatusUpdate) (*types.CreateSandboxResponse, error) {
+			patches.ApplyPrivateMethod(reflect.TypeOf(fakeServer), "createSandbox", func(_ *Server, _ context.Context, _ dynamic.Interface, _ agentsandbox.Object, _ agentsandbox.Object, _ *sandboxEntry, _ <-chan SandboxStatusUpdate) (*types.CreateSandboxResponse, error) {
 				createCalls++
 				if tc.createErr != nil {
 					return nil, tc.createErr

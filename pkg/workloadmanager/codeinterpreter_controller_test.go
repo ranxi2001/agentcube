@@ -25,13 +25,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	runtimev1alpha1 "github.com/volcano-sh/agentcube/pkg/apis/runtime/v1alpha1"
-	sandboxv1alpha1 "sigs.k8s.io/agent-sandbox/api/v1alpha1"
+	"github.com/volcano-sh/agentcube/pkg/workloadmanager/agentsandbox"
 )
 
 func setupTestReconciler() *CodeInterpreterReconciler {
 	scheme := runtime.NewScheme()
 	_ = runtimev1alpha1.AddToScheme(scheme)
-	_ = sandboxv1alpha1.AddToScheme(scheme)
+	_ = agentsandbox.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
@@ -85,13 +85,13 @@ func TestConvertToPodTemplate_RuntimeClassName_TableDriven(t *testing.T) {
 				},
 			}
 
-			result := reconciler.convertToPodTemplate(template, ci)
+			result := reconciler.convertToPodSpec(template, ci)
 
 			if tt.expectedRuntimeClass == nil {
-				assert.Nil(t, result.Spec.RuntimeClassName)
+				assert.Nil(t, result.RuntimeClassName)
 			} else {
-				if assert.NotNil(t, result.Spec.RuntimeClassName) {
-					assert.Equal(t, *tt.expectedRuntimeClass, *result.Spec.RuntimeClassName)
+				if assert.NotNil(t, result.RuntimeClassName) {
+					assert.Equal(t, *tt.expectedRuntimeClass, *result.RuntimeClassName)
 				}
 			}
 		})
@@ -153,9 +153,9 @@ func TestConvertToPodTemplate_AuthMode(t *testing.T) {
 				},
 			}
 
-			result := reconciler.convertToPodTemplate(template, ci)
+			result := reconciler.convertToPodSpec(template, ci)
 
-			envVars := result.Spec.Containers[0].Env
+			envVars := result.Containers[0].Env
 			if tt.expectExactEnvLen {
 				assert.Equal(t, tt.expectedEnvLen, len(envVars))
 			} else {

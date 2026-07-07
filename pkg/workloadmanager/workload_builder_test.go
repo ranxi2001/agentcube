@@ -28,6 +28,7 @@ import (
 	"github.com/volcano-sh/agentcube/pkg/api"
 	runtimev1alpha1 "github.com/volcano-sh/agentcube/pkg/apis/runtime/v1alpha1"
 	"github.com/volcano-sh/agentcube/pkg/common/types"
+	"github.com/volcano-sh/agentcube/pkg/workloadmanager/agentsandbox"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -69,7 +70,7 @@ func TestBuildSandboxObject_DoesNotMutateCallerLabels(t *testing.T) {
 	}
 
 	// The sandbox pod-template labels must contain both original and injected keys.
-	podLabels := sandbox.Spec.PodTemplate.ObjectMeta.Labels
+	podLabels := agentsandbox.SandboxPodLabels(sandbox)
 	if podLabels["app"] != "my-app" {
 		t.Errorf("expected pod label app=my-app, got %q", podLabels["app"])
 	}
@@ -106,7 +107,7 @@ func TestBuildSandboxObject_NilLabels(t *testing.T) {
 
 	sandbox := buildSandboxObject(params)
 
-	podLabels := sandbox.Spec.PodTemplate.ObjectMeta.Labels
+	podLabels := agentsandbox.SandboxPodLabels(sandbox)
 	if podLabels[SessionIdLabelKey] != "session-456" {
 		t.Errorf("expected %s=session-456, got %q", SessionIdLabelKey, podLabels[SessionIdLabelKey])
 	}
@@ -148,7 +149,7 @@ func TestBuildSandboxObject_WorkloadNameLabel(t *testing.T) {
 			}
 			sandbox := buildSandboxObject(params)
 
-			got := sandbox.ObjectMeta.Labels[WorkloadNameLabelKey]
+			got := sandbox.GetLabels()[WorkloadNameLabelKey]
 			if got != tt.wantLabel {
 				t.Errorf("expected %s=%q, got %q", WorkloadNameLabelKey, tt.wantLabel, got)
 			}
@@ -176,26 +177,26 @@ func TestBuildSandboxClaimObject(t *testing.T) {
 		}
 		claim := buildSandboxClaimObject(params)
 
-		if claim.Namespace != "test-ns" {
-			t.Errorf("expected namespace test-ns, got %q", claim.Namespace)
+		if claim.GetNamespace() != "test-ns" {
+			t.Errorf("expected namespace test-ns, got %q", claim.GetNamespace())
 		}
-		if claim.Name != "claim-abc" {
-			t.Errorf("expected name claim-abc, got %q", claim.Name)
+		if claim.GetName() != "claim-abc" {
+			t.Errorf("expected name claim-abc, got %q", claim.GetName())
 		}
-		if claim.Spec.TemplateRef.Name != "my-ci" {
-			t.Errorf("expected templateRef name my-ci, got %q", claim.Spec.TemplateRef.Name)
+		if agentsandbox.SandboxClaimWarmPoolName(claim) != "my-ci" {
+			t.Errorf("expected templateRef name my-ci, got %q", agentsandbox.SandboxClaimWarmPoolName(claim))
 		}
-		if claim.Labels[SessionIdLabelKey] != "session-claim-test" {
-			t.Errorf("expected label %s=session-claim-test, got %q", SessionIdLabelKey, claim.Labels[SessionIdLabelKey])
+		if claim.GetLabels()[SessionIdLabelKey] != "session-claim-test" {
+			t.Errorf("expected label %s=session-claim-test, got %q", SessionIdLabelKey, claim.GetLabels()[SessionIdLabelKey])
 		}
-		if claim.Annotations[IdleTimeoutAnnotationKey] != "10m0s" {
-			t.Errorf("expected annotation %s=10m0s, got %q", IdleTimeoutAnnotationKey, claim.Annotations[IdleTimeoutAnnotationKey])
+		if claim.GetAnnotations()[IdleTimeoutAnnotationKey] != "10m0s" {
+			t.Errorf("expected annotation %s=10m0s, got %q", IdleTimeoutAnnotationKey, claim.GetAnnotations()[IdleTimeoutAnnotationKey])
 		}
-		if len(claim.OwnerReferences) != 1 {
-			t.Fatalf("expected 1 owner reference, got %d", len(claim.OwnerReferences))
+		if len(claim.GetOwnerReferences()) != 1 {
+			t.Fatalf("expected 1 owner reference, got %d", len(claim.GetOwnerReferences()))
 		}
-		if claim.OwnerReferences[0].Name != "my-ci" {
-			t.Errorf("expected owner ref name my-ci, got %q", claim.OwnerReferences[0].Name)
+		if claim.GetOwnerReferences()[0].Name != "my-ci" {
+			t.Errorf("expected owner ref name my-ci, got %q", claim.GetOwnerReferences()[0].Name)
 		}
 	})
 
@@ -209,12 +210,12 @@ func TestBuildSandboxClaimObject(t *testing.T) {
 		}
 		claim := buildSandboxClaimObject(params)
 
-		if len(claim.OwnerReferences) != 0 {
-			t.Errorf("expected 0 owner references, got %d", len(claim.OwnerReferences))
+		if len(claim.GetOwnerReferences()) != 0 {
+			t.Errorf("expected 0 owner references, got %d", len(claim.GetOwnerReferences()))
 		}
-		if claim.Annotations[IdleTimeoutAnnotationKey] != DefaultSandboxIdleTimeout.String() {
+		if claim.GetAnnotations()[IdleTimeoutAnnotationKey] != DefaultSandboxIdleTimeout.String() {
 			t.Errorf("expected default idle timeout annotation %s, got %q",
-				DefaultSandboxIdleTimeout.String(), claim.Annotations[IdleTimeoutAnnotationKey])
+				DefaultSandboxIdleTimeout.String(), claim.GetAnnotations()[IdleTimeoutAnnotationKey])
 		}
 	})
 }
@@ -415,11 +416,11 @@ func TestBuildSandboxByAgentRuntime_Success(t *testing.T) {
 		t.Fatal("expected entry not to be nil")
 	}
 
-	assertSandboxMetadata(t, sandbox.Labels, sandbox.Name, sandbox.Namespace, testAgentRuntimeName+"-", testAgentRuntimeName, entry.SessionID)
-	assertAgentRuntimePodLabels(t, sandbox.Spec.PodTemplate.ObjectMeta.Labels, sandbox.Name, entry.SessionID)
+	assertSandboxMetadata(t, sandbox.GetLabels(), sandbox.GetName(), sandbox.GetNamespace(), testAgentRuntimeName+"-", testAgentRuntimeName, entry.SessionID)
+	assertAgentRuntimePodLabels(t, agentsandbox.SandboxPodLabels(sandbox), sandbox.GetName(), entry.SessionID)
 
 	// Validate TTL (MaxSessionDuration)
-	if sandbox.Spec.Lifecycle.ShutdownTime == nil {
+	if agentsandbox.SandboxShutdownTime(sandbox) == nil {
 		t.Error("expected shutdown time to be set")
 	}
 
@@ -473,7 +474,7 @@ func TestBuildSandboxByAgentRuntime_DefaultTimeouts(t *testing.T) {
 
 	assert.Equal(t, types.SandboxKind, entry.Kind)
 	assert.Equal(t, DefaultSandboxIdleTimeout, entry.IdleTimeout)
-	assert.Equal(t, sandbox.Name, sandbox.Spec.PodTemplate.ObjectMeta.Labels[SandboxNameLabelKey])
+	assert.Equal(t, sandbox.GetName(), agentsandbox.SandboxPodLabels(sandbox)[SandboxNameLabelKey])
 }
 
 func TestBuildSandboxByAgentRuntime_CustomTimeouts(t *testing.T) {
@@ -515,7 +516,9 @@ func TestBuildSandboxByAgentRuntime_CustomTimeouts(t *testing.T) {
 	assert.NotNil(t, entry)
 
 	assert.Equal(t, 30*time.Minute, entry.IdleTimeout)
-	assert.Nil(t, sandbox.Spec.PodTemplate.Spec.RuntimeClassName)
+	podSpec, ok := agentsandbox.SandboxPodSpec(sandbox)
+	assert.True(t, ok)
+	assert.Nil(t, podSpec.RuntimeClassName)
 }
 
 func TestBuildSandboxByCodeInterpreter_NotFound(t *testing.T) {
@@ -615,13 +618,14 @@ func TestBuildSandboxByCodeInterpreter_SuccessNoWarmPool(t *testing.T) {
 		t.Fatal("expected claim to be nil for non-warm pool path")
 	}
 
-	if !strings.HasPrefix(sandbox.Name, "ci-no-wp-") {
-		t.Errorf("expected sandbox name to start with 'ci-no-wp-', got %q", sandbox.Name)
+	if !strings.HasPrefix(sandbox.GetName(), "ci-no-wp-") {
+		t.Errorf("expected sandbox name to start with 'ci-no-wp-', got %q", sandbox.GetName())
 	}
 	if entry.Kind != types.SandboxKind {
 		t.Errorf("expected entry.Kind to be %q, got %q", types.SandboxKind, entry.Kind)
 	}
-	podSpec := sandbox.Spec.PodTemplate.Spec
+	podSpec, ok := agentsandbox.SandboxPodSpec(sandbox)
+	assert.True(t, ok)
 	if len(podSpec.Containers) != 1 || podSpec.Containers[0].Image != "my-ci-image:latest" {
 		t.Errorf("expected pod container image 'my-ci-image:latest', got %+v", podSpec.Containers)
 	}
@@ -673,17 +677,17 @@ func TestBuildSandboxByCodeInterpreter_SuccessWithWarmPool(t *testing.T) {
 		t.Fatal("expected claim not to be nil for warm pool path")
 	}
 
-	assertSandboxMetadata(t, sandbox.Labels, sandbox.Name, sandbox.Namespace, testCodeInterpreterWarmPool+"-", "", entry.SessionID)
+	assertSandboxMetadata(t, sandbox.GetLabels(), sandbox.GetName(), sandbox.GetNamespace(), testCodeInterpreterWarmPool+"-", "", entry.SessionID)
 	if entry.Kind != types.SandboxClaimsKind {
 		t.Errorf("expected entry.Kind to be %q, got %q", types.SandboxClaimsKind, entry.Kind)
 	}
-	if claim.Spec.TemplateRef.Name != testCodeInterpreterWarmPool {
-		t.Errorf("expected templateRef name %q, got %q", testCodeInterpreterWarmPool, claim.Spec.TemplateRef.Name)
+	if agentsandbox.SandboxClaimWarmPoolName(claim) != testCodeInterpreterWarmPool {
+		t.Errorf("expected templateRef name %q, got %q", testCodeInterpreterWarmPool, agentsandbox.SandboxClaimWarmPoolName(claim))
 	}
-	if len(claim.OwnerReferences) != 1 {
-		t.Fatalf("expected 1 owner reference, got %d", len(claim.OwnerReferences))
+	if len(claim.GetOwnerReferences()) != 1 {
+		t.Fatalf("expected 1 owner reference, got %d", len(claim.GetOwnerReferences()))
 	}
-	assertOwnerReference(t, claim.OwnerReferences[0])
+	assertOwnerReference(t, claim.GetOwnerReferences()[0])
 }
 
 func TestBuildSandboxObject_OwnershipLabels(t *testing.T) {
@@ -719,8 +723,8 @@ func TestBuildSandboxObject_OwnershipLabels(t *testing.T) {
 			}
 			sandbox := buildSandboxObject(params)
 
-			_, hasAnnot := sandbox.ObjectMeta.Annotations["agentcube.io/owner"]
-			_, hasLabel := sandbox.ObjectMeta.Labels["agentcube.io/owner-hash"]
+			_, hasAnnot := sandbox.GetAnnotations()["agentcube.io/owner"]
+			_, hasLabel := sandbox.GetLabels()["agentcube.io/owner-hash"]
 
 			if hasAnnot != tt.wantAnnot {
 				t.Errorf("expected annotation present=%v, got %v", tt.wantAnnot, hasAnnot)
@@ -730,10 +734,10 @@ func TestBuildSandboxObject_OwnershipLabels(t *testing.T) {
 			}
 
 			if tt.ownerID != "" {
-				if sandbox.ObjectMeta.Annotations["agentcube.io/owner"] != tt.ownerID {
-					t.Errorf("expected annotation value %q, got %q", tt.ownerID, sandbox.ObjectMeta.Annotations["agentcube.io/owner"])
+				if sandbox.GetAnnotations()["agentcube.io/owner"] != tt.ownerID {
+					t.Errorf("expected annotation value %q, got %q", tt.ownerID, sandbox.GetAnnotations()["agentcube.io/owner"])
 				}
-				hash := sandbox.ObjectMeta.Labels["agentcube.io/owner-hash"]
+				hash := sandbox.GetLabels()["agentcube.io/owner-hash"]
 				if len(hash) != 63 {
 					t.Errorf("expected owner-hash length 63, got %d", len(hash))
 				}
@@ -775,8 +779,8 @@ func TestBuildSandboxClaimObject_OwnershipLabels(t *testing.T) {
 			}
 			claim := buildSandboxClaimObject(params)
 
-			_, hasAnnot := claim.ObjectMeta.Annotations["agentcube.io/owner"]
-			_, hasLabel := claim.ObjectMeta.Labels["agentcube.io/owner-hash"]
+			_, hasAnnot := claim.GetAnnotations()["agentcube.io/owner"]
+			_, hasLabel := claim.GetLabels()["agentcube.io/owner-hash"]
 
 			if hasAnnot != tt.wantAnnot {
 				t.Errorf("expected annotation present=%v, got %v", tt.wantAnnot, hasAnnot)

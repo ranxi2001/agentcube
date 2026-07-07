@@ -19,14 +19,16 @@ package workloadmanager
 import (
 	"context"
 	"sync"
+	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	sandboxv1alpha1 "sigs.k8s.io/agent-sandbox/api/v1alpha1"
+	"github.com/volcano-sh/agentcube/pkg/workloadmanager/agentsandbox"
 )
 
 type SandboxReconciler struct {
@@ -39,11 +41,11 @@ type SandboxReconciler struct {
 }
 
 type SandboxStatusUpdate struct {
-	Sandbox *sandboxv1alpha1.Sandbox
+	Sandbox agentsandbox.Object
 }
 
 func (r *SandboxReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	sandbox := &sandboxv1alpha1.Sandbox{}
+	sandbox := agentsandbox.NewSandboxObject()
 	if err := r.Get(ctx, req.NamespacedName, sandbox); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -52,7 +54,7 @@ func (r *SandboxReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	klog.V(2).Infof("Sandbox %s/%s is ready, notifying waiter", sandbox.Namespace, sandbox.Name)
+	klog.V(2).Infof("Sandbox %s/%s is ready, notifying waiter", sandbox.GetNamespace(), sandbox.GetName())
 
 	r.mu.Lock()
 	resultChan, exists := r.watchers[req.NamespacedName]
@@ -69,9 +71,9 @@ func (r *SandboxReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// case where the receiver has already gone away (e.g. context canceled).
 		select {
 		case resultChan <- SandboxStatusUpdate{Sandbox: sandbox}:
-			klog.V(2).Infof("Notified waiter about sandbox %s/%s", sandbox.Namespace, sandbox.Name)
+			klog.V(2).Infof("Notified waiter about sandbox %s/%s", sandbox.GetNamespace(), sandbox.GetName())
 		default:
-			klog.V(2).Infof("No receiver for sandbox %s/%s notification, skipping", sandbox.Namespace, sandbox.Name)
+			klog.V(2).Infof("No receiver for sandbox %s/%s notification, skipping", sandbox.GetNamespace(), sandbox.GetName())
 		}
 	}
 
@@ -95,6 +97,85 @@ func (r *SandboxReconciler) WatchSandboxOnce(_ context.Context, namespace, name 
 }
 
 func (r *SandboxReconciler) UnWatchSandbox(namespace, name string) {
+	key := types.NamespacedName{Namespace: namespace, Name: name}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.watchers, key)
+}
+
+type SandboxClaimReconciler struct {
+	client.Client
+	Scheme *runtime.Scheme
+
+	// Map of watchers waiting for SandboxClaim to adopt a ready Sandbox.
+	watchers map[types.NamespacedName]chan SandboxStatusUpdate
+	mu       sync.RWMutex
+}
+
+func (r *SandboxClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	claim := agentsandbox.NewSandboxClaimObject()
+	if err := r.Get(ctx, req.NamespacedName, claim); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if !agentsandbox.SandboxClaimReady(claim) {
+		return ctrl.Result{}, nil
+	}
+
+	sandboxName := agentsandbox.SandboxClaimSandboxName(claim)
+	if sandboxName == "" {
+		return ctrl.Result{}, nil
+	}
+
+	sandbox := agentsandbox.NewSandboxObject()
+	if err := r.Get(ctx, types.NamespacedName{Namespace: claim.GetNamespace(), Name: sandboxName}, sandbox); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{RequeueAfter: time.Second}, nil
+		}
+		return ctrl.Result{}, err
+	}
+	if getSandboxStatus(sandbox) != sandboxStatusReady {
+		return ctrl.Result{RequeueAfter: time.Second}, nil
+	}
+
+	klog.V(2).Infof("SandboxClaim %s/%s adopted ready sandbox %s/%s, notifying waiter",
+		claim.GetNamespace(), claim.GetName(), sandbox.GetNamespace(), sandbox.GetName())
+
+	r.mu.Lock()
+	resultChan, exists := r.watchers[req.NamespacedName]
+	if exists {
+		delete(r.watchers, req.NamespacedName)
+	}
+	r.mu.Unlock()
+
+	if exists {
+		select {
+		case resultChan <- SandboxStatusUpdate{Sandbox: sandbox}:
+			klog.V(2).Infof("Notified waiter about sandbox claim %s/%s", claim.GetNamespace(), claim.GetName())
+		default:
+			klog.V(2).Infof("No receiver for sandbox claim %s/%s notification, skipping", claim.GetNamespace(), claim.GetName())
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *SandboxClaimReconciler) WatchSandboxClaimOnce(_ context.Context, namespace, name string) <-chan SandboxStatusUpdate {
+	resultChan := make(chan SandboxStatusUpdate, 1)
+	key := types.NamespacedName{Namespace: namespace, Name: name}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.watchers == nil {
+		r.watchers = make(map[types.NamespacedName]chan SandboxStatusUpdate)
+	}
+	r.watchers[key] = resultChan
+	klog.V(2).Infof("Registered for future notification for sandbox claim %s/%s", key.Namespace, key.Name)
+
+	return resultChan
+}
+
+func (r *SandboxClaimReconciler) UnWatchSandboxClaim(namespace, name string) {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	r.mu.Lock()
 	defer r.mu.Unlock()

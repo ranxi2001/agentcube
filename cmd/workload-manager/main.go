@@ -29,8 +29,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
-	sandboxv1alpha1 "sigs.k8s.io/agent-sandbox/api/v1alpha1"
-	extensionsv1alpha1 "sigs.k8s.io/agent-sandbox/extensions/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -38,6 +36,7 @@ import (
 	runtimev1alpha1 "github.com/volcano-sh/agentcube/pkg/apis/runtime/v1alpha1"
 	"github.com/volcano-sh/agentcube/pkg/mtls"
 	"github.com/volcano-sh/agentcube/pkg/workloadmanager"
+	"github.com/volcano-sh/agentcube/pkg/workloadmanager/agentsandbox"
 )
 
 var (
@@ -46,8 +45,7 @@ var (
 
 func init() {
 	utilruntime.Must(scheme.AddToScheme(schemeBuilder))
-	utilruntime.Must(sandboxv1alpha1.AddToScheme(schemeBuilder))
-	utilruntime.Must(extensionsv1alpha1.AddToScheme(schemeBuilder))
+	utilruntime.Must(agentsandbox.AddToScheme(schemeBuilder))
 	utilruntime.Must(runtimev1alpha1.AddToScheme(schemeBuilder))
 }
 
@@ -102,12 +100,17 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}
 
+	sandboxClaimReconciler := &workloadmanager.SandboxClaimReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}
+
 	codeInterpreterReconciler := &workloadmanager.CodeInterpreterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}
 
-	if err := setupControllers(mgr, sandboxReconciler, codeInterpreterReconciler); err != nil {
+	if err := setupControllers(mgr, sandboxReconciler, sandboxClaimReconciler, codeInterpreterReconciler); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to setup controllers: %v\n", err)
 		os.Exit(1)
 	}
@@ -124,7 +127,7 @@ func main() {
 	}
 
 	// Create and initialize API server
-	server, err := workloadmanager.NewServer(config, sandboxReconciler)
+	server, err := workloadmanager.NewServer(config, sandboxReconciler, sandboxClaimReconciler)
 	if err != nil {
 		klog.Fatalf("Failed to create API server: %v", err)
 	}
@@ -184,12 +187,19 @@ func main() {
 	klog.Info("Server stopped")
 }
 
-func setupControllers(mgr ctrl.Manager, sandboxReconciler *workloadmanager.SandboxReconciler, codeInterpreterReconciler *workloadmanager.CodeInterpreterReconciler) error {
+func setupControllers(mgr ctrl.Manager, sandboxReconciler *workloadmanager.SandboxReconciler, sandboxClaimReconciler *workloadmanager.SandboxClaimReconciler, codeInterpreterReconciler *workloadmanager.CodeInterpreterReconciler) error {
 	// Setup Sandbox controller
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&sandboxv1alpha1.Sandbox{}).
+		For(agentsandbox.NewSandboxObject()).
 		Complete(sandboxReconciler); err != nil {
 		return fmt.Errorf("unable to create sandbox controller: %w", err)
+	}
+
+	// Setup SandboxClaim controller for warm pool claim adoption.
+	if err := ctrl.NewControllerManagedBy(mgr).
+		For(agentsandbox.NewSandboxClaimObject()).
+		Complete(sandboxClaimReconciler); err != nil {
+		return fmt.Errorf("unable to create sandbox claim controller: %w", err)
 	}
 
 	// Setup CodeInterpreter controller.

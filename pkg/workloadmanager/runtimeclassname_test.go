@@ -66,9 +66,9 @@ func TestConvertToPodTemplate_RuntimeClassName(t *testing.T) {
 				},
 			}
 
-			result := reconciler.convertToPodTemplate(template, ci)
+			result := reconciler.convertToPodSpec(template, ci)
 
-			assert.Equal(t, tt.expected, result.Spec.RuntimeClassName, tt.description)
+			assert.Equal(t, tt.expected, result.RuntimeClassName, tt.description)
 		})
 	}
 }

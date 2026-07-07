@@ -36,16 +36,17 @@ import (
 
 // Server is the main structure for workload manager
 type Server struct {
-	config            *Config
-	router            *gin.Engine
-	httpServer        *http.Server
-	k8sClient         *K8sClient
-	sandboxController *SandboxReconciler
-	tokenCache        *TokenCache
-	informers         *Informers
-	storeClient       store.Store
-	wg                sync.WaitGroup
-	certWatcher       *mtls.CertWatcher // mTLS cert watcher for graceful cleanup
+	config                 *Config
+	router                 *gin.Engine
+	httpServer             *http.Server
+	k8sClient              *K8sClient
+	sandboxController      *SandboxReconciler
+	sandboxClaimController *SandboxClaimReconciler
+	tokenCache             *TokenCache
+	informers              *Informers
+	storeClient            store.Store
+	wg                     sync.WaitGroup
+	certWatcher            *mtls.CertWatcher // mTLS cert watcher for graceful cleanup
 }
 
 type Config struct {
@@ -73,7 +74,7 @@ type Config struct {
 }
 
 // NewServer creates a new API server instance
-func NewServer(config *Config, sandboxController *SandboxReconciler) (*Server, error) {
+func NewServer(config *Config, sandboxController *SandboxReconciler, sandboxClaimController *SandboxClaimReconciler) (*Server, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
@@ -98,12 +99,13 @@ func NewServer(config *Config, sandboxController *SandboxReconciler) (*Server, e
 	tokenCache := NewTokenCache(1000, 5*time.Minute)
 
 	server := &Server{
-		config:            config,
-		k8sClient:         k8sClient,
-		sandboxController: sandboxController,
-		tokenCache:        tokenCache,
-		informers:         NewInformers(k8sClient),
-		storeClient:       store.Storage(),
+		config:                 config,
+		k8sClient:              k8sClient,
+		sandboxController:      sandboxController,
+		sandboxClaimController: sandboxClaimController,
+		tokenCache:             tokenCache,
+		informers:              NewInformers(k8sClient),
+		storeClient:            store.Storage(),
 	}
 
 	// Setup routes
