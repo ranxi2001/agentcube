@@ -767,6 +767,10 @@ git diff --check upstream/main...HEAD
 剩余限制：
 
 - GitHub Actions 的 `schedule` 只会从默认分支运行。这个 PR 分支合入前，无法在 topic branch 上真实证明 weekly cron 会触发。
+- 2026-07-08 补充验证：本机没有 `gh` CLI，使用 GitHub API 等价检查 workflow 列表。`Go Toolchain Update` 只有在 fork 默认分支 `main` 实际包含 `.github/workflows/go-toolchain-update.yml` 时才显示为 `active`；当 fork `main` 恢复到 `upstream/main fdb862b` 后，该 workflow 状态变为 `deleted`，因此不会触发 `schedule`。
+- 2026-07-08 补充验证：曾短暂把测试 workflow 放到 fork `main`，把 cron 调到 `58 15 * * *`，并从 2026-07-07 15:58 UTC 等到约 16:06 UTC。GitHub API 没有出现任何 `event=schedule` 的 `Go Toolchain Update` run。结论是 GitHub cron 不适合作为即时验证信号；它只能证明“默认分支 active 后，未来某次 best-effort schedule 可能触发”，不能保证几分钟内入队。
+- 2026-07-08 补充验证：一次手动 `workflow_dispatch` 失败 run `28878103452` 的根因不是调度，而是 workflow 先按旧 `go.mod` 安装 Go `1.26.1`，随后把 `go.mod` 更新到 `1.26.4` 后执行 `go mod tidy`，在 `GOTOOLCHAIN=local` 下报 `go.mod requires go >= 1.26.4`。修正方式是先执行 `hack/go-toolchain.py update` 修改 `go.mod`，再用 `actions/setup-go` 根据更新后的 `go.mod` 安装目标 Go。
+- 2026-07-08 补充验证：后续按用户要求把 fork `main` 保持在测试 commit `37dc2bc`，workflow 同时包含 `schedule: "*/5 * * * *"` 和临时 `workflow_dispatch`。`gh workflow list -R ranxi2001/agentcube --all` 显示 `Go Toolchain Update active`，`gh workflow view --yaml` 也能看到 5 分钟 cron；但截至 2026-07-07 16:50 UTC，`gh run list --workflow "Go Toolchain Update" --event schedule` 仍为空。手动触发 run `28883380628` 成功，日志显示 `Go toolchain update needed: 1.26.1 -> 1.26.4`、`Go toolchain alignment: OK`，并创建 fork PR #22：<https://github.com/ranxi2001/agentcube/pull/22>。这证明 job 逻辑和 PR 创建权限正常；剩余问题集中在 GitHub `schedule` 事件没有及时入队，而不是 updater 脚本或 GITHUB_TOKEN 权限。
 - 如果未来 `schedule` 创建的 PR 使用默认 `GITHUB_TOKEN`，该 PR 不一定递归触发所有 downstream workflows；所以 creator workflow 里的 `verify`、`go mod tidy`、`git diff --check` 仍然必须保留。
 - 如果维护者希望自动化也能修改 `.github/workflows/*`，仍然需要 GitHub App / PAT / Renovate 或人工 PR；默认 `GITHUB_TOKEN` 不应承担 workflow 文件迁移。
 
