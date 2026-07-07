@@ -366,12 +366,12 @@ Copilot 目前给 #413 的主要 review 点：
 
 > 分析：这个推荐的核心是“先拿数据再定 upstream 口径”。现在我们已经知道正式 `v0.5.0` 的最小 bump 很小，但 full migration 的价值更高。直接把 full migration 塞进 #387 会让 review 更难；直接抢 #277 又会和 #413 重复。
 
-## 今天没有做的事
+## 第一阶段暂未做的事
 
 1. 没有修改 upstream PR。
 2. 没有向 #277 / #413 评论。
 3. 没有创建新的 upstream PR。
-4. 没有跑真实 Kubernetes runtime / e2e。
+4. 第一阶段没有跑真实 Kubernetes runtime / e2e；后续已在 kind clean 集群补测，见下文“真实 kind runtime 验证”。
 5. 没有验证 `v1alpha1` 现有集群到 `v1beta1` 的 migration 流程。
 
 这些限制要在后续对外沟通时明确说明。
@@ -383,7 +383,7 @@ Copilot 目前给 #413 的主要 review 点：
 - 本地 worktree：`/tmp/agentcube-runtime-adapter-v05`
 - 分支：`feat/agent-sandbox-runtime-adapter-v05`
 - fork 远端：`origin/feat/agent-sandbox-runtime-adapter-v05`
-- 提交：`d73f20e feat: add agent-sandbox v0.5 adapter`
+- 提交：`726a984 feat: add agent-sandbox v0.5 adapter`
 
 这次没有把改动叠到 #387，也没有从 `intern` 分支带入实习报告、中文记录或本地 benchmark 文件。
 
@@ -456,17 +456,114 @@ sigs.k8s.io/controller-runtime v0.23.3
 
 > 分析：这个 downgrade 日志是当前生成脚本固定 `code-generator@v0.34.1` 的副作用，不代表最终模块版本被降级。后续如果维护者介意，可以单独讨论 code-generator 版本与 Kubernetes 依赖栈是否应该同步升级。
 
-### 仍未覆盖的风险
+### 真实 kind runtime 验证
 
-这次验证仍然是本地编译、单测、lint 和静态 e2e 编译，没有跑真实 Kubernetes runtime。
+用户确认本机是 Ubuntu 24 后，改用 kind 做真实 Kubernetes runtime 验证。
+
+环境关键信息：
+
+- Host：Ubuntu 24.04.4 LTS
+- Kernel：`6.8.0-124-generic`
+- Docker server：`29.1.3`
+- kind：临时安装到 `/tmp/agentcube-local-bin`，版本 `v0.32.0`
+- Helm：临时安装到 `/tmp/agentcube-local-bin`，版本 `v3.19.3`
+- 集群名：`agentcube-v05-runtime-kind`
+- KUBECONFIG：`/tmp/agentcube-v05-runtime-kind-kubeconfig.yaml`
+
+> 注释：之前记录里 kind 曾因 kubelet / cgroup 环境失败。这次在 Ubuntu 24 + Docker 29 环境下，kind 能成功创建 `kindest/node:v1.36.1` 单节点集群，所以本轮 runtime 阻塞不再是 kind 基础环境。
+
+完整默认脚本验证命令：
+
+```bash
+PATH="/tmp/agentcube-local-bin:$PATH" \
+KUBECONFIG=/tmp/agentcube-v05-runtime-kind-kubeconfig.yaml \
+E2E_CLUSTER_NAME=agentcube-v05-runtime-kind \
+E2E_CLEAN_CLUSTER=true \
+AGENT_SANDBOX_VERSION=v0.5.0 \
+ARTIFACTS_PATH=/home/agentcube/internship-reports/benchmarks/day41-agent-sandbox-v05-runtime/e2e-logs \
+./test/e2e/run_e2e.sh
+```
+
+结果：脚本最终输出 `All tests passed!`。
+
+观察到的过程问题：
+
+1. `kind load docker-image` 对 `agent-sandbox-controller:v0.5.0`、`python:3.9-slim`、`redis:7-alpine` 出现 Docker 29 / containerd image store digest 缺失错误，脚本按预期降级为让 kind 节点从 registry 拉取。
+2. SPIRE 初始启动时 `agentcube-router` / `workloadmanager` 因等待 mTLS 证书短暂 `CrashLoopBackOff`，`spiffe-helper` 在 SPIRE agent 成功 attestation 后写入证书，两个主容器随后恢复为 `Running`。
+3. 默认 mTLS 场景下，Go AgentRuntime 路径通过，direct CodeInterpreter / warm-pool 测试会按测试逻辑跳过，因为测试客户端没有 WorkloadManager mTLS client cert。
+
+> 分析：第 1 点是本地镜像导入兼容性问题，不是 AgentCube 代码失败；第 2 点是 SPIRE 启动顺序问题，最终恢复；第 3 点说明默认脚本能证明 router -> WorkloadManager -> agent-sandbox 的 AgentRuntime 路径，但不能单独证明 direct WorkloadManager CodeInterpreter / SandboxClaim adoption。
+
+为补齐 direct / warm-pool 覆盖，保留同一个 kind 集群和 `agent-sandbox v0.5.0` CRD，把 AgentCube Helm release 切到 `spire.enabled=false`，再只跑目标 Go E2E：
+
+```bash
+WORKLOAD_MANAGER_URL=http://127.0.0.1:18080 \
+ROUTER_URL=http://127.0.0.1:18081 \
+MTLS_ENABLED=false \
+API_TOKEN="$API_TOKEN" \
+WORKLOAD_NAMESPACE=agentcube \
+go test -v ./test/e2e -run 'TestCodeInterpreter(WarmPool|BasicInvocation)$' -count=1
+```
+
+第一次目标测试暴露一个测试侧假设过期：
+
+- 旧 helper 用 `SandboxWarmPool -> Pod` 直接 ownerRef 计数。
+- `agent-sandbox v0.5.0` 实际对象链是 `SandboxWarmPool -> Sandbox -> Pod`。
+- 因此集群里 `SandboxWarmPool.status.readyReplicas=2`、两个 pod 都 `Running`，但测试仍在等待。
+
+已在 `test/e2e/e2e_test.go` 中把 warm-pool helper 改为：
+
+```mermaid
+flowchart LR
+    A[SandboxWarmPool] --> B[Sandbox]
+    B --> C[Pod]
+```
+
+修正后目标测试通过：
+
+```text
+--- PASS: TestCodeInterpreterWarmPool (6.39s)
+--- PASS: TestCodeInterpreterBasicInvocation (1.59s)
+PASS
+ok  	github.com/volcano-sh/agentcube/test/e2e	8.010s
+```
+
+补充静态验证：
+
+```bash
+go test ./test/e2e -run '^$' -count=1
+go test ./pkg/workloadmanager/... -count=1
+git diff --check
+```
+
+结果均通过。
+
+本轮还修正了 E2E 默认版本：
+
+- `test/e2e/run_e2e.sh` 默认 `AGENT_SANDBOX_VERSION` 从 `v0.1.1` 改为 `v0.5.0`。
+- `Makefile` 默认 `AGENT_SANDBOX_VERSION` 从 `main` 改为 `v0.5.0`。
+- `make e2e` 显式把 `AGENT_SANDBOX_VERSION=$(AGENT_SANDBOX_VERSION)` 传给脚本。
+
+> 分析：这是必要修正。否则本地显式传参能跑 `v0.5.0`，但 CI 里的 `make e2e` 仍会安装旧 CRD，导致验证路径和代码适配目标不一致。
+
+原始证据：
+
+- `internship-reports/benchmarks/day41-agent-sandbox-v05-runtime/direct-warmpool-go-test.log`
+- `internship-reports/benchmarks/day41-agent-sandbox-v05-runtime/runtime-cluster-evidence.txt`
+
+验证结束后已删除 kind 集群：
+
+```bash
+kind delete cluster --name agentcube-v05-runtime-kind
+```
+
+### 仍未覆盖的风险
 
 仍需后续验证：
 
-1. 安装 `agent-sandbox v0.5.0` official manifests 后，direct Sandbox 创建是否能跑通。
-2. CodeInterpreter warm-pool 模式下，`SandboxClaim.status.sandbox.name`、actual Sandbox ownerRef、Pod annotation、Pod IP 解析是否符合预期。
-3. 现有集群从旧 CRD storedVersions 迁移到 `v1beta1` 的路径是否安全。
-4. `make e2e` 默认安装的 agent-sandbox manifest 是否需要一起更新到 `v0.5.0`。
-5. 当前 PR 范围是否应同时处理 `code-generator@v0.34.1` 与 `k8s.io/* v0.35.4` 的版本对齐问题。
+1. 现有集群从旧 CRD storedVersions 迁移到 `v1beta1` 的路径是否安全。本轮验证是 clean kind install，不等于无缝升级验证。
+2. 当前 PR 范围是否应同时处理 `code-generator@v0.34.1` 与 `k8s.io/* v0.35.4` 的版本对齐问题。
+3. 默认 mTLS 场景下 direct WorkloadManager 测试仍会跳过；本轮用非 mTLS Helm 配置补了 direct / warm-pool 目标测试，但还没有实现带 client cert 的 direct test harness。
 
 ## 下一步清单
 

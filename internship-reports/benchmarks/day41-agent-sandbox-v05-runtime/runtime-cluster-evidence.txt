@@ -1,0 +1,27 @@
+# nodes
+NAME                                       STATUS   ROLES           AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                       KERNEL-VERSION              CONTAINER-RUNTIME
+agentcube-v05-runtime-kind-control-plane   Ready    control-plane   28m   v1.36.1   172.18.0.12   <none>        Debian GNU/Linux 13 (trixie)   6.8.0-124-generic (amd64)   containerd://2.3.1
+
+# agent-sandbox CRDs
+sandboxes.agents.x-k8s.io	v1beta1:true:true,v1alpha1:true:false,	stored=["v1beta1"]
+sandboxclaims.extensions.agents.x-k8s.io	v1beta1:true:true,v1alpha1:true:false,	stored=["v1beta1"]
+sandboxtemplates.extensions.agents.x-k8s.io	v1beta1:true:true,v1alpha1:true:false,	stored=["v1beta1"]
+sandboxwarmpools.extensions.agents.x-k8s.io	v1beta1:true:true,v1alpha1:true:false,	stored=["v1beta1"]
+
+# agentcube pods
+NAME                                READY   STATUS    RESTARTS   AGE     IP            NODE                                       NOMINATED NODE   READINESS GATES
+agentcube-router-755b554d64-xm74x   1/1     Running   0          5m34s   10.244.0.18   agentcube-v05-runtime-kind-control-plane   <none>           <none>
+echo-agent-6valyp46                 1/1     Running   0          9m54s   10.244.0.13   agentcube-v05-runtime-kind-control-plane   <none>           <none>
+echo-agent-f266wybi                 1/1     Running   0          9m48s   10.244.0.14   agentcube-v05-runtime-kind-control-plane   <none>           <none>
+echo-agent-mc67nsdz                 1/1     Running   0          10m     10.244.0.12   agentcube-v05-runtime-kind-control-plane   <none>           <none>
+redis-88f6ffbc8-q55lr               1/1     Running   0          15m     10.244.0.7    agentcube-v05-runtime-kind-control-plane   <none>           <none>
+workloadmanager-64bcfb4b88-xvb4r    1/1     Running   0          5m34s   10.244.0.19   agentcube-v05-runtime-kind-control-plane   <none>           <none>
+
+# runtime resources after targeted cleanup
+NAME                                                                AGE
+codeinterpreter.runtime.agentcube.volcano.sh/e2e-code-interpreter   12m
+
+NAME                                          AGE
+sandbox.agents.x-k8s.io/echo-agent-6valyp46   9m55s
+sandbox.agents.x-k8s.io/echo-agent-f266wybi   9m49s
+sandbox.agents.x-k8s.io/echo-agent-mc67nsdz   10m
