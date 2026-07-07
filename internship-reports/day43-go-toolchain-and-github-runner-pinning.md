@@ -650,101 +650,70 @@ If maintainers want an auto-PR workflow later, we should keep it review-only, av
   - verifier + scheduled PR；
   - 或者未来改用 Renovate 统一治理。
 
-## PR 级生产分支：触发效果复查
+## PR 级生产分支：最终收敛为每周定时检查
 
-用户提醒后，我重新看了前一版 scheduled workflow：它能定时检查 Go 最新稳定版本，也能在版本落后时创建 PR，但触发效果偏弱。风险点不是“这次 CI 会不会过”，而是这套自动化平时是否有可见信号。如果 workflow 只有 `schedule` 和 `workflow_dispatch`，那么脚本、Dockerfile、`go.mod` 或 workflow 规则漂移时，只有等到下一次定时任务才会暴露。
+用户进一步判断后，正式方案不再加入 push / pull_request 的降级拦截。原因是这类检查会在普通 PR 上增加一次外网 release feed 请求和一个额外失败面，而 Go baseline 升级本身是低频维护任务。和 Docker Dependabot 一样，正式版本只保留每周一次的定时检查：发现最新稳定 Go 高于项目 baseline 时，由 workflow 创建一个 review-only PR。
 
-> 分析：自动化维护类 PR 不能只证明“能生成一次 PR”。更重要的是证明触发面合理：平时的代码改动应该触发轻量 verifier，定时任务只负责发现 upstream Go release 是否有新版本。否则 workflow 自己坏了也可能长期不可见。
+> 分析：这里的目标不是让每个 PR 都强制追最新 Go，而是把“是否有新 Go baseline”变成低频维护信号。Go 编译器升级影响面较大，发现后也不应自动 merge；定时 PR 足够提醒维护者，同时避免普通开发 PR 被外部 release feed 状态影响。
 
-因此我准备了一个真正可作为 upstream PR 的干净分支，而不是再用旧 Go 版本做模拟：
+最终 PR 分支：
 
 - Worktree: `/tmp/agentcube-go-toolchain-update-pr`
 - Branch: `ci/go-toolchain-update-workflow`
 - Remote branch: `https://github.com/ranxi2001/agentcube/tree/ci/go-toolchain-update-workflow`
-- Base: `upstream/main` `c0ecab9`
-- Commit: `cf4f5b3 ci: add go toolchain update workflow`
+- Base: `upstream/main` `fdb862b`
+- Commit: `4bedcc5 ci: add go toolchain update workflow`
 - Changed files:
   - `.github/workflows/go-toolchain-update.yml`
   - `hack/go-toolchain.py`
 
-这版 workflow 拆成两个 job：
+最终 workflow 形态：
 
 | Job | 触发事件 | 权限 | 作用 |
 | --- | --- | --- | --- |
-| `verify-go-toolchain` | `push` / `pull_request`，仅限 Go baseline 相关路径 | `contents: read` | 校验 `go.mod`、Docker builder `golang:*` tag、workflow `setup-go` 是否都对齐，并要求项目 baseline 等于 go.dev 最新稳定版本 |
-| `update-go-toolchain` | `schedule` / `workflow_dispatch` | `contents: write`、`pull-requests: write` | 读取 go.dev 最新稳定版本；如果落后，更新 baseline 并创建 review-only PR |
+| `update-go-toolchain` | `schedule`，每周一 UTC 03:00 | job-level `contents: write`、`pull-requests: write` | 读取 go.dev 最新稳定版本；如果项目落后，更新 `go.mod` 和 Docker builder tags，并创建 review-only PR |
 
-路径触发范围包括：
+默认 workflow 权限仍是：
 
-- `go.mod`
-- `go.sum`
-- `docker/Dockerfile*`
-- `.github/workflows/*.yml`
-- `hack/go-toolchain.py`
+```yaml
+permissions:
+  contents: read
+```
 
-> 注释：这里把 `.github/workflows/*.yml` 放进 verifier 触发范围，是因为未来有人把某个 workflow 又改回 `go-version: "1.xx"` 时，Go baseline 规则应该马上失败，而不是等下一次 Go release。
+只有真正创建 PR 的 job 显式申请写权限。
 
 本地验证：
 
 ```bash
 go run github.com/rhysd/actionlint/cmd/actionlint@latest .github/workflows/go-toolchain-update.yml
 python3 hack/go-toolchain.py verify --check-latest --require-latest
-git diff --check
+git diff --check upstream/main...HEAD
 ```
 
-结果：全部通过。当前 go.dev 最新稳定版本仍是 `1.26.4`，和项目 `go.mod` 一致，所以生产逻辑下不会创建不必要的更新 PR。
+结果：全部通过。当前 go.dev 最新稳定版本仍是 `1.26.4`，和项目 `go.mod` 一致，所以正式 workflow 在当前状态下每周会 no-op。
 
-Fork branch push 真实触发验证：
+### 降级检查试验与废弃原因
 
-- Run: https://github.com/ranxi2001/agentcube/actions/runs/28865629258
-- Event: `push`
-- Commit: `cf4f5b3`
-- Result: success
-- `verify-go-toolchain`: success
-- `update-go-toolchain`: skipped
-
-> 分析：这次证据不是“旧版本模拟会创建 PR”，而是生产分支本身证明了新增 workflow 会在 branch push 上触发，并且只跑读权限 verifier。`update-go-toolchain` 在 push 事件跳过，说明写权限自动建 PR 路径没有混入普通 PR 校验路径。
-
-### 旧 4 版本回归验证
-
-为了验证用户担心的“4 个 Go baseline 文件一起变旧时，新的 workflow 会不会发现”，我从正式 PR 分支再切了一个 fork-only 测试分支：
+中间曾试过把 push / PR verifier 加进正式 workflow，并让 verifier 使用 `--require-latest`。在 fork-only 测试分支里，`go.mod` 和三个 Docker builder tag 一起从 `1.26.4` 降到 `1.26.3` 后，push run 确实失败：
 
 - Branch: `ci/go-toolchain-update-old-baseline-test`
-- Commit: `7640bcc test: lower go baseline for workflow validation`
-- Old baseline: `1.26.3`
-- Changed files:
-  - `go.mod`
-  - `docker/Dockerfile`
-  - `docker/Dockerfile.router`
-  - `docker/Dockerfile.picod`
-
-这次不是手动触发 updater，而是直接 push 测试分支，看普通 branch push 是否能自动发现旧 baseline：
-
 - Run: https://github.com/ranxi2001/agentcube/actions/runs/28865686938
-- Event: `push`
-- Result: failure
-- `verify-go-toolchain`: failure
-- `update-go-toolchain`: skipped
+- Failure: `project Go 1.26.3 differs from latest stable Go 1.26.4`
 
-失败关键信息：
+后来又把 fork `main` 临时降级测试默认分支行为：
 
-```text
-ERROR: project Go 1.26.3 differs from latest stable Go 1.26.4
-go.mod go directive: 1.26.3
-Docker builder: docker/Dockerfile: golang:1.26.3-alpine
-Docker builder: docker/Dockerfile.picod: golang:1.26.3
-Docker builder: docker/Dockerfile.router: golang:1.26.3-alpine
-latest stable Go release: 1.26.4
-Process completed with exit code 1.
-```
+- Temporary fork `main` commit: `21e6b27 test: lower go baseline on fork main`
+- Push run: https://github.com/ranxi2001/agentcube/actions/runs/28866194716
+- Result: push verifier 失败，证明降级可以被发现
+- Cleanup: fork `main` 已恢复到 `upstream/main` `fdb862b`；恢复 main 触发的无关 in-progress fork Actions 已取消
 
-> 分析：这个结果说明“被发现”已经成立：即使 4 个 Go baseline 文件内部一致，只要它们落后于 go.dev 最新稳定版本，push/PR verifier 会失败。`update-go-toolchain` 在 push 下跳过是预期行为，因为普通 PR 校验不应该拿写权限改 contributor 分支。
+这些试验证明“PR/push 降级检查能发现旧版本”，但也证明它会制造额外 CI 负担。最终不把它放进正式 PR。
 
-我中途误用 `workflow_dispatch` 手动触发了一次 updater job，它成功创建了 fork PR #21，但这只能证明 updater job 能修正旧版本，不能证明定时触发可靠。因此已关闭 fork PR #21 并删除自动生成分支 `chore/go-toolchain-1264`，避免把手动触发证据混入自动触发结论。
+> 注释：这不是说降级检查完全无价值，而是当前项目更需要低噪音的维护提醒。真正升级 Go 时，workflow 生成的 PR 仍会在 creator job 内运行 `go mod tidy`、`verify --require-latest` 和 `git diff --check`；普通 PR 不再承担这个检查。
 
 剩余限制：
 
-- 因为 GitHub Actions 的 `schedule` 只会从默认分支运行，不能在 topic branch 上真实证明 cron 触发。当前能在 PR 级分支证明的是 push/PR verifier 会发现旧 baseline；修正路径要等 workflow 合入默认分支后，由 schedule 或 maintainer 手动 dispatch 触发。
+- GitHub Actions 的 `schedule` 只会从默认分支运行。这个 PR 分支合入前，无法在 topic branch 上真实证明 weekly cron 会触发。
 - 如果未来 `schedule` 创建的 PR 使用默认 `GITHUB_TOKEN`，该 PR 不一定递归触发所有 downstream workflows；所以 creator workflow 里的 `verify`、`go mod tidy`、`git diff --check` 仍然必须保留。
 - 如果维护者希望自动化也能修改 `.github/workflows/*`，仍然需要 GitHub App / PAT / Renovate 或人工 PR；默认 `GITHUB_TOKEN` 不应承担 workflow 文件迁移。
 
@@ -767,9 +736,7 @@ ci: add go toolchain update workflow
 
 Adds a repository-owned Go toolchain maintenance workflow and helper script.
 
-The new verifier keeps the Go baseline aligned across `go.mod`, Docker `golang:*` builder image tags, and GitHub Actions `actions/setup-go` usage. It runs on push and pull request events for Go baseline related paths.
-
-The scheduled/manual update job checks the latest stable Go release from the official Go release feed and opens a focused, reviewable PR only when the project baseline is behind. It does not auto-merge.
+The scheduled workflow checks the latest stable Go release from the official Go release feed once per week and opens a focused, reviewable PR only when the project baseline is behind. It does not auto-merge.
 
 This keeps Docker Dependabot focused on runtime base images while preventing `golang:*` builder images from drifting away from the project Go baseline.
 
@@ -780,15 +747,12 @@ NONE
 **Special notes for your reviewer**:
 
 - The workflow uses read-only permissions by default.
-- Write permissions are scoped only to the scheduled/manual update job that creates or updates the generated PR branch.
+- Write permissions are scoped only to the scheduled job that creates or updates the generated PR branch.
 - PRs created by `GITHUB_TOKEN` may not recursively trigger every downstream workflow, so the creator workflow keeps its own validation steps.
 - Validation:
   - `go run github.com/rhysd/actionlint/cmd/actionlint@latest .github/workflows/go-toolchain-update.yml`
   - `python3 hack/go-toolchain.py verify --check-latest --require-latest`
-  - `git diff --check`
-- Fork push validation:
-  - Current baseline passes: https://github.com/ranxi2001/agentcube/actions/runs/28865629258
-  - Old 4-file baseline fails as expected: https://github.com/ranxi2001/agentcube/actions/runs/28865686938
+  - `git diff --check upstream/main...HEAD`
 - AI assistance: Used Codex to inspect the existing Go baseline surfaces, prepare the workflow/script, and validate the branch. I reviewed and validated the changes.
 
 **Does this PR introduce a user-facing change?**:
