@@ -376,6 +376,98 @@ Copilot 目前给 #413 的主要 review 点：
 
 这些限制要在后续对外沟通时明确说明。
 
+## 后续实现：基于 v0.5.0 的适配层分支
+
+在确认 `agent-sandbox v0.5.0` 正式发布后，已经基于最新 `upstream/main` 新建干净 topic branch：
+
+- 本地 worktree：`/tmp/agentcube-runtime-adapter-v05`
+- 分支：`feat/agent-sandbox-runtime-adapter-v05`
+- fork 远端：`origin/feat/agent-sandbox-runtime-adapter-v05`
+- 提交：`d73f20e feat: add agent-sandbox v0.5 adapter`
+
+这次没有把改动叠到 #387，也没有从 `intern` 分支带入实习报告、中文记录或本地 benchmark 文件。
+
+> 注释：这个分支不是一次简单的 `go get sigs.k8s.io/agent-sandbox@v0.5.0`。如果只是升级依赖，代码仍然会把 `SandboxClaim` 当作同名 `Sandbox` 等待，warm-pool adoption 场景会有运行时风险。
+
+### 设计边界
+
+本次实现选择新增 `pkg/workloadmanager/agentsandbox` 适配层，把 AgentCube 生产代码对 `agent-sandbox` API 包的直接依赖集中到一个包中。
+
+适配层负责：
+
+- 注册 `v1alpha1` / `v1beta1` core 与 extensions scheme。
+- 对外暴露当前创建路径使用的 `v1beta1` GVR。
+- 构造 `v1beta1 Sandbox`、`SandboxClaim`、`SandboxTemplate`、`SandboxWarmPool`。
+- 兼容读取 `v1alpha1` 与 `v1beta1` 的 Sandbox pod annotation、shutdown time、pod template、ready condition。
+- 兼容读取 `v1alpha1` 与 `v1beta1` 的 SandboxClaim ready condition、`status.sandbox.name` 和 pod IPs。
+
+> 分析：这就是前面讨论的“中间件 / adapter”思路。WorkloadManager 不再到处 import `sigs.k8s.io/agent-sandbox/api/...`，以后如果 `agent-sandbox` API 再变，优先改适配层，而不是让 handler、builder、controller、test 到处同步改。
+
+### 关键运行时修正
+
+这次除了类型迁移，还补了 `SandboxClaimReconciler`：
+
+```mermaid
+flowchart TD
+    A[Create SandboxClaim] --> B[agent-sandbox controller]
+    B --> C[Claim status Ready]
+    C --> D[status.sandbox.name]
+    D --> E[Fetch adopted Sandbox]
+    E --> F[Notify WorkloadManager request waiter]
+    F --> G[Resolve Pod IP from actual Sandbox]
+    G --> H[Store session info]
+```
+
+原因是 `agent-sandbox v0.5.0` 的 warm-pool claim 路径会通过 `claim.status.sandbox.name` 返回被认领的实际 Sandbox 名称。这个 Sandbox 名称可能不等于 claim 名。
+
+因此 create path 现在分两条：
+
+- direct Sandbox：继续 watch `Sandbox` ready。
+- warm-pool claim：watch `SandboxClaim` ready，再根据 `status.sandbox.name` 获取 actual Sandbox。
+
+同时，store 里对 `SandboxClaimsKind` 仍保留 claim 名作为 `Name`，因为后续删除时需要删除 `SandboxClaim`，不能拿 actual Sandbox 名去删 claim。
+
+> 注释：这里要区分两个身份：claim identity 用于 AgentCube session delete / GC；runtime identity 用于查 actual Sandbox、Pod annotation、Pod IP 和 Sandbox UID。把这两个名字混成一个，是 warm-pool 适配最容易出错的地方。
+
+### 已验证命令
+
+本地验证结果：
+
+```bash
+go test ./pkg/workloadmanager/... -count=1
+go test $(go list ./... | grep -v '^github.com/volcano-sh/agentcube/test/e2e$') -count=1
+make build-all
+go test ./test/e2e -run '^$' -count=1
+make lint
+make gen-check
+git diff --check
+git diff --cached --check
+```
+
+结果均通过。
+
+`make gen-check` 过程中会打印 `code-generator@v0.34.1` 临时导致的 downgrade 信息，例如 `agent-sandbox v0.5.0 => v0.2.1`，但命令末尾 `go mod tidy` 会重新解析 `api/v1beta1` / `extensions/api/v1beta1`，最终 `go list -m` 确认版本为：
+
+```text
+sigs.k8s.io/agent-sandbox v0.5.0
+k8s.io/api v0.35.4
+sigs.k8s.io/controller-runtime v0.23.3
+```
+
+> 分析：这个 downgrade 日志是当前生成脚本固定 `code-generator@v0.34.1` 的副作用，不代表最终模块版本被降级。后续如果维护者介意，可以单独讨论 code-generator 版本与 Kubernetes 依赖栈是否应该同步升级。
+
+### 仍未覆盖的风险
+
+这次验证仍然是本地编译、单测、lint 和静态 e2e 编译，没有跑真实 Kubernetes runtime。
+
+仍需后续验证：
+
+1. 安装 `agent-sandbox v0.5.0` official manifests 后，direct Sandbox 创建是否能跑通。
+2. CodeInterpreter warm-pool 模式下，`SandboxClaim.status.sandbox.name`、actual Sandbox ownerRef、Pod annotation、Pod IP 解析是否符合预期。
+3. 现有集群从旧 CRD storedVersions 迁移到 `v1beta1` 的路径是否安全。
+4. `make e2e` 默认安装的 agent-sandbox manifest 是否需要一起更新到 `v0.5.0`。
+5. 当前 PR 范围是否应同时处理 `code-generator@v0.34.1` 与 `k8s.io/* v0.35.4` 的版本对齐问题。
+
 ## 下一步清单
 
 1. 复用 Day18 的 v1beta1 适配经验，更新为正式 `v0.5.0` tag 和 official manifests。
