@@ -402,6 +402,42 @@ gh api repos/ranxi2001/agentcube/branches --paginate \
 - [Configuring Dependabot version updates - Enabling version updates on forks](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-version-updates#enabling-version-updates-on-forks)
 - [Dependabot security updates](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependabot-security-updates)
 
+### PR #422 初始 review comment 分析
+
+PR #422 创建后，当前还没有真人 maintainer / reviewer 的技术评论。评论面主要有三类：
+
+- `volcano-sh-bot`：流程状态，提示 PR 还没有 approved；等拿到 `lgtm` 后再 assign `kevin-wangzefeng` approval。
+- `copilot-pull-request-reviewer`：只给 PR overview，没有提出需要修改的代码点。
+- `gemini-code-assist`：提出高优先级建议，认为官方 Docker Hub 镜像应在 Dependabot `ignore.dependency-name` 中写成 `library/golang`，否则 `golang` 可能无法匹配。
+
+对 Gemini 评论的复核结论：这条更像 AI reviewer 误报，暂时不建议因为它修改 PR。
+
+复核依据：
+
+1. GitHub 官方 Dependabot options 文档说 `ignore.dependency-name` 要匹配 manifest / lock 中的 dependency name；Docker image tags 使用 repository full name。文档没有明确要求 Docker Hub official image 必须写 `library/` 前缀。
+2. Dependabot-core Docker parser 会从 Dockerfile 的 image 字段构造 `Dependency.name`：
+
+   ```ruby
+   Dependency.new(
+     name: T.must(details.fetch("image")),
+     version: version,
+     package_manager: package_manager,
+     ...
+   )
+   ```
+
+3. Dependabot-core 的 Docker parser spec 对官方 Docker Hub 短名有明确测试：`FROM ubuntu:17.04` 解析出的 `dependency.name` 是 `ubuntu`，不是 `library/ubuntu`。
+4. Dependabot-core 的 Docker update checker spec 对 Go official image 的测试使用 `dependency_name = "golang"`，registry URL 才是 `https://registry.hub.docker.com/v2/library/golang/`。也就是说 `library/golang` 是访问 Docker Hub registry API 时补出来的 repository path，不是 `Dependency.name`。
+5. `UpdateConfig#ignored_versions_for` 匹配 ignore condition 时，用的是 `dependency.name` 和 `ic.dependency_name` 的 wildcard match。因此当前配置里的 `dependency-name: "golang"` 更符合 Dependabot-core 的实际匹配路径。
+
+> 分析：fork validation 只生成了 Alpine 和 Ubuntu Docker PR，没有生成 Go builder image PR；这和当前 `ignore: golang` 兼容，但不能单独作为最终证明，因为也可能当时没有更高的 Go image tag。更可靠的证据是 Dependabot-core 的 parser / update_config / updater spec。以后遇到 AI reviewer 对 Dependabot Docker image name 的建议，要区分 “registry API path” 和 “Dependabot dependency name”。
+
+用户确认后，已回复 Gemini inline comment，说明保留 `dependency-name: "golang"` 的理由：`https://github.com/volcano-sh/agentcube/pull/422#discussion_r3534944427`。
+
+> 注释：这次回复没有修改 PR 分支，因为复核结论是当前配置符合 Dependabot-core 匹配逻辑。对 AI review comment 的处理不是“看到 high priority 就改”，而是先查实现、查测试、再决定是否需要代码变化。
+
+CI 全绿后，用户确认用短句邀请 RainbowMango review，已在 PR #422 留言：`https://github.com/volcano-sh/agentcube/pull/422#issuecomment-4901970807`。
+
 ## 当前状态与下一步
 
 当前状态：
@@ -413,7 +449,9 @@ gh api repos/ranxi2001/agentcube/branches --paginate \
 - 已在 #386 回复 RainbowMango 的 `/help`，说明可以帮助该任务、当前计划和 `/docker` scope：`https://github.com/volcano-sh/agentcube/issues/386#issuecomment-4900995393`。
 - RainbowMango 已回复 scope 看起来可以：`https://github.com/volcano-sh/agentcube/issues/386#issuecomment-4901190000`。
 - 已创建 upstream PR [#422](https://github.com/volcano-sh/agentcube/pull/422)：`chore: enable Dependabot Docker base image updates`。
-- PR #422 当前是 open、非 draft、mergeable，label 已有 `kind/enhancement`；DCO、Approve workflows、golangci-lint、Python Lint、Python SDK Tests 已成功，build / e2e / Codegen / Codespell / Copyright / Coverage 创建后仍在运行。
+- PR #422 当前是 open、非 draft、mergeable，label 已有 `kind/enhancement` / `size/S`；DCO、Approve workflows、build、e2e、Codegen、Codespell、Copyright、golangci-lint、Python Lint、Python SDK Tests、Coverage 均已成功。`tide` 仍 pending，原因是还缺 `lgtm` / `approved` labels，不是 CI 失败。
+- PR #422 当前没有真人 maintainer 技术评论；Gemini 关于把 `ignore` 从 `golang` 改为 `library/golang` 的建议已按 Dependabot-core 源码复核，并已回复说明保留当前配置。
+- 已按用户确认 cc RainbowMango 请求 review：`https://github.com/volcano-sh/agentcube/pull/422#issuecomment-4901970807`。
 - 没有在 #386 评论 `/assign`。
 
 建议下一步：
