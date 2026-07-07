@@ -23,7 +23,7 @@ Use this skill for AgentCube upstream PR work: branch prep, template filling, is
 - Treat fork `main` as a clean mirror of `upstream/main`. Keep internship reports, local benchmark records, Chinese notes, and local skills on fork `intern`, not on `main`.
 - Do not open an upstream PR, draft PR, WIP PR, issue, or upstream review/comment without explicit user confirmation immediately before posting. Prepare the branch, diff, tests, and exact body/comment locally first, then ask for approval.
 - Prefer fork-only validation for CI experiments. Use fork branches, any push-triggered fork Actions/checks that actually exist, local Actions when available, or local tests to validate uncertain fixes before involving `volcano-sh/agentcube`.
-- Do not create PRs against the personal fork just to run CI. This creates noisy self-PR history and can hurt contribution-quality signals. In AgentCube, most full CI workflows are `pull_request`-triggered for `main` / `release-*`, so a standalone `feat/*` push usually will not run the full matrix. Record the missing coverage and compensate with local tests or the eventual upstream PR checks after user-approved submission.
+- Do not create PRs against the personal fork just to run CI. This creates noisy self-PR history and can hurt contribution-quality signals. After upstream PR #414, ordinary fork topic branch pushes can trigger the core validation workflows, but always check the actual commit SHA status because release, publish, approval, and other special workflows may still require different events. Record any missing coverage and compensate with local tests or the eventual upstream PR checks after user-approved submission.
 - Open upstream PRs only when the change is ready for community review or the user explicitly asks to involve upstream. Do not create upstream PRs merely to trigger CI for a private validation path.
 - Keep internship reports, raw benchmark results, and Chinese-only notes out of upstream PRs unless explicitly intended.
 - For other contributors' PRs, do not draft comments, conclusions, or review suggestions until you have read the PR body, changed files, proposal/design docs, key implementation/tests, and existing human review discussion.
@@ -140,7 +140,7 @@ For open-source review hygiene, prefer smaller, focused PRs over one long-runnin
 
 ### Fork Branch CI Validation
 
-Use a fork branch push when the goal is to see whether available GitHub Actions run without notifying upstream maintainers. This does not guarantee full CI for ordinary `feat/*` branches.
+Use a fork branch push when the goal is to see whether available GitHub Actions run without notifying upstream maintainers. This may now trigger the core AgentCube validation workflows, but it still does not guarantee every workflow or permission-sensitive path.
 
 - Push the validation head branch to `origin`.
 - Watch the commit SHA checks after the push, not only branch status.
@@ -191,7 +191,7 @@ Known AgentCube Day42 result: after enabling fork Dependabot version updates and
 
 If ordinary branch push has no useful checks and the user wants CI confidence before opening a real upstream PR, use the fork-only push validation workflow template. This workflow is local/fork infrastructure only. Do not include `.github/workflows/fork-push-validation.yml` in an upstream PR diff.
 
-AgentCube differs from Karmada here: Karmada's main CI workflows already include `push`, while AgentCube's core build/lint/codegen/e2e/codespell/copyright/coverage workflows are mainly `pull_request`-triggered. The check script can only observe workflow runs that GitHub created; it cannot make a `pull_request`-only workflow run on branch push. For fork-only push CI, the validation branch must contain a push-triggered workflow file.
+Known AgentCube state after upstream PR #414: the core build/lint/codegen/e2e/codespell/copyright/coverage/Python workflows include `push` triggers, and Day43 verified a normal fork topic branch push running 9/9 workflows successfully. The check script can only observe workflow runs that GitHub created; it cannot make event-restricted release, publish, approval, or permission-sensitive workflows run on branch push. For paths without useful push checks, the validation branch must contain a push-triggered workflow file.
 
 Technically, adding the push workflow to the fork default branch would make future fork branches that contain that workflow trigger on push. Do not use `origin/main` for that in this workspace, because fork `main` is reserved as a clean mirror of `upstream/main`. If a permanent fork-only base is needed, use a dedicated branch such as `ci/base` or continue installing the workflow only on disposable `ci/<topic>-validation` branches.
 
@@ -309,6 +309,26 @@ docker build -f docker/Dockerfile.picod -t agentcube-go<version>-picod:test .
 ```
 
 Validate the branch locally and, if useful, by pushing a fork validation branch and checking any push-triggered commit checks. If replacing an earlier trial branch, record the old branch as superseded in the local report so later evidence does not point at the wrong Go patch version.
+
+Do not treat Docker `golang:*` image updates as ordinary runtime base-image updates. In AgentCube, `golang:*` builder images are part of the Go toolchain baseline and must stay aligned with `go.mod`, `actions/setup-go`, and Docker build validation. If Dependabot is used for Docker runtime images, ignore `golang` there and handle Go baseline changes in a separate Go/toolchain PR. A `gomod` Dependabot updater may still be useful for module dependencies, but it is not a substitute for a coordinated Go baseline upgrade that updates Docker builder tags and runs the Go/toolchain test matrix.
+
+### GitHub Actions Runner Pinning
+
+When hardening AgentCube GitHub Actions workflows, avoid `runs-on: ubuntu-latest` unless the goal is explicitly to track GitHub's moving default runner image. Prefer a concrete runner label such as `ubuntu-24.04` so CI does not change OS images unexpectedly when GitHub migrates `ubuntu-latest`.
+
+Use this audit before preparing workflow PRs:
+
+```bash
+rg -n 'runs-on:\s*ubuntu-latest|runs-on:\s*ubuntu-[0-9]+' .github/workflows
+```
+
+For a runner-pinning PR, keep the branch narrow:
+
+1. Start from latest `upstream/main`.
+2. Replace only `runs-on: ubuntu-latest` with the chosen concrete label, currently `ubuntu-24.04`.
+3. Leave already explicit labels such as `ubuntu-22.04` unchanged unless the PR is specifically about upgrading that workflow's runner.
+4. Validate with `git diff --check`, a no-hit `rg 'runs-on:\s*ubuntu-latest' .github/workflows`, YAML parsing, and `actionlint`.
+5. If fork push CI is available, push the topic branch and record the workflow run links; otherwise state that full PR CI will run after user-approved upstream PR creation.
 
 ### Dependency Release / RC Triage
 

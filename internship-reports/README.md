@@ -56,3 +56,4 @@
 - [Day 40：AgentCube 最新社区 PR / Issue 动态观察](day40-agentcube-latest-community-pr-issue-trends.md)
 - [Day 41：agent-sandbox v0.5.0 正式发布后的 AgentCube 适配问题分析](day41-agent-sandbox-v050-release-and-agentcube-adaptation.md)
 - [Day 42：Dependabot 自动更新 Alpine / Docker base image](day42-dependabot-alpine-base-image-updates.md)
+- [Day 43：Go Toolchain 升级边界与 GitHub Runner 固定](day43-go-toolchain-and-github-runner-pinning.md)
