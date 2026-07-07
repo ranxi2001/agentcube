@@ -538,6 +538,57 @@ git diff --check
 
 结果均通过。
 
+### Fork push CI 验证
+
+分支 `feat/agent-sandbox-runtime-adapter-v05` 推到 fork 后，又用 push CI 脚本核对 commit `726a98444dd7eaab09468cf74b87d74e1756f9a0` 的 GitHub Actions 状态：
+
+```bash
+python3 .agents/skills/agentcube-pr-management/scripts/check_push_ci.py \
+  --repo ranxi2001/agentcube \
+  --branch feat/agent-sandbox-runtime-adapter-v05 \
+  --sha 726a984 \
+  --watch \
+  --interval 30
+```
+
+结果：9 个 push workflow 全部 `completed/success`。
+
+```text
+Lint: success
+Test Coverage: success
+Agentcube E2E Tests: success
+Copyright Check: success
+Codegen Check: success
+Codespell: success
+Python Lint: success
+Python SDK Tests: success
+Agentcube CI Workflow: success
+```
+
+对应 Actions runs：
+
+- Lint：https://github.com/ranxi2001/agentcube/actions/runs/28839980469
+- Test Coverage：https://github.com/ranxi2001/agentcube/actions/runs/28839980476
+- Agentcube E2E Tests：https://github.com/ranxi2001/agentcube/actions/runs/28839980544
+- Copyright Check：https://github.com/ranxi2001/agentcube/actions/runs/28839980475
+- Codegen Check：https://github.com/ranxi2001/agentcube/actions/runs/28839980479
+- Codespell：https://github.com/ranxi2001/agentcube/actions/runs/28839980477
+- Python Lint：https://github.com/ranxi2001/agentcube/actions/runs/28839980471
+- Python SDK Tests：https://github.com/ranxi2001/agentcube/actions/runs/28839980474
+- Agentcube CI Workflow：https://github.com/ranxi2001/agentcube/actions/runs/28839980478
+
+同时本地复核：
+
+```bash
+git fetch origin feat/agent-sandbox-runtime-adapter-v05
+git rev-parse HEAD
+git rev-parse origin/feat/agent-sandbox-runtime-adapter-v05
+go test ./test/e2e -run '^$' -count=1
+go test ./pkg/workloadmanager/... -count=1
+```
+
+结果：本地和远端 SHA 均为 `726a98444dd7eaab09468cf74b87d74e1756f9a0`，两个本地测试命令通过。
+
 本轮还修正了 E2E 默认版本：
 
 - `test/e2e/run_e2e.sh` 默认 `AGENT_SANDBOX_VERSION` 从 `v0.1.1` 改为 `v0.5.0`。
