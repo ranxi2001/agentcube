@@ -54,3 +54,4 @@
 - [Day 38：Release Image CI 中 Helm Chart Version 失败分析](day38-release-image-ci-helm-chart-version-failure-analysis.md)
 - [Day 39：Karmada Image Build 方式与 AgentCube Buildx 性能优化机会](day39-karmada-image-build-and-agentcube-buildx-performance-optimization.md)
 - [Day 40：AgentCube 最新社区 PR / Issue 动态观察](day40-agentcube-latest-community-pr-issue-trends.md)
+- [Day 41：agent-sandbox v0.5.0 正式发布后的 AgentCube 适配问题分析](day41-agent-sandbox-v050-release-and-agentcube-adaptation.md)
