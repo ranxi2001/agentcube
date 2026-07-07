@@ -71,11 +71,11 @@ docker/Dockerfile.router:30:FROM alpine:3.19
 
 | 文件 | build environment | runtime image | 和任务的关系 |
 | --- | --- | --- | --- |
-| `docker/Dockerfile` | `golang:1.26.4-alpine` | `alpine:3.19` | 直接命中 Alpine builder/runtime |
-| `docker/Dockerfile.router` | `golang:1.26.4-alpine` | `alpine:3.19` | 直接命中 Alpine builder/runtime |
-| `docker/Dockerfile.picod` | `golang:1.26.4` | `ubuntu:24.04` | 同在 `/docker` 目录，会被同一 Dependabot Docker entry 覆盖 |
+| `docker/Dockerfile` | `golang:1.26.4-alpine` | `alpine:3.19` | runtime Alpine 是这次任务的核心目标 |
+| `docker/Dockerfile.router` | `golang:1.26.4-alpine` | `alpine:3.19` | runtime Alpine 是这次任务的核心目标 |
+| `docker/Dockerfile.picod` | `golang:1.26.4` | `ubuntu:24.04` | 同在 `/docker` 目录，runtime Ubuntu 也会被同一 Docker updater 覆盖 |
 
-> 分析：Dependabot 的 Docker updater 是按 `package-ecosystem: "docker"` 加 `directory` 扫描，不是按某一个 Dockerfile 或某一个 image name 精准声明。为了覆盖 `docker/Dockerfile.router` 这种非标准 Dockerfile 名，目录级配置是合理的最小改动。
+> 分析：Dependabot 的 Docker updater 是按 `package-ecosystem: "docker"` 加 `directory` 扫描，不是按某一个 Dockerfile 或某一个 image name 精准声明。为了覆盖 `docker/Dockerfile.router` 这种非标准 Dockerfile 名，目录级配置是合理的最小改动。但 `golang:*` builder image 不是普通 runtime base image，它代表项目 Go toolchain baseline，需要单独治理。
 
 ## 关键确认：非标准 Dockerfile 名能否被扫描
 
@@ -128,30 +128,36 @@ AgentCube 的最小对应改法就是在现有 Dependabot 配置中新增：
       timezone: "UTC"
     commit-message:
       prefix: "chore(deps): "
+    ignore:
+      - dependency-name: "golang"
 ```
 
 我保留了 AgentCube 现有的 `chore(deps): ` commit prefix，和 GitHub Actions Dependabot PR 风格一致。
 
+同时显式忽略 `golang` Docker image。原因是 `golang:1.26.4-alpine` / `golang:1.26.4` 不是单纯 runtime base image：它们需要和 `go.mod`、GitHub Actions Go setup、开发机默认 Go 版本保持一致。上游 [#391](https://github.com/volcano-sh/agentcube/pull/391) 就是一次完整 Go toolchain baseline 升级：同时改 `go.mod`、Actions 的 `go-version-file: go.mod` 和三个 Docker builder image。让 Dependabot 单独 bump `golang` Docker tag 会制造新的漂移。
+
 ## 为什么没有只限定 Alpine
 
-这次任务标题强调 Alpine，但实际配置选择覆盖 `/docker` 目录下的 Docker base images。
+这次任务标题强调 Alpine，但最终配置选择覆盖 `/docker` 目录下的 runtime Docker base images，并显式排除 `golang` builder image。
 
 原因：
 
 1. Dependabot Docker updater 的主要配置粒度是目录。
 2. `docker/Dockerfile` 和 `docker/Dockerfile.router` 在同一个 `/docker` 目录中。
-3. `golang:1.26.4-alpine` 在 Dependabot 语义里依赖名是 `golang`，不是 `alpine`。
-4. 如果通过 `ignore` 强行排除 `golang` 或 `ubuntu`，会产生不自然的维护边界，也会漏掉 Alpine variant 的 Go builder image 更新。
+3. `docker/Dockerfile.picod` 也在同一个目录中，所以 PicoD 的 runtime `ubuntu` image 会被同一 updater 覆盖。
+4. `golang:1.26.4-alpine` 在 Dependabot 语义里依赖名是 `golang`，不是 `alpine`。它虽然带 `alpine` variant，但本质是 Go builder image，应随 Go toolchain baseline 一起升级，而不是随 runtime base image 自动 bump。
 
 所以更清楚的 PR 口径应该是：
 
 ```text
 This PR enables Dependabot Docker updates for the /docker directory.
 The primary motivation is Alpine base image maintenance for workloadmanager and router,
-but the configured scope is the Docker base images under /docker.
+but the configured scope is runtime Docker base images under /docker.
+The Go builder image is intentionally ignored because Go toolchain upgrades
+must stay aligned with go.mod and CI.
 ```
 
-> 分析：这个口径比“只自动更新 Alpine”更准确。因为实际行为会同时发现 `golang` 和 `ubuntu` base image 更新。提前说明 scope，可以降低 reviewer 看到 PicoD 也被覆盖时的疑问。
+> 分析：这个口径比“只自动更新 Alpine”更准确，也比“所有 Docker base images 都自动更新”更安全。实际行为会发现 Alpine 和 Ubuntu runtime image 更新；`golang` builder image 则留给专门的 Go/toolchain PR，避免破坏 #391 建立的版本一致性。
 
 ## 已完成实现
 
@@ -170,14 +176,14 @@ chore/dependabot-docker-base-images
 本地 commit：
 
 ```text
-78b608abb29e284c7fc2d725c76c9b966eb9445e chore: enable dependabot docker updates
+0d4e33037a3eac07b0f5bec936dd7cb01afb46da chore: enable dependabot docker updates
 Signed-off-by: ranxi2001 <ranxi169@163.com>
 ```
 
 改动范围：
 
 ```text
-.github/dependabot.yml | 10 ++++++++++
+.github/dependabot.yml | 12 ++++++++++++
 ```
 
 diff：
@@ -192,6 +198,8 @@ diff：
 +      timezone: "UTC"
 +    commit-message:
 +      prefix: "chore(deps): "
++    ignore:
++      - dependency-name: "golang"
 ```
 
 ## 验证记录
@@ -209,10 +217,12 @@ python3 - <<'PY'
 import yaml
 cfg = yaml.safe_load(open('.github/dependabot.yml', encoding='utf-8'))
 ok = any(
-    u.get('package-ecosystem') == 'docker' and u.get('directory') == '/docker'
+    u.get('package-ecosystem') == 'docker'
+    and u.get('directory') == '/docker'
+    and u.get('ignore') == [{'dependency-name': 'golang'}]
     for u in cfg['updates']
 )
-print(f'dependabot.yml parsed; docker /docker update present={ok}')
+print(f'dependabot.yml parsed; docker /docker update present and golang ignored={ok}')
 raise SystemExit(0 if ok else 1)
 PY
 ```
@@ -220,7 +230,7 @@ PY
 结果：
 
 ```text
-dependabot.yml parsed; docker /docker update present=True
+dependabot.yml parsed; docker /docker update present and golang ignored=True
 ```
 
 ### Dockerfile 覆盖范围
@@ -254,7 +264,11 @@ Dependabot 支持 Docker ecosystem。配置 `package-ecosystem: "docker"` 和 `d
 
 ### 为什么 PR 不只覆盖 `alpine:3.19`
 
-因为 Dependabot 的目录扫描会读取 `/docker` 下所有 Dockerfile base images。这样能覆盖 Alpine runtime image，也能覆盖 `golang:*-alpine` builder image。副作用是 PicoD 的 `golang` / `ubuntu` base image 也在同一个维护入口下。这个范围是清晰、可解释、低成本的。
+因为 Dependabot 的 Docker updater 是目录级扫描。`/docker` 下除了 workloadmanager/router 的 Alpine runtime image，还有 PicoD 的 Ubuntu runtime image。最终配置让 runtime base image 自动更新，但通过 `ignore` 排除了 `golang` builder image。
+
+### 为什么忽略 `golang`
+
+`golang:*` Docker image 是编译器环境，不只是 runtime base image。它应该和项目 Go baseline 一起变更：`go.mod`、CI `go-version-file`、本地开发版本和 Docker builder image 需要保持一致。#391 的做法就是这个标准：一个 focused PR 同步升级 Go toolchain baseline，而不是让 Docker updater 单独改 builder image。
 
 ### 为什么不用 group
 
@@ -281,7 +295,9 @@ This PR adds a Docker ecosystem entry to `.github/dependabot.yml` for the `/dock
 
 AgentCube already uses Dependabot for GitHub Actions updates. The v0.2.0 planning issue also calls out that Alpine runtime base images in `docker/Dockerfile` and `docker/Dockerfile.router` can become outdated over time, which increases security maintenance burden.
 
-With this configuration, Dependabot can scan Dockerfiles under `/docker` and propose PRs when Docker base image tags have newer versions. The primary motivation is Alpine base image maintenance for workloadmanager and router, but the configured scope is the Docker base images under `/docker`, so it also covers PicoD's builder/runtime base images in the same directory.
+With this configuration, Dependabot can scan Dockerfiles under `/docker` and propose PRs when runtime Docker base image tags have newer versions. The primary motivation is Alpine base image maintenance for workloadmanager and router, and the configured directory scope also covers PicoD's Ubuntu runtime image in the same directory.
+
+The `golang` Docker image is intentionally ignored. The Go builder image should stay aligned with the project's Go toolchain baseline in `go.mod` and CI, so Go toolchain upgrades should remain focused PRs rather than Docker-only Dependabot bumps.
 
 **Which issue(s) this PR fixes**:
 
@@ -291,12 +307,14 @@ Refs #386
 
 This is a configuration-only change. Dependabot's Docker updater discovers Dockerfiles by filename pattern under the configured directory, so `/docker` covers `Dockerfile`, `Dockerfile.router`, and `Dockerfile.picod`.
 
+The Docker updater ignores `golang` because Go builder image updates need to stay coordinated with `go.mod` and GitHub Actions Go setup. This keeps Go toolchain baseline upgrades separate from runtime base image maintenance.
+
 AI assistance was used to prepare the change rationale and validation notes.
 
 Validation:
 
 - `git diff --check`
-- Parsed `.github/dependabot.yml` with PyYAML and verified the Docker `/docker` update entry is present
+- Parsed `.github/dependabot.yml` with PyYAML and verified the Docker `/docker` update entry is present and `golang` is ignored
 - Audited Docker base images under `/docker`
 - Fork-only validation: after enabling Dependabot version updates on the fork and temporarily scheduling the Docker updater, Dependabot opened `alpine:3.19 -> 3.24` and `ubuntu:24.04 -> 26.04` update PRs for `/docker`
 
@@ -389,7 +407,7 @@ gh api repos/ranxi2001/agentcube/branches --paginate \
 当前状态：
 
 - 上游候选代码已在本地 clean topic branch 完成，并已 rebase 到最新 `upstream/main de41b90`。
-- fork topic branch 当前 remote head 是 `1084c7ff79985f523a891f3ed2633436f0b1c2de`。
+- fork topic branch 当前 remote head 是 `0d4e33037a3eac07b0f5bec936dd7cb01afb46da`。
 - fork topic branch 已推送：`https://github.com/ranxi2001/agentcube/tree/chore/dependabot-docker-base-images`。
 - fork `main` 已恢复为 `upstream/main de41b90` 的干净镜像；临时 schedule 验证 commit 不再留在 fork `main`。
 - 已在 #386 回复 RainbowMango 的 `/help`，说明可以帮助该任务、当前计划和 `/docker` scope：`https://github.com/volcano-sh/agentcube/issues/386#issuecomment-4900995393`。
@@ -401,4 +419,5 @@ gh api repos/ranxi2001/agentcube/branches --paginate \
 
 1. 用户确认后，创建 upstream PR，使用上面的 title/body；PR 仍然写 `Refs #386`。
 2. PR reviewer notes 可以补一句 fork-only validation：after enabling Dependabot version updates on the fork, Dependabot opened `alpine:3.19 -> 3.24` and `ubuntu:24.04 -> 26.04` Docker update PRs for `/docker`。
-3. 如 maintainer 后续要求收窄到 Alpine-only，再评估 Dependabot `ignore` 配置或 Dockerfile 目录结构调整。
+3. 如果后续要自动化 Go toolchain 升级，另开独立方案：不能只让 Docker updater bump `golang`，需要同时更新 `go.mod`、CI 和 Docker builder image。
+4. 如 maintainer 后续要求收窄到 Alpine-only，再评估 Dependabot `ignore` 配置或 Dockerfile 目录结构调整。

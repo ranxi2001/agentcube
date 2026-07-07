@@ -172,6 +172,7 @@ For fork-only Dependabot Docker validation:
 3. Check the UI status at `Insights -> Dependency graph -> Dependabot`, including configured updates, last checked state, and the manual `Check for updates` control.
 4. If a quick fork-only check is needed, temporarily schedule the relevant updater on fork `main`, wait for Dependabot, then restore fork `main` to the upstream mirror before upstream PR work. Do not carry temporary schedule commits into upstream PR branches.
 5. Verify output by looking for `dependabot/docker...` branches and Dependabot PRs, not just generic `dependabot/go_modules...` or pip security PRs.
+6. Treat `golang:*` Docker builder images as Go toolchain baseline inputs, not ordinary runtime base images. If the project keeps Go version centralized in `go.mod`, do not let a Docker-only Dependabot PR update `golang` by itself; either ignore `golang` in the Docker updater or handle it in a focused Go/toolchain PR that also updates `go.mod`, CI setup, and Docker builder tags.
 
 Useful checks:
 
@@ -184,7 +185,7 @@ gh api repos/ranxi2001/agentcube/branches --paginate \
   --jq '.[] | select(.name|test("dependabot/docker|alpine|ubuntu"; "i")) | .name'
 ```
 
-Known AgentCube Day42 result: after enabling fork Dependabot version updates and temporarily scheduling the `/docker` Docker updater, Dependabot opened fork PR #17 for `alpine:3.19 -> 3.24` and fork PR #18 for `ubuntu:24.04 -> 26.04`. This confirms the `/docker` directory scope covers both Alpine runtime Dockerfiles and PicoD's Ubuntu runtime Dockerfile.
+Known AgentCube Day42 result: after enabling fork Dependabot version updates and temporarily scheduling the `/docker` Docker updater, Dependabot opened fork PR #17 for `alpine:3.19 -> 3.24` and fork PR #18 for `ubuntu:24.04 -> 26.04`. The final upstream PR configuration intentionally ignores `golang` so Docker runtime base image maintenance does not drift from the Go toolchain baseline established by PR #391.
 
 ### Fork-Only Push CI Workflow
 
