@@ -1,0 +1,200 @@
+name: Go Toolchain Bot Simulation
+
+on:
+  push:
+    branches:
+      - ci/go-toolchain-bot-simulation
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-go-toolchain-pr:
+    runs-on: ubuntu-24.04
+    env:
+      OLD_GO_DIRECTIVE: "1.24.4"
+    steps:
+      - name: Checkout simulation branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure bot git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve latest stable Go
+        run: |
+          latest="$(python3 <<'PY'
+          import json
+          import urllib.request
+
+          with urllib.request.urlopen("https://go.dev/dl/?mode=json", timeout=30) as response:
+              releases = json.load(response)
+
+          for release in releases:
+              if release.get("stable"):
+                  print(str(release["version"]).removeprefix("go"))
+                  break
+          else:
+              raise SystemExit("no stable Go release returned by go.dev")
+          PY
+          )"
+          echo "TARGET_GO_VERSION=${latest}" >> "$GITHUB_ENV"
+
+      - name: Set branch names
+        run: |
+          echo "BASE_BRANCH=bot/go-toolchain-old-1244-${GITHUB_RUN_ID}" >> "$GITHUB_ENV"
+          compact_version="${TARGET_GO_VERSION//./}"
+          echo "HEAD_BRANCH=bot/go-toolchain-auto-pr-${compact_version}-${GITHUB_RUN_ID}" >> "$GITHUB_ENV"
+
+      - name: Fetch upstream main
+        run: |
+          git remote add upstream https://github.com/volcano-sh/agentcube.git
+          git fetch upstream main
+
+      - name: Create old Go baseline branch
+        run: |
+          git switch -C "$BASE_BRANCH" upstream/main
+          python3 <<'PY'
+          from pathlib import Path
+          import os
+
+          old_go = os.environ["OLD_GO_DIRECTIVE"]
+          replacements = {
+              "go.mod": [
+                  ("go 1.26.4", f"go {old_go}"),
+              ],
+              "docker/Dockerfile": [
+                  ("golang:1.26.4-alpine", f"golang:{old_go}-alpine"),
+              ],
+              "docker/Dockerfile.router": [
+                  ("golang:1.26.4-alpine", f"golang:{old_go}-alpine"),
+              ],
+              "docker/Dockerfile.picod": [
+                  ("golang:1.26.4", f"golang:{old_go}"),
+              ],
+          }
+
+          for name, pairs in replacements.items():
+              path = Path(name)
+              content = path.read_text()
+              for old, new in pairs:
+                  if old not in content:
+                      raise SystemExit(f"{name}: missing expected text {old!r}")
+                  content = content.replace(old, new, 1)
+              path.write_text(content)
+          PY
+          git add go.mod docker/Dockerfile docker/Dockerfile.router docker/Dockerfile.picod
+          git commit -s -m "test: simulate pre-upgrade Go toolchain baseline"
+          git push origin "$BASE_BRANCH:$BASE_BRANCH"
+
+      - name: Generate Go toolchain update branch
+        run: |
+          git switch -C "$HEAD_BRANCH" "$BASE_BRANCH"
+          python3 <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          target = os.environ["TARGET_GO_VERSION"]
+
+          go_mod = Path("go.mod")
+          content = go_mod.read_text()
+          content = re.sub(r"^go[ \t]+[0-9]+\.[0-9]+(?:\.[0-9]+)?[ \t]*$", f"go {target}", content, count=1, flags=re.MULTILINE)
+          content = re.sub(r"\ntoolchain[ \t]+go[0-9]+\.[0-9]+(?:\.[0-9]+)?[ \t]*\n", "\n", content)
+          content = re.sub(r"\n{3,}", "\n\n", content)
+          go_mod.write_text(content)
+
+          image_re = re.compile(
+              r"^(FROM(?:\s+--platform=\S+)?\s+golang:)"
+              r"([0-9]+\.[0-9]+(?:\.[0-9]+)?)"
+              r"([^\s]*)",
+              re.MULTILINE,
+          )
+          for path in sorted(Path("docker").glob("Dockerfile*")):
+              content = path.read_text()
+              path.write_text(image_re.sub(lambda m: f"{m.group(1)}{target}{m.group(3)}", content))
+
+          go_version_re = re.compile(
+              r"^([ \t]*)go-version[ \t]*:[ \t]*[\"']?[^\"'\n]+[\"']?[ \t]*$",
+              re.MULTILINE,
+          )
+          for path in sorted(Path(".github/workflows").glob("*.yml")):
+              content = path.read_text()
+              path.write_text(go_version_re.sub(r"\1go-version-file: go.mod", content))
+          PY
+          go mod tidy
+          git diff --check
+          git add go.mod docker/Dockerfile docker/Dockerfile.router docker/Dockerfile.picod
+          git commit -s -m "chore: update Go toolchain to ${TARGET_GO_VERSION}"
+
+      - name: Verify generated update
+        run: |
+          changed="$(git diff --name-only "$BASE_BRANCH"..HEAD | sort)"
+          expected="$(
+            printf '%s\n' \
+              "docker/Dockerfile" \
+              "docker/Dockerfile.picod" \
+              "docker/Dockerfile.router" \
+              "go.mod" \
+              | sort
+          )"
+          test "$changed" = "$expected"
+          git diff --stat "$BASE_BRANCH"..HEAD
+          git diff --exit-code upstream/main..HEAD
+
+      - name: Push generated branch
+        run: |
+          git push origin "$HEAD_BRANCH:$HEAD_BRANCH"
+
+      - name: Create bot PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import os
+          import textwrap
+
+          target = os.environ["TARGET_GO_VERSION"]
+          Path("/tmp/pr-body.md").write_text(textwrap.dedent(f"""\
+          **What type of PR is this?**
+
+          /kind cleanup
+
+          **What this PR does / why we need it**:
+
+          Fork-only simulation of the future-standard automatically generated Go toolchain baseline update PR.
+
+          This PR was created by GitHub Actions using `GITHUB_TOKEN`, so the author should be `github-actions[bot]`. The base branch intentionally simulates an old but post-#391-style Go baseline: `go.mod` is the source of truth, workflows already use `go-version-file: go.mod`, and Docker `golang:*` builder tags are aligned with `go.mod`. The head branch was generated by the workflow and updates the project back to Go {target}.
+
+          **Which issue(s) this PR fixes**:
+
+          NONE
+
+          **Special notes for your reviewer**:
+
+          - Scope: fork-only automation rehearsal, not intended for upstream merge.
+          - Automation identity: GitHub Actions `GITHUB_TOKEN`.
+          - Validation in workflow: `go mod tidy`, `git diff --check`, exact 4-file changed list, and final tree comparison against `upstream/main`.
+          - Note: a historical #391-style 9-file migration also changes `.github/workflows/*`; GitHub rejects those workflow-file pushes from `GITHUB_TOKEN` unless a separate token/app has workflow-file permission. Future regular Go baseline updates should not need workflow file changes because #391 already moved setup-go to `go-version-file: go.mod`.
+
+          **Does this PR introduce a user-facing change?**:
+
+          ```release-note
+          NONE
+          ```
+          """))
+          PY
+
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base "$BASE_BRANCH" \
+            --head "$HEAD_BRANCH" \
+            --title "chore: update Go toolchain to ${TARGET_GO_VERSION}" \
+            --body-file /tmp/pr-body.md
