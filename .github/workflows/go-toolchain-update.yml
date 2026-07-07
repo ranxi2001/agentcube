@@ -2,7 +2,7 @@ name: Go Toolchain Update
 
 on:
   schedule:
-    - cron: "0 3 * * 1"
+    - cron: "55 14 * * *"
 
 permissions:
   contents: read
