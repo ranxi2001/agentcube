@@ -364,11 +364,22 @@ Automation boundary learned from fork testing:
 - After #391, regular future Go baseline updates should normally be 4 or 5 files: `go.mod`, optional `go.sum`, and the three Docker builder Dockerfiles. Workflows should already read `go-version-file: go.mod`.
 - PRs created with `GITHUB_TOKEN` do not reliably trigger recursive downstream workflows. Treat the creator workflow's validation as evidence, but do not claim normal PR CI ran unless checks actually exist on the generated PR.
 
+For an upstreamable Go toolchain auto-update workflow, split trigger paths instead of relying only on `schedule`:
+
+- Add a read-only verifier job on `push` and `pull_request` for Go baseline paths such as `go.mod`, `go.sum`, `docker/Dockerfile*`, `.github/workflows/*.yml`, and the toolchain helper script. This proves the workflow still triggers when relevant files change and catches drift before the next scheduled release check.
+- If the policy is to keep AgentCube on the latest stable Go, the verifier should use the equivalent of `verify --check-latest --require-latest`, not notice-only `--check-latest`. Otherwise a branch that consistently lowers `go.mod` and all Docker builder tags can still pass alignment checks.
+- Keep the PR-creating updater job limited to `schedule` and `workflow_dispatch`, with job-level `contents: write` and `pull-requests: write` permissions. The workflow default should stay `contents: read`.
+- On a production branch where the current Go baseline already equals the latest stable Go release, do not fake an old version just to show a PR. Validate the updater script locally, then push the branch and confirm the verifier workflow run was created for the actual commit.
+- Treat a skipped updater job on `push` as the expected result. It proves ordinary branch validation does not exercise the write-permission path.
+- Remember that GitHub Actions `schedule` runs only from the repository default branch. A topic-branch test can prove push/PR verifier behavior, but it cannot prove cron behavior until the workflow is merged into the default branch.
+
 Known fork-only evidence from Day43:
 
 - `https://github.com/ranxi2001/agentcube/actions/runs/28862855744` successfully created bot PR `https://github.com/ranxi2001/agentcube/pull/20` as `app/github-actions`.
 - That PR validates the future-standard 4-file path: `go.mod`, `docker/Dockerfile`, `docker/Dockerfile.router`, and `docker/Dockerfile.picod`.
 - A prior 9-file workflow attempt failed at the GitHub platform permission boundary when trying to push `.github/workflows/build-push-release.yml` with `GITHUB_TOKEN`.
+- Production branch evidence: `https://github.com/ranxi2001/agentcube/actions/runs/28865629258` ran the proposed `Go Toolchain Update` workflow on branch push, with `verify-go-toolchain` successful and the write-permission `update-go-toolchain` job skipped as expected.
+- Old-baseline evidence: `https://github.com/ranxi2001/agentcube/actions/runs/28865686938` changed `go.mod` plus the three Docker builder tags from `1.26.4` to `1.26.3`; the push-triggered verifier failed with `project Go 1.26.3 differs from latest stable Go 1.26.4`, proving a consistent but stale 4-file baseline is detected.
 
 ### Dependency Release / RC Triage
 
