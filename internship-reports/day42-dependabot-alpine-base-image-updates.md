@@ -316,7 +316,7 @@ Validation:
 - `git diff --check`
 - Parsed `.github/dependabot.yml` with PyYAML and verified the Docker `/docker` update entry is present and `golang` is ignored
 - Audited Docker base images under `/docker`
-- Fork-only validation: after enabling Dependabot version updates on the fork and temporarily scheduling the Docker updater, Dependabot opened `alpine:3.19 -> 3.24` and `ubuntu:24.04 -> 26.04` update PRs for `/docker`
+- Fork-only validation: after enabling Dependabot version updates on the fork and temporarily scheduling the Docker updater, Dependabot opened [`alpine:3.19 -> 3.24`](https://github.com/ranxi2001/agentcube/pull/17) and [`ubuntu:24.04 -> 26.04`](https://github.com/ranxi2001/agentcube/pull/18) update PRs for `/docker`
 
 **Does this PR introduce a user-facing change?**:
 
