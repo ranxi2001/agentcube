@@ -961,6 +961,33 @@ upstream PR #420 也已更新到 `d996bbb`，changed files 仍为 3，PR mergeab
 
 > 分析：这次真实 release run 比 Day39 早期 benchmark 更接近最终用户路径，因为它包含 GHCR image push、Helm package 和 chart push。结果显示 #420 已把 release image publish 从约 25 分钟级降到约 5 分半；剩余最大慢点转移到 PicoD 的 arm64 Ubuntu/Python runtime layer，而不是 Go compiler。
 
+#### 三个 Dockerfile 的 build stage / runtime stage 划分
+
+#420 修改的三行都在 `builder` stage 的 `FROM` 上，只改变 Go 编译环境运行在哪个平台，不改变最终 runtime image 的 base image、包安装、用户、端口或 entrypoint。
+
+> 注释：Dockerfile 中每个 `RUN` 都是在 image build 期间执行的指令，但要区分它属于哪个 stage。`builder` stage 的 `RUN go build` 只用于产出二进制，stage 本身不会进入最终镜像；runtime stage 的 `RUN apk add` / `RUN apt-get install` 是在构建最终镜像层，它们的结果会留在最终运行环境里。
+
+| File | Build / compiler stage | Runtime image stage | #420 改动 |
+| --- | --- | --- | --- |
+| `docker/Dockerfile` | `FROM --platform=$BUILDPLATFORM golang:1.26.4-alpine AS builder` 到 `go build -o workloadmanager ./cmd/workload-manager`，约 lines 2-27。用途是下载 Go 依赖、复制 `cmd/` / `pkg/` / `client-go/`、执行 `CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH}` 编译 `workloadmanager`。 | `FROM alpine:3.19` 到 `CMD ["--port=8080"]`，约 lines 30-46。最终镜像包含 Alpine、`ca-certificates`、`/app/workloadmanager`、非 root 用户 `apiserver`、8080 端口和 entrypoint。 | 只改 line 2 的 builder base platform；runtime stage 没改。 |
+| `docker/Dockerfile.router` | `FROM --platform=$BUILDPLATFORM golang:1.26.4-alpine AS builder` 到 `go build -o agentcube-router ./cmd/router`，约 lines 2-27。用途是下载 Go 依赖、复制源码、编译 router binary。 | `FROM alpine:3.19` 到 `CMD ["--port=8080", "--debug"]`，约 lines 30-46。最终镜像包含 Alpine、`ca-certificates`、`/app/agentcube-router`、非 root 用户 `router`、8080 端口和 entrypoint。 | 只改 line 2 的 builder base platform；runtime stage 没改。 |
+| `docker/Dockerfile.picod` | `FROM --platform=$BUILDPLATFORM golang:1.26.4 AS builder` 到 `go build -o picod ./cmd/picod`，约 lines 2-22。用途是下载 Go 依赖、复制 repo、编译 `picod` binary。 | `FROM ubuntu:24.04` 到 `ENTRYPOINT ["/usr/local/bin/picod"]`，约 lines 25-37。最终镜像包含 Ubuntu、Python3、`/usr/local/bin/picod`，并以 `/root/` 为工作目录、root 用户运行以满足代码执行和 `chattr +i` 权限需求。 | 只改 line 2 的 builder base platform；runtime stage 没改。 |
+
+因此，三个 Dockerfile 中真正与 #420 性能优化直接相关的是 build stage：
+
+```text
+FROM --platform=$BUILDPLATFORM golang:... AS builder
+ARG TARGETOS
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build ...
+```
+
+runtime stage 只通过 `COPY --from=builder ...` 拿到对应架构的二进制。最终镜像不包含 Go toolchain，也不包含 builder stage 的 source tree / module cache / build cache。
+
+> 分析：这也解释了为什么 #420 不改变产物语义。它没有把 arm64 runtime image 改成 amd64 image；它只是让临时 Go compiler stage 运行在 native `BUILDPLATFORM`，然后把交叉编译出的 target-architecture binary 复制进原来的 target-platform runtime image。
+
+PicoD 的剩余耗时也因此更容易定位：`docker/Dockerfile.picod` 的 Go 编译已经从 `9.6s` 降到 `0.8s`，但 runtime stage 仍使用 `FROM ubuntu:24.04` 并执行 `apt-get update && apt-get install -y python3`。这个 runtime layer 属于最终镜像内容，不能通过只改 Go builder stage 消除；如果要继续优化，需要另开 follow-up 处理 PicoD runtime image 选型、Python 预装 base image、runtime-only layer cache 或 matrix 构建。
+
 ## 初步 upstream PR 价值判断
 
 这个性能优化值得作为独立贡献，因为它满足几个条件：
