@@ -40,10 +40,6 @@ GOLANG_IMAGE_RE = re.compile(
 SETUP_GO_RE = re.compile(r"uses:[ \t]*actions/setup-go@")
 GO_VERSION_RE = re.compile(r"\bgo-version[ \t]*:")
 GO_VERSION_FILE_RE = re.compile(r"\bgo-version-file[ \t]*:[ \t]*go\.mod\b")
-INLINE_GO_VERSION_RE = re.compile(
-    r"^([ \t]*)go-version[ \t]*:[ \t]*[\"']?[^\"'\n]+[\"']?[ \t]*$",
-    re.MULTILINE,
-)
 VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+(?:\.[0-9]+)?$")
 
 
@@ -127,22 +123,11 @@ def update_dockerfiles(repo: Path, version: str, changed: list[Path]) -> None:
         raise ValueError("no golang builder images found under docker/Dockerfile*")
 
 
-def update_workflows(repo: Path, changed: list[Path]) -> None:
-    workflows = repo / ".github" / "workflows"
-    if not workflows.is_dir():
-        raise ValueError(f"missing workflow directory: {workflows}")
-
-    for path in sorted(workflows.glob("*.yml")):
-        content = read_text(path)
-        write_if_changed(path, INLINE_GO_VERSION_RE.sub(r"\1go-version-file: go.mod", content), changed)
-
-
 def update_repo(repo: Path, version: str) -> list[Path]:
     validate_version(version)
     changed: list[Path] = []
     update_go_mod(repo, version, changed)
     update_dockerfiles(repo, version, changed)
-    update_workflows(repo, changed)
     return changed
 
 
@@ -232,7 +217,7 @@ def parse_args() -> argparse.Namespace:
     subparsers.add_parser("current", help="Print the current go.mod Go directive.")
     subparsers.add_parser("latest", help="Print the latest stable Go release from go.dev.")
 
-    update = subparsers.add_parser("update", help="Update go.mod, Dockerfiles, and setup-go workflows.")
+    update = subparsers.add_parser("update", help="Update go.mod and Docker builder image tags.")
     update.add_argument("--version", help="Target Go version without the leading 'go'.")
     update.add_argument("--latest", action="store_true", help="Use the latest stable Go release from go.dev.")
 
