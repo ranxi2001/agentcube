@@ -838,11 +838,25 @@ I also ran two fork-only GitHub runner benchmarks that do not push images or cha
 
 ### Issue 清晰度复核
 
-发布后复核 #419 正文，结论是问题陈述和性能证据已经足够清楚：正文明确指出 release workflow 的慢点来自 buildx 在 `linux/arm64` target builder stage 中通过 QEMU 执行 Go compiler，并给出了 upstream run、fork release-validation run、fork-only baseline / Scheme A benchmark 的对照数据。
+发布后第一轮复核 #419 正文时，重点放在性能证据是否完整：正文明确指出 release workflow 的慢点来自 buildx 在 `linux/arm64` target builder stage 中通过 QEMU 执行 Go compiler，并给出了 upstream run、fork release-validation run、fork-only baseline / Scheme A benchmark 的对照数据。
 
 选项也基本说清楚了：正文列出四个方向，分别是最小 Dockerfile builder platform 改动、Karmada-style 预编译二进制再组装镜像、PicoD runtime layer follow-up、matrix/cache 等 workflow follow-up。
 
-不足在于 PR 计划仍然是“隐含的”：虽然正文写了 `A minimal first step`，但没有单独列出 `Planned PR scope` / `Non-goals` / `Follow-ups`。如果希望 reviewer 一眼看懂下一步，可以追加一条简短 comment，明确：
+后续结合 #420 的 reviewer 视角重新看，原始 issue 开头仍然偏晦涩：它直接说“target-platform builder stage / QEMU”，但没有先解释 Docker builder stage 在这里只是临时编译环境，不是最终 runtime image。对不熟悉 BuildKit multi-platform 语义的 reviewer 来说，容易误解为“Docker 已经指定了 `linux/arm64`，为什么还会需要 QEMU”，或者把 `FROM --platform=$BUILDPLATFORM` 看成魔法参数。
+
+因此更好的 issue 表述顺序是：
+
+1. GitHub Actions runner 是 `linux/amd64` CI host，负责调用 `docker buildx` 和 push image。
+2. Docker builder stage 是临时 Go 编译环境，提供 Go toolchain 并执行 `go build`，编译后会被丢弃。
+3. `docker buildx build --platform linux/arm64` 指定的是 target image platform，并会让未显式指定 platform 的 `FROM golang:... AS builder` 选中 arm64 Go image。
+4. 在 amd64 runner 上执行 arm64 builder stage 的 `RUN go build` 时，Go compiler 进程本身就是 arm64 用户态程序，因此需要 QEMU/binfmt emulation。
+5. `FROM --platform=$BUILDPLATFORM golang:... AS builder` 只让 compiler stage 跑在 native build platform；最终仍通过 `GOOS=${TARGETOS} GOARCH=${TARGETARCH}` 生成目标架构 binary，再复制到 target-platform runtime image。
+
+> 分析：最关键的一句话是“Docker builder stage 是编译工具，不是最终运行环境；这次修改优化的是编译工具运行的平台，而不是最终镜像的平台”。这个角度比直接讲 `BUILDPLATFORM` / `TARGETPLATFORM` 更容易让 reviewer 建立心智模型。
+
+用户确认后，已在 2026-07-07 编辑 #419 issue body 的 `What would you like to be added` 部分：<https://github.com/volcano-sh/agentcube/issues/419>。新的开头明确说明 Docker builder stage 是 temporary build environment，解释 `--platform linux/arm64` 不会把 x64 GitHub runner 变成 arm64 machine，并用一段流程说明 `Go builder stage: linux/amd64 native -> GOOS=linux GOARCH=arm64 -> Final runtime image: linux/arm64`。
+
+PR 计划仍然需要单独表达：虽然 issue 正文写了 `A minimal first step`，但没有单独列出 `Planned PR scope` / `Non-goals` / `Follow-ups`。如果希望 reviewer 一眼看懂下一步，可以追加一条简短 comment，明确：
 
 1. 第一阶段 PR 只做 Scheme A：三个 Go image Dockerfile 的 builder stage 改为 `$BUILDPLATFORM`。
 2. 第一阶段不改 release trigger、artifact naming、Helm chart metadata、matrix/cache，也不把 PicoD runtime layer 优化混进来。
