@@ -19,15 +19,15 @@ import urllib.request
 from pathlib import Path
 
 
-GO_DIRECTIVE_RE = re.compile(r"^go\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)\s*$", re.MULTILINE)
-TOOLCHAIN_RE = re.compile(r"^toolchain\s+go([0-9]+\.[0-9]+(?:\.[0-9]+)?)\s*$", re.MULTILINE)
+GO_DIRECTIVE_RE = re.compile(r"^go[ \t]+([0-9]+\.[0-9]+(?:\.[0-9]+)?)[ \t]*$", re.MULTILINE)
+TOOLCHAIN_RE = re.compile(r"^toolchain[ \t]+go([0-9]+\.[0-9]+(?:\.[0-9]+)?)[ \t]*$", re.MULTILINE)
 GOLANG_IMAGE_RE = re.compile(
     r"^FROM(?:\s+--platform=\S+)?\s+golang:([0-9]+\.[0-9]+(?:\.[0-9]+)?)([^\s]*)",
     re.MULTILINE,
 )
 SETUP_GO_RE = re.compile(r"uses:\s*actions/setup-go@")
-GO_VERSION_RE = re.compile(r"\bgo-version\s*:")
-GO_VERSION_FILE_RE = re.compile(r"\bgo-version-file\s*:\s*go\.mod\b")
+GO_VERSION_RE = re.compile(r"\bgo-version[ \t]*:")
+GO_VERSION_FILE_RE = re.compile(r"\bgo-version-file[ \t]*:[ \t]*go\.mod\b")
 
 
 def parse_args() -> argparse.Namespace:

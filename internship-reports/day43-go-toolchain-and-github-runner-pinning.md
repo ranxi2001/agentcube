@@ -431,35 +431,213 @@ Go toolchain alignment: OK
 
 这个脚本先留在本地 skill，不直接作为 upstream diff。后续如果 maintainer 接受方向，可以把它改成 upstream `hack/verify-go-toolchain.*`，再接入 CI。
 
-### 英文 upstream comment 草稿
+### 自动 PR 演练与权限边界
 
-目标位置可以是 #386，因为它是 v0.2.0 umbrella；也可以等 #422 / #423 review 后再单独开一个 focused issue。建议先不直接发，等用户确认 exact text。
+用户要求按“自动创建 PR”的标准在 fork 仓库做真实测试。我先犯了一个判断错误：手工创建了 fork PR #19，虽然它复刻了 #391 的 9 文件升级面，但 author 是 `ranxi2001`，不符合“自动 PR”证据标准，不能作为最终证据引用。该 PR 是 fork-only，后续已处于 merged 状态，但不要在 upstream 方案中引用它作为 automation evidence。
+
+> 分析：自动化证据不能只看 diff 是否像自动生成，还要看创建者身份、触发来源和权限链路。手工用 `gh pr create` 创建的 PR，哪怕 body 写了自动化，也仍然是用户身份 PR。
+
+随后改为 fork-only workflow 演练：
+
+- workflow 分支：`ci/go-toolchain-bot-simulation`
+- 成功 run：<https://github.com/ranxi2001/agentcube/actions/runs/28862855744>
+- 自动 PR：<https://github.com/ranxi2001/agentcube/pull/20>
+- PR author：`app/github-actions`
+- PR head：`bot/go-toolchain-auto-pr-1264-28862855744`
+- PR base：`bot/go-toolchain-old-1244-28862855744`
+- head commit：`96c68fe`
+
+为了让 `GITHUB_TOKEN` 能创建 PR，我通过 GitHub API 打开了 fork 仓库的 Actions 设置：
+
+```text
+can_approve_pull_request_reviews: true
+default_workflow_permissions: read
+```
+
+> 注释：GitHub UI 中对应的是 Settings -> Actions -> General -> Workflow permissions 里的 “Allow GitHub Actions to create and approve pull requests”。这里默认权限仍保持 `read`，具体 job 权限由 workflow 里的 `permissions: contents: write, pull-requests: write` 显式声明。
+
+这个 workflow 做了以下动作：
+
+1. 读取 `https://go.dev/dl/?mode=json`，解析最新 stable Go。
+2. 从 `upstream/main` 创建一个旧 Go baseline base branch。
+3. 从 base branch 生成自动升级 head branch。
+4. 运行 `go mod tidy`、`git diff --check`。
+5. 校验 changed file list 必须精确等于预期文件列表。
+6. 校验生成后的 head tree 与 `upstream/main` 一致。
+7. 用 `GITHUB_TOKEN` 创建 fork PR #20。
+
+PR #20 的 diff 是 4 个文件：
+
+```text
+docker/Dockerfile
+docker/Dockerfile.picod
+docker/Dockerfile.router
+go.mod
+```
+
+这是“未来常规 Go baseline 更新”的合理形态，因为 #391 已经把 workflow 里的 `actions/setup-go` 都改成了 `go-version-file: go.mod`。因此后续从 `1.26.4` 升到 `1.26.5` 或 `1.27.x` 时，正常不需要再改 `.github/workflows/*`。
+
+> 注释：`go-version-file: go.mod` 的意义是 GitHub Actions 不再单独写死 Go 版本，而是从 `go.mod` 读取。这样常规 Go baseline 更新只需要改 `go.mod` 和 Docker builder image tag。
+
+### 9 文件版本为什么困难
+
+#391 的真实升级改了 9 个文件：
+
+```text
+.github/workflows/build-push-release.yml
+.github/workflows/codegen-check.yml
+.github/workflows/e2e.yml
+.github/workflows/lint.yml
+.github/workflows/test-coverage.yml
+docker/Dockerfile
+docker/Dockerfile.picod
+docker/Dockerfile.router
+go.mod
+```
+
+我也尝试用 workflow 复刻这个历史迁移面：base branch 写成 #391 前的状态，包括 `go.mod go 1.24.4`、`toolchain go1.24.9`、workflow inline `go-version`、旧 Docker builder tag。结果 GitHub 在 push base branch 时拒绝：
+
+```text
+refusing to allow a GitHub App to create or update workflow `.github/workflows/build-push-release.yml` without `workflows` permission
+```
+
+> 分析：这是 GitHub 平台权限边界，不是脚本 bug。默认 `GITHUB_TOKEN` 即使声明了 `contents: write` 和 `pull-requests: write`，也不能创建或修改 workflow 文件。这样设计是为了防止一个 workflow 自我修改 CI 权限或注入新的 workflow。
+
+因此，9 文件版本只有几种可行方式：
+
+- 人工 PR：最简单，但不是自动 PR。
+- GitHub App / PAT：token 需要 `workflow` 权限，可以推送 `.github/workflows/*`，但引入 secret 管理、权限审计和身份归属问题。
+- Renovate 等专用依赖机器人：能力更强，但需要维护者接受新工具和配置复杂度。
+- 拆分迁移：先人工完成一次 workflow 迁移，然后后续自动 PR 只做 4 文件 baseline 更新。
+
+当前项目已经通过 #391 完成了这次拆分里的“人工 workflow 迁移”部分，所以长期自动化不应再追求每次都 9 文件。
+
+### 方案优缺点对比
+
+| 方案 | 能自动创建 PR | 能覆盖 9 文件历史迁移 | 安全/权限成本 | 优点 | 缺点 |
+| --- | --- | --- | --- | --- | --- |
+| 只加 verifier，不自动 PR | 否 | 可检查 | 低 | 最安全，先防漂移；适合 upstream 首个 PR | 不能自动提出升级 |
+| Dependabot Docker updater 包含 `golang` | 是 | 否 | 低 | 配置最简单 | 只能改 Dockerfile，不能同步 `go.mod` / workflow；会制造 Go baseline drift |
+| Dependabot gomod updater | 是 | 否 | 低 | 适合 Go module dependencies | 不是完整 Go compiler baseline 方案，不能同步 Docker builder tag |
+| GitHub Actions + 默认 `GITHUB_TOKEN` | 是 | 否 | 中低 | 可以由 `github-actions[bot]` 开 PR；适合 #391 之后的 4 文件常规更新 | 需要仓库允许 Actions 创建 PR；不能改 workflow 文件；`GITHUB_TOKEN` 创建的 PR 不会递归触发其它 workflow |
+| GitHub Actions + PAT / GitHub App token | 是 | 是 | 高 | 可以覆盖 `.github/workflows/*`，也可能触发后续 CI | 需要 secret / App 治理；token 泄漏风险；author 身份可能不是 `github-actions[bot]` |
+| Renovate | 是 | 通常可配置覆盖 | 中 | 依赖升级能力成熟，可管 Docker / gomod / custom manager | 引入新机器人和配置；需要维护者维护规则，初始学习成本高 |
+| 手工 Go toolchain PR | 否 | 是 | 低 | 最可控，适合少量低频升级或历史迁移 | 不能解决长期自动发现问题 |
+
+> 分析：如果目标是“长期解决方案”，最佳顺序不是先追求全自动开 PR，而是先保证 baseline 不漂移。自动 PR 可以作为第二阶段，而且应限制为 post-#391 的常规 4 文件更新。
+
+### 建议结论
+
+短期建议：
+
+1. 不把 `golang` 放回 Docker Dependabot。
+2. 先提一个 verifier PR，检查：
+   - `go.mod` Go directive；
+   - Docker `golang:<version>` builder tag；
+   - `actions/setup-go` 是否使用 `go-version-file: go.mod`。
+3. verifier 合入后，再讨论 scheduled auto PR。
+
+中期建议：
+
+- 用 GitHub Actions 默认 `GITHUB_TOKEN` 做 4 文件常规更新 PR：
+  - `go.mod`
+  - `go.sum`（如果 `go mod tidy` 需要）
+  - `docker/Dockerfile`
+  - `docker/Dockerfile.router`
+  - `docker/Dockerfile.picod`
+- PR 不自动 merge。
+- PR body 写清楚 creator workflow 已做的验证。
+- 由于 `GITHUB_TOKEN` 创建的 PR 不递归触发其它 workflows，完整 CI 可以通过 maintainer 手动触发、merge queue / PR review 后触发，或在创建 workflow 内跑一组必要验证。
+
+长期可选：
+
+- 如果维护者希望自动化也覆盖 `.github/workflows/*` 迁移，单独讨论 GitHub App / Renovate。不要在第一版 verifier PR 中引入高权限 token。
+
+### 英文 upstream issue 草稿
+
+建议新开 focused enhancement issue，而不是直接发到 #386。#386 是 v0.2.0 umbrella，Go toolchain automation 涉及 Dependabot、workflow 权限和 bot PR 安全边界，单独讨论更容易收敛。
+
+标题：
+
+```text
+Automate Go toolchain baseline drift checks and update proposals
+```
+
+正文：
 
 ````md
-I think the Go toolchain update should be handled as a separate long-term maintenance workflow rather than being folded into the Docker base image Dependabot update.
+**What would you like to be added**:
 
-The reason is that `golang:*` builder images are part of the project Go baseline, not ordinary runtime base images. PR #391 updated `go.mod`, the Docker builder tags, and the GitHub Actions `setup-go` configuration together. If Dependabot's Docker updater bumps `golang:*` by itself, the Docker builder can drift from the `go.mod` Go version and CI source of truth.
+I would like to add a lightweight maintenance path for the project Go toolchain baseline.
 
-My suggested long-term approach:
+The first step can be a verifier that checks whether the Go baseline stays aligned across:
 
-1. Keep `go.mod` as the Go version source of truth.
-2. Keep `actions/setup-go` using `go-version-file: go.mod`.
-3. Keep the Docker Dependabot updater focused on runtime base images and continue ignoring `golang`.
-4. Add a lightweight verifier that checks:
-   - the `go.mod` Go directive,
-   - all `docker/Dockerfile*` `golang:<version>` builder tags,
-   - and all `actions/setup-go` workflows.
-5. Later, add a scheduled Go toolchain check that reads the latest stable Go release from the official Go release feed and opens a focused, reviewable PR when a new Go baseline is available.
+- the `go.mod` Go directive,
+- Docker `golang:<version>` builder image tags under `docker/Dockerfile*`,
+- and GitHub Actions `actions/setup-go` usage.
 
-That generated PR should still be reviewed manually and should update only the Go toolchain baseline files, with validation such as non-e2e Go tests, race/coverage, `make build-all`, `make lint`, `make gen-check`, and Docker builds for the workloadmanager, router, and picod images.
+After that verifier is in place, we can optionally add a scheduled workflow that reads the latest stable Go release from the official Go release feed and opens a focused, reviewable PR when the project baseline is behind.
 
-This keeps three update streams separate:
+The generated PR should not be auto-merged.
 
-- runtime Docker base images: Dependabot Docker updater,
-- Go module dependencies: optional `gomod` updater,
-- Go compiler/toolchain baseline: focused Go toolchain PR.
+**Why is this needed**:
 
-I can help prepare the verifier as a follow-up if this direction sounds reasonable.
+PR #391 showed that the Go compiler/toolchain baseline is a coordinated project setting, not just a Docker base image update. It updated `go.mod`, Docker builder image tags, and GitHub Actions Go setup together.
+
+In #422, the Docker Dependabot updater intentionally ignores `golang` builder images, because a Docker-only Dependabot PR would update Dockerfiles without updating `go.mod` and the CI source of truth. That avoids drift, but it leaves us without a clear long-term path for future Go baseline updates.
+
+**Possible implementation direction**:
+
+1. Add a verifier, for example `hack/verify-go-toolchain.*`, that checks:
+   - `go.mod` has a parseable Go directive,
+   - every `docker/Dockerfile*` `golang:<version>` builder tag matches that Go version,
+   - every workflow using `actions/setup-go` uses `go-version-file: go.mod` instead of an inline `go-version`.
+2. Run the verifier in CI.
+3. Later, add a scheduled workflow that:
+   - reads `https://go.dev/dl/?mode=json`,
+   - compares the latest stable Go release with `go.mod`,
+   - updates `go.mod` and Docker builder tags,
+   - runs `go mod tidy`,
+   - opens a PR with the exact validation result.
+
+For regular future updates after #391, the generated PR should usually only need to change:
+
+- `go.mod`,
+- `go.sum` if `go mod tidy` changes it,
+- `docker/Dockerfile`,
+- `docker/Dockerfile.router`,
+- `docker/Dockerfile.picod`.
+
+**Fork-only validation**:
+
+I tested the future-standard workflow in a fork:
+
+- workflow run: https://github.com/ranxi2001/agentcube/actions/runs/28862855744
+- generated PR: https://github.com/ranxi2001/agentcube/pull/20
+- PR author: `app/github-actions`
+- generated diff: `go.mod` plus the three Docker builder Dockerfiles
+
+This validates the normal post-#391 path. I also tested a historical 9-file migration shape that modifies `.github/workflows/*`; GitHub rejected that push when using the default `GITHUB_TOKEN` because workflow files require `workflows` permission. That means workflow-file migrations should remain human-reviewed or use a separately approved GitHub App / PAT / Renovate setup.
+
+**Alternatives considered**:
+
+- Let Dependabot's Docker updater manage `golang:*`: this is simple, but it can only update Dockerfiles and can drift from `go.mod`.
+- Use Dependabot's gomod updater: useful for Go module dependencies, but it does not keep Docker builder image tags aligned with the compiler baseline.
+- Use a GitHub Actions workflow with the default `GITHUB_TOKEN`: this can create future 4-file Go baseline PRs, but it cannot create or update `.github/workflows/*` files and GitHub-token-created PRs do not recursively trigger all workflows.
+- Use a PAT or GitHub App token with workflow-file permission: this can cover historical 9-file migrations that touch `.github/workflows/*`, but it adds secret management and security review overhead.
+- Use Renovate: more powerful and configurable, but it introduces a new dependency management bot and configuration surface.
+
+**Compatibility / security notes**:
+
+The first PR should only add verification and should not introduce a high-privilege token.
+
+If maintainers want an auto-PR workflow later, we should keep it review-only, avoid auto-merge, and document what validation runs inside the creator workflow versus what still requires normal PR CI.
+
+**Related issues / PRs**:
+
+- #391 updated the Go toolchain baseline to Go 1.26.4.
+- #422 adds Docker Dependabot updates for runtime base images and intentionally excludes `golang`.
+- #386 is the broader v0.2.0 tracking issue where the maintenance problem was originally noticed.
 ````
 
 ### 当前建议
