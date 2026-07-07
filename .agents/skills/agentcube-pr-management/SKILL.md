@@ -596,6 +596,41 @@ Keep a local record in internship reports:
 - Reviewer notes:
 ```
 
+## Requesting Reviewer Attention
+
+Asking someone to review a PR is an upstream-facing action. Do it only after the user approves the exact target and exact text. Prefer a short PR comment over a formal GitHub reviewer request unless the repository workflow or maintainer explicitly expects reviewer assignment.
+
+Use this sequence:
+
+1. Confirm the PR is ready for review: the branch contains the intended scope only, DCO is passing, and either CI is green or any remaining blocker is clearly unrelated and documented.
+2. Identify why the person is appropriate: they scoped the issue, already participated in the discussion, are listed by OWNERS/bot guidance, or previously asked to review this area.
+3. Check whether bot guidance says to wait. For Kubernetes/Prow-style flow, if the bot says "once this PR has lgtm, assign <approver>", do not mention the approver early just to speed things up.
+4. Keep the comment short and low-pressure. Do not attach long rationale, CI logs, or multiple requests unless the reviewer needs that context.
+5. Ask one person or one small relevant group at a time. Avoid broad maintainer tagging.
+6. Record the posted link in the local report / `PROGRESS.md` when it affects the current work state.
+
+Good default comments:
+
+```md
+cc @Reviewer Could you please take a look when you have time? Thanks!
+```
+
+```md
+cc @Reviewer PTAL when you have time. Thanks!
+```
+
+If CI is still running or has a known failure, do not hide that fact. Either wait, or use a short explicit note:
+
+```md
+cc @Reviewer Could you please take a look when you have time? One unrelated CI job is still pending.
+```
+
+Avoid comments that sound like a merge request, contain several asks, or imply urgency without reason:
+
+```md
+cc @Reviewer Could you review, approve, and merge this? All checks are green and tide is only waiting for labels.
+```
+
 ## Review Management
 
 When review comments arrive:
