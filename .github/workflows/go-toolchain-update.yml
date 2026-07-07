@@ -3,7 +3,7 @@ name: Go Toolchain Update
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "17 */6 * * *"
 
 permissions:
   contents: read
