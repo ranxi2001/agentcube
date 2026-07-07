@@ -1,6 +1,7 @@
 name: Go Toolchain Update
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: "12 15 * * *"
 
