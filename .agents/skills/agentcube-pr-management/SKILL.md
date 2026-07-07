@@ -161,6 +161,31 @@ python3 .agents/skills/agentcube-pr-management/scripts/check_push_ci.py \
   --interval 60
 ```
 
+### Dependabot Version Update Validation
+
+When validating a Dependabot version-update configuration in the personal fork, do not treat Dependabot security update PRs as proof that scheduled version updates are enabled. Security updates and version updates are separate mechanisms.
+
+For fork-only Dependabot Docker validation:
+
+1. Check the fork setting first: `https://github.com/ranxi2001/agentcube/settings/security_analysis`.
+2. Ensure `Dependabot version updates` is enabled. `Dependabot security updates` alone is not enough for `.github/dependabot.yml` schedules.
+3. Check the UI status at `Insights -> Dependency graph -> Dependabot`, including configured updates, last checked state, and the manual `Check for updates` control.
+4. If a quick fork-only check is needed, temporarily schedule the relevant updater on fork `main`, wait for Dependabot, then restore fork `main` to the upstream mirror before upstream PR work. Do not carry temporary schedule commits into upstream PR branches.
+5. Verify output by looking for `dependabot/docker...` branches and Dependabot PRs, not just generic `dependabot/go_modules...` or pip security PRs.
+
+Useful checks:
+
+```bash
+gh pr list -R ranxi2001/agentcube --state all --limit 100 \
+  --json number,title,state,headRefName,baseRefName,author,url \
+  --jq '.[] | select((.headRefName|ascii_downcase|test("dependabot/docker|alpine|ubuntu")) or (.title|ascii_downcase|test("alpine|ubuntu|docker base|base image"))) | [(.number|tostring), .state, .baseRefName, .headRefName, .author.login, .title, .url] | @tsv'
+
+gh api repos/ranxi2001/agentcube/branches --paginate \
+  --jq '.[] | select(.name|test("dependabot/docker|alpine|ubuntu"; "i")) | .name'
+```
+
+Known AgentCube Day42 result: after enabling fork Dependabot version updates and temporarily scheduling the `/docker` Docker updater, Dependabot opened fork PR #17 for `alpine:3.19 -> 3.24` and fork PR #18 for `ubuntu:24.04 -> 26.04`. This confirms the `/docker` directory scope covers both Alpine runtime Dockerfiles and PicoD's Ubuntu runtime Dockerfile.
+
 ### Fork-Only Push CI Workflow
 
 If ordinary branch push has no useful checks and the user wants CI confidence before opening a real upstream PR, use the fork-only push validation workflow template. This workflow is local/fork infrastructure only. Do not include `.github/workflows/fork-push-validation.yml` in an upstream PR diff.

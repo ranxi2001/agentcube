@@ -298,6 +298,7 @@ Validation:
 - `git diff --check`
 - Parsed `.github/dependabot.yml` with PyYAML and verified the Docker `/docker` update entry is present
 - Audited Docker base images under `/docker`
+- Fork-only validation: after enabling Dependabot version updates on the fork and temporarily scheduling the Docker updater, Dependabot opened `alpine:3.19 -> 3.24` and `ubuntu:24.04 -> 26.04` update PRs for `/docker`
 
 **Does this PR introduce a user-facing change?**:
 
@@ -308,18 +309,94 @@ NONE
 
 > 注释：PR body 里用 `Refs #386`，不写 `Fixes #386`。因为这个 PR 只完成 umbrella issue 的一个 checklist task。
 
+## 维护者确认与 fork PR 页面核对
+
+2026-07-07 15:20（Asia/Shanghai），RainbowMango 在 #386 回复：
+
+```text
+Thanks, and looks good by the way.
+```
+
+这说明 `/docker` 目录级 scope 已经得到 maintainer 初步认可；后续不再需要等待 scope 方向确认。
+
+同时核对了 fork PR 页面 `https://github.com/ranxi2001/agentcube/pulls`：
+
+- 没有以 `chore/dependabot-docker-base-images` 为 head branch 的 fork PR。
+- 当前 fork PR #9-#16 是 Dependabot 自动创建的安全更新 PR，base 都是 fork `main`，head 是 `dependabot/...` 分支；它们不是本次准备提交到 upstream 的 Docker base image 配置 PR。
+- upstream open PR 列表里没有看到重复的 Dependabot Docker base image PR。
+- 发现一个需要清理的 fork 分支卫生问题：`origin/main` 曾被临时验证 commit 改过，不是最新 `upstream/main de41b90` 的干净镜像。后续又通过 GitHub Contents API 提交 `cb3ea03 ci: reschedule dependabot docker check`，把 Docker Dependabot schedule 临时改成 `daily / 15:53 / Asia/Shanghai`，只适合 fork 验证，不应留在 fork `main`。
+
+> 分析：fork `main` 的偏差不会改变 upstream 当前状态，但会让 fork 页面产生额外 Dependabot 活动，也违反“fork main 只作为 upstream/main 镜像”的规则。创建 upstream PR 前，建议先把 `origin/main` 恢复为 `upstream/main` 镜像，再把 topic branch rebase 到最新 upstream main。
+
+### 更正与复验：Version updates 开启后已生成 Alpine PR
+
+用户指出：最重要的 Alpine image 反而没有生成升级 PR。这个提醒是对的。根因不是 Docker updater 不支持 Alpine，而是 fork 的 Dependabot **version updates** 当时没有在 Settings 里启用；之前出现的 #9-#16 是 security updates，不是按 `.github/dependabot.yml` schedule 跑出来的 version updates。
+
+复验步骤：
+
+1. 在 fork `ranxi2001/agentcube` 的 Settings / Advanced Security 里手动打开 Dependabot version updates。
+2. 将 fork `main` 的 Docker updater schedule 临时改成 `daily / 15:53 / Asia/Shanghai`。
+3. 轮询 fork branch / PR，查看是否出现 `dependabot/docker...` 分支。
+
+复验结果：
+
+- [fork PR #17](https://github.com/ranxi2001/agentcube/pull/17)：`chore(deps): bump alpine from 3.19 to 3.24 in /docker`
+  - head branch: `dependabot/docker/docker/alpine-3.24`
+  - diff: `docker/Dockerfile` 和 `docker/Dockerfile.router` 的 runtime image 从 `alpine:3.19` 改成 `alpine:3.24`
+- [fork PR #18](https://github.com/ranxi2001/agentcube/pull/18)：`chore(deps): bump ubuntu from 24.04 to 26.04 in /docker`
+  - head branch: `dependabot/docker/docker/ubuntu-26.04`
+  - diff: `docker/Dockerfile.picod` 的 runtime image 从 `ubuntu:24.04` 改成 `ubuntu:26.04`
+
+这和 Karmada 的真实历史 PR 行为一致，例如 Karmada 会生成 `dependabot/docker/cluster/images/alpine-...` 分支和 `build(deps): bump alpine ... in /cluster/images` PR。
+
+> 分析：这个复验说明 `/docker` 目录级 Docker ecosystem 配置确实会覆盖 Alpine runtime image，并且也会同时覆盖同目录下的 Ubuntu runtime image。后续 upstream PR 可以说“fork-only validation confirmed Dependabot creates an Alpine update PR after version updates are enabled on the fork”，但要说明这是个人 fork 验证，不是 upstream 仓库已经生成 PR。
+
+### 后续检查入口
+
+以后检查 Dependabot Docker updater 是否真的跑起来，按这个顺序看：
+
+1. Fork 设置入口：`https://github.com/ranxi2001/agentcube/settings/security_analysis`
+   - 检查 `Dependabot version updates` 是否 enabled。
+   - 注意：`Dependabot security updates` enabled 只代表安全告警更新，不代表 `.github/dependabot.yml` 的定时 version updates 会跑。
+2. Dependabot 状态入口：GitHub UI 进入 `Insights -> Dependency graph -> Dependabot`。
+   - 这里能看 configured version updates、last checked 状态，并可在 UI 里手动 `Check for updates`。
+3. PR 页面：
+   - `https://github.com/ranxi2001/agentcube/pulls?q=is%3Apr+author%3Aapp%2Fdependabot+alpine`
+   - `https://github.com/ranxi2001/agentcube/pulls?q=is%3Apr+author%3Aapp%2Fdependabot+docker`
+4. 分支页面：
+   - `https://github.com/ranxi2001/agentcube/branches/all?query=dependabot%2Fdocker`
+
+命令行检查：
+
+```bash
+gh pr list -R ranxi2001/agentcube --state all --limit 100 \
+  --json number,title,state,headRefName,baseRefName,author,url \
+  --jq '.[] | select((.headRefName|ascii_downcase|test("dependabot/docker|alpine|ubuntu")) or (.title|ascii_downcase|test("alpine|ubuntu|docker base|base image"))) | [(.number|tostring), .state, .baseRefName, .headRefName, .author.login, .title, .url] | @tsv'
+
+gh api repos/ranxi2001/agentcube/branches --paginate \
+  --jq '.[] | select(.name|test("dependabot/docker|alpine|ubuntu"; "i")) | .name'
+```
+
+参考文档：
+
+- [Configuring Dependabot version updates - Enabling version updates on forks](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-version-updates#enabling-version-updates-on-forks)
+- [Dependabot security updates](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependabot-security-updates)
+
 ## 当前状态与下一步
 
 当前状态：
 
-- 上游候选代码已在本地 clean topic branch 完成。
+- 上游候选代码已在本地 clean topic branch 完成，并已 rebase 到最新 `upstream/main de41b90`。
+- fork topic branch 当前 remote head 是 `1084c7ff79985f523a891f3ed2633436f0b1c2de`。
 - fork topic branch 已推送：`https://github.com/ranxi2001/agentcube/tree/chore/dependabot-docker-base-images`。
+- fork `main` 已恢复为 `upstream/main de41b90` 的干净镜像；临时 schedule 验证 commit 不再留在 fork `main`。
 - 已在 #386 回复 RainbowMango 的 `/help`，说明可以帮助该任务、当前计划和 `/docker` scope：`https://github.com/volcano-sh/agentcube/issues/386#issuecomment-4900995393`。
+- RainbowMango 已回复 scope 看起来可以：`https://github.com/volcano-sh/agentcube/issues/386#issuecomment-4901190000`。
 - 没有创建 upstream PR。
 - 没有在 #386 评论 `/assign`。
 
 建议下一步：
 
-1. 等待 maintainer 确认 `/docker` 目录级 scope 是否符合预期。
-2. 用户确认后，创建 upstream PR，使用上面的 title/body。
-3. 如 maintainer 要收窄到 Alpine-only，再评估 Dependabot `ignore` 配置或 Dockerfile 目录结构调整。
+1. 用户确认后，创建 upstream PR，使用上面的 title/body；PR 仍然写 `Refs #386`。
+2. PR reviewer notes 可以补一句 fork-only validation：after enabling Dependabot version updates on the fork, Dependabot opened `alpine:3.19 -> 3.24` and `ubuntu:24.04 -> 26.04` Docker update PRs for `/docker`。
+3. 如 maintainer 后续要求收窄到 Alpine-only，再评估 Dependabot `ignore` 配置或 Dockerfile 目录结构调整。
