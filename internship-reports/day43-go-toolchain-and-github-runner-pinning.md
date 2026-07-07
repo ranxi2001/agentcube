@@ -650,6 +650,59 @@ If maintainers want an auto-PR workflow later, we should keep it review-only, av
   - verifier + scheduled PR；
   - 或者未来改用 Renovate 统一治理。
 
+## 讨论复盘：为什么这个 issue 方向成立
+
+用户进一步复盘后，对这个 issue 方向的总体判断是：这是一个偏高级的 CI/CD 工程问题，不是简单“加个 Dependabot”级别的问题。核心原因是它抓住了一个容易被忽略的边界：
+
+> 分析：Go toolchain version bump 不是普通 dependency update，而是一个跨文件、跨环境的一致性变更。它同时影响本地开发、GitHub Actions CI、Docker builder stage、标准库、编译器行为、`go mod tidy` 结果、generated code 和 race/codegen/lint 等验证链路。
+
+做得好的地方：
+
+1. 把 Go toolchain 和 Go module dependency 分开处理。
+   - `require github.com/foo/bar v1.2.3` 这类 library dependency 主要影响代码 API 和 module graph。
+   - `go 1.26.4` / Docker `golang:1.26.4-*` 这类 compiler baseline 影响编译器、stdlib、语言版本和构建环境。
+   - 因此不应让 Dependabot gomod 或 Docker updater 单独承担完整 Go baseline upgrade。
+
+2. 明确识别 `go.mod`、Dockerfile 和 CI 之间的漂移风险。
+   - 当前一致状态是 `go.mod go 1.26.4`、三个 Docker builder stage 使用 `golang:1.26.4...`、workflow 通过 `go-version-file: go.mod` 读取 Go baseline。
+   - 如果有人只把 Dockerfile 改到 `golang:1.27-alpine`，Docker build 可能仍然成功，但本地、CI、Docker builder 会进入不同 Go 版本。
+   - 这种隐性差异常见表现是“本地没问题，CI 或镜像里行为不同”，所以 verifier / scheduled check 的价值不是替代 review，而是防止环境漂移长期存在。
+
+3. 不追求盲目自动合并 Go 升级 PR。
+   - Go 升级可能影响 compiler behavior、standard library、build constraints、CGO、race detector、generated code 和 third-party modules。
+   - 合理流程应是自动发现或自动创建 review-only PR，然后由 CI 和人工 review 决定是否合并。
+
+4. 同时考虑 GitHub runner pinning，说明问题不是只盯 Go 版本号，而是在追求 reproducible build。
+   - `ubuntu-latest` 是浮动 label，未来从 `ubuntu-24.04` 迁移到更新版本时，可能连带改变 gcc、glibc、Docker、kernel features 和系统包行为。
+   - 因此 #423 的 runner pinning 和 Go baseline 方案属于同一类 CI 环境稳定性治理，但应拆成不同 PR。
+
+可以继续加强的地方：
+
+1. 避免长期维护脆弱的 ad hoc 解析逻辑。
+   - 简单 `grep "golang:"` 容易漏掉 `FROM --platform=$BUILDPLATFORM golang:1.26.4-alpine`、`ARG GO_VERSION=...`、`FROM golang:${GO_VERSION}` 等写法。
+   - 更稳的选择是 Dockerfile parser、Renovate regex/custom manager，或把项目约束成统一可解析的版本声明。
+
+2. 可以讨论 single source of truth，但不必强行引入新文件。
+   - `.go-version` 作为统一入口可以让 CI、Docker 和本地工具读取同一文件。
+   - 但 Go 官方生态中 `go.mod` 本身就是合理的 project baseline source of truth；当前 workflow 已经使用 `go-version-file: go.mod`，所以第一版继续以 `go.mod` 为准更贴合现有项目。
+
+3. 自动 PR 应标准化为低噪音维护流程。
+   - 定时读取 Go stable release。
+   - 比较项目 baseline。
+   - 只在落后时更新 `go.mod` 和 Docker builder tags。
+   - 创建 review-only PR，不自动 merge。
+
+评分记录：
+
+| 维度 | 评分 | 说明 |
+| --- | ---: | --- |
+| 问题识别 | 9/10 | 抓住 Go baseline 是跨环境一致性问题，而不是普通依赖 bump |
+| 工程方向 | 9/10 | 先分清 module dependency、runtime base image、compiler baseline 三类更新 |
+| 自动化设计 | 8/10 | scheduled review-only PR 比 push/PR 强制检查更低噪音；后续仍可补 parser / Renovate 等能力 |
+| 可维护性 | 8/10 | 以 `go.mod` 为 source of truth 符合现状；需注意脚本解析不要过度依赖字符串匹配 |
+
+> 注释：这个复盘的价值是形成 review 口径。后续如果把 Go toolchain automation 提成 upstream issue 或 PR，重点不是说“我们想自动升级 Go”，而是说“我们需要保证开发、CI、Docker 三个环境的 Go baseline 一致，并用低噪音自动化提醒维护者处理新版本”。
+
 ## PR 级生产分支：最终收敛为每周定时检查
 
 用户进一步判断后，正式方案不再加入 push / pull_request 的降级拦截。原因是这类检查会在普通 PR 上增加一次外网 release feed 请求和一个额外失败面，而 Go baseline 升级本身是低频维护任务。和 Docker Dependabot 一样，正式版本只保留每周一次的定时检查：发现最新稳定 Go 高于项目 baseline 时，由 workflow 创建一个 review-only PR。
