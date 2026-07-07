@@ -22,7 +22,7 @@ on:
       - "hack/go-toolchain.py"
   workflow_dispatch:
   schedule:
-    - cron: "0 3 * * 1"
+    - cron: "*/5 * * * *"
 
 permissions:
   contents: read
