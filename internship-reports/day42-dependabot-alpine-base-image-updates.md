@@ -324,9 +324,9 @@ Thanks, and looks good by the way.
 - 没有以 `chore/dependabot-docker-base-images` 为 head branch 的 fork PR。
 - 当前 fork PR #9-#16 是 Dependabot 自动创建的安全更新 PR，base 都是 fork `main`，head 是 `dependabot/...` 分支；它们不是本次准备提交到 upstream 的 Docker base image 配置 PR。
 - upstream open PR 列表里没有看到重复的 Dependabot Docker base image PR。
-- 发现一个需要清理的 fork 分支卫生问题：`origin/main` 曾被临时验证 commit 改过，不是最新 `upstream/main de41b90` 的干净镜像。后续又通过 GitHub Contents API 提交 `cb3ea03 ci: reschedule dependabot docker check`，把 Docker Dependabot schedule 临时改成 `daily / 15:53 / Asia/Shanghai`，只适合 fork 验证，不应留在 fork `main`。
+- 发现一个需要清理的 fork 分支卫生问题：`origin/main` 曾被临时验证 commit 改过，不是最新 `upstream/main de41b90` 的干净镜像。后续远端 `main` 上出现 `cb3ea03 ci: reschedule dependabot docker check`，把 Docker Dependabot schedule 临时改成 `daily / 15:53 / Asia/Shanghai`。这只适合 fork 验证，不应留在 fork `main`。
 
-> 分析：fork `main` 的偏差不会改变 upstream 当前状态，但会让 fork 页面产生额外 Dependabot 活动，也违反“fork main 只作为 upstream/main 镜像”的规则。创建 upstream PR 前，建议先把 `origin/main` 恢复为 `upstream/main` 镜像，再把 topic branch rebase 到最新 upstream main。
+> 分析：fork `main` 的偏差不会改变 upstream 当前状态，但会让 fork 页面产生额外 Dependabot 活动，也违反“fork main 只作为 upstream/main 镜像”的规则。本轮验证完成后已把 `origin/main` 恢复为 `upstream/main de41b90` 镜像，并把 topic branch rebase 到最新 upstream main。
 
 ### 更正与复验：Version updates 开启后已生成 Alpine PR
 
@@ -342,10 +342,12 @@ Thanks, and looks good by the way.
 
 - [fork PR #17](https://github.com/ranxi2001/agentcube/pull/17)：`chore(deps): bump alpine from 3.19 to 3.24 in /docker`
   - head branch: `dependabot/docker/docker/alpine-3.24`
-  - diff: `docker/Dockerfile` 和 `docker/Dockerfile.router` 的 runtime image 从 `alpine:3.19` 改成 `alpine:3.24`
+  - 创建时抓取的 diff: `docker/Dockerfile` 和 `docker/Dockerfile.router` 的 runtime image 从 `alpine:3.19` 改成 `alpine:3.24`
 - [fork PR #18](https://github.com/ranxi2001/agentcube/pull/18)：`chore(deps): bump ubuntu from 24.04 to 26.04 in /docker`
   - head branch: `dependabot/docker/docker/ubuntu-26.04`
-  - diff: `docker/Dockerfile.picod` 的 runtime image 从 `ubuntu:24.04` 改成 `ubuntu:26.04`
+  - 创建时抓取的 diff: `docker/Dockerfile.picod` 的 runtime image 从 `ubuntu:24.04` 改成 `ubuntu:26.04`
+
+> 注释：复验完成后 `origin/main` 已恢复为 upstream mirror，因此 GitHub PR 页面现在会额外显示 `.github/dependabot.yml` 差异；上面的文件范围是 PR 刚生成时用 `gh pr view` / `gh pr diff` 抓取的原始证据。
 
 这和 Karmada 的真实历史 PR 行为一致，例如 Karmada 会生成 `dependabot/docker/cluster/images/alpine-...` 分支和 `build(deps): bump alpine ... in /cluster/images` PR。
 
