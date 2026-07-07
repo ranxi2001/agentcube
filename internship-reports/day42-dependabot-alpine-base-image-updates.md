@@ -412,12 +412,12 @@ gh api repos/ranxi2001/agentcube/branches --paginate \
 - fork `main` 已恢复为 `upstream/main de41b90` 的干净镜像；临时 schedule 验证 commit 不再留在 fork `main`。
 - 已在 #386 回复 RainbowMango 的 `/help`，说明可以帮助该任务、当前计划和 `/docker` scope：`https://github.com/volcano-sh/agentcube/issues/386#issuecomment-4900995393`。
 - RainbowMango 已回复 scope 看起来可以：`https://github.com/volcano-sh/agentcube/issues/386#issuecomment-4901190000`。
-- 没有创建 upstream PR。
+- 已创建 upstream PR [#422](https://github.com/volcano-sh/agentcube/pull/422)：`chore: enable Dependabot Docker base image updates`。
+- PR #422 当前是 open、非 draft、mergeable，label 已有 `kind/enhancement`；DCO、Approve workflows、golangci-lint、Python Lint、Python SDK Tests 已成功，build / e2e / Codegen / Codespell / Copyright / Coverage 创建后仍在运行。
 - 没有在 #386 评论 `/assign`。
 
 建议下一步：
 
-1. 用户确认后，创建 upstream PR，使用上面的 title/body；PR 仍然写 `Refs #386`。
-2. PR reviewer notes 可以补一句 fork-only validation：after enabling Dependabot version updates on the fork, Dependabot opened `alpine:3.19 -> 3.24` and `ubuntu:24.04 -> 26.04` Docker update PRs for `/docker`。
-3. 如果后续要自动化 Go toolchain 升级，另开独立方案：不能只让 Docker updater bump `golang`，需要同时更新 `go.mod`、CI 和 Docker builder image。
-4. 如 maintainer 后续要求收窄到 Alpine-only，再评估 Dependabot `ignore` 配置或 Dockerfile 目录结构调整。
+1. 跟踪 PR #422 CI 和 review；不要自动 push 新 commit 或评论，除非有明确失败或 reviewer 反馈。
+2. 如果后续要自动化 Go toolchain 升级，另开独立方案：不能只让 Docker updater bump `golang`，需要同时更新 `go.mod`、CI 和 Docker builder image。
+3. 如 maintainer 后续要求收窄到 Alpine-only，再评估 Dependabot `ignore` 配置或 Dockerfile 目录结构调整。
