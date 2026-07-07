@@ -330,6 +330,16 @@ For a runner-pinning PR, keep the branch narrow:
 4. Validate with `git diff --check`, a no-hit `rg 'runs-on:\s*ubuntu-latest' .github/workflows`, YAML parsing, and `actionlint`.
 5. If fork push CI is available, push the topic branch and record the workflow run links; otherwise state that full PR CI will run after user-approved upstream PR creation.
 
+For Go toolchain drift checks, use the helper script:
+
+```bash
+python3 .agents/skills/agentcube-pr-management/scripts/audit_go_toolchain_alignment.py \
+  --repo-root . \
+  --check-latest
+```
+
+The script verifies that `go.mod`, Docker `golang:<version>` builder tags, and `actions/setup-go` workflow inputs remain aligned. Treat a latest-release mismatch as a notice, not an automatic reason to open a PR; a Go baseline update still needs a focused branch and the Go/toolchain validation matrix above.
+
 ### Dependency Release / RC Triage
 
 When a reviewer asks why a PR targets one dependency version instead of a newer tag, answer from source and module evidence, not from memory.
