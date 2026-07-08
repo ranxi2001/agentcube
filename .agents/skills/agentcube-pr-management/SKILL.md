@@ -367,8 +367,9 @@ Automation boundary learned from fork testing:
 For an upstreamable Go toolchain auto-update workflow, prefer a low-noise scheduled updater first:
 
 - Keep the PR-creating updater job limited to `schedule`, with job-level `contents: write` and `pull-requests: write` permissions. The workflow default should stay `contents: read`.
-- Use a weekly cadence similar to Dependabot runtime base-image checks. The purpose is to raise a reviewable maintenance PR when go.dev has a newer stable Go release, not to make every ordinary PR depend on the current external release feed.
+- Use a weekly cadence aligned with Dependabot runtime base-image checks when possible. The current AgentCube convention is Monday 00:00 UTC (Monday 08:00 Asia/Shanghai). The purpose is to raise a reviewable maintenance PR when go.dev has a newer stable Go release, not to make every ordinary PR depend on the current external release feed.
 - Do not add push / pull_request latest-version enforcement by default. It can detect a branch that consistently lowers `go.mod` and all Docker builder tags, but it adds CI cost and an external-network failure surface to normal development PRs.
+- Run the repository update before `actions/setup-go` in the PR-creating path. Otherwise the workflow can install the old Go version from the old `go.mod`, then fail `go mod tidy` after the helper has raised the `go` directive.
 - Keep `verify --check-latest --require-latest`, `go mod tidy`, and `git diff --check` inside the scheduled PR creator path so generated PRs prove they updated the baseline correctly.
 - Remember that GitHub Actions `schedule` runs only from the repository default branch. A topic-branch test can validate the helper script and workflow syntax, but it cannot prove cron behavior until the workflow is merged into the default branch.
 

@@ -715,7 +715,7 @@ If maintainers want an auto-PR workflow later, we should keep it review-only, av
 - Branch: `ci/go-toolchain-update-workflow`
 - Remote branch: `https://github.com/ranxi2001/agentcube/tree/ci/go-toolchain-update-workflow`
 - Base: `upstream/main` `fdb862b`
-- Commit: `4bedcc5 ci: add go toolchain update workflow`
+- Commit: `733bb4b ci: add scheduled go toolchain update workflow`
 - Changed files:
   - `.github/workflows/go-toolchain-update.yml`
   - `hack/go-toolchain.py`
@@ -724,7 +724,7 @@ If maintainers want an auto-PR workflow later, we should keep it review-only, av
 
 | Job | 触发事件 | 权限 | 作用 |
 | --- | --- | --- | --- |
-| `update-go-toolchain` | `schedule`，每周一 UTC 03:00 | job-level `contents: write`、`pull-requests: write` | 读取 go.dev 最新稳定版本；如果项目落后，更新 `go.mod` 和 Docker builder tags，并创建 review-only PR |
+| `update-go-toolchain` | `schedule`，每周一 UTC 00:00（北京时间每周一 08:00），与 Dependabot weekly schedule 对齐 | job-level `contents: write`、`pull-requests: write` | 读取 go.dev 最新稳定版本；如果项目落后，更新 `go.mod` 和 Docker builder tags，并创建 review-only PR |
 
 默认 workflow 权限仍是：
 
@@ -744,6 +744,24 @@ git diff --check upstream/main...HEAD
 ```
 
 结果：当时全部通过。后续 2026-07-08 的 schedule run 证明 go.dev 最新稳定版本已经变为 `1.26.5`，因此 `--require-latest` 应只作为生成的升级 PR 完成更新后的验证，不应作为“只新增定时 workflow”这个 PR 本身的长期本地校验命令。
+
+2026-07-08 最终 PR 分支更新时，又做了一次正式验证：
+
+- `go run github.com/rhysd/actionlint/cmd/actionlint@latest .github/workflows/go-toolchain-update.yml`
+- `python3 hack/go-toolchain.py verify --check-latest`
+- `git diff --check upstream/main...HEAD`
+- Fork push CI for commit `733bb4b`: 9/9 success
+  - Agentcube CI Workflow: <https://github.com/ranxi2001/agentcube/actions/runs/28914172116>
+  - Agentcube E2E Tests: <https://github.com/ranxi2001/agentcube/actions/runs/28914172121>
+  - Test Coverage: <https://github.com/ranxi2001/agentcube/actions/runs/28914172141>
+  - Lint: <https://github.com/ranxi2001/agentcube/actions/runs/28914172112>
+  - Codespell: <https://github.com/ranxi2001/agentcube/actions/runs/28914172128>
+  - Python Lint: <https://github.com/ranxi2001/agentcube/actions/runs/28914172184>
+  - Python SDK Tests: <https://github.com/ranxi2001/agentcube/actions/runs/28914172119>
+  - Copyright Check: <https://github.com/ranxi2001/agentcube/actions/runs/28914172138>
+  - Codegen Check: <https://github.com/ranxi2001/agentcube/actions/runs/28914172166>
+
+> 注释：正式分支最后把 `workflow_dispatch` 移除，只保留 `schedule`。同时把 `actions/setup-go` 移到 `hack/go-toolchain.py update` 之后，避免先按旧 `go.mod` 安装旧 Go，再用旧 Go 执行新 `go.mod` 的 `go mod tidy`。
 
 ### 降级检查试验与废弃原因
 
@@ -781,7 +799,7 @@ git diff --check upstream/main...HEAD
 标题：
 
 ```text
-ci: add go toolchain update workflow
+ci: add scheduled go toolchain update workflow
 ```
 
 正文：
@@ -796,6 +814,8 @@ ci: add go toolchain update workflow
 Adds a repository-owned Go toolchain maintenance workflow and helper script.
 
 The scheduled workflow checks the latest stable Go release from the official Go release feed once per week and opens a focused, reviewable PR only when the project baseline is behind. It does not auto-merge.
+
+The schedule is aligned with the existing Dependabot weekly cadence: Monday 00:00 UTC.
 
 This keeps Docker Dependabot focused on runtime base images while preventing `golang:*` builder images from drifting away from the project Go baseline.
 
@@ -812,6 +832,7 @@ NONE
   - `go run github.com/rhysd/actionlint/cmd/actionlint@latest .github/workflows/go-toolchain-update.yml`
   - `python3 hack/go-toolchain.py verify --check-latest`
   - `git diff --check upstream/main...HEAD`
+- Fork branch push validation for commit `733bb4b`: 9/9 checks passed.
 - Fork schedule validation:
   - schedule run: https://github.com/ranxi2001/agentcube/actions/runs/28895821751
   - generated PR: https://github.com/ranxi2001/agentcube/pull/23
