@@ -283,6 +283,48 @@ NONE
 ```
 ````
 
+### Upstream PR #429 创建与 Gemini 反馈处理
+
+用户确认后，已创建 upstream PR #429：<https://github.com/volcano-sh/agentcube/pull/429>。
+
+- Title: `ci: add scheduled go toolchain update workflow`
+- Base: `volcano-sh/agentcube:main`
+- Head: `ranxi2001:ci/go-toolchain-update-workflow`
+- Initial commit: `733bb4b`
+- Updated commit after review feedback: `b6a3156`
+
+Gemini 对 `hack/go-toolchain.py` 提了 4 条健壮性建议：
+
+- workflow regex 不应匹配注释里的 `go-version` / `go-version-file`。
+- `str.removeprefix` 对 Python 3.8 不兼容。
+- `toolchain` directive 删除逻辑不应只支持普通 release 版本，也要能移除 `go1.xxrc1` 这类格式。
+- workflow verification 应同时扫描 `.yml` 和 `.yaml`。
+
+已按用户确认更新 PR 分支，把这些建议吸收进同一个 signed commit：
+
+- `SETUP_GO_RE` 改为匹配 active YAML key，并兼容合法的 `- uses:` step 写法。
+- `GO_VERSION_RE` / `GO_VERSION_FILE_RE` 改为行首 active key 匹配，避免注释误报。
+- `latest_stable_go` 去掉 `removeprefix`。
+- `TOOLCHAIN_LINE_RE` 按整行删除 `toolchain` directive。
+- `verify_workflows` 同时扫描 `.yml` 和 `.yaml`。
+
+额外本地验证：
+
+```bash
+go run github.com/rhysd/actionlint/cmd/actionlint@latest .github/workflows/go-toolchain-update.yml
+python3 hack/go-toolchain.py verify --check-latest
+python3 -m py_compile hack/go-toolchain.py
+git diff --check upstream/main...HEAD
+```
+
+另写了临时 Python fixture 覆盖三类边界：注释中的 `go-version` 不误报、`.yaml` workflow 会被扫描、`toolchain go1.27rc1` 可被移除。验证通过后未把临时 fixture 提交进 PR。
+
+已回复 Gemini：<https://github.com/volcano-sh/agentcube/pull/429#issuecomment-4911119744>。
+
+更新后 #429 普通 CI 全部通过；`tide` 仍 pending，仅因为缺少 `lgtm` / `approved`。
+
+> 注释：这次没有逐条回复 4 个 outdated inline thread，而是用一个短 PR comment 说明 latest push 已覆盖全部建议。这样不会刷屏，也能让 maintainer 看到 review feedback 已处理。
+
 > 分析：这个 PR 可以不绑定具体 issue，也可以 `Refs #386`，因为 #386 是 v0.2.0 / follow-up 类 umbrella issue。不要写 `Fixes #386`，避免关闭大 issue。
 
 实际创建状态：
@@ -715,7 +757,8 @@ If maintainers want an auto-PR workflow later, we should keep it review-only, av
 - Branch: `ci/go-toolchain-update-workflow`
 - Remote branch: `https://github.com/ranxi2001/agentcube/tree/ci/go-toolchain-update-workflow`
 - Base: `upstream/main` `fdb862b`
-- Commit: `733bb4b ci: add scheduled go toolchain update workflow`
+- Current commit: `b6a3156 ci: add scheduled go toolchain update workflow`
+- Initial validated commit before Gemini feedback: `733bb4b`
 - Changed files:
   - `.github/workflows/go-toolchain-update.yml`
   - `hack/go-toolchain.py`
