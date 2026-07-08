@@ -378,6 +378,7 @@ Known fork-only evidence from Day43:
 - That PR validates the future-standard 4-file path: `go.mod`, `docker/Dockerfile`, `docker/Dockerfile.router`, and `docker/Dockerfile.picod`.
 - A prior 9-file workflow attempt failed at the GitHub platform permission boundary when trying to push `.github/workflows/build-push-release.yml` with `GITHUB_TOKEN`.
 - A push / PR verifier experiment did detect an old 4-file baseline, but the final Day43 upstream PR branch intentionally removed that verifier to avoid normal PR CI noise. Use that experiment as a design tradeoff note, not as the preferred workflow shape.
+- Real schedule evidence: after placing the test workflow on fork `main` with `schedule: "17 */6 * * *"`, GitHub created schedule run `https://github.com/ranxi2001/agentcube/actions/runs/28895821751` at 2026-07-07 20:17:51 UTC. The run succeeded and created bot PR `https://github.com/ranxi2001/agentcube/pull/23` as `app/github-actions`, updating the four Go baseline files from `1.26.1` to `1.26.5`. This proves the scheduled updater can trigger and create a PR when the workflow is active on the default branch; earlier short waits with `*/5` not firing should be treated as GitHub schedule best-effort delay, not workflow failure.
 
 ### Dependency Release / RC Triage
 

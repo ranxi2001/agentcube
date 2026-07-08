@@ -739,11 +739,11 @@ permissions:
 
 ```bash
 go run github.com/rhysd/actionlint/cmd/actionlint@latest .github/workflows/go-toolchain-update.yml
-python3 hack/go-toolchain.py verify --check-latest --require-latest
+python3 hack/go-toolchain.py verify --check-latest
 git diff --check upstream/main...HEAD
 ```
 
-结果：全部通过。当前 go.dev 最新稳定版本仍是 `1.26.4`，和项目 `go.mod` 一致，所以正式 workflow 在当前状态下每周会 no-op。
+结果：当时全部通过。后续 2026-07-08 的 schedule run 证明 go.dev 最新稳定版本已经变为 `1.26.5`，因此 `--require-latest` 应只作为生成的升级 PR 完成更新后的验证，不应作为“只新增定时 workflow”这个 PR 本身的长期本地校验命令。
 
 ### 降级检查试验与废弃原因
 
@@ -771,6 +771,8 @@ git diff --check upstream/main...HEAD
 - 2026-07-08 补充验证：曾短暂把测试 workflow 放到 fork `main`，把 cron 调到 `58 15 * * *`，并从 2026-07-07 15:58 UTC 等到约 16:06 UTC。GitHub API 没有出现任何 `event=schedule` 的 `Go Toolchain Update` run。结论是 GitHub cron 不适合作为即时验证信号；它只能证明“默认分支 active 后，未来某次 best-effort schedule 可能触发”，不能保证几分钟内入队。
 - 2026-07-08 补充验证：一次手动 `workflow_dispatch` 失败 run `28878103452` 的根因不是调度，而是 workflow 先按旧 `go.mod` 安装 Go `1.26.1`，随后把 `go.mod` 更新到 `1.26.4` 后执行 `go mod tidy`，在 `GOTOOLCHAIN=local` 下报 `go.mod requires go >= 1.26.4`。修正方式是先执行 `hack/go-toolchain.py update` 修改 `go.mod`，再用 `actions/setup-go` 根据更新后的 `go.mod` 安装目标 Go。
 - 2026-07-08 补充验证：后续按用户要求把 fork `main` 保持在测试 commit `37dc2bc`，workflow 同时包含 `schedule: "*/5 * * * *"` 和临时 `workflow_dispatch`。`gh workflow list -R ranxi2001/agentcube --all` 显示 `Go Toolchain Update active`，`gh workflow view --yaml` 也能看到 5 分钟 cron；但截至 2026-07-07 16:50 UTC，`gh run list --workflow "Go Toolchain Update" --event schedule` 仍为空。手动触发 run `28883380628` 成功，日志显示 `Go toolchain update needed: 1.26.1 -> 1.26.4`、`Go toolchain alignment: OK`，并创建 fork PR #22：<https://github.com/ranxi2001/agentcube/pull/22>。这证明 job 逻辑和 PR 创建权限正常；剩余问题集中在 GitHub `schedule` 事件没有及时入队，而不是 updater 脚本或 GITHUB_TOKEN 权限。
+- 2026-07-08 最终验证：按用户要求把 fork `main` 的测试 workflow 改成 `schedule: "17 */6 * * *"` 后，GitHub 在 2026-07-07 20:17:51 UTC 自动触发 `event=schedule` run：<https://github.com/ranxi2001/agentcube/actions/runs/28895821751>。换算为北京时间是 2026-07-08 04:17:51。该 run 成功执行 `update-go-toolchain`，并由 `app/github-actions` 创建 fork PR #23：<https://github.com/ranxi2001/agentcube/pull/23>，标题为 `chore: update Go toolchain to 1.26.5`，head branch 为 `chore/go-toolchain-1265`，改动文件只有 `go.mod`、`docker/Dockerfile`、`docker/Dockerfile.router`、`docker/Dockerfile.picod`。diff 证明它把四处 baseline 从 `1.26.1` 升到 `1.26.5`。这说明 schedule-only 方案可以真实自动触发并创建 PR；此前没有及时入队是 GitHub cron best-effort 延迟问题，不是 workflow 逻辑不可用。
+- 2026-07-08 cleanup：拿到 #23 证据后，已把 fork `main` 从临时测试 commit `dce5662` 恢复到 `upstream/main fdb862b`，并取消恢复 push 触发的无关 fork Actions。#23 暂时保留 open，方便人工查看证据。
 - 如果未来 `schedule` 创建的 PR 使用默认 `GITHUB_TOKEN`，该 PR 不一定递归触发所有 downstream workflows；所以 creator workflow 里的 `verify`、`go mod tidy`、`git diff --check` 仍然必须保留。
 - 如果维护者希望自动化也能修改 `.github/workflows/*`，仍然需要 GitHub App / PAT / Renovate 或人工 PR；默认 `GITHUB_TOKEN` 不应承担 workflow 文件迁移。
 
@@ -808,8 +810,11 @@ NONE
 - PRs created by `GITHUB_TOKEN` may not recursively trigger every downstream workflow, so the creator workflow keeps its own validation steps.
 - Validation:
   - `go run github.com/rhysd/actionlint/cmd/actionlint@latest .github/workflows/go-toolchain-update.yml`
-  - `python3 hack/go-toolchain.py verify --check-latest --require-latest`
+  - `python3 hack/go-toolchain.py verify --check-latest`
   - `git diff --check upstream/main...HEAD`
+- Fork schedule validation:
+  - schedule run: https://github.com/ranxi2001/agentcube/actions/runs/28895821751
+  - generated PR: https://github.com/ranxi2001/agentcube/pull/23
 - AI assistance: Used Codex to inspect the existing Go baseline surfaces, prepare the workflow/script, and validate the branch. I reviewed and validated the changes.
 
 **Does this PR introduce a user-facing change?**:
