@@ -42,7 +42,21 @@ For daily reports and review retrospectives, do not create a new day file for th
 
 Name internship report assets so their owner is obvious from the filename. Daily-report images, draw.io sources, exported PNGs, `.url` shortcuts, and companion explainer files should start with the owning day prefix, for example `day33-e2b-architecture-protocol-overview.png` or `day28-agentcube-session-runtime-architecture.drawio`. Weekly report files should start with `weekN-...`, not project-name-first names such as `agentcube week1.md`.
 
-On Linux machines, prefer Mermaid embedded in Markdown for architecture, control-flow, and proposal-review diagrams because it is text-first, reviewable, and does not depend on draw.io desktop export. Use draw.io only when its editable canvas or richer layout is specifically useful. For polished raster assets, Chinese infographics, banners, covers, or image-first report visuals, use the local GPT image workflow at `/home/agentcube/.agents/skills/gpt-image-draw/SKILL.md`; it reads `OPENAI_API_KEY` or `IMAGE_API_KEY` from environment / `.env` files, and keys must never be printed, pasted into reports, committed, or exposed in command output.
+### Diagram and Image Generation Guidelines
+
+Use the right drawing path for the artifact:
+
+- **Mermaid**: default for Linux architecture, control-flow, state-machine, proposal-review, and code/data-flow diagrams. Mermaid is text-first, reviewable in Markdown, easy to diff, and does not depend on desktop export tools. Prefer embedding Mermaid directly in the report when precision matters.
+- **draw.io**: use only when an editable canvas, richer layout control, or exported draw.io-compatible source is specifically useful. Keep `.drawio`, exported images, `.url` shortcuts, and companion files under the owning day prefix.
+- **GPT image draw**: use the local workflow at `/home/agentcube/.agents/skills/gpt-image-draw/SKILL.md` for polished raster assets, Chinese infographics, architecture summary images, banners, covers, and report visuals where an image-first output is useful. The script is `/home/agentcube/.agents/skills/gpt-image-draw/draw.py`, uses `gpt-image-2`, and reads `OPENAI_API_KEY` or `IMAGE_API_KEY` from environment / `.env` files.
+
+When using GPT image draw:
+
+- Never print, paste, commit, or expose API keys in command output, reports, prompts, or logs.
+- Store reusable prompts next to the output with the owning day prefix, for example `day44-sandboxpool-gpt-image-prompt.md`.
+- If system Python is externally managed or lacks `openai`, use a temporary venv such as `/tmp/gpt-image-draw-venv` rather than modifying the system Python environment.
+- After generation, verify the output with `file`, `ls -lh`, and visual inspection via `view_image`; the actual PNG dimensions may differ from the requested ratio/size.
+- Treat GPT-generated diagrams as visual summaries. Keep Mermaid or prose as the source of truth for exact architecture, state-machine, and review reasoning.
 
 At the start of each new Agent work loop, read root `PROGRESS.md` before diving into reports or code. At the end of the loop, update it only with short state needed for the next run: last work, current blockers, ruled-out paths, next step, and stop conditions. Keep long-form daily records in `internship-reports/` and task inventory in `internship-reports/todo.md`; do not let `PROGRESS.md` become a second report.
 
