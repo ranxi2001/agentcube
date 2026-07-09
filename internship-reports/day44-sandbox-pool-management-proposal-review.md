@@ -247,15 +247,15 @@ Proposal comment 适合聚焦三类内容：
 | 类型 | Proposal PR / `/kind feature` |
 | 状态 | Open，非 draft |
 | 文件范围 | 新增 `docs/proposals/sandbox-pool-management/README.md` |
-| Diff | 1 file, +642 lines |
+| Diff | 1 file, +643 lines |
 | labels | `kind/feature`, `size/XL` |
 | assignee | 无 |
 | PR 认领 @ | 无 |
 | 关联 issue | [#430](https://github.com/volcano-sh/agentcube/issues/430) |
-| 最近提交 | `3028841 add sandbox-pool management proposal` |
+| 最近提交 | `9f03cca add sandbox-pool management proposal` |
 | DCO | Success |
 | tide | Pending |
-| 普通 CI | 新提交后部分 checks 仍在运行；已看到 DCO / golangci-lint / Python 相关 checks success |
+| 普通 CI | 最新 force-push 后 build / codegen / lint / Python / coverage 等已 success；`e2e-test` 仍在运行 |
 
 初始两个 commit 没有 `Signed-off-by` trailer：
 
@@ -264,7 +264,9 @@ Proposal comment 适合聚焦三类内容：
 7d97d7e add sandbox-pool management proposal
 ```
 
-2026-07-09 更新：作者已把提交整理为一个 commit `3028841`，DCO 当前为 Success。PR body 中 `Which issue(s) this PR fixes` 已从 `Fixes #430` 改为 `Refs #430`，#430 仍保持 open。
+2026-07-09 更新：作者先把提交整理为一个 commit `3028841`，DCO 变为 Success。PR body 中 `Which issue(s) this PR fixes` 已从 `Fixes #430` 改为 `Refs #430`，#430 仍保持 open。
+
+2026-07-09 进一步同步：#431 又 force-push 到单 commit `9f03cca`。最新 proposal 已经吸收几条 AI / 社区评论：front matter 增加 `tracking-issue: "#430"`；`ResourcePolicy` 和 `ResizeInfo` 的 CPU / Memory 字段改成 `resource.Quantity`；`ResizeNone` 不再作为显式 enum；`NodeNotFound=False` 后改为重新评估所有 conditions，而不是直接转 Ready；Markdown fence 问题也已修正。
 
 > 分析：DCO 是合并门禁问题，和 proposal 技术内容无关。`Fixes #430 -> Refs #430` 的修正说明 scope / closing semantics comment 已被采纳，避免了 merge #431 时自动关闭 broader discussion #430。
 
@@ -430,14 +432,16 @@ VPA InPlaceResize: 1.27 Alpha / 1.31 GA
 
 ### 7. Process / metadata 问题
 
-当前 #431 还有几个低风险但正式 proposal 应补齐的问题：
+这一类问题在第一版 proposal 里比较明显，但最新 `9f03cca` 已经修掉大部分：
 
-1. DCO 失败：两个 commit 缺 `Signed-off-by`。
-2. proposal front matter 缺 `tracking-issue: "#430"`。`docs/proposals/proposal-template.md` 已把 tracking issue 作为 optional 字段。
-3. PR body 写 `Fixes #430`，但 #430 是更大的 architecture discussion；#431 只覆盖 slow track，merge 后自动关闭 #430 可能过早。更稳妥的写法是 `Refs #430` 或 `Part of #430`。
-4. front matter 里 `reviewers` / `approvers` 仍是 `TBD`，作为 draft proposal 可以接受，但如果准备进入正式 review，至少应说明期待哪些 reviewer 参与。
+| 项目 | 初始状态 | 最新状态 |
+| --- | --- | --- |
+| DCO | 两个 commit 缺 `Signed-off-by` | 已整理为单 commit，DCO success |
+| tracking issue | front matter 缺 `tracking-issue` | 已补 `tracking-issue: "#430"` |
+| closing semantics | PR body 写 `Fixes #430` | 已改为 `Refs #430`，#430 仍 open |
+| reviewers / approvers | `TBD` | 仍是 `TBD`，draft proposal 阶段可接受 |
 
-> 分析：这些不是技术设计硬伤，但它们会影响 proposal 的检索、关闭语义和社区流程。尤其 `Fixes #430` 容易把 broad discussion 关闭掉，和 #431 自己“只做 slow resource track”的 scope 不一致。
+> 分析：这说明第一条 upstream comment 的方向是有效的，但后续不要继续围绕已经解决的流程问题刷评论。现在 review 重心应该转向架构假设：Static Pod 是否能安全做资源锁、placeholder-agent 如何避免 stale Ready、VPA/InPlaceResize 是否适用于 Static Pod manifest 路径，以及 node-ctl endpoint/API group 是否形成长期 API 债。
 
 ## 和 Day35 / Day36 内部方案的关系
 
@@ -453,15 +457,121 @@ VPA InPlaceResize: 1.27 Alpha / 1.31 GA
 
 > 注释：#431 并不是把 Day36 原样搬到 upstream。它做了两个明显选择：一是把 `SandboxPoolTemplate` 改成 `SandboxPoolClass`；二是直接采用 Static Pod + CRI shim 模型。这两个选择都可以讨论，但后者的验证成本更高。
 
+## 架构剖析：#431 到底在设计什么
+
+配套架构图：[`day44-sandboxpool-architecture.drawio`](day44-sandboxpool-architecture.drawio)。
+
+> 注释：本机当前没有 `drawio` / `draw.io` CLI，所以今天只生成了可编辑 `.drawio` 源文件，并用 drawio-skill 的结构校验脚本确认 `0 error(s), 0 warning(s)`。如需 PNG，可以在装有 draw.io desktop CLI 的环境导出。
+
+一句话概括：#431 不是完整的 Agent session lifecycle proposal，而是给“慢资源轨道”设计一个 Kubernetes-native 的节点级 sandbox 资源池控制面。它只负责把一部分节点资源声明、锁住、下发给 node-local runtime，并把健康状态汇总回 K8s；真正的 sandbox create / suspend / resume / delete 仍然属于 node-ctl / fast track。
+
+> 分析：这一点很重要。review 时不要用“它没有设计 session resume / snapshot / fast lifecycle”去否定 #431，因为这些已经列为 Non-goals。真正要问的是：作为 slow resource control plane，它的 API 边界、资源锁机制、状态聚合和故障恢复是否足够严谨。
+
+### 1. 分层模型
+
+| 层 | 组件 | 本质职责 | 需要 review 的边界 |
+| --- | --- | --- | --- |
+| Global policy layer | K8s API Server / etcd | 存 CRD、status、events，是唯一持久状态面 | 是否只靠 etcd 足够；API group / version 是否长期合理 |
+| Global policy layer | SandboxPool Controller | 把 Class 映射成 per-node Pool，同步 policy snapshot，聚合 Phase | 不应直接碰 node-ctl；要避免 controller 和 agent 双写同一字段 |
+| Node execution layer | placeholder-agent | 节点本地执行器：watch Pool、写 Static Pod manifest、处理 CRI、代理 node-ctl、patch status | 它是 host-level systemd daemon，凭证、权限和 stale heartbeat 必须讲清 |
+| Node execution layer | Static Pod / mirror Pod | K8s 可见的资源锁，不是真正业务 workload | Static Pod + skip-cgroup 是否和 scheduler / kubelet / metrics / eviction 相容 |
+| Runtime / fast path | node-ctl | 黑盒 runtime：真实 sandbox 生命周期、overcommit、snapshot | #431 不实现，但必须定义最小接口和错误语义 |
+
+这套分层的优点是职责基本清楚：controller 只做全局声明式 reconcile，placeholder-agent 做节点落地，node-ctl 继续做高频 runtime 生命周期。它避免了 controller 直接远程调用每个 node-ctl，也避免把 node-ctl 的内部状态直接暴露成 K8s API。
+
+风险也来自这个分层：一旦 placeholder-agent 挂死，K8s API 里最后一次 Ready condition 可能还在；一旦 Static Pod 的资源锁假设不成立，K8s scheduler 以为资源被保留，实际 node-ctl 又可能用另一套 cgroup；一旦 CRD 里有 endpoint 字段但 agent 实际只读 systemd flag，API 就会误导用户。
+
+### 2. 对象模型
+
+| 对象 | 可以理解成 | 关键字段 | 主要 owner |
+| --- | --- | --- | --- |
+| `SandboxPoolClass` | 全局资源池模板 / class | `selector`、`nodeSelector`、`resourcePolicy`、`placeholderPodTemplate`、`nodeCtlEndpoint` | 用户声明，controller 读取 |
+| `SandboxPool` | 某个 node 上的资源池实例 / policy snapshot | `classRef`、`nodeName`、`resourcePolicy`、`override`、`nodeCtl` | controller 创建 spec，placeholder-agent 读取并写 status |
+| Static Pod manifest | 节点本地资源锁配置 | requests/limits、RuntimeClass、labels/annotations | placeholder-agent 写，kubelet 消费 |
+| mirror Pod | API server 里可见的 Static Pod 影子对象 | labels、phase、resource requests | kubelet 维护，只能间接观察 |
+| Conditions / Phase | 健康和聚合状态 | `PlaceholderPodReady`、`ResourceSynced`、`NodeCtlHealthy`、`NodeNotFound`、`phase` | agent 写 conditions；controller 写 phase |
+
+`SandboxPoolClass -> SandboxPool` 的设计像一个“模板到实例”的模型：Class 表达全局策略，Controller 根据 node selector 创建每个节点的 Pool，并把 Class 里的 resourcePolicy 拷贝成 Pool spec 的 policy snapshot。这样做的好处是 per-node override 有位置；缺点是 Class 变更、Pool override、agent 实际 applied generation 之间要定义清楚 precedence。
+
+> 分析：proposal 已经写了 `lastAppliedGeneration`，但还没有把 “Class generation -> Pool spec resourcePolicy -> agent apply -> node-ctl effective quota” 这一条链路做成 source-of-truth 表。后续 review 可以建议补一个 field ownership / generation table，而不是只说“这里复杂”。
+
+### 3. 四个核心控制循环
+
+**循环一：Class 到 Pool 的全局 reconcile**
+
+1. 用户创建或更新 `SandboxPoolClass`。
+2. Controller 根据 `selector` / `nodeSelector` 找目标节点。
+3. Controller 为每个节点创建或更新 `SandboxPool`，并同步 policy snapshot。
+4. Controller 聚合 Class status 和 Pool phase。
+
+这个循环是标准 K8s controller 风格，风险较低。更需要关注的是 selector immutable、一个 node 不能属于多个 Class、override 后 Class 更新如何处理。
+
+**循环二：Pool 到 Static Pod 的节点 reconcile**
+
+1. placeholder-agent watch 本节点对应的 `SandboxPool`。
+2. agent 根据 Pool spec 写 `/etc/kubernetes/manifests/...` 下的 Static Pod manifest。
+3. kubelet watch manifest 并创建 Static Pod / mirror Pod。
+4. RuntimeClass handler 把 CRI 调用路由到 placeholder-agent 的 socket。
+
+这是 #431 最关键的非典型路径。它不是普通 Deployment/DaemonSet，也不是 API server 驱动的 Pod 更新，而是“CRD -> host-level daemon -> 本地 manifest -> kubelet”的本地闭环。review 的重点应该从普通 controller correctness 转向 kubelet/CRI 行为实证。
+
+**循环三：node-ctl resource apply**
+
+1. placeholder-agent 从 Pool spec 看到目标 resourcePolicy。
+2. agent 更新 Static Pod manifest 或触发 resize 相关流程。
+3. agent 调用 node-ctl `ApplyResourcePolicy` 或等价接口。
+4. node-ctl 调整本地 sandbox 资源池 / cgroup / overcommit 策略。
+5. agent 读取 node-ctl 状态并 patch `poolInfo` / `nodeCtl` status。
+
+这里的关键是“双重资源世界”要闭合：K8s 看到的 placeholder Pod request/limit 必须和 node-ctl 实际可用资源保持一致。如果一边更新成功、一边失败，状态机应能进入 Degraded，而不是继续 Ready。
+
+**循环四：Conditions 到 Phase 的状态聚合**
+
+1. placeholder-agent 写 node-local conditions：`PlaceholderPodReady`、`ResourceSynced`、`NodeCtlHealthy`、`ResizeInProgress`、`ResizeDeferred`。
+2. Controller 写 global condition：`NodeNotFound`。
+3. Controller 根据 conditions 计算 `phase`。
+
+这个模型比“agent 自己写 phase”更合理，因为节点被删时 agent 已经无法写状态。但它还缺一个清晰的 stale 判定：如果 Node 仍存在，但 placeholder-agent 停止 patch status，controller 是否应该根据 heartbeat 超时把 Phase 降级？
+
+> 分析：这是一个很适合写成 upstream review comment 的点，但前提是 comment 要具体：指出 “NodeNotFound covers deleted nodes, but not a stopped placeholder-agent on an otherwise Ready node”，并建议 test plan 增加 “Node exists, placeholder-agent stopped, previous status Ready”。
+
+### 4. 从 review 角度看，哪些假设必须被证明
+
+| 假设 | 如果不成立会怎样 | 最小验证方式 |
+| --- | --- | --- |
+| Static Pod mirror Pod 的 requests 会稳定进入 scheduler accounting | 普通 Pod 可能和 sandboxes 抢同一部分资源，slow resource pool 失效 | 创建高 request Static Pod，再调度普通 Pod 验证 Node allocatable / scheduling result |
+| `skip-cgroup` 不破坏 kubelet eviction / metrics / QoS 语义 | kubelet 看到的 usage、QoS、eviction 判断和真实资源使用脱节 | 检查 kubelet/cadvisor/metrics-server/eviction under pressure |
+| Static Pod manifest 更新可以实现 in-place resize | “without rebuilding Pods” 目标不成立，运行中 sandbox 可能被中断 | 修改 manifest resources，观察 kubelet event、container ID、CRI `UpdateContainerResources` |
+| placeholder-agent stale 能被 controller 发现 | Phase 可能长期 Ready，但本地 agent 已挂 | 停止 agent，保持 Node Ready，等待超过 heartbeat TTL，检查 Phase |
+| CRD endpoint 字段不是第二 source of truth | 用户以为改 CRD endpoint 生效，实际 systemd flag 决定行为 | 删除字段，或明确字段只用于 future / documentation，补 reconcile 规则 |
+| Phase 依赖 “was Ready” 有持久依据 | controller restart 后可能分不清 Pending 和 Unready | v1alpha1 加 `status.hasBeenReady`，或定义从 condition transition time 推导 |
+
+这类验证比普通 proposal 文本润色更重要。原因是 #431 的核心不是“多一个 CRD”，而是把 Kubernetes 调度资源锁和 node-local runtime 资源池绑定在一起；如果绑定关系不稳定，后续代码即使按 proposal 实现也可能不可用。
+
+### 5. 这套架构和 #430 的关系
+
+#430 想解决的是更大问题：AgentCube 当前每个 session 都经过 K8s API server / scheduler / kubelet / image pull / microVM boot，导致 burst 场景下 latency 和 scale 都受限。#431 只解决其中一个前置问题：如何在 K8s 节点上预留并管理一块 sandbox 资源池，让 fast track 后续可以直接在节点本地消费。
+
+所以 #431 的成功标准不是“session 秒开”或“实现 suspend/resume”，而是：
+
+1. operator 能声明不同 node group 的 sandbox resource policy；
+2. K8s scheduler 能看到这部分资源被稳定锁住；
+3. node-ctl 能拿到一致的资源配额；
+4. Pool 健康状态能在 API server 中可信展示；
+5. 节点丢失、agent 停止、node-ctl 不健康、resize defer 等故障不会误报 Ready。
+
+> 分析：这个标准可以帮助后续写 review comment：如果 comment 不能落到这五个成功标准之一，可能就不是 #431 当前 scope 内最重要的问题。
+
 ## 当前可 review 的问题清单
 
-下面这些是我认为如果要参与 #431 讨论，最值得压缩成英文 comment 的点。其中 Scope / metadata 的 `Fixes #430` 关闭语义已经在用户确认后发出一条短 upstream comment；其余技术点先保留为本地 review 观察，不继续堆评论。
+下面这些是我认为如果要参与 #431 讨论，最值得压缩成英文 comment 的点。其中 Scope / metadata 的 `Fixes #430` 关闭语义已经在用户确认后发出一条短 upstream comment，且最新 `9f03cca` 已吸收；其余技术点先保留为本地 review 观察，不继续堆评论。
 
 ### A. Scope / metadata
 
-- 建议把 PR body 的 `Fixes #430` 改成 `Refs #430`，因为 #430 是 broader architecture discussion，而 #431 只覆盖 slow track。
-- 建议 front matter 增加 `tracking-issue: "#430"`。
-- 修复 DCO signoff。
+- 已完成：PR body 从 `Fixes #430` 改成 `Refs #430`，避免 merge #431 时自动关闭 broader discussion #430。
+- 已完成：front matter 增加 `tracking-issue: "#430"`。
+- 已完成：DCO 已恢复 success。
+- 仍可观察：front matter `reviewers` / `approvers` 仍是 `TBD`，但 draft proposal 阶段不是高优先级问题。
 
 2026-07-09 已发出的 upstream comment：
 
@@ -539,7 +649,7 @@ VPA InPlaceResize: 1.27 Alpha / 1.31 GA
 
 更好的顺序：
 
-1. `Fixes #430` 已改为 `Refs #430`，DCO 已修复；继续观察作者是否补 `tracking-issue`，以及真人 maintainer 是否开始技术 review。
+1. `Fixes #430` 已改为 `Refs #430`，DCO 和 `tracking-issue` 已修复；继续观察真人 maintainer 是否开始技术 review。
 2. 本地准备一个小的 Static Pod resource accounting / manifest resize 验证计划，必要时再跑。
 3. 如果后续用户确认继续发 upstream comment，再考虑 Static Pod + in-place resize validation、stale heartbeat / phase correctness；不要把这些和当前 scope comment 混成一条长评论。
 4. 不认领实现，不承诺我们会做 node-ctl / placeholder-agent；当前更适合做 design review、test plan 和验证反馈。

@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="SandboxPool Architecture">
+    <mxGraphModel dx="1840" dy="980" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="user" value="Operator / Admin&#xa;creates SandboxPoolClass" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="70" y="20" width="190" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="control" value="Global Policy Layer: Kubernetes Control Plane" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="110" width="820" height="430" as="geometry" />
+        </mxCell>
+        <mxCell id="api" value="K8s API Server + etcd&#xa;CRDs, status, Events" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="control">
+          <mxGeometry x="300" y="45" width="220" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="class" value="SandboxPoolClass&#xa;global policy template&#xa;selector + resourcePolicy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="control">
+          <mxGeometry x="50" y="160" width="210" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="controller" value="SandboxPool Controller&#xa;Class -> Pool mapping&#xa;node selection&#xa;policy snapshot sync&#xa;phase aggregation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="control">
+          <mxGeometry x="310" y="170" width="220" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="pool" value="SandboxPool per node&#xa;spec: nodeName, classRef, policy snapshot&#xa;status: conditions + phase" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="control">
+          <mxGeometry x="590" y="155" width="210" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="phase" value="Controller-owned Phase&#xa;Pending / Ready / Degraded / Unready" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="control">
+          <mxGeometry x="590" y="305" width="210" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="node" value="Node Execution Layer: kubelet + host-level placeholder-agent" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="920" y="110" width="840" height="610" as="geometry" />
+        </mxCell>
+        <mxCell id="agent" value="placeholder-agent&#xa;host-level systemd service&#xa;CRI handler + manifest manager&#xa;sole node-ctl proxy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="node">
+          <mxGeometry x="310" y="55" width="230" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="cri" value="CRI socket&#xa;/run/sandbox-pool/cri.sock&#xa;RuntimeClass handler: placeholder" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="node">
+          <mxGeometry x="45" y="80" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="manifest" value="Static Pod manifest&#xa;/etc/kubernetes/manifests/...&#xa;resource requests / limits" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="node">
+          <mxGeometry x="45" y="225" width="220" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="kubelet" value="kubelet&#xa;watches static manifest&#xa;creates mirror Pod&#xa;routes CRI calls" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="node">
+          <mxGeometry x="315" y="245" width="220" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="mirror" value="Static Pod / mirror Pod&#xa;K8s-visible resource lock&#xa;no real workload process / skip cgroup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="node">
+          <mxGeometry x="45" y="375" width="235" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="nodectl" value="node-ctl&#xa;existing black box&#xa;sandbox lifecycle&#xa;overcommit + snapshots" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;fontStyle=1;" vertex="1" parent="node">
+          <mxGeometry x="610" y="115" width="190" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="sandboxes" value="Actual sandboxes&#xa;created from carved-out node resources&#xa;fast lifecycle remains out of #431 scope" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;" vertex="1" parent="node">
+          <mxGeometry x="590" y="330" width="220" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="conditions" value="placeholder-agent-owned status&#xa;PlaceholderPodReady&#xa;ResourceSynced&#xa;NodeCtlHealthy&#xa;Resize*" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="node">
+          <mxGeometry x="315" y="415" width="220" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="review" value="Architecture Review Focus" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="750" width="1720" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="risk_static" value="Static Pod accounting&#xa;+ skip-cgroup compatibility" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="review">
+          <mxGeometry x="35" y="45" width="300" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="risk_resize" value="InPlace resize on Static Pod&#xa;manifest update vs Pod rebuild" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="review">
+          <mxGeometry x="375" y="45" width="320" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="risk_stale" value="Stale heartbeat&#xa;agent stopped while Node stays Ready" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="review">
+          <mxGeometry x="735" y="45" width="310" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="risk_endpoint" value="node-ctl endpoint source of truth&#xa;CRD field vs systemd flag" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="review">
+          <mxGeometry x="1085" y="45" width="300" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="risk_scope" value="Slow-track only&#xa;not full session lifecycle / fast path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="review">
+          <mxGeometry x="1425" y="45" width="260" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="e_user_class" value="create / update policy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.5;exitY=1;entryX=0.15;entryY=0;" edge="1" parent="1" source="user" target="class">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_class_api" value="stored as CRD" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.5;exitY=0;entryX=0.2;entryY=1;" edge="1" parent="1" source="class" target="api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_controller_api" value="watch Class / Node / Pool" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="controller" target="api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_class_controller" value="desired policy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.5;entryX=0;entryY=0.35;" edge="1" parent="1" source="class" target="controller">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_controller_pool" value="create Pool per matched node&#xa;sync policy snapshot" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.45;entryX=0;entryY=0.45;" edge="1" parent="1" source="controller" target="pool">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pool_phase" value="aggregate conditions" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="pool" target="phase">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pool_agent" value="watch Pool for this node&#xa;GET spec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.35;entryX=0;entryY=0.35;" edge="1" parent="1" source="pool" target="agent">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="900" y="170" />
+              <mxPoint x="1210" y="170" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_agent_manifest" value="write / update manifest" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.15;exitY=1;entryX=1;entryY=0.4;" edge="1" parent="1" source="agent" target="manifest">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_manifest_kubelet" value="static pod file watch" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.5;entryX=0;entryY=0.35;" edge="1" parent="1" source="manifest" target="kubelet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_kubelet_mirror" value="creates mirror Pod" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.15;exitY=1;entryX=1;entryY=0.45;" edge="1" parent="1" source="kubelet" target="mirror">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_kubelet_cri" value="RunPodSandbox / UpdateContainerResources" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=0;exitY=0.25;entryX=1;entryY=0.45;" edge="1" parent="1" source="kubelet" target="cri">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_cri_agent" value="handled by placeholder-agent" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.35;entryX=0;entryY=0.55;" edge="1" parent="1" source="cri" target="agent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_agent_nodectl" value="gRPC / Unix socket&#xa;ApplyResourcePolicy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=1;exitY=0.5;entryX=0;entryY=0.45;" edge="1" parent="1" source="agent" target="nodectl">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_nodectl_sandboxes" value="actual sandbox lifecycle" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="nodectl" target="sandboxes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_agent_conditions" value="patch status every 30s" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;exitX=0.55;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="agent" target="conditions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_conditions_pool" value="conditions / poolInfo / nodeCtl status" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=11;dashed=1;exitX=0;exitY=0.55;entryX=1;entryY=0.8;" edge="1" parent="1" source="conditions" target="pool">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="900" y="610" />
+              <mxPoint x="900" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
