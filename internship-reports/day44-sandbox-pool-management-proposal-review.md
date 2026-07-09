@@ -892,6 +892,33 @@ placeholder-agent 是 host-level process，还要碰 CRI socket、static pod man
 
 > 分析：这不是要求 #431 做 fast track，而是确保 #431 不把未来 `AgentCube owns sessions` 的空间提前锁死。
 
+## 二次精读校准：哪些问题已经有答案
+
+重新逐段读 #431 后，需要把前面的开发问单收窄。proposal 已经回答了不少实现层问题，后续不能再拿这些泛泛地问，否则会显得没有认真读。
+
+| 开发疑问 | proposal 已有答案 | 还缺什么 |
+| --- | --- | --- |
+| 第一版范围是什么 | `Implementation Plan` 把实现拆成 5 阶段；`v1alpha1 Scope` 明确包含 Class→Pool、policy snapshot、Static Pod management、VPA resize、Phase aggregation | 仍可问每个阶段是否对应独立 PR / feature gate，但不该再问“有没有实现计划” |
+| 是否做 session create/suspend/resume/delete | `Non-Goals` 明确这些由 node-ctl 处理；snapshot、overcommit、node-ctl 内部实现也 out of scope | 不应要求 #431 设计 fast session lifecycle；最多问 slow-track API 是否会限制后续 fast track |
+| Controller / placeholder-agent / node-ctl 分工 | Component matrix 写明 controller 做 Class→Pool、node selection、policy snapshot、Phase aggregation；placeholder-agent 做 CRI handler、manifest、node-ctl proxy、CRD watch、conditions；node-ctl 是 black box | 分工大方向清楚；剩下是 placeholder-agent 的具体 runtime contract |
+| Phase 和 Conditions 基本模型 | Status writer table、Phase state machine、condition definitions 都比较完整；Phase 由 controller 聚合，placeholder-agent 写 node-local conditions | SSA conditions schema、stale heartbeat、NodeNotReady/agent unreachable 的判定仍需更精确 |
+| 创建 / 更新 / 删除流程 | Proposal 写了 Creation Flow、Update Flow、Deletion Flow、Node Startup Sequence | 部分失败、timeout 后强删、node unreachable 时的清理语义仍需澄清 |
+| RBAC / webhook / K8s 版本 / test plan | 已有 RBAC table、validation webhook、K8s version compatibility、unit/integration/e2e/fault/VPA test plan | 安装形态、host privileges、socket auth、CI 环境可运行性仍不够具体 |
+
+> 分析：这轮精读后，适合保留的不是“请补实现计划 / 请说明是否做 fast path”这类问题，而是更窄的实现 contract 问题：node-side runtime semantics、source of truth、SSA schema、unreachable/stale 状态、resize fallback、security assumptions、validation environment。
+
+## 精读后最值得保留的少量问题
+
+如果后续只发一两条 comment，优先级可以这样排：
+
+1. **Node-side runtime contract**：proposal 同时说 placeholder-agent 是 CRI handler、Static Pod 使用 RuntimeClass、CRI Server responds `RunPodSandbox → CreateContainer → StartContainer`，又说 no actual process / skip cgroup。实现前需要明确 v1 是创建普通 PodSandbox/pause/cgroup，还是通过 custom runtime handler 跳过；否则 resource locking、Ready、metrics、eviction、resize 都没法验证。
+2. **Source of truth for node-ctl endpoint**：`spec.nodeCtlEndpoint` / `spec.nodeCtl.endpoint` 出现在 declarative API，但注释又说 placeholder-agent 不读字段、只用 `--node-ctl-socket`。这个会直接影响 controller reconcile 和用户预期。
+3. **Stale / unreachable status semantics**：Risk table 说 placeholder-agent unreachable 时由 NodeNotFound 或 Node NotReady 间接覆盖，但 condition 里只有 `NodeNotFound`，没有 `NodeNotReady` / `PlaceholderAgentHealthy`。如果 node 还存在但 agent 挂了，Phase 如何从 stale Ready 变成 Degraded/Unready 仍不够明确。
+4. **Resize fallback and compatibility**：proposal 把 VPA InPlaceResize 作为 core goal 和 v1alpha1 scope，但 version table 写 1.27 Alpha / 1.31 GA + feature gate。需要明确目标 K8s 版本、feature gate 关闭时是否禁用 resize，或者 static pod manifest change 是否允许 rebuild fallback。
+5. **Validation environment**：Test Plan 类型齐全，但没有说明哪种 CI / e2e 环境能跑 RuntimeClass handler、Static Pod resource accounting、CRI `UpdateContainerResources`、skip-cgroup 行为。对于这个 proposal，验证环境本身就是设计约束。
+
+> 分析：这 5 个点里，1、2 已被 Copilot 直接或间接覆盖；如果作者后续更新正文，我们可以不重复。第 3 点更像 human reviewer 可以补的实现视角：它不是挑文案，而是问 stale Ready 怎么被纠正。
+
 ## 建议下一步
 
 短期不建议我们继续发长评论。原因：
