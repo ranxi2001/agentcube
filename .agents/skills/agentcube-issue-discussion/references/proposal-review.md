@@ -54,6 +54,27 @@ Use this matrix to classify findings:
 | Testability | Can each risky claim be verified by unit, integration, e2e, or targeted spike tests? |
 | Implementation slices | Can the proposal be implemented in small reviewable PRs? |
 
+## AgentCube Historical Review Patterns
+
+When reviewing AgentCube proposals, compare against prior design PR discussion patterns before drafting comments:
+
+- PR #28 showed that CLI proposals are reviewed as user-facing contracts: command semantics, provider-specific behavior, validation, credentials, and status/wait behavior must be precise.
+- PR #29 showed that component proposals must keep role boundaries clear. PicoD could not be described as a sandbox manager if its real role was code execution inside a sandbox.
+- PR #38 showed that resource-pool proposals must separate user API, admin API, and apiserver/controller internal details. Do not expose raw Kubernetes namespaces, paths, sockets, or pool internals unless the API boundary is intentional.
+- PR #44 showed that new API proposals should answer "why a new API instead of reusing the existing resource?" and keep docs consistent with Go API types when both are present.
+- PR #80 showed that system-level proposals are mainly reviewed for product model and component boundaries: user entrypoint, Router vs WorkloadManager, session meaning, and why separate resource concepts exist.
+- PR #114 showed that security proposals need source-of-truth, atomicity, recovery, token/key rotation, and follow-up issue boundaries.
+- PR #241 showed that security/performance trade-offs must map to exact paths and latency budgets, for example user identity propagation, mTLS/JWT choice, certificate rotation, and low-latency runtime bootstrap.
+
+Use these local patterns to turn vague concerns into precise questions:
+
+- "Should this be user/admin-facing API, or an implementation detail behind AgentCube?"
+- "What existing AgentCube or agent-sandbox resource was considered, and why is a new API needed?"
+- "Which component owns this field, and is there a second source of truth?"
+- "What happens after partial success or stale status?"
+- "Which risky claim needs a targeted spike instead of only a controller unit test?"
+- "Is the proposal mixing installation guide, future work, and the core design contract?"
+
 ## Comment Threshold
 
 Prefer no upstream comment when the finding is:

@@ -84,6 +84,93 @@ Proposal comment 适合聚焦三类内容：
 
 已将这个流程沉淀到 `.agents/skills/agentcube-issue-discussion/references/proposal-review.md`，并在 issue-discussion skill 中加入入口。后续如果 proposal review 变成高频独立任务，再考虑拆出单独 `agentcube-proposal-review` skill；现在先作为 issue-discussion 的专项 reference 更合适，因为它仍依赖同一套 GitHub thread 抓取、角色权重和 upstream comment guardrails。
 
+## 早期 Proposal PR 是怎么 battle 的
+
+为了理解 proposal review 到底该看什么，我回看了一批早期 AgentCube proposal / design PR 和关联 issue。这里的 “battle” 不是吵架，而是维护者通过问题把 proposal 从“大方向描述”压到“可实现、可维护、可验证的设计契约”。
+
+> 注释：早期 proposal 大多还放在 `docs/design/`，不是现在的 `docs/proposals/<name>/README.md` 目录结构。#415 合入后，AgentCube 才正式有了 proposal index 和 template。因此看历史样本时，不能只按当前模板要求倒推，而要看 reviewer 关注了哪些稳定问题。
+
+### 样本概览
+
+| PR / issue | 结果 | battle 主线 | 对 proposal review 的启发 |
+| --- | --- | --- | --- |
+| [#28 AgentRun CLI proposal](https://github.com/volcano-sh/agentcube/pull/28) | merged | CLI 命令语义、provider 行为、proxy / status / publish 等用户可见 contract | 用户入口类 proposal 要问清命令到底等待什么、失败怎么报、哪些字段只对某 provider 生效 |
+| [#29 PicoD Design](https://github.com/volcano-sh/agentcube/pull/29) | merged | PicoD 是否是 sandbox manager、HTTP/gRPC/API 细节、auth token 传递、workspace 限制 | 名词边界和协议细节不能模糊；proposal 不能把组件职责写成另一个系统 |
+| [#37 AgentCube Task design](https://github.com/volcano-sh/agentcube/pull/37) | closed | 范围过大，几乎没有真人 maintainer 深入 review | 太大的 outsider proposal 即使内容多，也可能因为 scope 不可评审而停掉 |
+| [#38 sandbox warm pool proposal](https://github.com/volcano-sh/agentcube/pull/38) | closed | WarmPool API 是否该完整暴露给用户、namespace 是否该出现在 path、admin 流程和 apiserver 内部流程混在一起 | 资源池 proposal 最重要的是区分用户 API、管理员 API 和内部实现细节 |
+| [#44 runtime API design](https://github.com/volcano-sh/agentcube/pull/44) | merged | 为什么新设计 API，而不是复用已有 SandboxTemplate；设计文档和 Go API type 一致性 | 正式 API proposal 必须回答 reuse-vs-new-resource，并保持文档 / 代码 contract 一致 |
+| [#80 overall AgentCube proposal](https://github.com/volcano-sh/agentcube/pull/80) | merged | AgentRuntime / CodeInterpreter / WorkloadManager / Router 的边界、用户入口、session 概念 | 系统级 proposal 的核心是产品模型和组件边界，不只是架构图漂亮 |
+| [#114 PicoD plain auth proposal](https://github.com/volcano-sh/agentcube/pull/114) | merged | JWT issuer 概念、Secret / ConfigMap source of truth、token reuse/rotation、部分写入失败恢复 | 安全 proposal 要审 threat model、source of truth、atomicity、rotation 和 recovery |
+| [#164 PR template proposal issue](https://github.com/volcano-sh/agentcube/issues/164) | closed | 维护者要求参考 Volcano 生态已有模板，而不是随意新造流程 | 流程类 proposal 也要先对齐项目生态惯例 |
+| [#241 AuthN/AuthZ design proposal](https://github.com/volcano-sh/agentcube/pull/241) | merged | 用户身份如何从 Router 传到 runtime、mTLS/SPIRE 是否影响低延迟、tenant isolation、证书轮换和安装边界 | 安全和性能 trade-off 要落到具体路径、延迟预算、配置方式和实现切片 |
+
+### 真人 review 和 AI review 的差别
+
+这些样本里，AI reviewer 的价值主要是帮助扫一致性和局部错误，例如字段名不一致、示例代码错误、endpoint 表述与当前实现不一致、文档链接或模板问题。它很有用，但通常不是设计方向的来源。
+
+真人 maintainer 的评论更像架构压力测试，常见问题是：
+
+1. 这个能力应该暴露给用户，还是应该藏在 AgentCube apiserver / controller 后面？
+2. 为什么要新增 API / CRD，而不是复用已有资源？
+3. 这个字段谁写、谁读、是否有两个 source of truth？
+4. 如果一半成功一半失败，系统怎么恢复？
+5. 安全方案会不会破坏低延迟或多租户隔离？
+6. 图里每一步是动作还是名词？用户流程和内部流程是否混在一起？
+7. proposal 是否写了太多安装教程或实现细节，反而没有讲清核心设计？
+
+> 分析：这说明 proposal review 不是“挑文档毛病”，而是在代码出现前提前保护未来实现边界。一个好问题应该能让 proposal 多出一段清楚的 contract，而不是只让作者改一个词。
+
+### 几个典型 battle 模式
+
+**1. API 暴露边界**
+
+#38 的 warm pool proposal 很接近 #431。维护者关注的不是 warm pool 是否有价值，而是完整 WarmPool API 是否应该直接暴露给用户。如果用户可以绕过 AgentCube apiserver 创建或操纵 WarmPool，那 AgentCube 再包装一层 API 的意义就会变弱。
+
+对 #431 的启发：`SandboxPoolClass` / `SandboxPool` 是管理员资源、AgentCube 内部资源，还是未来用户可见资源？`nodeCtlEndpoint`、namespace、host socket 这类细节是否应该进入 CRD spec，需要用“谁应该 declaratively control 它”来判断。
+
+**2. Reuse vs new API**
+
+#44 的 runtime API proposal 被追问为什么要设计新 API，而不是直接使用已有 `SandboxTemplate`。这类问题很关键，因为 API 一旦合入，后续会带来兼容性、client-go、CRD 版本和迁移成本。
+
+对 #431 的启发：如果新增 `sandbox-pool.io` API group 和 `SandboxPoolClass`，proposal 应该解释它和现有 AgentCube runtime API、agent-sandbox `SandboxWarmPool` / `SandboxTemplate` 的关系。不是说不能新增，而是要说明为什么不能复用、为什么应该成为长期 API。
+
+**3. 用户流程 vs 内部实现流程**
+
+#80 的 overall proposal 被反复追问 WorkloadManager 是否应该暴露给用户、CodeInterpreter 和 AgentRuntime 为什么并存、session 到底是应用会话还是基础设施会话。#29 也类似，PicoD 的定位不能写成 sandbox management。
+
+对 #431 的启发：proposal 应该把两条路径拆开：管理员创建 / 更新 pool 的慢路径，以及 AgentCube session 从 pool 中快速分配 runtime 的快路径。否则 reviewer 很难判断 Static Pod、placeholder-agent、node-ctl 分别在哪条路径上工作。
+
+**4. Source of truth 和 atomicity**
+
+#114 的 PicoD auth proposal 里，Secret / ConfigMap 分离方案被追问原子性：如果 Secret 创建成功但 ConfigMap 创建失败，系统会处于什么状态？最后设计收敛到更清楚的 Secret source of truth。
+
+对 #431 的启发：`SandboxPoolClass.spec.nodeCtlEndpoint`、`SandboxPool.spec.nodeCtl.endpoint`、placeholder-agent 启动参数、systemd 配置之间不能同时宣称自己是 source of truth。若 endpoint 只是状态展示或文档 hint，就应写清楚；若未来可配置，就要写 reconcile 和失败恢复。
+
+**5. 性能 / 安全 trade-off**
+
+#241 的 auth proposal 最后不是停在“mTLS 更安全”这个抽象层，而是讨论 Router -> PicoD / runtime 路径是否需要用户身份、TLS handshake 是否破坏 100ms 级 bootstrap、JWT mode 和 mTLS mode 是否都要保留。
+
+对 #431 的启发：Static Pod + skip-cgroup + RuntimeClass CRI handler 不能只说“可以锁资源”。它的 trade-off 是 scheduler accounting、eviction、metrics、QoS、host 权限和 resize 行为都要被验证。proposal 的 Test Plan 应该写 targeted spike，而不是只写 controller unit test。
+
+**6. Closed proposal 的失败模式**
+
+#37 和 #38 都 closed。它们的共同点不是“没有想法”，而是范围或边界让 review 成本太高：#37 设计面太大，像一次性定义新系统；#38 则把 API 暴露、namespace path、apiserver 内部流程和用户流程混在一起。
+
+对 #431 的启发：#431 要避免变成“资源池、node-ctl、overcommit、snapshot、session runtime 全部一次讲完”。它现在明确 non-goal 是优点；review 可以帮助它继续保持 slow resource track 的边界。
+
+### 可以迁移到 #431 的 review 视角
+
+结合这些历史样本，#431 的高价值 comment 不应是“我觉得 Static Pod 风险大”这种泛泛意见，而应该压成可回答的问题：
+
+1. **Scope**：#431 只覆盖 slow resource track，是否应该 `Refs #430` 而不是 `Fixes #430`？
+2. **API boundary**：`SandboxPoolClass` / `SandboxPool` 面向管理员还是内部控制面？哪些字段是 declarative spec，哪些只是 status / hint？
+3. **Reuse rationale**：为什么使用新的 `sandbox-pool.io` API group，而不是沿用 AgentCube 域名或复用 agent-sandbox warm pool 资源？
+4. **Source of truth**：node-ctl endpoint 到底由 CRD、systemd flag，还是 placeholder-agent 配置决定？
+5. **Validation**：Static Pod resource accounting、skip-cgroup、mirror Pod rebuild、manifest resize 是否有独立 spike？
+6. **Failure mode**：placeholder-agent 挂死但 Node 仍存在时，Ready phase 如何避免 stale？
+
+> 分析：这就是 mentor 说的“有疑问和意见可以提 PR comment”的前提。不是把自己所有疑问发出去，而是先知道历史上 maintainer 真正关心什么，再选择能改善 proposal 文本和未来实现路径的问题。
+
 ## 社区状态快照
 
 时间点：2026-07-09 本地查询。
