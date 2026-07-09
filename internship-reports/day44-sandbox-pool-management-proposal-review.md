@@ -252,19 +252,21 @@ Proposal comment 适合聚焦三类内容：
 | assignee | 无 |
 | PR 认领 @ | 无 |
 | 关联 issue | [#430](https://github.com/volcano-sh/agentcube/issues/430) |
-| 最近提交 | `9787221 fix AI review comments` |
-| DCO | `ACTION_REQUIRED` |
+| 最近提交 | `3028841 add sandbox-pool management proposal` |
+| DCO | Success |
 | tide | Pending |
-| 普通 CI | build / e2e / codegen / codespell / lint / Python / coverage 均 success |
+| 普通 CI | 新提交后部分 checks 仍在运行；已看到 DCO / golangci-lint / Python 相关 checks success |
 
-两个 commit 都没有 `Signed-off-by` trailer：
+初始两个 commit 没有 `Signed-off-by` trailer：
 
 ```text
 9787221 fix AI review comments
 7d97d7e add sandbox-pool management proposal
 ```
 
-> 分析：DCO 是当前合并门禁中的明确阻塞点。它和 proposal 技术内容无关，通常需要作者用 signed-off commit amend/rebase 修复。我们不应该把 DCO 红色状态解读成 proposal 设计失败。
+2026-07-09 更新：作者已把提交整理为一个 commit `3028841`，DCO 当前为 Success。PR body 中 `Which issue(s) this PR fixes` 已从 `Fixes #430` 改为 `Refs #430`，#430 仍保持 open。
+
+> 分析：DCO 是合并门禁问题，和 proposal 技术内容无关。`Fixes #430 -> Refs #430` 的修正说明 scope / closing semantics comment 已被采纳，避免了 merge #431 时自动关闭 broader discussion #430。
 
 ## 参与者与评论权重
 
@@ -272,11 +274,12 @@ Proposal comment 适合聚焦三类内容：
 | --- | --- | --- |
 | 讨论 issue 作者 / 维护者 | `@RainbowMango` | #430 作者，Collaborator；目前 #431 中被 `/cc`，但尚未技术回复 |
 | Proposal PR 作者 | `@lichuqiang` | 负责当前 proposal 内容；不是 maintainer consensus |
+| 其他贡献者 | `@vivek41-glitch` | 跟进提醒 DCO，并赞同 `Refs #430` 关闭语义；不是 maintainer consensus |
 | 流程 bot | `@volcano-sh-bot` | 提示 approval / OWNERS / first PR；不是技术判断 |
 | CI / coverage bot | `@codecov-commenter` | 说明 coverage 和上传状态；不是技术判断 |
 | AI reviewer | `@gemini-code-assist[bot]`, `@copilot-pull-request-reviewer[bot]` | 可作为检查清单；不能当作维护者结论 |
 
-目前没有真人维护者对 #431 的技术意见。因此今天的结论只能写成“我们的 review 观察”，不能写成“社区已经达成共识”。
+目前没有真人维护者对 #431 的技术意见。因此今天的结论只能写成“我们的 review 观察”和“已有 contributor 跟进”，不能写成“维护者已经达成共识”。
 
 ## #430 到 #431 的脉络
 
@@ -466,6 +469,14 @@ VPA InPlaceResize: 1.27 Alpha / 1.31 GA
 
 评论内容只聚焦 `Fixes #430` 是否应改为 `Refs #430`，理由是 #430 是 broader architecture discussion，而 #431 自己明确只覆盖 slow resource track / SandboxPool management。这个评论属于 proposal review 中的 scope / closure semantics，不涉及实现细节。
 
+2026-07-09 后续：
+
+- `@vivek41-glitch` 跟进赞同：#430 是 discussion issue，不应该被 `Fixes` 自动关闭。
+- 作者随后更新 PR body：`Which issue(s) this PR fixes` 当前为 `Refs #430`。
+- #430 当前仍然 open。
+
+结论：这条 scope / closing semantics comment 已达到目的，不需要继续回复。
+
 ### B. Static Pod 资源锁定需要独立验证
 
 问题不是“Static Pod 会不会重建”，而是：
@@ -528,7 +539,7 @@ VPA InPlaceResize: 1.27 Alpha / 1.31 GA
 
 更好的顺序：
 
-1. 先持续观察 #431 是否修 DCO、`tracking-issue`、`Fixes #430`，以及作者是否回复已发 comment。
+1. `Fixes #430` 已改为 `Refs #430`，DCO 已修复；继续观察作者是否补 `tracking-issue`，以及真人 maintainer 是否开始技术 review。
 2. 本地准备一个小的 Static Pod resource accounting / manifest resize 验证计划，必要时再跑。
 3. 如果后续用户确认继续发 upstream comment，再考虑 Static Pod + in-place resize validation、stale heartbeat / phase correctness；不要把这些和当前 scope comment 混成一条长评论。
 4. 不认领实现，不承诺我们会做 node-ctl / placeholder-agent；当前更适合做 design review、test plan 和验证反馈。
@@ -539,7 +550,7 @@ VPA InPlaceResize: 1.27 Alpha / 1.31 GA
 
 但它也做了几个需要强验证的设计选择：Static Pod 作为资源锁、placeholder-agent 作为 host-level CRI handler、skip-cgroup、不通过 API server 控制的 Static Pod resize。这些设计不是普通 controller 逻辑，必须靠 targeted spike 和 failure-path test plan 证明。
 
-当前最现实的行动是：已发一条 scope / closing semantics comment，后续先观察作者或 maintainer 回复；Static Pod / InPlaceResize / stale heartbeat 等技术问题暂不继续发，除非有更强文档或实验证据，且用户确认具体英文评论。
+当前最现实的行动是：scope / closing semantics comment 已被 PR 更新吸收，暂不需要继续回复。后续先观察作者或 maintainer 对 proposal 本身的技术 review；Static Pod / InPlaceResize / stale heartbeat 等技术问题暂不继续发，除非有更强文档或实验证据，且用户确认具体英文评论。
 
 ## 参考链接
 
