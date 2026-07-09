@@ -255,7 +255,7 @@ Proposal comment 适合聚焦三类内容：
 | 最近提交 | `9f03cca add sandbox-pool management proposal` |
 | DCO | Success |
 | tide | Pending |
-| 普通 CI | 最新 force-push 后 build / codegen / lint / Python / coverage 等已 success；`e2e-test` 仍在运行 |
+| 普通 CI | 最新 force-push 后 build / codegen / lint / Python / coverage / e2e 等已 success |
 
 初始两个 commit 没有 `Signed-off-by` trailer：
 
@@ -267,6 +267,8 @@ Proposal comment 适合聚焦三类内容：
 2026-07-09 更新：作者先把提交整理为一个 commit `3028841`，DCO 变为 Success。PR body 中 `Which issue(s) this PR fixes` 已从 `Fixes #430` 改为 `Refs #430`，#430 仍保持 open。
 
 2026-07-09 进一步同步：#431 又 force-push 到单 commit `9f03cca`。最新 proposal 已经吸收几条 AI / 社区评论：front matter 增加 `tracking-issue: "#430"`；`ResourcePolicy` 和 `ResizeInfo` 的 CPU / Memory 字段改成 `resource.Quantity`；`ResizeNone` 不再作为显式 enum；`NodeNotFound=False` 后改为重新评估所有 conditions，而不是直接转 Ready；Markdown fence 问题也已修正。
+
+2026-07-09 再次同步：#431 普通 checks 已全部通过，`tide` 仍 pending，原因是缺 `approved` / `lgtm` labels。Copilot 后续新增 5 条 proposal 级评论，集中在 `<5s` mirror pod rebuild 硬保证、`pause:3.9` 与 “no actual process / no cgroup” 表述冲突、SSA 多 writer conditions 需要 CRD list-map schema、`nodeCtlEndpoint` source of truth。作者回复了 `<5s` 是 rough estimate，并解释 placeholder-agent 是 host process、image 配置只是满足 K8s 形式要求；但截至 `9f03cca`，proposal 正文尚未按这些回复更新。
 
 > 分析：DCO 是合并门禁问题，和 proposal 技术内容无关。`Fixes #430 -> Refs #430` 的修正说明 scope / closing semantics comment 已被采纳，避免了 merge #431 时自动关闭 broader discussion #430。
 
@@ -301,6 +303,33 @@ Proposal comment 适合聚焦三类内容：
 #431 是对这个方向里 **Kubernetes owns the pool** 部分的正式 proposal。它明确说只做 slow resource track，不设计 node-ctl 的 sandbox create/suspend/resume/delete、overcommit coordination、snapshot 这些 fast path 内部实现。
 
 > 注释：这和 Day35/Day36 的内部结论对齐：Kubernetes 适合管理慢状态、资源边界和全局可观测性；真正高频的 sandbox 生命周期应该下沉到 node-local runtime / node-ctl / sandbox-ctl。
+
+## 回到 #430 原始讨论：问题空间怎么拆
+
+#430 不是一个 bug issue，而是 `@RainbowMango` 发起的 architecture discussion。它没有 assignee、没有评论，正文最后写的是“start a discussion and agree on a direction, welcome proposals”。因此，review #431 时要先把 #430 的问题空间拆开，避免把一个 proposal 当成整个 #430 的 closure。
+
+| #430 原始问题 | 本质 | #431 覆盖情况 | Review 判断 |
+| --- | --- | --- | --- |
+| Session creation 慢 | 每个 session 都走 CR creation → reconcile → Pod creation → scheduling → kubelet sync → image pull → microVM boot | **间接覆盖一部分**：#431 先预留 node-level pool，但不设计 session assignment fast path | #431 不能证明 session 秒开；它只为后续 fast path 准备容量层 |
+| API server / etcd 短生命周期对象压力 | bursty short-lived sessions 产生大量 K8s object create/update/delete | **部分覆盖**：Pool CRD 是长期对象，不再把每个 session 映射成 K8s 对象，但 session store / fast control plane 不在 scope | 需要明确 #431 不是“去掉 hot-path K8s writes”的完整方案 |
+| Idle sandboxes 浪费资源 | Agent 多数时间 idle；K8s 没有原生 Pod suspend/resume，即便有也不适合每次唤醒走 API server | **基本不覆盖**：suspend/resume/delete 是 node-ctl / fast track non-goal | 不应要求 #431 做 Sleep/Resume，但要确认它不阻碍后续 session lifecycle |
+| Capacity planning 和 session lifecycle 混在一起 | 管理员不能独立声明“给 agent 预留多少容量” | **直接覆盖**：`SandboxPoolClass` / `SandboxPool` 正是在做 resource pool declaration 和 per-node capacity snapshot | 这是 #431 最强的 problem fit |
+| Kubernetes owns pool; AgentCube owns sessions | K8s 管慢资源池，AgentCube 管高频 session，不在 hot path 创建 K8s 对象 | **覆盖前半句**：K8s owns pool；**不覆盖后半句**：AgentCube owns sessions | PR body 用 `Refs #430` 是对的，#430 应继续保留给 fast track / session lifecycle proposals |
+
+> 分析：这张表能帮助我们判断 comment 是否值得发。如果一个问题属于 “AgentCube owns sessions”，比如 session store、Router fast assignment、pause/resume、snapshot restore，就不应该拿来要求 #431 解决；但可以要求 #431 把 Non-goals 和后续依赖写清楚。相反，如果问题属于 “Kubernetes owns pool”，比如资源锁、Pool CRD source of truth、Pool status、Static Pod resize、node-level agent 权限，就属于 #431 的核心 review 面。
+
+## #431 当前真正值得 review 的轴
+
+从 #430 反推，#431 的 review 不是问“能不能解决所有架构演进问题”，而是问它作为 **slow resource capacity control plane** 是否成立。当前可以按四条轴看：
+
+| Review 轴 | 核心问题 | 当前状态 |
+| --- | --- | --- |
+| Problem fit | 是否真正解决 capacity planning 与 pool declaration | 方向匹配，是 #431 最稳的部分 |
+| API boundary | `SandboxPoolClass` / `SandboxPool` 是否是用户/admin API，哪些字段是 declarative source of truth | `nodeCtlEndpoint` 仍有双 source-of-truth 风险 |
+| Node mechanism | Static Pod + RuntimeClass + placeholder-agent 是否能安全锁定资源 | `<5s`、`pause:3.9`、skip-cgroup、InPlaceResize 都需要更强验证或更谨慎表述 |
+| Status correctness | controller 和 placeholder-agent 双写 status 是否可靠 | SSA FieldOwner 方向合理，但 `conditions` list-map schema、stale heartbeat、`hasEverBeenReady` 持久判断仍需明确 |
+
+最新 Copilot 评论和作者回复可以作为检查清单，但不是维护者共识。作者回复说明了设计意图：placeholder-agent 是 host process，placeholder Pod 里的 image 主要是形式化配置；但 proposal 正文如果仍写 “no actual process/no cgroup created”，未来实现者可能按普通 K8s/CRI 行为误解。这个属于 proposal 文本必须精确的地方。
 
 ## Proposal 设计拆解
 
@@ -715,20 +744,57 @@ flowchart LR
 
 建议要么删除 CRD endpoint 字段，要么明确它只是 documentation/status hint；如果未来要支持 per-pool endpoint，也要定义 placeholder-agent 何时读取和如何 reconcile。
 
+### G. SSA conditions list-map schema
+
+最新 Copilot 评论指出一个 Kubernetes API 细节：proposal 说 controller 和 placeholder-agent 都通过 SSA FieldOwner 写 `status.conditions` 的不同 condition type，但 Go struct 只写了：
+
+```go
+Conditions []metav1.Condition `json:"conditions,omitempty"`
+```
+
+如果 CRD OpenAPI schema 没有把 `conditions` 定义为 map list keyed by `type`，SSA 可能把整个 list 当作一个字段整体处理，导致一个 writer 替换另一个 writer 的 condition，而不是分别拥有不同 condition entries。
+
+> 分析：这个点很适合 proposal review，因为它不是实现风格问题，而是 API contract 问题。#431 的 status ownership 设计把 `NodeNotFound` 给 controller，其他 conditions 给 placeholder-agent；如果 schema 不支持按 `type` 合并，FieldOwner 设计就可能不成立。后续可以建议在 proposal 中明确 CRD schema / kubebuilder marker，例如 conditions list uses `x-kubernetes-list-type: map` and `x-kubernetes-list-map-keys: ["type"]`。
+
+### H. `pause:3.9` / no-process / skip-cgroup 表述
+
+最新 Copilot 评论指出 proposal 同时写了：
+
+- `No actual process, skip cgroup`
+- manifest uses `pause:3.9`
+- Static Pod has `no actual process/no cgroup created`
+
+作者回复的意图是：placeholder-agent 是 host process，不在 Pod 内运行；image 配置只是为了满足 Kubernetes Pod manifest 形式。但从 Kubernetes/CRI 语义看，普通 PodSandbox 通常会有 pause 容器和 cgroup。除非 RuntimeClass handler / placeholder-agent 的 CRI 实现明确跳过这些行为，否则 “no actual process/no cgroup created” 容易被实现者误读。
+
+> 分析：这不是挑字眼。#431 依赖 Static Pod 作为资源锁，如果真实 cgroup 不创建，scheduler accounting、kubelet admission、eviction、metrics、QoS 的关系必须被 proposal 解释清楚。最稳的改法是把 “no actual process” 改成 “no workload process; placeholder-agent runs as a host-level process”，并单独说明 cgroup skipping 依赖 custom runtime handler，属于需要 e2e spike 验证的行为。
+
+### I. `<5s` mirror pod rebuild guarantee
+
+proposal 写 “mirror pod rebuilt within <5s after accidental deletion”。作者回复说这是 rough estimate，而且删除 mirror Pod 不影响 placeholder Pod 的资源使用。
+
+这个回复方向合理，但正文如果仍写成硬保证，reviewer 会自然追问：
+
+- `<5s` 是设计目标、经验值，还是必须满足的 SLO？
+- 它依赖 kubelet sync frequency、API server 延迟、node pressure 还是 CRI handler 行为？
+- 如果 mirror Pod 删除后重建慢于 5s，资源锁是否真的受影响？
+
+> 分析：这里更适合要求 proposal 文本软化为 “target / expected / measured under X condition”，或者把 `<5s` 移到 test/validation target，而不是作为无条件保证。
+
 ## 建议下一步
 
 短期不建议我们继续发长评论。原因：
 
 1. 现在还没有真人 maintainer review，贸然发大段评论可能打断作者和维护者的第一轮对齐；当前只发一条 `Fixes #430` scope comment 更合适。
-2. 一部分问题属于作者已经在修 AI comments 的过程，可能马上会补 DCO / tracking issue。
+2. 最新一轮 AI comments 已经覆盖了 `<5s`、no-process/no-cgroup、SSA conditions、node-ctl endpoint 等多个点；在作者更新 proposal 正文前，我们不需要重复评论。
 3. Static Pod / InPlaceResize 的问题最好用 Kubernetes 官方文档和最小实验证据支撑，不要只凭直觉质疑。
 
 更好的顺序：
 
 1. `Fixes #430` 已改为 `Refs #430`，DCO 和 `tracking-issue` 已修复；继续观察真人 maintainer 是否开始技术 review。
-2. 本地准备一个小的 Static Pod resource accounting / manifest resize 验证计划，必要时再跑。
-3. 如果后续用户确认继续发 upstream comment，再考虑 Static Pod + in-place resize validation、stale heartbeat / phase correctness；不要把这些和当前 scope comment 混成一条长评论。
-4. 不认领实现，不承诺我们会做 node-ctl / placeholder-agent；当前更适合做 design review、test plan 和验证反馈。
+2. 观察作者是否根据最新 Copilot comments 更新正文；如果没有更新，再考虑是否补一条更聚焦的 human review comment。
+3. 本地准备一个小的 Static Pod resource accounting / manifest resize 验证计划，必要时再跑。
+4. 如果后续用户确认继续发 upstream comment，优先考虑 **stale heartbeat / Phase correctness** 或 **validation plan** 这类尚未被充分覆盖的点；不要把所有问题混成一条长评论。
+5. 不认领实现，不承诺我们会做 node-ctl / placeholder-agent；当前更适合做 design review、test plan 和验证反馈。
 
 ## 今日结论
 
