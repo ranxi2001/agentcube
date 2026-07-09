@@ -780,6 +780,118 @@ proposal 写 “mirror pod rebuilt within <5s after accidental deletion”。作
 
 > 分析：这里更适合要求 proposal 文本软化为 “target / expected / measured under X condition”，或者把 `<5s` 移到 test/validation target，而不是作为无条件保证。
 
+## 从开发 owner 视角预先要问的问题
+
+如果后续这个 proposal 交给我们开发，疑问不能只停在“文本哪里不清楚”，而要变成“哪些 contract 不澄清就没法切 PR、写测试、定义 done”。下面这些问题适合作为内部问单，后续再筛成少量 upstream comment。
+
+### 1. MVP 范围和 PR 切片
+
+最先要问清楚的是 v1 到底要交付什么。#431 现在写的是 slow resource track，但实现跨度可能从“只加 CRD / controller proposal”一路扩到 “CRD + controller + placeholder-agent + RuntimeClass handler + node-ctl proxy + resize + e2e”。
+
+可问的问题：
+
+- For the first implementation, is the expected MVP only the CRDs and SandboxPool controller, or does it also include the node-local placeholder-agent and RuntimeClass handler?
+- Should the first version integrate with existing Router / WorkloadManager session assignment, or is user-visible fast session provisioning explicitly out of scope for this proposal?
+- What would be the preferred implementation order: API types/CRDs, controller class-to-pool sync, placeholder-agent static-pod writer, status ownership, resize flow, then node-ctl integration?
+- Should this be guarded by a feature gate or disabled by default while the runtime handler is still experimental?
+
+> 分析：这个问题决定我们能不能把开发拆成 reviewable PRs。如果 v1 必须一次性包含 node runtime handler 和 CRD controller，review 风险会很高；如果 maintainers 接受分阶段实现，第一阶段可以先落 API contract 和 controller skeleton。
+
+### 2. API source of truth
+
+开发时最容易踩坑的是字段“看起来 declarative，但实际不被任何组件读取”。当前 `nodeCtlEndpoint` 已经暴露了这个风险。
+
+可问的问题：
+
+- Which fields in `SandboxPoolClass.spec` and `SandboxPool.spec` are authoritative user/admin inputs, and which fields are reserved or informational?
+- Is `spec.nodeCtlEndpoint` intended to be the source of truth, or should placeholder-agent only use its local `--node-ctl-socket` configuration?
+- Which spec fields are mutable after creation? If a class changes CPU/memory/runtime/endpoint, should existing per-node pools update in place, recreate their static pod, or stay on the old snapshot?
+- Should `status.phase` be a derived summary from conditions, or an independently persisted field with its own transition rules?
+- Should the proposal include a field ownership table for controller-owned, placeholder-agent-owned, and user-owned fields?
+
+> 分析：如果 source-of-truth 不清楚，后续实现会出现 controller、placeholder-agent、systemd config 三方漂移。这个问题比命名更重要，因为它直接影响 reconcile loop 和升级行为。
+
+### 3. Node-side runtime contract
+
+#431 最难实现的部分不是 controller，而是 node-local placeholder-agent 到底以什么身份和 kubelet / CRI / node-ctl 交互。
+
+可问的问题：
+
+- Is placeholder-agent expected to implement a CRI runtime handler, proxy selected CRI calls, or only generate static pod manifests and report status?
+- How is the `placeholder` RuntimeClass handler registered for containerd / CRI-O, and is multi-runtime portability a goal for v1?
+- Which CRI calls must be implemented or intercepted for the placeholder pod: `RunPodSandbox`, `StopPodSandbox`, `UpdateContainerResources`, status calls, or more?
+- Does the placeholder pod create a real PodSandbox / pause process / cgroup in v1, or does cgroup skipping require custom runtime support?
+- If no workload container is created, what exact kubelet signal makes the mirror pod become Running / Ready?
+
+> 分析：这组问题可以把 “no actual process / no cgroup” 从文案争议变成实现 contract。开发者需要知道自己是在写 Kubernetes controller、node daemon、CRI shim，还是三者都要写。
+
+### 4. 资源锁定、计量和 resize 语义
+
+这个 proposal 的核心价值是提前占住 node capacity，但资源锁到底由 scheduler accounting、kubelet admission、cgroup、还是 placeholder-agent 自己维护，需要明确。
+
+可问的问题：
+
+- What is the authoritative definition of pool capacity: Kubernetes requested resources, node-local runtime capacity, or node-ctl reported free capacity?
+- If the placeholder pod skips cgroup creation, how do we verify scheduler accounting, kubelet eviction, QoS, and node metrics remain consistent?
+- Is InPlace Pod Resize expected to work for static pods in the target Kubernetes versions, or should resize be implemented as delete/recreate of the static pod manifest?
+- What should happen when resize partially succeeds: CRD status updated but static pod not resized, static pod resized but node-ctl rejects capacity, or kubelet reports stale capacity?
+- Are GPU, hugepages, extended resources, NUMA/topology, or overcommit explicitly out of scope for v1?
+
+> 分析：这些问题直接决定 test plan。只写 controller unit test 证明不了资源锁成立，必须有 node-level spike 或 e2e 证据。
+
+### 5. Failure / recovery / deletion 行为
+
+实现时最容易被 review 卡住的是异常路径。proposal 已有 phase / conditions，但还不足以指导所有恢复动作。
+
+可问的问题：
+
+- What is the stale heartbeat threshold for placeholder-agent, and when should the pool move from Ready to Unready?
+- After controller restart or placeholder-agent restart, which component rebuilds desired state first, and how do we avoid false Ready?
+- If a user deletes `SandboxPool` or `SandboxPoolClass`, what is the exact cleanup order for finalizer, static pod manifest, mirror pod, node-ctl pool state, and status?
+- What should happen if API server state says a pool is deleted but the node is unreachable and the static pod manifest cannot be cleaned up?
+- How should manual node-side drift be handled, such as an operator editing or deleting the static pod manifest directly?
+
+> 分析：这类问题适合让 proposal 补一个 failure/recovery table。实现者拿到表以后，才能把每个异常路径映射到 unit / integration / e2e。
+
+### 6. 安全、权限和部署形态
+
+placeholder-agent 是 host-level process，还要碰 CRI socket、static pod manifest、node-ctl socket。这不是普通 Pod controller 权限。
+
+可问的问题：
+
+- How is placeholder-agent installed and upgraded: systemd package, DaemonSet with host privileges, node image component, or Helm-managed hostPath deployment?
+- What host privileges are required: writing static pod manifests, accessing CRI socket, accessing node-ctl socket, and reading kubelet state?
+- What authentication/authorization is required between placeholder-agent and node-ctl? Is a Unix socket permission model enough, or is mTLS/token auth expected?
+- What RBAC does placeholder-agent need to update `SandboxPool.status`, and how is it scoped to its own node?
+- Are tenant isolation and untrusted workload boundaries in scope, or is v1 limited to trusted cluster-admin managed pools?
+
+> 分析：这组问题不一定要让 #431 全部解决，但 proposal 至少要声明安全假设。否则开发时会在 Helm、RBAC、node daemon 安装方式上反复返工。
+
+### 7. 验证标准和 CI 可运行性
+
+最后要问清楚 done definition。这个设计依赖 node-local 行为，普通 envtest / controller unit test 不够。
+
+可问的问题：
+
+- What is the minimum validation environment for v1: envtest, kind/k3s, real node with custom runtime handler, or a dedicated node-e2e job?
+- Which claims must be validated before implementation merge: static pod resource accounting, mirror pod rebuild, resize behavior, status ownership, cleanup, or node-ctl connectivity?
+- What metrics should prove #430's direction is improving: reduced API-server writes, lower session provisioning latency, stable pool capacity under burst, or only successful pool reconciliation?
+- Should the proposal define acceptance tests before code starts, especially for resource accounting and failure recovery?
+
+> 分析：从开发 owner 角度，最怕的是 proposal merge 后才发现 CI 环境根本不能验证 runtime handler。提前问 validation environment，可以把不可测的设计风险暴露出来。
+
+### 8. 和 #430 fast track 的接口边界
+
+#431 只做 slow track，但它会成为 fast track 的资源入口。如果接口边界不清楚，后续 session lifecycle 方案可能被迫迁就早期 API。
+
+可问的问题：
+
+- Which API will the future fast session lifecycle use to discover available pool capacity: `SandboxPool.status`, node-ctl API, Router cache, or a separate session store?
+- Does #431 intentionally avoid defining session assignment, suspend/resume, and snapshot restore APIs, or should it reserve extension points for them?
+- How should we prevent the slow-track API from leaking node-local implementation details that future fast-track components should not depend on?
+
+> 分析：这不是要求 #431 做 fast track，而是确保 #431 不把未来 `AgentCube owns sessions` 的空间提前锁死。
+
 ## 建议下一步
 
 短期不建议我们继续发长评论。原因：
