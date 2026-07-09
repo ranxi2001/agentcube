@@ -459,9 +459,54 @@ VPA InPlaceResize: 1.27 Alpha / 1.31 GA
 
 ## 架构剖析：#431 到底在设计什么
 
-配套架构图：[`day44-sandboxpool-architecture.drawio`](day44-sandboxpool-architecture.drawio)。
+配套图：
 
-> 注释：本机当前没有 `drawio` / `draw.io` CLI，所以今天只生成了可编辑 `.drawio` 源文件，并用 drawio-skill 的结构校验脚本确认 `0 error(s), 0 warning(s)`。如需 PNG，可以在装有 draw.io desktop CLI 的环境导出。
+- 默认阅读用 Mermaid 图，直接嵌在本节下方。
+- 可编辑 draw.io 源文件：[`day44-sandboxpool-architecture.drawio`](day44-sandboxpool-architecture.drawio)。
+
+> 注释：用户反馈后续在 Linux 机器上优先用 Mermaid 或 GPT image draw，不强依赖 draw.io CLI。这里保留 `.drawio` 源文件作为可选资产，同时补 Mermaid 版本作为报告里的默认架构图。
+
+```mermaid
+flowchart LR
+  user([Operator / Admin])
+
+  subgraph cp["Global Policy Layer: Kubernetes Control Plane"]
+    api[(K8s API Server / etcd)]
+    class["SandboxPoolClass<br/>selector + resourcePolicy"]
+    ctrl["SandboxPool Controller<br/>Class -> Pool mapping<br/>policy snapshot sync<br/>phase aggregation"]
+    pool["SandboxPool per node<br/>spec: nodeName / classRef / policy<br/>status: conditions + phase"]
+    phase["Controller-owned Phase<br/>Pending / Ready / Degraded / Unready"]
+  end
+
+  subgraph node["Node Execution Layer"]
+    agent["placeholder-agent<br/>host-level systemd<br/>CRI handler + manifest manager<br/>sole node-ctl proxy"]
+    cri["CRI socket<br/>/run/sandbox-pool/cri.sock<br/>RuntimeClass: placeholder"]
+    manifest["Static Pod manifest<br/>/etc/kubernetes/manifests/..."]
+    kubelet["kubelet<br/>watches manifest<br/>creates mirror Pod<br/>routes CRI calls"]
+    mirror["Static Pod / mirror Pod<br/>K8s-visible resource lock<br/>skip-cgroup placeholder"]
+    nodectl["node-ctl<br/>existing black box<br/>sandbox lifecycle / overcommit / snapshots"]
+    sandboxes["Actual sandboxes<br/>fast lifecycle out of #431 scope"]
+    cond["placeholder-agent-owned status<br/>PlaceholderPodReady<br/>ResourceSynced<br/>NodeCtlHealthy<br/>Resize*"]
+  end
+
+  user -->|"create / update"| class
+  class -->|"stored as CRD"| api
+  ctrl <-->|"watch / patch"| api
+  class -->|"desired policy"| ctrl
+  ctrl -->|"create Pool per matched node<br/>sync policy snapshot"| pool
+  pool -->|"watch Pool for this node"| agent
+  agent -->|"write / update"| manifest
+  manifest -->|"static pod file watch"| kubelet
+  kubelet -->|"creates mirror Pod"| mirror
+  kubelet -->|"CRI calls"| cri
+  cri -->|"handled by placeholder-agent"| agent
+  agent -->|"ApplyResourcePolicy"| nodectl
+  nodectl -->|"actual sandbox lifecycle"| sandboxes
+  agent -->|"patch every 30s"| cond
+  cond -->|"conditions / poolInfo / nodeCtl status"| pool
+  pool -->|"conditions"| phase
+  ctrl -->|"compute phase"| phase
+```
 
 一句话概括：#431 不是完整的 Agent session lifecycle proposal，而是给“慢资源轨道”设计一个 Kubernetes-native 的节点级 sandbox 资源池控制面。它只负责把一部分节点资源声明、锁住、下发给 node-local runtime，并把健康状态汇总回 K8s；真正的 sandbox create / suspend / resume / delete 仍然属于 node-ctl / fast track。
 

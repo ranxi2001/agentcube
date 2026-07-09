@@ -42,6 +42,8 @@ For daily reports and review retrospectives, do not create a new day file for th
 
 Name internship report assets so their owner is obvious from the filename. Daily-report images, draw.io sources, exported PNGs, `.url` shortcuts, and companion explainer files should start with the owning day prefix, for example `day33-e2b-architecture-protocol-overview.png` or `day28-agentcube-session-runtime-architecture.drawio`. Weekly report files should start with `weekN-...`, not project-name-first names such as `agentcube week1.md`.
 
+On Linux machines, prefer Mermaid embedded in Markdown for architecture, control-flow, and proposal-review diagrams because it is text-first, reviewable, and does not depend on draw.io desktop export. Use draw.io only when its editable canvas or richer layout is specifically useful. For polished raster assets, Chinese infographics, banners, covers, or image-first report visuals, use the local GPT image workflow at `/home/agentcube/.agents/skills/gpt-image-draw/SKILL.md`; it reads `OPENAI_API_KEY` or `IMAGE_API_KEY` from environment / `.env` files, and keys must never be printed, pasted into reports, committed, or exposed in command output.
+
 At the start of each new Agent work loop, read root `PROGRESS.md` before diving into reports or code. At the end of the loop, update it only with short state needed for the next run: last work, current blockers, ruled-out paths, next step, and stop conditions. Keep long-form daily records in `internship-reports/` and task inventory in `internship-reports/todo.md`; do not let `PROGRESS.md` become a second report.
 
 ## Knowledge Capture Guidelines
