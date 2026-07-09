@@ -158,7 +158,7 @@ If it is authoritative, the implementation needs a reconciliation rule for endpo
 - URL: <https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549854078>
 - Nature: clarification question, not a blocking concern
 
-2026-07-09 follow-up：作者没有直接回复这条 inline comment，但推送了 `35d361e fix stale state issue`。这次修改基本正面回答了问题：
+2026-07-09 follow-up：作者推送了 `35d361e fix stale state issue`，随后在这条 inline thread 回复 `Good suggestion. Updated related content`（<https://github.com/volcano-sh/agentcube/pull/431#discussion_r3550260383>）。这次修改基本正面回答了问题：
 
 - Status writer table 改为 controller owns `NodeNotFound, PlaceholderAgentHealthy`；placeholder-agent owns non-`NodeNotFound/PlaceholderAgentHealthy` conditions。
 - Explanation 增加：当 node 被删除时 controller 用 `NodeNotFound`；当 node 仍存在但 agent crash 时，controller 检测 stale `NodeCtl.LastHeartbeat` `> 2min`，设置 `PlaceholderAgentHealthy=False`，把 Phase 降级到 `Degraded/Unready`。
