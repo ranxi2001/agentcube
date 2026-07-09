@@ -1,0 +1,115 @@
+# Proposal Review Workflow
+
+Use this reference for AgentCube formal proposal PRs and architecture discussion reviews.
+
+## Review Posture
+
+Treat a proposal as a design manuscript, not as code to mechanically nitpick. The first goal is to reconstruct the author's model accurately. Only draft an upstream comment after the reviewer can explain the proposal's motivation, non-goals, object model, control/data flow, failure handling, test plan, and relation to existing issues.
+
+Good proposal review contributions are often text improvements:
+
+- making scope boundaries explicit;
+- asking for missing assumptions;
+- separating goals from implementation details;
+- clarifying API semantics before code exists;
+- improving test plans and rollout/migration plans;
+- pointing out where a term, diagram, state machine, or field would mislead future implementers.
+
+## Understand-First Pass
+
+Before proposing changes:
+
+1. Fetch the full PR/issue context with `thread_brief.py`; fetch full JSON only if exact review comments, commits, or timeline details are needed.
+2. Read the proposal body as a whole before line-level notes.
+3. Identify the parent issue, previous proposals, linked PRs, and whether this proposal should close or only reference them.
+4. Write a Chinese internal summary with:
+   - motivation;
+   - goals and non-goals;
+   - proposed API/object model;
+   - lifecycle/state machine;
+   - component ownership;
+   - failure and recovery paths;
+   - test and rollout plan;
+   - open questions.
+5. Compare the proposal against the project template in `docs/proposals/proposal-template.md`.
+6. Compare the proposal against existing AgentCube API groups, controllers, runtime concepts, and prior internship reports only after the proposal's own model is clear.
+
+Do not draft upstream feedback until the internal summary can be stated without relying on vague phrases like "seems risky" or "maybe inconsistent".
+
+## Review Matrix
+
+Use this matrix to classify findings:
+
+| Category | Question |
+| --- | --- |
+| Problem fit | Does the proposal solve the parent issue's actual problem? |
+| Scope | Are goals, non-goals, and `Fixes`/`Refs` links consistent? |
+| Terminology | Are names, API groups, and concepts aligned with AgentCube conventions? |
+| API contract | Are fields, defaults, mutability, validation, status ownership, and versioning clear? |
+| State machine | Are phase transitions, stale states, retries, and terminal states unambiguous? |
+| Ownership | Is each field/component written by one clear owner? |
+| Failure modes | Are node loss, controller restart, stale heartbeat, partial apply, deletion, and rollback handled? |
+| Security | Are credentials, RBAC, node-local sockets, tenant boundaries, and privilege assumptions explicit? |
+| Compatibility | Are Kubernetes version gates, feature gates, migration, and upgrade paths clear? |
+| Testability | Can each risky claim be verified by unit, integration, e2e, or targeted spike tests? |
+| Implementation slices | Can the proposal be implemented in small reviewable PRs? |
+
+## Comment Threshold
+
+Prefer no upstream comment when the finding is:
+
+- only personal preference;
+- already covered by an active maintainer discussion;
+- only a spelling/style issue unless it affects meaning;
+- based on speculation without source, code, or test evidence;
+- too broad to be actionable.
+
+Prefer an upstream PR comment when the finding is:
+
+- a scope/closure issue such as `Fixes #x` closing a broader discussion too early;
+- a missing assumption that could cause incompatible implementations;
+- an API/status/state-machine ambiguity;
+- a test-plan gap for a risky mechanism;
+- a text inconsistency that would mislead implementers;
+- a missing compatibility, rollout, security, or observability section.
+
+Ask questions before suggesting rewrites when the author may have unstated context. Suggest concrete text changes only when the intended direction is clear.
+
+## Comment Shape
+
+Keep proposal review comments short and structured:
+
+```md
+Thanks for putting this proposal together. My understanding is that this PR covers <scope>, while <out-of-scope area> remains in #<issue>.
+
+I have one question about <topic>:
+
+- <specific ambiguity or risk>
+- Why it matters: <effect on implementation/review/testing>
+- Suggested clarification: <small text or test-plan addition>
+```
+
+If there are several unrelated points, split them into separate comments or group them under clear headings. Avoid long omnibus comments unless the user explicitly asks for a full review draft.
+
+## Text Improvement Patterns
+
+Useful proposal text patches often add:
+
+- `tracking-issue: "#123"` in front matter;
+- `Refs #123` instead of `Fixes #123` for broad discussions;
+- a "Source of truth" table for status/spec fields;
+- a "Failure and recovery" table;
+- an explicit "Version / feature gate compatibility" table;
+- a "Validation plan" with targeted spike tests;
+- an "Open questions" section for unresolved design choices;
+- a phased implementation plan that maps phases to reviewable PRs.
+
+## Proposal Comment Draft Checklist
+
+Before showing a draft to the user:
+
+1. Confirm the target PR/issue number and current assignee/reviewer state.
+2. State whether the comment is a question, suggestion, or blocking concern.
+3. Include only facts you can cite from the proposal, repo, official docs, or local test evidence.
+4. Keep Chinese reasoning in `internship-reports/`; upstream text must be English.
+5. Do not post or mention maintainers without explicit user confirmation.

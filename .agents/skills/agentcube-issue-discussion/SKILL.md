@@ -19,6 +19,7 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
 - Chinese analysis belongs in `internship-reports/`.
 - Search for related issues/PRs before proposing a new direction.
 - Do not invent maintainer consensus; distinguish explicit maintainer comments from inference.
+- For formal design/proposal PR review, read `references/proposal-review.md` before drafting comments.
 
 ## Workflow
 
@@ -42,6 +43,10 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
 7. Produce English upstream comment only when asked to draft or post.
 8. Include cross-links using GitHub `#123` references and short context.
 9. If the same issue/PR analysis requires repeated API calls, version matrices, log extraction, or manual filtering, add or improve a script under this skill before the next similar run.
+
+## Proposal Review
+
+Use `references/proposal-review.md` when the target is a formal proposal under `docs/proposals/`, a large design PR, or a discussion where the user asks how to review a proposal. It defines the understand-first review workflow, comment thresholds, and proposal text improvement patterns.
 
 ## AgentCube Prow Commands
 

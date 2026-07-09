@@ -15,6 +15,75 @@
 3. #431 proposal 的架构和 API 设计拆解。
 4. 我们可以关注的 review 点，以及是否适合发 upstream comment。
 
+## Proposal Review 应该怎么做
+
+导师说“有疑问和意见可以提 PR comment”，这里的前提不是“看到一个点就评论”，而是先把 proposal 当成一份设计稿彻底读懂。Proposal review 更像审一份架构本子：
+
+1. 先复述作者到底想解决什么问题。
+2. 再复述作者明确不解决什么问题。
+3. 然后画出对象、组件、状态机、读写边界和失败路径。
+4. 最后才判断文本有没有漏掉假设、边界、验证方式或会误导实现者的地方。
+
+> 注释：proposal 还没有代码，很多“问题”不是 bug，而是“文本没有把未来实现必须知道的约束写清楚”。所以 review 的贡献往往不是直接要求改逻辑，而是建议把 scope、source of truth、状态转换、feature gate、failure mode、test plan、rollout plan 写得更清楚。
+
+### 读 proposal 的四层顺序
+
+| 层级 | 要回答的问题 | #431 中对应内容 |
+| --- | --- | --- |
+| 问题层 | 为什么现在要改架构？旧架构瓶颈是什么？ | #430 的 K8s per-session hot path、API server 压力、idle waste、capacity planning 混乱 |
+| 边界层 | 这个 proposal 做什么、不做什么？ | #431 只做 slow resource track，不做 node-ctl sandbox lifecycle / overcommit / snapshot |
+| 机制层 | API、controller、agent、状态机如何协作？ | `SandboxPoolClass` / `SandboxPool`、SandboxPool Controller、placeholder-agent、Static Pod、SSA status ownership |
+| 验证层 | 哪些高风险声明需要实验或测试证明？ | Static Pod resource locking、skip-cgroup、InPlace Resize、stale heartbeat、deletion/finalizer |
+
+如果这四层里任意一层说不清，就不应该急着发 upstream comment。可以先写中文内部笔记，直到能用自己的话完整解释提案。
+
+### 评论不是找茬，而是补齐可实现性
+
+Proposal comment 适合聚焦三类内容：
+
+1. **文本范围问题**：例如 `Fixes #430` 是否会过早关闭一个 broad discussion；front matter 是否缺 `tracking-issue`。
+2. **实现者会误解的问题**：例如 CRD 里有 `nodeCtlEndpoint`，但 placeholder-agent 又说只读 systemd 参数，这就是 source of truth 不清。
+3. **验证计划不足的问题**：例如 Static Pod + skip-cgroup + InPlace Resize 是 proposal 最有风险的组合，文本需要说明用什么 spike / e2e 证明。
+
+不适合评论的内容：
+
+- 个人偏好的命名风格，除非会影响 API 长期一致性。
+- 已经被作者或 maintainer 正在处理的 AI review 小问题。
+- 没有证据支撑的“我觉得可能不行”。
+- 一口气把所有疑问塞进很长的 omnibus comment。
+
+> 分析：真正有质量的 proposal review 应该能让作者说“这个点补进 proposal 后，后续实现和 review 都会更清楚”。如果只是证明自己发现了很多问题，反而会增加社区沟通噪音。
+
+### 这次 #431 的评论策略
+
+短期更合理的策略不是马上发评论，而是先把疑问分级：
+
+| 等级 | 例子 | 是否适合现在评论 |
+| --- | --- | --- |
+| 流程/文本小修 | DCO、`tracking-issue`、`Fixes #430` | 可以评论，但 DCO/tracking issue 可能作者会自己修；`Fixes #430` 更值得提醒 |
+| 设计澄清 | `nodeCtlEndpoint` source of truth、API group 是否用 `sandbox-pool.io` | 适合以 question 形式评论 |
+| 高风险机制 | Static Pod resource locking、skip-cgroup、Static Pod resize、stale heartbeat | 最好先配合官方文档或最小实验，再评论 |
+| 实现建议 | 具体 controller 代码、node-ctl 细节 | 现在不适合，因为 proposal 明确把 node-ctl 内部作为 non-goal |
+
+因此，如果后面要写 #431 comment，第一版应该短，只选 1-2 个最关键点，例如：
+
+- “Since #430 is the broader architecture discussion and this PR covers only the slow resource track, should this be `Refs #430` instead of `Fixes #430`?”
+- “Could the proposal add a validation spike for Static Pod resource accounting and in-place resize behavior, since these mechanisms are central to the resource-locking guarantee?”
+
+这类评论不是否定 proposal，而是帮助 proposal 文本变得更可实现、可验证、可维护。
+
+### Skill 沉淀
+
+这次经验应该沉淀到本地 skill，而不是只留在日报里。后续看 proposal 时应复用固定流程：
+
+1. 抓 thread context。
+2. 读 proposal template。
+3. 写 understand-first 中文 summary。
+4. 用 review matrix 分类：scope / API / state machine / ownership / failure mode / security / compatibility / test plan。
+5. 只把高价值、可行动、英文清楚的问题变成 upstream comment draft。
+
+已将这个流程沉淀到 `.agents/skills/agentcube-issue-discussion/references/proposal-review.md`，并在 issue-discussion skill 中加入入口。后续如果 proposal review 变成高频独立任务，再考虑拆出单独 `agentcube-proposal-review` skill；现在先作为 issue-discussion 的专项 reference 更合适，因为它仍依赖同一套 GitHub thread 抓取、角色权重和 upstream comment guardrails。
+
 ## 社区状态快照
 
 时间点：2026-07-09 本地查询。
