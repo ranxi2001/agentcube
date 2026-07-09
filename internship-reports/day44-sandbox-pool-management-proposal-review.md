@@ -452,13 +452,19 @@ VPA InPlaceResize: 1.27 Alpha / 1.31 GA
 
 ## 当前可 review 的问题清单
 
-下面这些是我认为如果要参与 #431 讨论，最值得压缩成英文 comment 的点。先不发 upstream，等用户确认。
+下面这些是我认为如果要参与 #431 讨论，最值得压缩成英文 comment 的点。其中 Scope / metadata 的 `Fixes #430` 关闭语义已经在用户确认后发出一条短 upstream comment；其余技术点先保留为本地 review 观察，不继续堆评论。
 
 ### A. Scope / metadata
 
 - 建议把 PR body 的 `Fixes #430` 改成 `Refs #430`，因为 #430 是 broader architecture discussion，而 #431 只覆盖 slow track。
 - 建议 front matter 增加 `tracking-issue: "#430"`。
 - 修复 DCO signoff。
+
+2026-07-09 已发出的 upstream comment：
+
+- <https://github.com/volcano-sh/agentcube/pull/431#issuecomment-4921407064>
+
+评论内容只聚焦 `Fixes #430` 是否应改为 `Refs #430`，理由是 #430 是 broader architecture discussion，而 #431 自己明确只覆盖 slow resource track / SandboxPool management。这个评论属于 proposal review 中的 scope / closure semantics，不涉及实现细节。
 
 ### B. Static Pod 资源锁定需要独立验证
 
@@ -514,17 +520,17 @@ VPA InPlaceResize: 1.27 Alpha / 1.31 GA
 
 ## 建议下一步
 
-短期不建议我们直接发长评论。原因：
+短期不建议我们继续发长评论。原因：
 
-1. 现在还没有真人 maintainer review，贸然发大段评论可能打断作者和维护者的第一轮对齐。
+1. 现在还没有真人 maintainer review，贸然发大段评论可能打断作者和维护者的第一轮对齐；当前只发一条 `Fixes #430` scope comment 更合适。
 2. 一部分问题属于作者已经在修 AI comments 的过程，可能马上会补 DCO / tracking issue。
 3. Static Pod / InPlaceResize 的问题最好用 Kubernetes 官方文档和最小实验证据支撑，不要只凭直觉质疑。
 
 更好的顺序：
 
-1. 先持续观察 #431 是否修 DCO、`tracking-issue`、`Fixes #430`。
+1. 先持续观察 #431 是否修 DCO、`tracking-issue`、`Fixes #430`，以及作者是否回复已发 comment。
 2. 本地准备一个小的 Static Pod resource accounting / manifest resize 验证计划，必要时再跑。
-3. 如果用户确认发 upstream comment，评论应聚焦 2-3 个高价值问题：`Fixes #430` scope、Static Pod + in-place resize validation、stale heartbeat / phase correctness。
+3. 如果后续用户确认继续发 upstream comment，再考虑 Static Pod + in-place resize validation、stale heartbeat / phase correctness；不要把这些和当前 scope comment 混成一条长评论。
 4. 不认领实现，不承诺我们会做 node-ctl / placeholder-agent；当前更适合做 design review、test plan 和验证反馈。
 
 ## 今日结论
@@ -533,12 +539,13 @@ VPA InPlaceResize: 1.27 Alpha / 1.31 GA
 
 但它也做了几个需要强验证的设计选择：Static Pod 作为资源锁、placeholder-agent 作为 host-level CRI handler、skip-cgroup、不通过 API server 控制的 Static Pod resize。这些设计不是普通 controller 逻辑，必须靠 targeted spike 和 failure-path test plan 证明。
 
-当前最现实的行动是：先记录并观察，不直接发社区评论；等作者修完 DCO/metadata 后，再根据用户确认准备一条短英文 review comment。
+当前最现实的行动是：已发一条 scope / closing semantics comment，后续先观察作者或 maintainer 回复；Static Pod / InPlaceResize / stale heartbeat 等技术问题暂不继续发，除非有更强文档或实验证据，且用户确认具体英文评论。
 
 ## 参考链接
 
 - AgentCube discussion #430: <https://github.com/volcano-sh/agentcube/issues/430>
 - AgentCube proposal PR #431: <https://github.com/volcano-sh/agentcube/pull/431>
+- Day44 scope review comment on #431: <https://github.com/volcano-sh/agentcube/pull/431#issuecomment-4921407064>
 - Kubernetes Static Pods 文档: <https://kubernetes.io/docs/concepts/workloads/pods/static-pods/>
 - Kubernetes Static Pod 创建文档: <https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/>
 - Kubernetes v1.33 In-Place Pod Resize Beta: <https://kubernetes.io/blog/2025/05/16/kubernetes-v1-33-in-place-pod-resize-beta/>
