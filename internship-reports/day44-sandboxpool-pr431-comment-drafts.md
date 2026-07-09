@@ -152,6 +152,12 @@ If it is authoritative, the implementation needs a reconciliation rule for endpo
 
 建议状态：最推荐发。这个问题和已有 Copilot comments 不重复，且直接影响 controller 状态机实现。
 
+2026-07-09 已按用户确认发为 inline comment：
+
+- Target: `docs/proposals/sandbox-pool-management/README.md:604`
+- URL: <https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549854078>
+- Nature: clarification question, not a blocking concern
+
 通俗解释：proposal 里说 placeholder-agent 每 30 秒向 Kubernetes 汇报一次“我这边 OK，node-ctl 也健康”。Controller 根据这些汇报算出 `SandboxPool.status.phase=Ready/Degraded/Unready`。问题是：如果 placeholder-agent 挂了，最后一次汇报的 “OK” 还留在 API server 里。Controller 如果只看旧值，就可能继续认为 Pool 是 Ready。
 
 我们要问的不是“你没写健康检查”，而是更精确的 contract：
