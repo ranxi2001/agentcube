@@ -463,8 +463,11 @@ VPA InPlaceResize: 1.27 Alpha / 1.31 GA
 
 - 默认阅读用 Mermaid 图，直接嵌在本节下方。
 - 可编辑 draw.io 源文件：[`day44-sandboxpool-architecture.drawio`](day44-sandboxpool-architecture.drawio)。
+- GPT image 视觉版架构图：[`day44-sandboxpool-gpt-image-architecture.png`](day44-sandboxpool-gpt-image-architecture.png)，生成提示词见 [`day44-sandboxpool-gpt-image-prompt.md`](day44-sandboxpool-gpt-image-prompt.md)。
 
 > 注释：用户反馈后续在 Linux 机器上优先用 Mermaid 或 GPT image draw，不强依赖 draw.io CLI。这里保留 `.drawio` 源文件作为可选资产，同时补 Mermaid 版本作为报告里的默认架构图。
+
+![AgentCube SandboxPool Architecture GPT image](day44-sandboxpool-gpt-image-architecture.png)
 
 ```mermaid
 flowchart LR
@@ -606,6 +609,34 @@ flowchart LR
 5. 节点丢失、agent 停止、node-ctl 不健康、resize defer 等故障不会误报 Ready。
 
 > 分析：这个标准可以帮助后续写 review comment：如果 comment 不能落到这五个成功标准之一，可能就不是 #431 当前 scope 内最重要的问题。
+
+### 6. GPT image draw smoke test
+
+2026-07-09 按用户要求试跑本地 GPT image workflow，目标是验证 `/home/agentcube/.agents/skills/gpt-image-draw/SKILL.md` 所描述的 `gpt-image-2` 图片生成路径是否可用，并用 Day44 需要的 SandboxPool 架构生成一张视觉版图。
+
+步骤记录：
+
+1. 已完整读取本地 skill 文件和 `draw.py` 脚本。该技能没有出现在当前 Codex skill registry 中，但本地路径存在，可按脚本直接调用。
+2. 安全检查：环境变量中存在 `OPENAI_API_KEY`，没有打印 key；当前目录、仓库根和 `~/.hermes/.env` 未发现 `.env` 文件。
+3. 依赖检查：系统 Python 缺少 `openai` 包。
+4. 直接执行 `python3 -m pip install --user openai` 失败，原因是系统 Python 是 PEP 668 externally-managed environment。
+5. 解决方式：创建临时 venv `/tmp/gpt-image-draw-venv`，并在 venv 内安装 `openai`。
+6. 使用 `draw.py` 生成图片：
+
+```bash
+/tmp/gpt-image-draw-venv/bin/python /home/agentcube/.agents/skills/gpt-image-draw/draw.py \
+  --prompt-file internship-reports/day44-sandboxpool-gpt-image-prompt.md \
+  -s 16:9 \
+  -o internship-reports/day44-sandboxpool-gpt-image-architecture.png
+```
+
+结果：
+
+- 生成成功，输出文件：[`day44-sandboxpool-gpt-image-architecture.png`](day44-sandboxpool-gpt-image-architecture.png)。
+- 文件大小约 `1.4M`。
+- `file` 检查显示实际尺寸为 `1536 x 1024`，虽然脚本请求尺寸为 `1672x941`。
+
+> 分析：这说明当前代理/API 分组会把请求的 `16:9` 固定尺寸重映射或降级到另一档尺寸。后续使用 GPT image draw 时，不能把脚本请求尺寸当成严格输出尺寸；需要在生成后用 `file` 或图片查看确认实际尺寸。Day44 这张图作为报告视觉辅助可用，但精确结构图仍以 Mermaid 为准。
 
 ## 当前可 review 的问题清单
 
