@@ -36,6 +36,33 @@ Before proposing changes:
 
 Do not draft upstream feedback until the internal summary can be stated without relying on vague phrases like "seems risky" or "maybe inconsistent".
 
+## CNCF-Style Proposal Review Checklist
+
+Proposal review is different from code review. The core question is not whether the code is correct, but whether the design is worth doing, fits the project, and can be maintained long term.
+
+Use this checklist before reviewing details:
+
+| Check | Review question |
+| --- | --- |
+| Problem | Why should the project solve this? Is it a real user problem, not only an edge case? Is there user feedback, benchmark data, incident history, or a concrete scenario? |
+| Goals | Are the goals and non-goals explicit? Is the proposal expanding beyond the stated scope? |
+| Alternatives | Which alternatives were considered? Why not reuse the current API, controller, interface, or implementation? |
+| Design | Are API names, interfaces, data flow, component responsibilities, ownership, and state transitions simple and consistent? |
+| Backward compatibility | Will existing users, API clients, CRDs, Helm values, SDKs, or configs break? |
+| Migration | How do existing users upgrade? Is there a deprecation, conversion, defaulting, or migration path? |
+| Performance | Does the proposal add latency, memory, CPU, storage, API-server load, controller churn, or scheduling pressure? Is there a benchmark or validation plan? |
+| Security | Does it add new HTTP endpoints, credentials, RBAC, TLS, secrets, node-local sockets, tenant boundaries, or privilege assumptions? |
+| Maintainability | Does it add another code path, controller, abstraction, or long-term support burden? Can logic be shared with existing components? |
+| Test plan | Are unit, integration, e2e, benchmark, rollback, and failure-path tests mapped to the design risks? |
+
+For the design section, inspect these subareas:
+
+- API: breaking changes, naming consistency, defaults, validation, examples, and versioning.
+- Interfaces: whether a new interface is necessary or an existing abstraction can be extended.
+- Data flow: user request path, controller path, runtime path, duplicate writes, loops, and unnecessary hops.
+- Ownership: which component reads and writes each field, and whether responsibilities are mixed.
+- State machine: valid transitions, retries, terminal states, stale states, and observability.
+
 ## Review Matrix
 
 Use this matrix to classify findings:
@@ -109,6 +136,16 @@ I have one question about <topic>:
 - Why it matters: <effect on implementation/review/testing>
 - Suggested clarification: <small text or test-plan addition>
 ```
+
+Use concrete review language instead of vague preference:
+
+- Problem: "Could you elaborate on the user scenario this proposal is addressing? Do we have benchmark data, user feedback, or an issue showing this is a recurring problem?"
+- Scope: "This seems to expand beyond the original goals. Could we narrow the first version to <scope> and leave <future area> as a non-goal?"
+- Alternatives: "Why introduce a new interface/API here instead of extending the existing <abstraction>?"
+- Trade-off: "What are the trade-offs between this approach and reusing the current implementation?"
+- Compatibility: "Could you describe the migration path for existing users? Is there a compatibility strategy for <API/config/CRD/SDK>?"
+- Maintainability: "This appears to introduce another code path to maintain. Can this logic be shared with the existing implementation?"
+- Test plan: "Could the proposal map this risk to a focused unit/integration/e2e/benchmark test?"
 
 If there are several unrelated points, split them into separate comments or group them under clear headings. Avoid long omnibus comments unless the user explicitly asks for a full review draft.
 

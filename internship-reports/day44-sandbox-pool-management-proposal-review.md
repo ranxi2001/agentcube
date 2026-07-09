@@ -17,6 +17,14 @@
 
 ## Proposal Review 应该怎么做
 
+Proposal review 和普通代码 review 不一样。代码 review 主要看实现是否正确、测试是否覆盖、是否引入 bug；proposal review 更早一层，核心是判断：
+
+1. 这个问题是否值得项目解决。
+2. 这个设计是否合理、是否符合现有架构。
+3. 这个方案会给长期兼容性、迁移、性能、安全、测试和维护带来什么成本。
+
+> 分析：一旦 proposal 被接受，后续代码通常会围绕这个设计展开。因此 proposal review 的价值在于提前发现架构方向、API 边界和维护成本问题，而不是等实现完成后再发现“方向不该这样走”。
+
 导师说“有疑问和意见可以提 PR comment”，这里的前提不是“看到一个点就评论”，而是先把 proposal 当成一份设计稿彻底读懂。Proposal review 更像审一份架构本子：
 
 1. 先复述作者到底想解决什么问题。
@@ -36,6 +44,62 @@
 | 验证层 | 哪些高风险声明需要实验或测试证明？ | Static Pod resource locking、skip-cgroup、InPlace Resize、stale heartbeat、deletion/finalizer |
 
 如果这四层里任意一层说不清，就不应该急着发 upstream comment。可以先写中文内部笔记，直到能用自己的话完整解释提案。
+
+### 通用 Proposal Review Checklist
+
+以后看 AgentCube、Kubernetes、Volcano 这类 CNCF 风格项目的 proposal，可以用下面这张表做第一轮 checklist：
+
+| 检查项 | Review 时要问的问题 |
+| --- | --- |
+| Problem | 为什么要做？是真实用户问题、性能瓶颈、维护痛点，还是边缘场景？有没有 benchmark、用户反馈、issue 或具体场景支撑？ |
+| Goals / Non-goals | scope 是否清晰？有没有从一个目标膨胀成多个系统一起改？ |
+| Alternatives | 为什么不选其他方案？为什么不复用已有 API / CRD / controller / interface？ |
+| API / Interface | 命名是否一致？是否有 breaking change？新增接口是否必要？ |
+| Data Flow | 数据和请求怎么流？是否有绕路、重复写、循环依赖或不必要的组件跳转？ |
+| Ownership | 哪个组件负责哪个字段、状态和动作？有没有职责混乱，例如执行器同时更新控制面数据库？ |
+| Backward Compatibility | 旧 API、旧 CRD、旧 SDK、旧 Helm values、旧配置是否会被破坏？ |
+| Migration | 现有用户如何升级？是否需要 conversion、defaulting、deprecation 或 migration guide？ |
+| Performance | 是否增加延迟、内存、CPU、API server 压力、调度压力或 controller churn？有没有测试计划？ |
+| Security | 是否新增 HTTP API、credential、RBAC、TLS、Secret、node-local socket、tenant boundary 或 privilege assumption？ |
+| Maintainability | 是否新增长期维护路径？逻辑能不能和已有实现共享？以后 bug 是修一次还是多处都要修？ |
+| Test Plan | 是否覆盖 unit、integration、e2e、benchmark、rollback、failure-path test？ |
+
+这张表和 #431 的对应关系：
+
+- Problem：#430 里已经解释 Kubernetes hot path、API server 压力和 idle resource waste，这是 #431 成立的背景。
+- Goals / Non-goals：#431 明确只做 slow resource track，不做 node-ctl sandbox lifecycle，这是优点；但 `Fixes #430` 可能让 scope closure 变得过大。
+- Alternatives：需要进一步解释为什么新增 `sandbox-pool.io` API group，而不是沿用 AgentCube API group 或复用 agent-sandbox warm pool 资源。
+- Design：Static Pod、placeholder-agent、RuntimeClass handler、SSA status ownership 是核心设计，需要检查 source of truth 和组件职责。
+- Compatibility / Migration：如果未来引入 CRD、RuntimeClass、host-level systemd agent、Static Pod manifest，升级路径和安装前置条件需要更清楚。
+- Performance / Test Plan：Static Pod resource locking、skip-cgroup、in-place resize 都是性能和资源语义相关风险，应有 targeted spike。
+- Security：host-level placeholder-agent、CRI socket、node-ctl proxy、kube credential 都是安全审查点。
+- Maintainability：如果资源池、node-ctl、placeholder-agent、controller 都引入新路径，proposal 需要说明哪些是第一阶段，哪些是后续。
+
+### 高质量 Review Comment 的形状
+
+避免只说：
+
+- `I don't like this.`
+- `This feels complicated.`
+- `This may be risky.`
+
+更好的 comment 应该包含三件事：
+
+1. 具体问题是什么。
+2. 为什么这会影响实现、兼容、测试或维护。
+3. 作者可以如何补充 proposal 文本。
+
+例如：
+
+```md
+Could you describe the migration path for existing users?
+
+Why it matters: this proposal introduces a new RuntimeClass and node-local agent, so existing deployments may need extra installation and upgrade steps.
+
+Suggested clarification: add a short "Migration / rollout" section covering first-time install, upgrade from existing warm-pool deployments, and rollback.
+```
+
+> 注释：proposal comment 最好是 question + why it matters + suggested clarification，而不是直接给作者下结论。除非我们有代码证据、测试证据或官方文档依据，否则不要把推断写成 blocking concern。
 
 ### 评论不是找茬，而是补齐可实现性
 
