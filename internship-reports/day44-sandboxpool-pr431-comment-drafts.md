@@ -16,6 +16,10 @@
 
 不要一次性发 5 条。当前最合适的策略是先等作者是否根据已有 Copilot comments 更新正文；如果正文不更新，再选 1 条最有实现价值的 human comment。
 
+2026-07-09 更新：`@acsoto` 作为 MEMBER 新增评论，询问 #431 和现有 `CodeInterpreter.warmPoolSize` / `SandboxTemplate` / `SandboxWarmPool` / `SandboxClaim` 路径的关系：二者是并存的两种模式，还是 SandboxPool 未来成为现有 WarmPool 的底层替代。这是目前第一条真人 maintainer/member 技术问题，权重高于 AI reviewer。
+
+这条新评论不覆盖 Candidate 3 的 stale/unreachable 问题，但会影响发言节奏：社区现在先在确认新旧架构关系，我们如果发 Candidate 3，应保持为一个很短的 inline implementation question，不要扩展成整套架构评论。
+
 优先级建议：
 
 | Priority | Topic | Reason |
@@ -27,6 +31,42 @@
 | P5 | broader validation environment | 可和 resize comment 合并，避免单独发太散 |
 
 > 分析：proposal 已经回答了 Implementation Plan、v1alpha1 scope、Non-Goals、component responsibility、phase/conditions、creation/update/deletion flow、RBAC/webhook/version/test plan 的大框架。评论应避免重复问这些已经存在的内容。
+
+## 新评论通俗解释：WarmPool 和 SandboxPool 到底差在哪
+
+`@acsoto` 问的是：AgentCube 现在已经有一个 WarmPool 机制，为什么还要一个 SandboxPool？这两个 pool 是两套模式并存，还是 SandboxPool 以后会成为 WarmPool 的底座？
+
+通俗理解：
+
+- 现有 **WarmPool** 是“提前做好几间可直接入住的房间”。`CodeInterpreter.warmPoolSize=2` 就让系统提前创建 2 个 session-level sandbox pod。用户请求来时，用 `SandboxClaim` 认领一个已经热好的 sandbox。
+- 新 proposal 的 **SandboxPool** 更像“先在楼里划出一片面积和水电容量”。它不直接表示一个可用 session，而是 node-level 资源池：先锁住 CPU/memory，再让后续 fast path / node-ctl 在这块资源里快速创建 sandbox。
+- 所以 WarmPool 是 **session 级预热池**；SandboxPool 是 **node 级资源容量池**。二者不在同一层。
+
+当前 proposal 说它只做 slow resource track，不做 create/suspend/resume/delete；这暗示 SandboxPool 不是 WarmPool 的直接替代品。但它也可能成为未来 fast path 的下层资源来源。这个关系 proposal 没有明确写，所以 maintainer 在问。
+
+```mermaid
+flowchart LR
+  subgraph Current["Current WarmPool path: session-level prewarming"]
+    CI["CodeInterpreter\nspec.warmPoolSize"] --> T["SandboxTemplate"]
+    T --> WP["SandboxWarmPool\npre-warmed Pods"]
+    Request["New session request"] --> Claim["SandboxClaim"]
+    Claim --> Adopt["agent-sandbox adopts\none warm sandbox"]
+    WP --> Adopt
+    Adopt --> Session["Ready session sandbox"]
+  end
+
+  subgraph Proposal["#431 SandboxPool path: node-level capacity"]
+    SPC["SandboxPoolClass\nadmin policy"] --> SP["SandboxPool\nper-node resource pool"]
+    SP --> Agent["placeholder-agent\nnode-local"]
+    Agent --> StaticPod["Static Pod / mirror Pod\nlocks scheduling resources"]
+    StaticPod --> NodeCtl["node-ctl\nfast lifecycle black box"]
+    NodeCtl --> FutureSession["future sandbox sessions"]
+  end
+
+  WP -. "relationship unclear:\ncoexist? lower layer? replacement?" .- SP
+```
+
+> 分析：这条 maintainer comment 是更高层的 product / architecture boundary 问题。它适合由 proposal 作者回答，不适合我们抢答。我们可以先观察作者是否补 “Relationship with existing WarmPool” 小节。
 
 ## Candidate 1: Node-side runtime contract
 
@@ -111,6 +151,44 @@ If it is authoritative, the implementation needs a reconciliation rule for endpo
 ## Candidate 3: stale / unreachable placeholder-agent semantics
 
 建议状态：最推荐发。这个问题和已有 Copilot comments 不重复，且直接影响 controller 状态机实现。
+
+通俗解释：proposal 里说 placeholder-agent 每 30 秒向 Kubernetes 汇报一次“我这边 OK，node-ctl 也健康”。Controller 根据这些汇报算出 `SandboxPool.status.phase=Ready/Degraded/Unready`。问题是：如果 placeholder-agent 挂了，最后一次汇报的 “OK” 还留在 API server 里。Controller 如果只看旧值，就可能继续认为 Pool 是 Ready。
+
+我们要问的不是“你没写健康检查”，而是更精确的 contract：
+
+- placeholder-agent 停止上报后，Controller 什么时候认为状态 stale？
+- 是看 `lastHeartbeat` 超时、condition timestamp 超时、Node Ready 状态，还是新增 `PlaceholderAgentHealthy` condition？
+- 这条规则由谁写入 status，placeholder-agent 还是 controller？
+
+```mermaid
+flowchart TB
+  subgraph Normal["Normal path"]
+    AgentOK["placeholder-agent alive"] --> Patch["Patch status every 30s\nPlaceholderPodReady=True\nNodeCtlHealthy=True"]
+    Patch --> API["SandboxPool.status\nstored in apiserver"]
+    API --> Controller["SandboxPool Controller\naggregates Conditions"]
+    Controller --> Ready["Phase=Ready"]
+  end
+
+  subgraph Failure["Failure gap"]
+    AgentDown["placeholder-agent stops\nor cannot patch status"] -. "no new patch" .-> API
+    API --> OldValues["old True conditions remain"]
+    OldValues --> Controller2["Controller recomputes phase"]
+    Controller2 --> WrongReady["Risk: still Phase=Ready"]
+  end
+
+  subgraph Needed["Clarification needed"]
+    Rule["Explicit stale rule"] --> SourceA["lastHeartbeat timeout"]
+    Rule --> SourceB["condition timestamp timeout"]
+    Rule --> SourceC["Node Ready / NotReady"]
+    Rule --> SourceD["PlaceholderAgentHealthy condition"]
+    SourceA --> SafePhase["Phase=Degraded/Unready"]
+    SourceB --> SafePhase
+    SourceC --> SafePhase
+    SourceD --> SafePhase
+  end
+
+  WrongReady -. "avoid by defining" .-> Rule
+```
 
 ### Evidence
 
@@ -240,4 +318,3 @@ For example, should the controller derive Unready/Degraded from a `lastHeartbeat
 
 Why this matters: without an explicit stale-status rule, `PlaceholderPodReady=True` / `NodeCtlHealthy=True` values written by the last successful agent heartbeat could keep the pool looking Ready even after the node-local agent is no longer managing the placeholder pod or node-ctl.
 ```
-
