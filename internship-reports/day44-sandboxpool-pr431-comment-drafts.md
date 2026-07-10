@@ -2,14 +2,16 @@
 
 日期：2026-07-09
 
-目标：整理 #431 SandboxPool proposal 的 5 个开发视角疑问，给用户审阅。本文档只用于内部审稿，不直接发 upstream。
+继续审阅：2026-07-10
+
+目标：持续整理 #431 SandboxPool proposal 的开发视角疑问，给用户审阅。本文档只用于内部审稿，不直接发 upstream。
 
 目标 PR：
 
 - PR: <https://github.com/volcano-sh/agentcube/pull/431>
-- Head observed: `9f03cca`
+- Head observed: `35d361e` (`fix stale state issue`)
 - File: `docs/proposals/sandbox-pool-management/README.md`
-- Status: open, no human maintainer technical review yet
+- Status: open; `@acsoto` 已提出一条真人 MEMBER 架构问题；普通 checks 已通过，仍缺 `lgtm` / `approved`
 - Comment rule: upstream-facing text must be English; do not post without explicit user confirmation.
 
 ## 总体策略
@@ -20,15 +22,24 @@
 
 这条新评论不覆盖 Candidate 3 的 stale/unreachable 问题，但会影响发言节奏：社区现在先在确认新旧架构关系，我们如果发 Candidate 3，应保持为一个很短的 inline implementation question，不要扩展成整套架构评论。
 
+2026-07-10 继续审阅结论：Candidate 3 已发出并被 `35d361e` 基本吸收，因此不能继续作为推荐评论。对最新正文和 Kubernetes / containerd 官方契约交叉核对后，发现两个更基础的可实现性问题：
+
+1. Proposal 把 Static Pod 和 Kubernetes 原生 In-place Pod Resize 同时作为 v1alpha1 核心机制，但 Kubernetes KEP-1287 明确把 Static Pod resize 列为 `Infeasible`。
+2. Proposal 写成 RuntimeClass handler 会把 kubelet CRI 调用路由到另一个 Unix socket；实际 Kubernetes 契约是把 handler 字符串放进同一个 CRI `RunPodSandbox` 请求，containerd 再按 handler 选择 runtime/shim/sandboxer 配置。若要让 `placeholder-agent` 独立监听 CRI socket，还缺一个明确的 containerd shim、sandboxer proxy 或 CRI proxy 集成层。
+
+> 分析：这两点不是文案偏好，而是会决定 Phase 2/3 是否能按 proposal 实现。它们的优先级高于继续润色 API 字段或测试环境描述。
+
 优先级建议：
 
 | Priority | Topic | Reason |
 | --- | --- | --- |
-| P1 | stale / unreachable placeholder-agent semantics | Copilot 没有完整覆盖；直接影响 Phase 正确性和 failure tests |
-| P2 | resize fallback / validation environment | 影响 v1 可实现性和 CI/e2e 验证 |
-| P3 | node-side runtime contract | 很关键，但 Copilot 已经覆盖 no-process/no-cgroup，建议等作者更新正文后再决定是否补 |
+| P0 | Static Pod 与 In-place Pod Resize 冲突 | KEP-1287 明确把 Static Pod resize 判为 Infeasible，直接冲突于 v1alpha1 核心目标 |
+| P1 | RuntimeClass / CRI 路由契约 | 当前正文缺少从 containerd handler 到独立 `placeholder-agent` socket 的真实集成层 |
+| P2 | placeholder-agent heartbeat 信号源 | `NodeCtl.LastHeartbeat` 同时被当成 node-ctl 与 agent 心跳，故障分类会混淆 |
+| P2 | Phase 恢复条件 | `PlaceholderAgentHealthy=True -> Ready` 跳过其它 Ready 条件，与全量优先级规则矛盾 |
+| P2 | force-finalizer 后的 orphan manifest | agent 不可达时强制完成删除，节点恢复后可能继续保留无 CRD 对应的 Static Pod |
 | P4 | node-ctl endpoint source of truth | 已被 Copilot 精准覆盖，除非正文不改，否则不重复 |
-| P5 | broader validation environment | 可和 resize comment 合并，避免单独发太散 |
+| P5 | broader validation environment | 可并入 P0/P1，避免单独发太散 |
 
 > 分析：proposal 已经回答了 Implementation Plan、v1alpha1 scope、Non-Goals、component responsibility、phase/conditions、creation/update/deletion flow、RBAC/webhook/version/test plan 的大框架。评论应避免重复问这些已经存在的内容。
 
@@ -68,9 +79,9 @@ flowchart LR
 
 > 分析：这条 maintainer comment 是更高层的 product / architecture boundary 问题。它适合由 proposal 作者回答，不适合我们抢答。我们可以先观察作者是否补 “Relationship with existing WarmPool” 小节。
 
-## Candidate 1: Node-side runtime contract
+## Candidate 1: Node-side RuntimeClass / CRI integration contract
 
-建议状态：保留，不优先发。已有 Copilot comments 覆盖了 no-process/no-cgroup 的一部分；如果作者只在 review thread 解释但不改 proposal 正文，可以再发更聚焦的实现 contract 问题。
+建议状态：提升为 P1。已有 Copilot comments 只覆盖了 no-process/no-cgroup 的表面矛盾，没有覆盖 RuntimeClass handler 如何连接到独立 CRI socket 这个更基础的集成契约。
 
 ### Evidence
 
@@ -90,29 +101,33 @@ Existing review evidence:
 - Author reply at line 113: <https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549422712>
 - Author reply at line 126: <https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549430177>
 
+Official contract evidence:
+
+- Kubernetes RuntimeClass 文档说明 handler 标识节点 CRI 实现中预先配置的一套 runtime configuration；containerd 对应配置位于 `containerd.runtimes.${HANDLER_NAME}`：<https://kubernetes.io/docs/concepts/containers/runtime-class/>
+- Kubernetes v1.34.1 kubelet 先解析 `runtimeHandler`，然后仍通过已有的 `runtimeService.RunPodSandbox(..., runtimeHandler)` 发出请求：<https://github.com/kubernetes/kubernetes/blob/v1.34.1/pkg/kubelet/kuberuntime/kuberuntime_sandbox.go#L56-L68>
+- CRI v1 把 handler 定义为 `RunPodSandboxRequest.runtime_handler` 字段，而不是另一个 endpoint：<https://github.com/kubernetes/cri-api/blob/v0.34.1/pkg/apis/runtime/v1/api.proto#L515-L524>
+- containerd 的 handler 配置选择 `runtime_type` / `runtime_path`；containerd 2.x 还可通过 `sandboxer` 接入 shim 或 sandbox proxy，但这些接口不等于让 kubelet 直接切换到另一个完整 CRI socket：<https://github.com/containerd/containerd/blob/main/docs/cri/config.md#runtime-classes>
+
 ### Why It Matters
 
-如果 v1 创建普通 PodSandbox / pause / cgroup，那么测试要验证的是 no workload container、resource requests、Ready、resize、eviction、metrics 是否一致。如果 v1 走自定义 RuntimeClass handler 并跳过 cgroup，那么测试要验证的是 kubelet / scheduler / mirror Pod / metrics 在没有普通 cgroup 时是否仍能表达资源锁。
+如果 v1 创建普通 PodSandbox / pause / cgroup，那么测试要验证的是 no workload container、resource requests、Ready、resize、eviction、metrics 是否一致。如果 v1 走自定义 containerd runtime shim / sandboxer 并跳过 cgroup，那么测试要验证的是 kubelet / scheduler / mirror Pod / metrics 在没有普通 cgroup 时是否仍能表达资源锁。
 
-这不是文案问题，而是 implementation contract。不同答案会导致完全不同的 placeholder-agent、CRI shim 和 e2e 设计。
+当前文本把 `RuntimeClass handler` 和独立 `CRI endpoint` 当成同一件事。除非节点把 kubelet 的全局 CRI endpoint 指到一个能按 handler 转发的代理，否则 RuntimeClass 本身不会让 kubelet 针对单个 Pod 改连 `/run/sandbox-pool/cri.sock`。这会直接改变 placeholder-agent 需要实现的接口：完整 CRI server、containerd runtime v2 shim、containerd sandbox controller，或 CRI dispatch proxy。
 
 ### Draft Comment
 
 ```md
-Thanks for clarifying that `placeholder-agent` is intended to run as a host-level process.
+I have one question about the RuntimeClass integration contract.
 
-I still have one implementation-contract question around the node-side runtime behavior. My reading is:
+The proposal says that kubelet routes CRI calls to `/run/sandbox-pool/cri.sock` based on the `placeholder` RuntimeClass handler, and that `placeholder-agent` implements the CRI server. My understanding of the Kubernetes CRI contract is that kubelet keeps using its configured runtime service and passes the resolved handler as `RunPodSandboxRequest.runtime_handler`. For containerd, that handler selects a configured runtime/shim (or, in containerd 2.x, a sandboxer); RuntimeClass by itself does not select a second CRI endpoint.
 
-- the proposal models the placeholder as a Static Pod and routes CRI calls through the `placeholder` RuntimeClass;
-- the creation flow includes `RunPodSandbox`, `CreateContainer`, and `StartContainer`;
-- at the same time, the design says the placeholder has no actual process and skips cgroup creation, while the template mentions a `pause:3.9` placeholder image.
+Could the proposal specify the missing integration layer between the `placeholder` handler and `placeholder-agent`?
 
-Could the proposal explicitly state which behavior v1 expects?
+- Is `placeholder-agent` intended to be a containerd runtime v2 shim / sandbox controller?
+- Is there a CRI proxy in front of containerd that dispatches by `runtime_handler`?
+- Or is the node-wide kubelet CRI endpoint expected to point directly to `placeholder-agent`, with normal workloads forwarded elsewhere?
 
-1. a normal PodSandbox / pause process / cgroup is created, but there is no workload container; or
-2. the custom runtime handler intentionally skips the normal PodSandbox/cgroup path.
-
-This distinction affects the implementation and the validation plan for resource accounting, Ready semantics, eviction/QoS behavior, metrics, and resize handling.
+This determines which API `placeholder-agent` must implement and whether the proposed per-Pod routing can work without replacing the node's normal CRI path.
 ```
 
 ## Candidate 2: node-ctl endpoint source of truth
@@ -150,7 +165,7 @@ If it is authoritative, the implementation needs a reconciliation rule for endpo
 
 ## Candidate 3: stale / unreachable placeholder-agent semantics
 
-建议状态：最推荐发。这个问题和已有 Copilot comments 不重复，且直接影响 controller 状态机实现。
+建议状态：原问题已完成并关闭。它在 2026-07-09 是最推荐项，现已发出且被 `35d361e` 吸收，不应重复评论。
 
 2026-07-09 已按用户确认发为 inline comment：
 
@@ -166,6 +181,27 @@ If it is authoritative, the implementation needs a reconciliation rule for endpo
 - Risk table 把原先 “NodeNotFound / Node NotReady indirectly covering” 改成 “Controller detects agent heartbeat staleness via `PlaceholderAgentHealthy` Condition”。
 
 当前判断：我们的 comment 已被正文吸收，不需要追问同一个问题。剩余可观察的小点是 Phase transition table 里 `PlaceholderAgentHealthy=True → Ready` 写得偏宽，可能会被理解成 agent 恢复即可 Ready，而不是重新同时检查 `PlaceholderPodReady` / `NodeCtlHealthy` / `ResourceSynced`。不过 Phase Computation Priority 最后仍有全量优先级，暂时不建议马上追加评论。
+
+### 2026-07-10 Follow-up: heartbeat signal is still conflated
+
+`35d361e` 解决了“controller 是否负责 stale detection”，但新正文选择 `NodeCtl.LastHeartbeat` 作为 `PlaceholderAgentHealthy` 的依据，仍存在语义混用：
+
+- `NodeCtlStatus.LastHeartbeat` 位于 `status.nodeCtl`，自然表达的是 placeholder-agent 最后一次成功探测 node-ctl 的时间。
+- `NodeCtlHealthy` 已经用来表达 node-ctl 是否可达。
+- 如果 placeholder-agent 正常运行但 node-ctl 挂掉，`NodeCtl.LastHeartbeat` 同样会超过 2 分钟，controller 会把 `PlaceholderAgentHealthy=False`，把 node-ctl 故障误报为 agent 故障。
+- 如果目标是判断 placeholder-agent 是否还在成功 patch API，应使用每次 status report 都更新的独立 agent heartbeat，例如 `status.placeholderAgent.lastHeartbeat`；`metav1.Condition.lastTransitionTime` 不能替代周期心跳，因为状态不变化时它不应刷新。
+
+建议状态：保留为 P2 follow-up，不立即追在刚解决的 thread 后继续发。若作者准备实现 Phase controller，再用一条独立短评论问清 signal source。
+
+Draft follow-up:
+
+```md
+Thanks for adding the controller-owned `PlaceholderAgentHealthy` condition. I have one follow-up question about its signal source.
+
+The current text derives agent health from `status.nodeCtl.lastHeartbeat`. If `placeholder-agent` is still reporting normally but node-ctl is down, that timestamp would also become stale, so the controller could set both `NodeCtlHealthy=False` and `PlaceholderAgentHealthy=False` even though the agent itself is alive.
+
+Would it be clearer to give `status.placeholderAgent` its own report heartbeat, updated on every periodic status patch, and reserve `status.nodeCtl.lastHeartbeat` for node-ctl reachability? That would let the phase logic distinguish an agent/reporting failure from a node-ctl failure and make the two fault-injection cases independently testable.
+```
 
 通俗解释：proposal 里说 placeholder-agent 每 30 秒向 Kubernetes 汇报一次“我这边 OK，node-ctl 也健康”。Controller 根据这些汇报算出 `SandboxPool.status.phase=Ready/Degraded/Unready`。问题是：如果 placeholder-agent 挂了，最后一次汇报的 “OK” 还留在 API server 里。Controller 如果只看旧值，就可能继续认为 Pool 是 Ready。
 
@@ -241,7 +277,7 @@ Why this matters: without an explicit stale-status rule, `PlaceholderPodReady=Tr
 
 ## Candidate 4: resize fallback and Kubernetes compatibility
 
-建议状态：推荐作为第二优先级，或和 validation environment 合并成一条。
+建议状态：提升为 P0，也是当前最推荐保留的一条候选评论。官方 KEP 表明这不是一般的 feature-gate fallback 问题，而是 Static Pod 与 Kubernetes 原生 In-place Pod Resize 当前不兼容。
 
 ### Evidence
 
@@ -254,30 +290,40 @@ Proposal evidence:
 - Lines 613-615: test plan includes placeholder pod resize lifecycle and VPA resize tests.
 - Lines 631-639: implementation plan includes VPA resize in Phase 3 and v1alpha1 scope includes VPA resize.
 
+Official Kubernetes evidence:
+
+- Kubernetes KEP-1287 的 `PodResizePending/Infeasible` 原因明确包含 “The pod is a static pod”：<https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/1287-in-place-update-pod-resources/README.md#resize-status>
+- 同一个 KEP 的 metrics 原因列表也包含 `static_pod - In-place resize is not supported for static pods`。
+- KEP metadata 记录的成熟度是 v1.27 alpha、v1.33 beta、v1.35 stable，不是 proposal 兼容表中的 v1.31 GA：<https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/1287-in-place-update-pod-resources/kep.yaml>
+- Kubernetes 官方任务文档说明标准触发路径是修改 Pod desired resources 并调用 `/resize` subresource：<https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/>
+- Static Pod 的 source of truth 是节点本地 manifest，API server 中只有 kubelet 维护的 mirror Pod：<https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/>
+
 Gap:
 
-- The proposal says resize should happen without rebuilding Pods, but the update flow includes “InPlace resize / Pod rebuild”.
-- It does not say whether clusters without the feature gate should disable resize, fail validation, or use rebuild fallback.
-- It does not define the expected behavior when static pod manifest change does not result in in-place resize.
+- Proposal 同时把 Static Pod resource lock 与不重建 Pod 的 InPlaceResize 列为 v1alpha1 core scope，但 KEP 明确不支持 Static Pod in-place resize。
+- 修改 Static Pod 本地 manifest 不等于调用 API server 的 `/resize` subresource；kubelet 可能把 manifest 变化作为 Pod replacement，而不是原生 in-place resize。
+- Update flow 把 `InPlace resize / Pod rebuild` 并列，没有定义哪一个才是规范行为，也没有解释 rebuild 窗口如何维持 scheduler resource lock。
+- `VPA InPlaceResize` 这一术语混合了 VPA controller 与 Kubernetes `InPlacePodVerticalScaling` API/feature gate；正文没有说明是否真的部署或依赖 VPA。
+- 兼容性表的 GA 版本错误，会让实现者和部署者错误估计 feature gate / cluster prerequisite。
 
 ### Why It Matters
 
-If VPA InPlaceResize is mandatory, v1 has a Kubernetes version/feature-gate prerequisite. If rebuild fallback is allowed, the design must explain how resource locking remains reliable during rebuild and how this interacts with “without rebuilding Pods”.
+如果坚持 Static Pod，native in-place resize 不能作为 v1alpha1 已成立的能力，需要明确接受 rebuild，或提出并验证一条不同于 KEP-1287 `/resize` 的自定义 runtime mechanism。如果坚持原生 in-place resize，则 placeholder resource 的 Kubernetes object model 可能不能继续选 Static Pod。这个选择会反过来改变 resource-lock guarantee、API compatibility 和整个 Phase 3 test plan。
 
 ### Draft Comment
 
 ```md
-One compatibility question about resize behavior:
+I think the Static Pod and in-place resize assumptions need to be reconciled before Phase 3 is implementable.
 
-The proposal treats VPA InPlaceResize as a core goal for v1alpha1 and says placeholder Pod resources are adjusted without rebuilding Pods. In the update flow, however, the kubelet step is described as `InPlace resize / Pod rebuild`, and the compatibility table notes the `InPlacePodVerticalScaling` feature-gate dependency.
+The proposal makes both Static Pod resource locking and no-rebuild `VPA InPlaceResize` part of the v1alpha1 core scope. However, Kubernetes KEP-1287 explicitly lists a static Pod as an `Infeasible` in-place resize case. The KEP milestones are also v1.27 alpha, v1.33 beta, and v1.35 stable, rather than v1.31 GA as shown in the compatibility table.
 
-Could the proposal clarify the expected v1 behavior when InPlaceResize is unavailable or not supported for the target environment?
+Could the proposal clarify which resize mechanism is intended?
 
-- Is v1alpha1 expected to require a Kubernetes version / feature gate where InPlaceResize works?
-- If the feature is unavailable, should resize be rejected/deferred, or is pod rebuild an accepted fallback?
-- If rebuild is a fallback, what preserves the resource-locking guarantee during the rebuild window?
+- If this relies on the Kubernetes `/resize` path, Static Pods are currently unsupported.
+- If changing the local manifest rebuilds the Static Pod, the proposal should treat rebuild as the defined behavior and explain the resource-locking window.
+- If `placeholder-agent` uses a custom runtime mechanism that bypasses the native Pod resize path, could that contract and its scheduler/kubelet accounting validation be described explicitly rather than calling it Kubernetes/VPA InPlaceResize?
 
-This would make the implementation and e2e acceptance tests much clearer.
+This choice affects the core object model, compatibility table, and the acceptance criteria for resource accounting and resize lifecycle tests.
 ```
 
 ## Candidate 5: validation environment for node-local behavior
@@ -316,20 +362,86 @@ Could the proposal clarify which of these can be covered by envtest/controller t
 This would help set the acceptance criteria for the risky parts of the proposal, especially resource accounting, mirror pod rebuild, `UpdateContainerResources`, and cleanup behavior.
 ```
 
+## Candidate 6: Phase recovery must re-evaluate all Ready conditions
+
+建议状态：P2，属于 `35d361e` 为修复 stale agent 状态而新引入的状态机文本不一致。先记录，不和 P0/P1 一起形成 omnibus comment。
+
+### Evidence
+
+- Line 426 defines `Ready` as `PlaceholderPodReady=True + NodeCtlHealthy=True + ResourceSynced=True (or ResizeDeferred=True)`.
+- Line 427 says a `Degraded` Pool exits via `PlaceholderAgentHealthy=True -> Ready` without requiring `NodeCtlHealthy` or `ResourceSynced`.
+- Line 428 says an `Unready` Pool exits via `PlaceholderAgentHealthy=True -> Ready` without requiring `PlaceholderPodReady` or `NodeCtlHealthy`.
+- Line 430's Phase Computation Priority implies all higher-priority unhealthy conditions must be evaluated before the fallback `Ready` state.
+- Existing Gemini/Copilot review already required `NodeNotFound=False` to “re-evaluate all conditions”; `35d361e` correctly changed that branch but did not apply the same rule to `PlaceholderAgentHealthy=True`.
+
+### Why It Matters
+
+如果 controller 逐字实现 Phase table，agent 心跳恢复就可能把仍然 `NodeCtlHealthy=False`、`PlaceholderPodReady=False` 或 `ResourceSynced=False` 的 Pool 提前标为 Ready。若实现者按 line 430 的 priority function，则表格又与真实实现不一致。Proposal 应保持单一状态机 contract。
+
+### Draft Comment
+
+```md
+One small state-machine follow-up on the new `PlaceholderAgentHealthy` condition:
+
+The Degraded and Unready rows currently allow `PlaceholderAgentHealthy=True -> Ready`. Agent recovery alone does not necessarily mean that `PlaceholderPodReady`, `NodeCtlHealthy`, and `ResourceSynced` have also recovered. This seems similar to the earlier `NodeNotFound=False` case, which now correctly says to re-evaluate all conditions.
+
+Could these exits also say `PlaceholderAgentHealthy=True -> re-evaluate all conditions`, with `Ready` reached only when the normal Ready criteria hold? That would keep the transition table consistent with the Phase Computation Priority rule.
+```
+
+## Candidate 7: forced finalizer removal can orphan node-local resources
+
+建议状态：P2 failure-recovery gap。它没有被已有 bot review 覆盖，但在 P0/P1 澄清前不优先发。
+
+### Evidence
+
+- Lines 487-492 say only `placeholder-agent` removes the local Static Pod manifest and stops/removes the CRI sandbox.
+- Lines 495-498 say the controller waits for mirror Pod removal, but after 10 minutes force-removes the finalizer and emits a Warning Event.
+- The node-local manifest is outside Kubernetes API storage and has no OwnerReference; deleting the `SandboxPool` CR cannot garbage-collect that file.
+- The node startup sequence only says the agent watches current `SandboxPool` objects. It does not describe scanning managed manifest files and deleting any whose Pool no longer exists.
+
+### Why It Matters
+
+如果 agent 在删除期间不可达，10 分钟后 controller 会让 Pool 从 API 中消失，但本地 manifest 仍可能存在。kubelet 会继续运行 Static Pod、scheduler 仍可能计算其 requests、node-ctl 也可能继续运行。agent 恢复后若只处理 watch 当前对象，就不会收到已经完成的删除事件，形成长期 orphan resource lock。这个路径需要启动时双向 reconcile 或保留可恢复的 tombstone/source of truth。
+
+### Draft Comment
+
+```md
+I have one failure-recovery question about the forced finalizer timeout.
+
+The deletion flow says that `placeholder-agent` removes the node-local manifest, while the controller force-removes the Pool finalizer after 10 minutes if the mirror Pod is still present. If the agent is unreachable for that whole window, the `SandboxPool` can disappear from the API while its local Static Pod manifest still exists on the node.
+
+When the agent later recovers, how is that orphaned manifest detected and removed? A watch of current Pool objects would not replay the already-completed deletion.
+
+Could the proposal add a startup reconciliation rule that scans agent-managed manifests and removes any whose Pool UID no longer exists (or describe another durable tombstone mechanism)? This would ensure the timeout does not leave resources locked with no control-plane object or status.
+```
+
 ## Recommended Single Comment
 
-如果只发一条，建议发 Candidate 3。它不和 Copilot 重复，而且最像 human implementation review。
+2026-07-10 判断：如果后续只保留一条给用户确认，建议 Candidate 4（Static Pod 与 In-place Pod Resize 冲突）。Candidate 3 已经发出并被吸收，不能重复发；Candidate 4 有官方 KEP 直接证据，并且决定 Phase 3 是否可实现。
+
+Nature: design clarification with implementation-blocking evidence. 建议发在 line 598 的 K8s Version Compatibility 表，或 line 634 的 Phase 3 implementation plan；发出前仍需用户确认 exact target 和全文。
 
 Recommended text:
 
 ```md
-I have one question about stale status when `placeholder-agent` becomes unreachable.
+I think the Static Pod and in-place resize assumptions need to be reconciled before Phase 3 is implementable.
 
-My reading is that `placeholder-agent` owns the node-local conditions and patches status every 30s, while the controller owns `phase` and `NodeNotFound`. The risk table also notes that conditions may get stuck when `placeholder-agent` is unreachable, with `NodeNotFound` or Node NotReady indirectly covering some cases.
+The proposal makes both Static Pod resource locking and no-rebuild `VPA InPlaceResize` part of the v1alpha1 core scope. However, Kubernetes KEP-1287 explicitly lists a static Pod as an `Infeasible` in-place resize case. The KEP milestones are also v1.27 alpha, v1.33 beta, and v1.35 stable, rather than v1.31 GA as shown in the compatibility table.
 
-Could the proposal make the stale-status rule explicit for the case where the Kubernetes Node still exists, but `placeholder-agent` has stopped or can no longer patch status?
+Could the proposal clarify which resize mechanism is intended?
 
-For example, should the controller derive Unready/Degraded from a `lastHeartbeat` timeout, Node readiness, condition timestamps, or a separate controller-owned `PlaceholderAgentHealthy` condition?
+- If this relies on the Kubernetes `/resize` path, Static Pods are currently unsupported.
+- If changing the local manifest rebuilds the Static Pod, the proposal should treat rebuild as the defined behavior and explain the resource-locking window.
+- If `placeholder-agent` uses a custom runtime mechanism that bypasses the native Pod resize path, could that contract and its scheduler/kubelet accounting validation be described explicitly rather than calling it Kubernetes/VPA InPlaceResize?
 
-Why this matters: without an explicit stale-status rule, `PlaceholderPodReady=True` / `NodeCtlHealthy=True` values written by the last successful agent heartbeat could keep the pool looking Ready even after the node-local agent is no longer managing the placeholder pod or node-ctl.
+This choice affects the core object model, compatibility table, and the acceptance criteria for resource accounting and resize lifecycle tests.
 ```
+
+## 2026-07-10 Review Decision
+
+- **已关闭**：Candidate 3 原始 stale/unreachable 问题，`35d361e` 已增加 controller-owned `PlaceholderAgentHealthy`。
+- **最值得继续审阅**：Candidate 4 的 Static Pod / native resize 冲突；这是当前唯一有官方 KEP 直接否定现有组合假设的 P0 项。
+- **第二顺位**：Candidate 1 的 RuntimeClass / CRI integration layer；需要作者明确 containerd shim、sandboxer 或 CRI proxy 方案。
+- **先本地保留**：heartbeat signal conflation、Candidate 6 Phase recovery 和 Candidate 7 orphan cleanup；它们是后续正确性问题，不宜与 P0/P1 混成一条长评论。
+- **不重复**：node-ctl endpoint、SSA conditions list-map、`omitempty`、`<5s` rebuild、no-process/no-cgroup 均已有 bot review coverage。
+- **社区节奏**：`@acsoto` 的 existing WarmPool relationship 问题仍未进入 proposal 正文，等待作者补 Relationship / Compatibility 说明，不抢答也不重复问。
