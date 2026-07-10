@@ -9,7 +9,7 @@
 目标 PR：
 
 - PR: <https://github.com/volcano-sh/agentcube/pull/431>
-- Head observed: `b6a784c` (`fix VPA issue`)
+- Head observed: `ef96939` (`fix CRI flow issue`)
 - File: `docs/proposals/sandbox-pool-management/README.md`
 - Status: open; `@acsoto` 已提出一条真人 MEMBER 架构问题；普通 checks 已通过，仍缺 `lgtm` / `approved`
 - Comment rule: upstream-facing text must be English; do not post without explicit user confirmation.
@@ -40,9 +40,15 @@
 
 > 分析：这是 proposal 作者对自己设计的明确修改，但作者的 GitHub association 是 `NONE`，不能表述成 maintainer consensus。是否接受整个 SandboxPool 方案仍要等 MEMBER/OWNER review。
 
+2026-07-10 `SP-02` 回复后更新：`lichuqiang` 在 [RuntimeClass / CRI thread](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3558484860) 选择了 containerd runtime v2 shim 路径，并提交 `ef96939 fix CRI flow issue`。正文不再声称 RuntimeClass 会让 kubelet 直连第二个 CRI socket，而是明确为 `kubelet -> containerd CRI -> placeholder runtime handler -> placeholder-agent shim v2`；普通 Pod 继续使用 `runc` handler。该 commit 修改 proposal 73 行（+44/-29），同步更新架构图、职责表、RuntimeClass、创建/更新/删除流程、节点启动流程和实现阶段。
+
+这足以解决原评论所问的 integration-layer 选择，`SP-02` 可以标为 `RESOLVED`。但它只证明了高层路由模型已澄清，并没有证明自定义 shim 的生命周期语义可行。新正文仍把 CRI `StopPodSandbox` / `RemovePodSandbox` 写成 shim 可直接处理的回调，同时又在架构图中写 `shim.Delete -> mark stop (does not touch node-ctl)`、删除流程中写 `placeholder-agent shim stops node-ctl`；containerd runtime v2 shim 实际暴露的是 Task API（`Create`、`Start`、`Kill`、`Delete`、`Shutdown` 等），CRI server 才接收 `StopPodSandbox` / `RemovePodSandbox`。该窄问题单独记为 `SP-10`，不重新打开已经解决的 `SP-02`。
+
+> 分析：作者回复和 `ef96939` 是有效的 proposal 改进，但仍然只是作者设计意图，不是 maintainer acceptance。当前普通 checks 全绿，`tide` 仍等待 `lgtm` / `approved`。
+
 ## 剩余问题跟踪表
 
-最后同步：2026-07-10；PR head `b6a784c`；本表是 #431 后续 review 状态的唯一索引。详细证据和英文草稿仍保留在各 Candidate 小节。
+最后同步：2026-07-10；PR head `ef96939`；本表是 #431 后续 review 状态的唯一索引。详细证据和英文草稿仍保留在各 Candidate 小节。
 
 状态约定：
 
@@ -56,7 +62,7 @@
 | ID | Priority | Topic | 当前判断 | Coverage / Status | 下一步 |
 | --- | --- | --- | --- | --- | --- |
 | `SP-01` | P0 | Static Pod 与 native in-place resize | 作者明确选择 Static Pod rebuild + custom CRI interception，不再依赖 native `/resize`；设计歧义已解决，runtime guarantee 尚未实测 | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395)、[reply](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557359462)、`b6a784c` | 不在原 thread 追评；custom CRI integration 归入 `SP-02`，rebuild-window e2e 归入 `SP-08` |
-| `SP-02` | P0 | RuntimeClass / CRI socket integration | RuntimeClass handler 是同一 CRI `RunPodSandbox` 请求的配置名，不会自动让 kubelet 改连 agent socket；新正文把 custom CRI interception 提升为核心机制，但仍缺 containerd shim/sandboxer/CRI proxy 层 | `POSTED_WAITING`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557686951)；Candidate 1 | 等作者回答 integration layer；等待期间不追加同类问题，也不堆叠 `SP-03`..`SP-08` |
+| `SP-02` | P0 | RuntimeClass / CRI socket integration | 作者选择 containerd runtime v2 shim；正文已改为 kubelet 保持连接 containerd，由 `placeholder` handler 选择 placeholder-agent shim，普通 Pod 继续走 `runc` | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557686951)、[reply](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3558484860)、`ef96939`；Candidate 1 | 不在原 thread 追评；Task API lifecycle 精度转入 `SP-10`，real-node acceptance 仍归 `SP-08` |
 | `SP-03` | P2 | placeholder-agent heartbeat signal | `NodeCtl.LastHeartbeat` 同时承担 node-ctl 和 agent 心跳，会把 node-ctl failure 误报为 agent failure | `HOLD`；Candidate 3 follow-up | 等状态模型再次修改或进入实现 review，再要求独立 agent report heartbeat |
 | `SP-04` | P2 | Phase recovery 条件 | `PlaceholderAgentHealthy=True -> Ready` 没有重新检查 Pod、node-ctl、ResourceSynced | `HOLD`；Candidate 6 | 若作者更新状态机，确认改为 re-evaluate all conditions；否则再单点评论 |
 | `SP-05` | P2 | force-finalizer 后 orphan manifest | agent 不可达时 controller 强制完成 CR 删除，本地 Static Pod manifest 可能永久残留且没有 API 对象可观察 | `HOLD`；Candidate 7 | 等 deletion/recovery 设计更新；需要 startup orphan reconciliation 或 durable tombstone |
@@ -64,6 +70,7 @@
 | `SP-07` | P3 | 与现有 WarmPool 路径的关系 | 作者口头说明 two-generation architecture，但正文尚未形成 Relationship / Compatibility contract | `HUMAN_THREAD`；`@acsoto` 已提问并获作者回复 | 不抢答；观察作者是否补正文、迁移/并存边界 |
 | `SP-08` | P3 | node-local validation environment | envtest 无法覆盖 systemd、Static Pod、RuntimeClass、CRI socket、cgroup、mirror rebuild，也不能证明 mirror gap 中冲突 Pod 会被 kubelet admission 拒绝 | `HOLD`；Candidate 5 | Phase 2/3 实现前要求 real-node/dedicated e2e，覆盖 rebuild 时 UID/mirror gap、conflicting Pod admit failure 和 node-ctl cgroup continuity |
 | `SP-09` | P2 | agent unreachable 后 stale Ready | 原正文没有 agent stale detection，旧 True conditions 可能长期保留 | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549854078)，`35d361e` 已增加 `PlaceholderAgentHealthy` | 不重复；只跟踪 `SP-03` / `SP-04` 的后续精度问题 |
+| `SP-10` | P1 | containerd shim Task lifecycle contract | `ef96939` 选择 runtime v2 shim 后，正文仍混用 CRI `StopPodSandbox` / `RemovePodSandbox` 与 shim Task API，并对 `Delete` 是否停止 node-ctl 给出相互矛盾的描述；no-process task 还需满足 `Create` / `Start` / `Wait` / PID / exit contract | `HOLD`；官方 containerd runtime v2 / Task API / CRI server source 已核对，暂无现有 review comment 精准覆盖 | 先不连续追评；若作者继续修改 node lifecycle 或进入 Phase 2 实现 review，再要求映射 `RunPodSandbox -> Task.Create/Start`、`StopPodSandbox -> Kill/Wait`、`RemovePodSandbox -> Delete/Shutdown`，并给出最小 shim spike/e2e |
 
 ### 已有覆盖，不重复评论
 
@@ -73,7 +80,7 @@
 | SSA multi-writer Conditions schema | [Copilot](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549383877) | 应使用 list-map-by-type；不重复 |
 | non-pointer struct + `omitempty` | Copilot [template](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3550185924) / [nodeCtl](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3550185961) / [status](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3550185995) | 不重复 |
 | mirror Pod `<5s` rebuild guarantee | [Copilot](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549383770) | 等实测或正文降级为 target |
-| `pause:3.9` 与 no-process/no-cgroup | Copilot [line 113](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549383825) / [line 126](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549383854) | 归入 `SP-02` 的更底层 integration contract，不重复表面措辞 |
+| `pause:3.9` 与 no-process/no-cgroup | Copilot [line 113](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549383825) / [line 126](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549383854)，`ef96939` 后又在 [line 125](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3558496149) / [line 139](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3558496179) 精确重提 | 不重复表面措辞；Task lifecycle / no-process 可行性归 `SP-10`，real-node acceptance 归 `SP-08` |
 
 > 分析：proposal 已经回答了 Implementation Plan、v1alpha1 scope、Non-Goals、component responsibility、phase/conditions、creation/update/deletion flow、RBAC/webhook/version/test plan 的大框架。评论应避免重复问这些已经存在的内容。
 
@@ -167,7 +174,7 @@ Publication record:
 - Comment: <https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557686951>
 - GitHub review comment ID: `3557686951`
 - Server-side verification: body, commit ID, path, right-side line `378`, and side all match the approved payload.
-- Current state: `POSTED_WAITING`; do not append follow-up questions until the author replies or the proposal changes this contract.
+- Current state: `RESOLVED`; author selected the containerd runtime v2 shim path in [reply `3558484860`](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3558484860), and `ef96939` updated the architecture and lifecycle text. Do not append a courtesy reply; narrower Task API lifecycle questions are tracked separately as `SP-10`.
 
 ```md
 I have one question about the node-side RuntimeClass / CRI integration contract.

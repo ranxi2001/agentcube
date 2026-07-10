@@ -1010,6 +1010,46 @@ Kubernetes 的实际契约是：kubelet 使用已配置的 runtime service endpo
 
 > 分析：这次 comment 的目标不是直接否定方案，而是让 proposal 补上能够指导开发和测试的节点 runtime contract。只有明确 integration layer，后续才能决定 `placeholder-agent` 实现哪套接口、默认 workload 如何继续经过 containerd，以及 e2e 环境需要验证什么。
 
+### SP-02 作者回复与 `ef96939` 校准
+
+2026-07-10，作者在 [discussion_r3558484860](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3558484860) 回复：预期方案是让 placeholder-agent 成为 containerd 后面的 runtime implementation，实现 v2 shim interface。随后提交 `ef96939 fix CRI flow issue`，对 proposal 做了 73 行修改（+44/-29）。
+
+更新后的高层路径是：
+
+```text
+Static Pod runtimeClassName=placeholder
+  -> kubelet 仍调用节点唯一的 containerd CRI endpoint
+  -> containerd 以 runtime_handler=placeholder 选择 named runtime
+  -> containerd 启动 placeholder-agent runtime v2 shim
+  -> regular Pods 继续使用 runc runtime handler
+```
+
+正文也把原来单体 `placeholder-agent` 拆成两个角色：host-level systemd daemon 负责 CRD watch、manifest、status 和 node-ctl proxy；runtime v2 shim 负责 Task API 与资源 policy apply。这正面回答了我们原评论的三个备选路径，且没有引入 node-wide CRI proxy，因此 `SP-02` 的 integration-layer 问题可标为 `RESOLVED`。
+
+> 注释：containerd 官方 Runtime v2 文档把 named runtime 映射为外部 shim binary，例如 `io.containerd.runc.v2` 会解析为 `containerd-shim-runc-v2`；containerd 通过 ttRPC 调用 shim。proposal 里的 “registered as a plugin into containerd” 是方向性表达，更精确的实现合同应是 `config.toml` named runtime 的 `runtime_type` / `runtime_path` 加 shim binary，而不是 kubelet 改连第二个 CRI socket。
+
+### 新的窄问题：CRI lifecycle 不等于 shim Task API
+
+`ef96939` 解决了路由层，却仍在生命周期层混用两套接口：
+
+- 架构图写 `shim.Create`、`shim.Start`、`shim.Delete`，并说 `shim.Delete` 不触碰 node-ctl。
+- Safety table 写 ``StopPodSandbox` checks if manifest file still exists``。
+- Deletion Flow 又写 `containerd StopPodSandbox -> placeholder-agent shim stops node-ctl`、`RemovePodSandbox -> clean up shim state`。
+
+containerd runtime v2 shim 的 `Task` service 没有 `StopPodSandbox` 或 `RemovePodSandbox` RPC；它暴露 `Create`、`Start`、`Kill`、`Delete`、`Wait`、`Shutdown` 等 Task methods。`StopPodSandbox` / `RemovePodSandbox` 属于 containerd 的 CRI server，containerd 再把操作翻译为 sandbox/task lifecycle。以当前 containerd `podsandbox` controller 为例，stop path 对 task 执行 `Kill(SIGKILL)` 并等待退出，task `Delete` 由 exit handling 处理；这与 proposal 当前“谁判断 rebuild、谁真正停止 node-ctl”的描述还没有一一对应。
+
+另一个实现约束是，containerd 的 PodSandbox start path会创建 task、等待 task、调用 `Start` 并记录 task PID。proposal 同时声称 placeholder Pod “no actual process”，因此 Phase 2 需要一个最小 runtime spike 证明它如何满足 `Create` / `Start` / `Wait` / PID / exit 语义，而不是只在图中返回成功。
+
+> 分析：这是 `SP-10`，不是重新否定 `SP-02`。高层 handler -> shim 路由已经正确；剩余问题是 shim 内部生命周期合同和 no-process 可行性。当前不应刚收到回复就连续追加评论，先观察作者是否响应 Copilot 已提出的 no-process/no-cgroup 评论；进入实现 review 时再以 containerd 官方 Task API 和最小 e2e 作为验收依据。
+
+本轮官方证据（2026-07-10 观测 containerd main `af34190e`）：
+
+- [containerd Runtime v2 architecture and named runtime configuration](https://github.com/containerd/containerd/blob/af34190eb2d198fe8b9b5f070bbadb318955909e/docs/runtime-v2.md)
+- [containerd runtime v2 Task service](https://github.com/containerd/containerd/blob/af34190eb2d198fe8b9b5f070bbadb318955909e/api/runtime/task/v2/shim.proto)
+- [containerd CRI RuntimeHandler mapping](https://github.com/containerd/containerd/blob/af34190eb2d198fe8b9b5f070bbadb318955909e/docs/cri/config.md)
+- [containerd PodSandbox stop translation](https://github.com/containerd/containerd/blob/af34190eb2d198fe8b9b5f070bbadb318955909e/internal/cri/server/podsandbox/sandbox_stop.go)
+- [containerd PodSandbox task creation/start path](https://github.com/containerd/containerd/blob/af34190eb2d198fe8b9b5f070bbadb318955909e/internal/cri/server/podsandbox/sandbox_run.go)
+
 生成记录：
 
 - 模型：`gpt-image-2`
