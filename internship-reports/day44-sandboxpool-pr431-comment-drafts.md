@@ -299,6 +299,13 @@ Official Kubernetes evidence:
 - Kubernetes 官方任务文档说明标准触发路径是修改 Pod desired resources 并调用 `/resize` subresource：<https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/>
 - Static Pod 的 source of truth 是节点本地 manifest，API server 中只有 kubelet 维护的 mirror Pod：<https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/>
 
+2026-07-10 原因补证：
+
+- Kubernetes Static Pod 文档明确说 mirror Pod 只让节点上的 Pod 在 API Server 可见，`cannot be controlled from there`。因此标准 `/resize` 对 API Pod spec 的更新不能成为本地 Static Pod 的 source of truth。
+- Kubernetes v1.36.2 `pkg/kubelet/config/common.go:60-92` 显示：当 Static Pod manifest 未显式提供 UID 时，kubelet 对整个 Pod 内容和文件来源做 hash，并将 hash 作为 Pod UID / `kubernetes.io/config.hash`。修改 CPU/memory 会改变 Pod 内容，从而产生新的 UID。
+- kubelet 的 static-pod worker 按 full name 串行处理不同 UID；旧 UID 终止清理完成后，新 UID 才能启动。这对应 replacement/rebuild，而不是同一 Pod UID 下的原地 resize。
+- 所以 #431 不是整体不可用：Class→Pool、固定容量的 Static Pod resource reservation、status/phase 等仍可独立实现；冲突集中在 Phase 3 和 v1alpha1 声称的 no-rebuild resize。若选择 rebuild，需要定义 replacement window；若选择 custom runtime resize，需要另外证明 Kubernetes-visible requests、mirror state 与 node-ctl actual limits 的一致性。
+
 Gap:
 
 - Proposal 同时把 Static Pod resource lock 与不重建 Pod 的 InPlaceResize 列为 v1alpha1 core scope，但 KEP 明确不支持 Static Pod in-place resize。
