@@ -54,7 +54,7 @@
 ## Next
 
 - For #431: wait for the author's response to the Static Pod / in-place resize comment `discussion_r3556111395`; do not add RuntimeClass routing or follow-up comments while this architecture-defining question is active. Classify the response against native `/resize`, local rebuild, or custom runtime semantics before replying, and obtain user confirmation for any reply.
-- If validating #431 technically, first prove or rule out the proposed Static Pod manifest resize path against Kubernetes 1.34/1.35 behavior; then spike containerd handler integration and scheduler accounting. Do not describe native `/resize` support for Static Pods as available.
+- If validating #431 technically, first prove or rule out the proposed Static Pod manifest resize path against Kubernetes 1.35/1.36 behavior; then spike containerd handler integration and scheduler accounting. Current stable channel is v1.36.2; KEP-1287 `stable: v1.35` means feature graduation milestone, not latest Kubernetes release. Do not describe native `/resize` support for Static Pods as available.
 - For Sleep/Resume: keep as design/fake-provider/test-plan unless maintainers clarify ownership. Next useful local work remains Router resume-before-proxy tests or API contract, not broad upstream PR.
 - For agent-sandbox v0.5.x: keep separate from #387. Clean follow-up only after official scope decision; disclose clean-install evidence and old CRD storedVersions migration gap.
 - For benchmark work: only run tests current environment supports; record OS/kernel/glibc/CPU/K8s/runtime and distinguish local measured data from inference.

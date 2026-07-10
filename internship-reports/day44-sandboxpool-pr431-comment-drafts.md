@@ -295,6 +295,7 @@ Official Kubernetes evidence:
 - Kubernetes KEP-1287 的 `PodResizePending/Infeasible` 原因明确包含 “The pod is a static pod”：<https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/1287-in-place-update-pod-resources/README.md#resize-status>
 - 同一个 KEP 的 metrics 原因列表也包含 `static_pod - In-place resize is not supported for static pods`。
 - KEP metadata 记录的成熟度是 v1.27 alpha、v1.33 beta、v1.35 stable，不是 proposal 兼容表中的 v1.31 GA：<https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/1287-in-place-update-pod-resources/kep.yaml>
+- 2026-07-10 用户确认版本语义：Kubernetes 当前官方 stable channel 是 `v1.36.2`，而 KEP 的 `stable: v1.35` 表示该 feature 从 v1.35 开始毕业为 stable，不是在声明当前最新 Kubernetes 版本。评论里的 milestone 表述正确，无需修改；proposal 的 `1.31 GA` 仍与 KEP 不符。
 - Kubernetes 官方任务文档说明标准触发路径是修改 Pod desired resources 并调用 `/resize` subresource：<https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/>
 - Static Pod 的 source of truth 是节点本地 manifest，API server 中只有 kubelet 维护的 mirror Pod：<https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/>
 
