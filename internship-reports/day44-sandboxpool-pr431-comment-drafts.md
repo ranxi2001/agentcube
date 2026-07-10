@@ -314,6 +314,13 @@ Gap:
 
 `Proposed inline target`: `docs/proposals/sandbox-pool-management/README.md:598` at head `35d361e` (right side).
 
+2026-07-10 已按用户确认发布：
+
+- URL: <https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395>
+- GitHub review comment ID: `3556111395`
+- Nature: compatibility clarification with implementation-blocking evidence; not a formal blocking review
+- Verification: GitHub returned path line 598 and commit `35d361eb55a283ee8718a94b38b6ad8a1d44ee93`; posted body matches the approved draft below
+
 ```md
 I think the compatibility assumption here needs clarification because the proposal combines two behaviors that the native Kubernetes resize path does not currently support together.
 
@@ -419,7 +426,7 @@ Could the proposal add a startup reconciliation rule that scans agent-managed ma
 
 ## Recommended Single Comment
 
-2026-07-10 判断：如果后续只保留一条给用户确认，建议 Candidate 4（Static Pod 与 In-place Pod Resize 冲突）。Candidate 3 已经发出并被吸收，不能重复发；Candidate 4 有官方 KEP 直接证据，并且决定 Phase 3 是否可实现。
+2026-07-10 判断：Candidate 4 已按用户确认发布。Candidate 3 已经发出并被吸收，不能重复发；Candidate 4 有官方 KEP 直接证据，并且决定 Phase 3 是否可实现。
 
 Nature: design clarification with implementation-blocking evidence. 建议发在 line 598 的 K8s Version Compatibility 表，或 line 634 的 Phase 3 implementation plan；发出前仍需用户确认 exact target 和全文。
 
@@ -442,7 +449,7 @@ This distinction changes the compatibility table, implementation contract, and e
 ## 2026-07-10 Review Decision
 
 - **已关闭**：Candidate 3 原始 stale/unreachable 问题，`35d361e` 已增加 controller-owned `PlaceholderAgentHealthy`。
-- **最值得继续审阅**：Candidate 4 的 Static Pod / native resize 冲突；这是当前唯一有官方 KEP 直接否定现有组合假设的 P0 项。
+- **已发出、等待作者回复**：Candidate 4 的 Static Pod / native resize 冲突；comment URL 为 <https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395>。
 - **第二顺位**：Candidate 1 的 RuntimeClass / CRI integration layer；需要作者明确 containerd shim、sandboxer 或 CRI proxy 方案。
 - **先本地保留**：heartbeat signal conflation、Candidate 6 Phase recovery 和 Candidate 7 orphan cleanup；它们是后续正确性问题，不宜与 P0/P1 混成一条长评论。
 - **不重复**：node-ctl endpoint、SSA conditions list-map、`omitempty`、`<5s` rebuild、no-process/no-cgroup 均已有 bot review coverage。
