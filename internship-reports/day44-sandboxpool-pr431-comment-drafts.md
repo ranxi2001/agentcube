@@ -139,7 +139,7 @@ Existing review evidence:
 Official contract evidence:
 
 - Kubernetes RuntimeClass 文档说明 handler 标识节点 CRI 实现中预先配置的一套 runtime configuration；containerd 对应配置位于 `containerd.runtimes.${HANDLER_NAME}`：<https://kubernetes.io/docs/concepts/containers/runtime-class/>
-- Kubernetes v1.34.1 kubelet 先解析 `runtimeHandler`，然后仍通过已有的 `runtimeService.RunPodSandbox(..., runtimeHandler)` 发出请求：<https://github.com/kubernetes/kubernetes/blob/v1.34.1/pkg/kubelet/kuberuntime/kuberuntime_sandbox.go#L56-L68>
+- Kubernetes v1.36.2 kubelet 先解析 `runtimeHandler`，然后仍通过已有的 `runtimeService.RunPodSandbox(..., runtimeHandler)` 发出请求：<https://github.com/kubernetes/kubernetes/blob/v1.36.2/pkg/kubelet/kuberuntime/kuberuntime_sandbox.go#L56-L68>
 - CRI v1 把 handler 定义为 `RunPodSandboxRequest.runtime_handler` 字段，而不是另一个 endpoint：<https://github.com/kubernetes/cri-api/blob/v0.34.1/pkg/apis/runtime/v1/api.proto#L515-L524>
 - containerd 的 handler 配置选择 `runtime_type` / `runtime_path`；containerd 2.x 还可通过 `sandboxer` 接入 shim 或 sandbox proxy，但这些接口不等于让 kubelet 直接切换到另一个完整 CRI socket：<https://github.com/containerd/containerd/blob/main/docs/cri/config.md#runtime-classes>
 
@@ -147,24 +147,34 @@ Official contract evidence:
 
 如果 v1 创建普通 PodSandbox / pause / cgroup，那么测试要验证的是 no workload container、resource requests、Ready、resize、eviction、metrics 是否一致。如果 v1 走自定义 containerd runtime shim / sandboxer 并跳过 cgroup，那么测试要验证的是 kubelet / scheduler / mirror Pod / metrics 在没有普通 cgroup 时是否仍能表达资源锁。
 
-当前文本把 `RuntimeClass handler` 和独立 `CRI endpoint` 当成同一件事。除非节点把 kubelet 的全局 CRI endpoint 指到一个能按 handler 转发的代理，否则 RuntimeClass 本身不会让 kubelet 针对单个 Pod 改连 `/run/sandbox-pool/cri.sock`。这会直接改变 placeholder-agent 需要实现的接口：完整 CRI server、containerd runtime v2 shim、containerd sandbox controller，或 CRI dispatch proxy。
+当前文本把 `RuntimeClass handler` 和独立 `CRI endpoint` 当成同一件事。除非节点把 kubelet 的全局 CRI endpoint 指到一个能按 handler 转发的代理，否则 RuntimeClass 本身不会让 kubelet 针对单个 Pod 改连 `/run/sandbox-pool/cri.sock`。这会直接改变 placeholder-agent 需要实现的接口：完整 CRI server、containerd runtime v2 shim / sandboxer integration，或 CRI dispatch proxy。
 
 ### Draft Comment
 
+Proposed inline target:
+
+- PR: `volcano-sh/agentcube#431`
+- Head: `b6a784cb1418edde3a323e1a593f35e8f1a6d6ec`
+- File: `docs/proposals/sandbox-pool-management/README.md`
+- Right-side line: `378`
+- Target text: `kubelet routes CRI calls to placeholder-agent's Socket ... based on the RuntimeClass handler name.`
+- Nature: implementation-contract question; not a formal blocking review
+- Duplicate check: latest 38 review comments contain no `RuntimeClass` / `runtime_handler` / second-CRI-endpoint discussion
+
 ```md
-I have one question about the RuntimeClass integration contract.
+I have one question about the node-side RuntimeClass / CRI integration contract.
 
-The updated proposal now makes custom CRI interception part of the resource-adjustment path. It also says that kubelet routes CRI calls to `/run/sandbox-pool/cri.sock` based on the `placeholder` RuntimeClass handler, and that `placeholder-agent` implements the CRI server.
+The updated proposal makes custom CRI interception part of the resource-adjustment path. It also says that kubelet routes CRI calls to `/run/sandbox-pool/cri.sock` based on the `placeholder` RuntimeClass handler, with `placeholder-agent` implementing the CRI server.
 
-My understanding of the Kubernetes CRI contract is that kubelet keeps using its configured runtime service and passes the resolved handler as `RunPodSandboxRequest.runtime_handler`. For containerd, that handler selects a configured runtime/shim (or, in containerd 2.x, a sandboxer); RuntimeClass by itself does not select a second CRI endpoint.
+In [kubelet v1.36.2](https://github.com/kubernetes/kubernetes/blob/v1.36.2/pkg/kubelet/kuberuntime/kuberuntime_sandbox.go#L56-L68), RuntimeClass is resolved to a `runtimeHandler` and passed to the already configured `runtimeService.RunPodSandbox(...)`; it does not select a second CRI endpoint. With containerd, the handler selects a configured runtime/shim (or sandboxer integration) behind the same CRI service.
 
 Could the proposal specify the missing integration layer between the `placeholder` handler and `placeholder-agent`?
 
-- Is `placeholder-agent` intended to be a containerd runtime v2 shim / sandbox controller?
+- Is `placeholder-agent` intended to integrate as a containerd runtime v2 shim / sandboxer?
 - Is there a CRI proxy in front of containerd that dispatches by `runtime_handler`?
 - Or is the node-wide kubelet CRI endpoint expected to point directly to `placeholder-agent`, with normal workloads forwarded elsewhere?
 
-This determines which API `placeholder-agent` must implement and whether the proposed per-Pod routing can work without replacing the node's normal CRI path.
+This determines which API `placeholder-agent` must implement, how normal Pods continue to use the default runtime, and whether the proposed per-Pod routing can work without replacing the node's CRI path.
 ```
 
 ## Candidate 2: node-ctl endpoint source of truth
@@ -518,20 +528,20 @@ This distinction changes the compatibility table, implementation contract, and e
 
 推荐 target：`docs/proposals/sandbox-pool-management/README.md` 的 RuntimeClass 说明，即 `b6a784c` 中“kubelet routes CRI calls to placeholder-agent's Socket”这一行。
 
-Nature: implementation-contract clarification. 草稿已具备官方 Kubernetes CRI 和 containerd runtime-handler 证据，但未获得用户发布确认。
+Nature: implementation-contract clarification. Exact target 已核对为 head `b6a784c` 的 right-side line 378；最新 38 条 review comments 无重复。草稿已具备官方 Kubernetes kubelet / CRI 和 containerd runtime-handler 证据，但未获得用户发布确认。
 
 ```md
-I have one question about the RuntimeClass integration contract.
+I have one question about the node-side RuntimeClass / CRI integration contract.
 
-The updated proposal now makes custom CRI interception part of the resource-adjustment path. It also says that kubelet routes CRI calls to `/run/sandbox-pool/cri.sock` based on the `placeholder` RuntimeClass handler, and that `placeholder-agent` implements the CRI server.
+The updated proposal makes custom CRI interception part of the resource-adjustment path. It also says that kubelet routes CRI calls to `/run/sandbox-pool/cri.sock` based on the `placeholder` RuntimeClass handler, with `placeholder-agent` implementing the CRI server.
 
-My understanding of the Kubernetes CRI contract is that kubelet keeps using its configured runtime service and passes the resolved handler as `RunPodSandboxRequest.runtime_handler`. For containerd, that handler selects a configured runtime/shim (or, in containerd 2.x, a sandboxer); RuntimeClass by itself does not select a second CRI endpoint.
+In [kubelet v1.36.2](https://github.com/kubernetes/kubernetes/blob/v1.36.2/pkg/kubelet/kuberuntime/kuberuntime_sandbox.go#L56-L68), RuntimeClass is resolved to a `runtimeHandler` and passed to the already configured `runtimeService.RunPodSandbox(...)`; it does not select a second CRI endpoint. With containerd, the handler selects a configured runtime/shim (or sandboxer integration) behind the same CRI service.
 
 Could the proposal specify the missing integration layer between the `placeholder` handler and `placeholder-agent`?
 
-- Is `placeholder-agent` intended to be a containerd runtime v2 shim / sandbox controller?
+- Is `placeholder-agent` intended to integrate as a containerd runtime v2 shim / sandboxer?
 - Is there a CRI proxy in front of containerd that dispatches by `runtime_handler`?
 - Or is the node-wide kubelet CRI endpoint expected to point directly to `placeholder-agent`, with normal workloads forwarded elsewhere?
 
-This determines which API `placeholder-agent` must implement and whether the proposed per-Pod routing can work without replacing the node's normal CRI path.
+This determines which API `placeholder-agent` must implement, how normal Pods continue to use the default runtime, and whether the proposed per-Pod routing can work without replacing the node's CRI path.
 ```

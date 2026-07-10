@@ -53,7 +53,7 @@
 ## Next
 
 - Community tasks：本轮不 `/assign`。下一次先刷新 open issue/PR；只有新的 focused unowned issue，或 maintainer 将 #386/#272 拆成 dedicated sub-issue，才进入认领准备。#433 若做协作，先在临时 worktree 完成 Helm render/lint 和 auth/RBAC focused validation，再向用户提交 exact review draft。
-- For #431: resize question is resolved by `b6a784c`; do not reply in that thread. If continuing review, only `SP-02` is ready: show the user the exact RuntimeClass/CRI integration inline draft and obtain explicit confirmation before posting. Do not stack `SP-03`..`SP-08` while `SP-02` is under consideration.
+- For #431: resize question is resolved by `b6a784c`; do not reply in that thread. `SP-02` draft is now exact-target ready: head `b6a784c`, `docs/proposals/sandbox-pool-management/README.md` right-side line 378, implementation-contract question with Kubernetes v1.36.2 source; latest 38 review comments have no duplicate. Show the user the exact body and obtain explicit confirmation before posting. Do not stack `SP-03`..`SP-08` while `SP-02` is under consideration.
 - If validating #431 technically, focus on containerd handler integration and kubelet admission/scheduler accounting for the rebuild window. Keep native `/resize` out of the design: Static Pods remain unsupported by KEP-1287; `b6a784c` now correctly uses rebuild + custom CRI semantics.
 - For Sleep/Resume: keep as design/fake-provider/test-plan unless maintainers clarify ownership. Next useful local work remains Router resume-before-proxy tests or API contract, not broad upstream PR.
 - For agent-sandbox v0.5.x: keep separate from #387. Clean follow-up only after official scope decision; disclose clean-install evidence and old CRD storedVersions migration gap.
