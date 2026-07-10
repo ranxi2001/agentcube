@@ -16,7 +16,7 @@
 
 ## 总体策略
 
-不要一次性发 5 条。当前最合适的策略是先等作者是否根据已有 Copilot comments 更新正文；如果正文不更新，再选 1 条最有实现价值的 human comment。
+不要一次性发多条。当前最合适的策略是等待作者处理已经激活的架构问题；每次只选择 1 条有独立证据、未被覆盖且会影响实现契约的 human comment。
 
 2026-07-09 更新：`@acsoto` 作为 MEMBER 新增评论，询问 #431 和现有 `CodeInterpreter.warmPoolSize` / `SandboxTemplate` / `SandboxWarmPool` / `SandboxClaim` 路径的关系：二者是并存的两种模式，还是 SandboxPool 未来成为现有 WarmPool 的底层替代。这是目前第一条真人 maintainer/member 技术问题，权重高于 AI reviewer。
 
@@ -29,17 +29,40 @@
 
 > 分析：这两点不是文案偏好，而是会决定 Phase 2/3 是否能按 proposal 实现。它们的优先级高于继续润色 API 字段或测试环境描述。
 
-优先级建议：
+## 剩余问题跟踪表
 
-| Priority | Topic | Reason |
+最后同步：2026-07-10；PR head `35d361e`；本表是 #431 后续 review 状态的唯一索引。详细证据和英文草稿仍保留在各 Candidate 小节。
+
+状态约定：
+
+- `POSTED_WAITING`：已发 upstream，等待作者回复，不追加同类评论。
+- `READY_LOCAL`：证据和草稿已具备，但尚未获得用户发布确认。
+- `HOLD`：问题成立，但当前不适合打断已有架构讨论。
+- `NEEDS_EVIDENCE`：只有风险信号，证据未达到评论阈值。
+- `HUMAN_THREAD`：已有真人 reviewer 讨论，我们只观察、不重复提问。
+- `RESOLVED`：正文或作者 commit 已吸收。
+
+| ID | Priority | Topic | 当前判断 | Coverage / Status | 下一步 |
+| --- | --- | --- | --- | --- | --- |
+| `SP-01` | P0 | Static Pod 与 native in-place resize | 默认 manifest 资源变化会改变 Static Pod UID 并触发 replacement；与 v1alpha1 no-rebuild resize 目标冲突 | `POSTED_WAITING`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395)，Candidate 4 | 等作者在 native `/resize`、local rebuild、custom runtime 三种路径中明确选择；不追评 |
+| `SP-02` | P1 | RuntimeClass / CRI socket integration | RuntimeClass handler 是同一 CRI `RunPodSandbox` 请求的配置名，不会自动让 kubelet 改连 agent socket；缺 containerd shim/sandboxer/CRI proxy 层 | `READY_LOCAL`；Candidate 1；现有 bot 只覆盖 no-process/no-cgroup | 仅在 `SP-01` 回复后仍保留该架构时，给用户审查独立评论 |
+| `SP-03` | P2 | placeholder-agent heartbeat signal | `NodeCtl.LastHeartbeat` 同时承担 node-ctl 和 agent 心跳，会把 node-ctl failure 误报为 agent failure | `HOLD`；Candidate 3 follow-up | 等状态模型再次修改或进入实现 review，再要求独立 agent report heartbeat |
+| `SP-04` | P2 | Phase recovery 条件 | `PlaceholderAgentHealthy=True -> Ready` 没有重新检查 Pod、node-ctl、ResourceSynced | `HOLD`；Candidate 6 | 若作者更新状态机，确认改为 re-evaluate all conditions；否则再单点评论 |
+| `SP-05` | P2 | force-finalizer 后 orphan manifest | agent 不可达时 controller 强制完成 CR 删除，本地 Static Pod manifest 可能永久残留且没有 API 对象可观察 | `HOLD`；Candidate 7 | 等 deletion/recovery 设计更新；需要 startup orphan reconciliation 或 durable tombstone |
+| `SP-06` | P2 | per-node RBAC isolation | 每个 host agent 目前被描述为可 patch cluster-scoped SandboxPool status，可能具备跨节点伪造状态的权限 | `NEEDS_EVIDENCE`；尚未形成独立 Candidate | 先确认 ServiceAccount/kubeconfig、ClusterRoleBinding 和 admission 方案，再判断是否评论 |
+| `SP-07` | P3 | 与现有 WarmPool 路径的关系 | 作者口头说明 two-generation architecture，但正文尚未形成 Relationship / Compatibility contract | `HUMAN_THREAD`；`@acsoto` 已提问并获作者回复 | 不抢答；观察作者是否补正文、迁移/并存边界 |
+| `SP-08` | P3 | node-local validation environment | envtest 无法覆盖 systemd、Static Pod、RuntimeClass、CRI socket、cgroup、mirror rebuild | `HOLD`；Candidate 5 | Phase 2/3 实现前要求 real-node/dedicated e2e acceptance environment |
+| `SP-09` | P2 | agent unreachable 后 stale Ready | 原正文没有 agent stale detection，旧 True conditions 可能长期保留 | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549854078)，`35d361e` 已增加 `PlaceholderAgentHealthy` | 不重复；只跟踪 `SP-03` / `SP-04` 的后续精度问题 |
+
+### 已有覆盖，不重复评论
+
+| Topic | Existing coverage | 处理原则 |
 | --- | --- | --- |
-| P0 | Static Pod 与 In-place Pod Resize 冲突 | KEP-1287 明确把 Static Pod resize 判为 Infeasible，直接冲突于 v1alpha1 核心目标 |
-| P1 | RuntimeClass / CRI 路由契约 | 当前正文缺少从 containerd handler 到独立 `placeholder-agent` socket 的真实集成层 |
-| P2 | placeholder-agent heartbeat 信号源 | `NodeCtl.LastHeartbeat` 同时被当成 node-ctl 与 agent 心跳，故障分类会混淆 |
-| P2 | Phase 恢复条件 | `PlaceholderAgentHealthy=True -> Ready` 跳过其它 Ready 条件，与全量优先级规则矛盾 |
-| P2 | force-finalizer 后的 orphan manifest | agent 不可达时强制完成删除，节点恢复后可能继续保留无 CRD 对应的 Static Pod |
-| P4 | node-ctl endpoint source of truth | 已被 Copilot 精准覆盖，除非正文不改，否则不重复 |
-| P5 | broader validation environment | 可并入 P0/P1，避免单独发太散 |
+| `nodeCtlEndpoint` source of truth | [Copilot](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549383909) | 等作者改正文，不重复 |
+| SSA multi-writer Conditions schema | [Copilot](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549383877) | 应使用 list-map-by-type；不重复 |
+| non-pointer struct + `omitempty` | Copilot [template](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3550185924) / [nodeCtl](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3550185961) / [status](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3550185995) | 不重复 |
+| mirror Pod `<5s` rebuild guarantee | [Copilot](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549383770) | 等实测或正文降级为 target |
+| `pause:3.9` 与 no-process/no-cgroup | Copilot [line 113](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549383825) / [line 126](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549383854) | 归入 `SP-02` 的更底层 integration contract，不重复表面措辞 |
 
 > 分析：proposal 已经回答了 Implementation Plan、v1alpha1 scope、Non-Goals、component responsibility、phase/conditions、creation/update/deletion flow、RBAC/webhook/version/test plan 的大框架。评论应避免重复问这些已经存在的内容。
 
@@ -453,12 +476,3 @@ Could the proposal clarify which mechanism Phase 3 intends to use?
 
 This distinction changes the compatibility table, implementation contract, and e2e acceptance criteria.
 ```
-
-## 2026-07-10 Review Decision
-
-- **已关闭**：Candidate 3 原始 stale/unreachable 问题，`35d361e` 已增加 controller-owned `PlaceholderAgentHealthy`。
-- **已发出、等待作者回复**：Candidate 4 的 Static Pod / native resize 冲突；comment URL 为 <https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395>。
-- **第二顺位**：Candidate 1 的 RuntimeClass / CRI integration layer；需要作者明确 containerd shim、sandboxer 或 CRI proxy 方案。
-- **先本地保留**：heartbeat signal conflation、Candidate 6 Phase recovery 和 Candidate 7 orphan cleanup；它们是后续正确性问题，不宜与 P0/P1 混成一条长评论。
-- **不重复**：node-ctl endpoint、SSA conditions list-map、`omitempty`、`<5s` rebuild、no-process/no-cgroup 均已有 bot review coverage。
-- **社区节奏**：`@acsoto` 的 existing WarmPool relationship 问题仍未进入 proposal 正文，等待作者补 Relationship / Compatibility 说明，不抢答也不重复问。
