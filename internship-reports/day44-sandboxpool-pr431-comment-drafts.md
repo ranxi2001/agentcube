@@ -312,18 +312,20 @@ Gap:
 
 ### Draft Comment
 
+`Proposed inline target`: `docs/proposals/sandbox-pool-management/README.md:598` at head `35d361e` (right side).
+
 ```md
-I think the Static Pod and in-place resize assumptions need to be reconciled before Phase 3 is implementable.
+I think the compatibility assumption here needs clarification because the proposal combines two behaviors that the native Kubernetes resize path does not currently support together.
 
-The proposal makes both Static Pod resource locking and no-rebuild `VPA InPlaceResize` part of the v1alpha1 core scope. However, Kubernetes KEP-1287 explicitly lists a static Pod as an `Infeasible` in-place resize case. The KEP milestones are also v1.27 alpha, v1.33 beta, and v1.35 stable, rather than v1.31 GA as shown in the compatibility table.
+The proposal makes both Static Pod resource locking and no-rebuild `VPA InPlaceResize` part of the v1alpha1 core scope. However, Kubernetes [KEP-1287](https://github.com/kubernetes/enhancements/blob/481e3710995d9996e27c7364b14d9ab870b65e74/keps/sig-node/1287-in-place-update-pod-resources/README.md#L332-L336) explicitly lists "The pod is a static pod" as an `Infeasible` in-place resize case. Its [metadata](https://github.com/kubernetes/enhancements/blob/481e3710995d9996e27c7364b14d9ab870b65e74/keps/sig-node/1287-in-place-update-pod-resources/kep.yaml#L35-L42) records v1.27 alpha, v1.33 beta, and v1.35 stable, rather than v1.31 GA.
 
-Could the proposal clarify which resize mechanism is intended?
+Could the proposal clarify which mechanism Phase 3 intends to use?
 
-- If this relies on the Kubernetes `/resize` path, Static Pods are currently unsupported.
-- If changing the local manifest rebuilds the Static Pod, the proposal should treat rebuild as the defined behavior and explain the resource-locking window.
-- If `placeholder-agent` uses a custom runtime mechanism that bypasses the native Pod resize path, could that contract and its scheduler/kubelet accounting validation be described explicitly rather than calling it Kubernetes/VPA InPlaceResize?
+- Native Kubernetes `/resize`: Static Pods are unsupported.
+- Local Static Pod manifest update: if kubelet rebuilds the Pod, this is not a no-rebuild resize, and the resource-locking behavior during replacement needs to be defined.
+- A custom `placeholder-agent` / runtime path: could the proposal describe how Kubernetes-visible requests, mirror Pod state, and node-ctl's actual limits remain consistent, instead of treating it as the native `InPlacePodVerticalScaling` path?
 
-This choice affects the core object model, compatibility table, and the acceptance criteria for resource accounting and resize lifecycle tests.
+This distinction changes the compatibility table, implementation contract, and e2e acceptance criteria.
 ```
 
 ## Candidate 5: validation environment for node-local behavior
@@ -424,17 +426,17 @@ Nature: design clarification with implementation-blocking evidence. 建议发在
 Recommended text:
 
 ```md
-I think the Static Pod and in-place resize assumptions need to be reconciled before Phase 3 is implementable.
+I think the compatibility assumption here needs clarification because the proposal combines two behaviors that the native Kubernetes resize path does not currently support together.
 
-The proposal makes both Static Pod resource locking and no-rebuild `VPA InPlaceResize` part of the v1alpha1 core scope. However, Kubernetes KEP-1287 explicitly lists a static Pod as an `Infeasible` in-place resize case. The KEP milestones are also v1.27 alpha, v1.33 beta, and v1.35 stable, rather than v1.31 GA as shown in the compatibility table.
+The proposal makes both Static Pod resource locking and no-rebuild `VPA InPlaceResize` part of the v1alpha1 core scope. However, Kubernetes [KEP-1287](https://github.com/kubernetes/enhancements/blob/481e3710995d9996e27c7364b14d9ab870b65e74/keps/sig-node/1287-in-place-update-pod-resources/README.md#L332-L336) explicitly lists "The pod is a static pod" as an `Infeasible` in-place resize case. Its [metadata](https://github.com/kubernetes/enhancements/blob/481e3710995d9996e27c7364b14d9ab870b65e74/keps/sig-node/1287-in-place-update-pod-resources/kep.yaml#L35-L42) records v1.27 alpha, v1.33 beta, and v1.35 stable, rather than v1.31 GA.
 
-Could the proposal clarify which resize mechanism is intended?
+Could the proposal clarify which mechanism Phase 3 intends to use?
 
-- If this relies on the Kubernetes `/resize` path, Static Pods are currently unsupported.
-- If changing the local manifest rebuilds the Static Pod, the proposal should treat rebuild as the defined behavior and explain the resource-locking window.
-- If `placeholder-agent` uses a custom runtime mechanism that bypasses the native Pod resize path, could that contract and its scheduler/kubelet accounting validation be described explicitly rather than calling it Kubernetes/VPA InPlaceResize?
+- Native Kubernetes `/resize`: Static Pods are unsupported.
+- Local Static Pod manifest update: if kubelet rebuilds the Pod, this is not a no-rebuild resize, and the resource-locking behavior during replacement needs to be defined.
+- A custom `placeholder-agent` / runtime path: could the proposal describe how Kubernetes-visible requests, mirror Pod state, and node-ctl's actual limits remain consistent, instead of treating it as the native `InPlacePodVerticalScaling` path?
 
-This choice affects the core object model, compatibility table, and the acceptance criteria for resource accounting and resize lifecycle tests.
+This distinction changes the compatibility table, implementation contract, and e2e acceptance criteria.
 ```
 
 ## 2026-07-10 Review Decision

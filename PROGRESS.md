@@ -53,7 +53,7 @@
 
 ## Next
 
-- For #431: no upstream action without user confirmation. If commenting, first show the exact P0 Static Pod / in-place resize clarification from the day44 drafts; keep RuntimeClass routing as the second independent comment, not an omnibus review.
+- For #431: exact P0 Static Pod / in-place resize inline draft is ready in the day44 comment drafts, targeted at head `35d361e` line 598 with pinned KEP-1287 evidence. It is awaiting user review; do not post until the user explicitly confirms the exact target and full English text. Keep RuntimeClass routing as a later independent comment, not an omnibus review.
 - If validating #431 technically, first prove or rule out the proposed Static Pod manifest resize path against Kubernetes 1.34/1.35 behavior; then spike containerd handler integration and scheduler accounting. Do not describe native `/resize` support for Static Pods as available.
 - For Sleep/Resume: keep as design/fake-provider/test-plan unless maintainers clarify ownership. Next useful local work remains Router resume-before-proxy tests or API contract, not broad upstream PR.
 - For agent-sandbox v0.5.x: keep separate from #387. Clean follow-up only after official scope decision; disclose clean-install evidence and old CRD storedVersions migration gap.
