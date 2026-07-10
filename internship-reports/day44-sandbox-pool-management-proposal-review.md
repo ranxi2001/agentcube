@@ -984,7 +984,7 @@ Kubernetes 的实际契约是：kubelet 使用已配置的 runtime service endpo
 
 - 不在已经解决的 resize thread 留纯礼貌回复。
 - `SP-01` 从 `POSTED_WAITING` 改为 `RESOLVED`。
-- `SP-02` 从 P1 提升到 P0，但仍需用户确认 exact inline comment 后才能发布。
+- `SP-02` 从 P1 提升到 P0；用户确认 exact inline target/body 后，已发布并进入 `POSTED_WAITING`。
 - Copilot 已覆盖 `VPA` 残留措辞、broken links、`<5s`、no-process/no-cgroup 等问题，不重复评论。
 - PR 最新观测 head 为 `b6a784c`；该 head 的 build、e2e、coverage、lint、codegen、DCO 等 ordinary checks 均成功，tide 仍因缺 `lgtm` / `approved` pending。
 
@@ -997,6 +997,18 @@ Kubernetes 的实际契约是：kubelet 使用已配置的 runtime service endpo
 图中红色虚线框是 proposal 尚未定义的 integration layer。RuntimeClass 只把 handler 名称交给 kubelet 已配置的同一个 CRI runtime，不会自动让 kubelet 改连 `/run/sandbox-pool/cri.sock`。因此实现必须明确选择 containerd shim/sandboxer、CRI dispatch proxy，或节点全局 CRI proxy。
 
 > 注释：这张 GPT 图片是架构解释图，不是精确协议 source of truth。准确的 Kubernetes/CRI 契约、证据链接和 upstream comment 草稿仍以 [Day44 comment tracker](day44-sandboxpool-pr431-comment-drafts.md#candidate-1-node-side-runtimeclass--cri-integration-contract) 为准。
+
+### SP-02 发布记录
+
+2026-07-10，在发布前重新确认 PR 仍为 open、head 仍是 `b6a784c`、line 378 原文未变，且现有 review comments 没有 RuntimeClass / second CRI endpoint 的重复讨论。用户确认 exact target/body 后，评论发布到：
+
+- <https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557686951>
+- GitHub review comment ID：`3557686951`
+- 锚点：`docs/proposals/sandbox-pool-management/README.md`，right-side line `378`
+
+发布后通过 GitHub API 回读，正文、commit ID、文件、行号和 side 均与确认 payload 一致。当前只等待作者澄清 containerd shim/sandboxer、handler-aware CRI proxy 或 node-wide CRI proxy 三种接入路径中的实际选择；在回复前不追加 `SP-03`..`SP-08`。
+
+> 分析：这次 comment 的目标不是直接否定方案，而是让 proposal 补上能够指导开发和测试的节点 runtime contract。只有明确 integration layer，后续才能决定 `placeholder-agent` 实现哪套接口、默认 workload 如何继续经过 containerd，以及 e2e 环境需要验证什么。
 
 生成记录：
 

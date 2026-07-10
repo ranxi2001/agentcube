@@ -4,7 +4,7 @@
 
 继续审阅：2026-07-10
 
-目标：持续整理 #431 SandboxPool proposal 的开发视角疑问，给用户审阅。本文档只用于内部审稿，不直接发 upstream。
+目标：持续整理 #431 SandboxPool proposal 的开发视角疑问，给用户审阅，并记录经用户逐字确认后发布的 upstream comment。
 
 目标 PR：
 
@@ -56,7 +56,7 @@
 | ID | Priority | Topic | 当前判断 | Coverage / Status | 下一步 |
 | --- | --- | --- | --- | --- | --- |
 | `SP-01` | P0 | Static Pod 与 native in-place resize | 作者明确选择 Static Pod rebuild + custom CRI interception，不再依赖 native `/resize`；设计歧义已解决，runtime guarantee 尚未实测 | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395)、[reply](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557359462)、`b6a784c` | 不在原 thread 追评；custom CRI integration 归入 `SP-02`，rebuild-window e2e 归入 `SP-08` |
-| `SP-02` | P0 | RuntimeClass / CRI socket integration | RuntimeClass handler 是同一 CRI `RunPodSandbox` 请求的配置名，不会自动让 kubelet 改连 agent socket；新正文把 custom CRI interception 提升为核心机制，但仍缺 containerd shim/sandboxer/CRI proxy 层 | `READY_LOCAL`；Candidate 1；现有 bot 只覆盖 no-process/no-cgroup 和 VPA 残留措辞 | 给用户审查独立 inline comment；未确认前不发布 |
+| `SP-02` | P0 | RuntimeClass / CRI socket integration | RuntimeClass handler 是同一 CRI `RunPodSandbox` 请求的配置名，不会自动让 kubelet 改连 agent socket；新正文把 custom CRI interception 提升为核心机制，但仍缺 containerd shim/sandboxer/CRI proxy 层 | `POSTED_WAITING`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557686951)；Candidate 1 | 等作者回答 integration layer；等待期间不追加同类问题，也不堆叠 `SP-03`..`SP-08` |
 | `SP-03` | P2 | placeholder-agent heartbeat signal | `NodeCtl.LastHeartbeat` 同时承担 node-ctl 和 agent 心跳，会把 node-ctl failure 误报为 agent failure | `HOLD`；Candidate 3 follow-up | 等状态模型再次修改或进入实现 review，再要求独立 agent report heartbeat |
 | `SP-04` | P2 | Phase recovery 条件 | `PlaceholderAgentHealthy=True -> Ready` 没有重新检查 Pod、node-ctl、ResourceSynced | `HOLD`；Candidate 6 | 若作者更新状态机，确认改为 re-evaluate all conditions；否则再单点评论 |
 | `SP-05` | P2 | force-finalizer 后 orphan manifest | agent 不可达时 controller 强制完成 CR 删除，本地 Static Pod manifest 可能永久残留且没有 API 对象可观察 | `HOLD`；Candidate 7 | 等 deletion/recovery 设计更新；需要 startup orphan reconciliation 或 durable tombstone |
@@ -160,6 +160,14 @@ Proposed inline target:
 - Target text: `kubelet routes CRI calls to placeholder-agent's Socket ... based on the RuntimeClass handler name.`
 - Nature: implementation-contract question; not a formal blocking review
 - Duplicate check: latest 38 review comments contain no `RuntimeClass` / `runtime_handler` / second-CRI-endpoint discussion
+
+Publication record:
+
+- Published after the user confirmed the exact target and body on 2026-07-10.
+- Comment: <https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557686951>
+- GitHub review comment ID: `3557686951`
+- Server-side verification: body, commit ID, path, right-side line `378`, and side all match the approved payload.
+- Current state: `POSTED_WAITING`; do not append follow-up questions until the author replies or the proposal changes this contract.
 
 ```md
 I have one question about the node-side RuntimeClass / CRI integration contract.
@@ -522,13 +530,13 @@ Could the proposal clarify which mechanism Phase 3 intends to use?
 This distinction changes the compatibility table, implementation contract, and e2e acceptance criteria.
 ```
 
-## Current Recommended Single Comment
+## Current Posted Single Comment
 
-2026-07-10 `b6a784c` 后判断：若继续 review，下一条只考虑 `SP-02` RuntimeClass / CRI integration contract。它应作为独立 inline question，不能塞进已经解决的 resize thread。
+2026-07-10 已按用户对 exact target/body 的确认，发布 `SP-02` RuntimeClass / CRI integration contract 独立 inline question；没有塞进已经解决的 resize thread。
 
-推荐 target：`docs/proposals/sandbox-pool-management/README.md` 的 RuntimeClass 说明，即 `b6a784c` 中“kubelet routes CRI calls to placeholder-agent's Socket”这一行。
+发布 target：`docs/proposals/sandbox-pool-management/README.md` 的 RuntimeClass 说明，即 `b6a784c` 中“kubelet routes CRI calls to placeholder-agent's Socket”这一行。
 
-Nature: implementation-contract clarification. Exact target 已核对为 head `b6a784c` 的 right-side line 378；最新 38 条 review comments 无重复。草稿已具备官方 Kubernetes kubelet / CRI 和 containerd runtime-handler 证据，但未获得用户发布确认。
+Nature: implementation-contract clarification. 发布前确认 PR 仍为 open、head 精确为 `b6a784cb1418edde3a323e1a593f35e8f1a6d6ec`、right-side line 378 原文未变，且已有 review comments 无重复。发布后通过 GitHub API 回读，正文和锚点与确认内容一致：[discussion_r3557686951](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557686951)。
 
 ```md
 I have one question about the node-side RuntimeClass / CRI integration contract.
