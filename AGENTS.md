@@ -62,6 +62,8 @@ At the start of each new Agent work loop, read root `PROGRESS.md` before diving 
 
 ## Knowledge Capture Guidelines
 
+For internship weekly reports and engineering activity summaries, use a local-first evidence policy. Development tasks have corresponding repositories, worktrees, reports, logs, and Git history on this machine; inspect those local sources before querying remote services. Use GitHub data only for information whose authoritative form is the GitHub conversation or current upstream state, such as PR/issue metadata, review comments, checks, labels, and merge status. Do not use remote profile data to infer internal identity fields such as reporter name, mentor, or manager. Keep weekly-report identity values in ignored local environment configuration, and keep rendered emails containing personal names outside the Git repository unless the user explicitly approves committing them.
+
 At the end of each task, classify any useful conversation outcome before stopping:
 
 - Stable project rules, user preferences, repo conventions, environment facts, and recurring constraints go into `AGENTS.md`.
