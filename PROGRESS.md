@@ -9,6 +9,8 @@
 ## Current State
 
 - Branch/workflow：当前本地在 `intern`，该分支保存实习报告、TODO、本地 skills 和中文记录；fork `main` 必须保持 upstream clean mirror。记录类 commit 完成后默认 push `origin intern:intern`；任何 upstream issue/PR/comment/review request/maintainer mention 必须先让用户确认 exact target/body。
+- Day45 community screening：2026-07-10 已按 assignee、`/assign`、active PR、scope、环境和当前源码筛选最新 open issues；没有可直接认领的 A 级任务。#432 已由 `avinxshKD` 认领并有 #433；#430 已有 #431 proposal；#365 依赖 #366/#379 和 Kuasar/KVM；#348 已由 merged PR #378 修复但 issue 未关闭。旧 #272 与 open PR #249/release policy 有交叉，需先协调，不能直接接手。详见 `internship-reports/day45-latest-community-issue-task-screening.md`。
+- Latest upstream baseline：本轮只执行 `git fetch upstream main`，未切换/rebase `intern`；最新观测 `upstream/main eee8aea`。#420、#422、#423 已合并，#403、#414 也早已合并；不要继续按 open PR 跟踪。
 - Day44 / PR #431：正式 proposal PR `https://github.com/volcano-sh/agentcube/pull/431`，latest observed head `35d361e` (`fix stale state issue`)，title `[Proposal] add sandbox-pool management proposal`，关联 discussion #430。PR body 已从 `Fixes #430` 改为 `Refs #430`，front matter 已补 `tracking-issue: "#430"`，DCO success；普通 checks 已绿，tide 仍因缺 `approved`/`lgtm` pending。已发两条 inline clarification comments：stale/unreachable status semantics `https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549854078`，作者已通过 `35d361e` 基本吸收；Static Pod / native in-place resize compatibility `https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395`，有 pinned KEP-1287 证据，等待作者回复。
 - Day44 输出：`internship-reports/day44-sandbox-pool-management-proposal-review.md` 保存完整架构剖析、图和 review 方法；`internship-reports/day44-sandboxpool-pr431-comment-drafts.md` 的“剩余问题跟踪表”是 #431 review 状态唯一索引，使用稳定 ID `SP-01`..`SP-09` 记录优先级、coverage、status 和 next step。当前 `SP-01` resize 已发待回复，`SP-02` RuntimeClass/CRI integration 为下一候选，`SP-03`..`SP-08` 暂存或待证据，`SP-09` 已解决；bot 已覆盖项单列为 do-not-repeat。
 - #431 后续观察点：`@acsoto` 已问新 SandboxPool 与现有 WarmPool 路径关系，作者称是 two-generation architecture，但正文似乎还没补 Relationship section。我们此前的 stale/unreachable inline comment 已被 `35d361e` 基本吸收；新增实现仍把 `NodeCtl.LastHeartbeat` 当 agent heartbeat，且 Phase table 的 `PlaceholderAgentHealthy=True → Ready` 未重检其它 Ready 条件。删除超时强制移除 finalizer 还可能遗留无 CRD 对应的 node-local Static Pod manifest。三项先本地保留，不连续堆 upstream 评论。Copilot 已覆盖 endpoint source of truth、SSA conditions list-map、`omitempty`、`<5s` rebuild 和 no-process/no-cgroup，不重复。
@@ -19,12 +21,9 @@
 
 - #431 SandboxPool proposal：review / observe only，暂不继续发评论，除非用户确认具体英文文本。
 - #429 Go toolchain update workflow：已创建 upstream PR，普通 CI 绿，`tide` pending 等 review/labels；不要自动 push/comment。
-- #423 runner pinning：open，普通 CI 绿，等 review/labels；不要自动 rebase/push/comment。
-- #422 Dependabot Docker base images：open，普通 CI 绿，已解释 `golang` ignore；等 review/labels，不自动改。
-- #414 branch push validation：open，普通 CI 绿，等 review/labels，不自动改。
-- #403 remove unused agentd：open，等 review/labels；若 reviewer 质疑 Dockerfile scope，按 Day29 口径解释或拆 follow-up。
 - #387 agent-sandbox v0.4.6 compatibility：保持 current stable compatibility 口径，不把 v0.5.x / Sleep/Resume / PicoD cleanup 混入；有 review 再小步处理并先确认。
 - #385 WarmPoolAvailable PoC：主要等 maintainer review / `lgtm` / `approve` / tide。
+- #433 WorkloadManager chart auth：`avinxshKD` 已认领并提交 PR；普通 checks 通过、tide 等 labels。只可考虑 Helm/RBAC/auth 验证协作，不开重复实现。
 
 ## Durable Constraints
 
@@ -53,6 +52,7 @@
 
 ## Next
 
+- Community tasks：本轮不 `/assign`。下一次先刷新 open issue/PR；只有新的 focused unowned issue，或 maintainer 将 #386/#272 拆成 dedicated sub-issue，才进入认领准备。#433 若做协作，先在临时 worktree 完成 Helm render/lint 和 auth/RBAC focused validation，再向用户提交 exact review draft。
 - For #431: wait for the author's response to the Static Pod / in-place resize comment `discussion_r3556111395`; do not add RuntimeClass routing or follow-up comments while this architecture-defining question is active. Classify the response against native `/resize`, local rebuild, or custom runtime semantics before replying, and obtain user confirmation for any reply.
 - If validating #431 technically, first prove or rule out the proposed Static Pod manifest resize path against Kubernetes 1.35/1.36 behavior; then spike containerd handler integration and scheduler accounting. Current stable channel is v1.36.2; KEP-1287 `stable: v1.35` means feature graduation milestone, not latest Kubernetes release. Do not describe native `/resize` support for Static Pods as available.
 - For Sleep/Resume: keep as design/fake-provider/test-plan unless maintainers clarify ownership. Next useful local work remains Router resume-before-proxy tests or API contract, not broad upstream PR.
