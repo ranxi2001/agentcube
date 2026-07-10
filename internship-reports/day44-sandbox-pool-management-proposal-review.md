@@ -988,6 +988,25 @@ Kubernetes 的实际契约是：kubelet 使用已配置的 runtime service endpo
 - Copilot 已覆盖 `VPA` 残留措辞、broken links、`<5s`、no-process/no-cgroup 等问题，不重复评论。
 - PR 最新观测 head 为 `b6a784c`；该 head 的 build、e2e、coverage、lint、codegen、DCO 等 ordinary checks 均成功，tide 仍因缺 `lgtm` / `approved` pending。
 
+## 2026-07-10 RuntimeClass / CRI 路由缺口图解
+
+下面的信息图把 `SP-02` 放回原始 #430 的架构上下文中。上半部分是 #430 已明确的职责分层：Kubernetes 管资源池，AgentCube 管 session。下半部分放大 #431 的节点侧实现；问题不在 CRD、Static Pod 或 node-ctl，而在 containerd 收到 `runtime_handler=placeholder` 之后，如何真正连接到独立的 `placeholder-agent` CRI socket。
+
+![SandboxPool RuntimeClass / CRI routing gap](day44-sandboxpool-runtimeclass-cri-routing-gap.png)
+
+图中红色虚线框是 proposal 尚未定义的 integration layer。RuntimeClass 只把 handler 名称交给 kubelet 已配置的同一个 CRI runtime，不会自动让 kubelet 改连 `/run/sandbox-pool/cri.sock`。因此实现必须明确选择 containerd shim/sandboxer、CRI dispatch proxy，或节点全局 CRI proxy。
+
+> 注释：这张 GPT 图片是架构解释图，不是精确协议 source of truth。准确的 Kubernetes/CRI 契约、证据链接和 upstream comment 草稿仍以 [Day44 comment tracker](day44-sandboxpool-pr431-comment-drafts.md#candidate-1-node-side-runtimeclass--cri-integration-contract) 为准。
+
+生成记录：
+
+- 模型：`gpt-image-2`
+- 比例：16:9；实际 PNG 为 `1672x941`
+- 文件：`day44-sandboxpool-runtimeclass-cri-routing-gap.png`
+- 可复用 prompt：[day44-sandboxpool-runtimeclass-cri-routing-gap-gpt-image-prompt.md](day44-sandboxpool-runtimeclass-cri-routing-gap-gpt-image-prompt.md)
+- 文件检查：`file` 确认为 8-bit RGB、non-interlaced PNG；大小约 1.4 MiB；已通过 `view_image` 原尺寸目视检查
+- 小问题：环境没有 ImageMagick `identify`，命令返回 `identify: command not found`；改用 `file` 获取格式与 `1672 x 941` 尺寸，并结合 `view_image` 完成验证，不影响产物
+
 ## 参考链接
 
 - AgentCube discussion #430: <https://github.com/volcano-sh/agentcube/issues/430>
