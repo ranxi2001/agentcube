@@ -943,6 +943,51 @@ placeholder-agent 是 host-level process，还要碰 CRI socket、static pod man
 
 当前最现实的行动是：scope / closing semantics comment 已被 PR 更新吸收，暂不需要继续回复。后续先观察作者或 maintainer 对 proposal 本身的技术 review；Static Pod / InPlaceResize / stale heartbeat 等技术问题暂不继续发，除非有更强文档或实验证据，且用户确认具体英文评论。
 
+## 2026-07-10 Resize 回复与设计迁移
+
+我们在 [Static Pod / native resize comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395) 中要求作者在三条路径中明确选择：native `/resize`、local manifest rebuild、custom runtime mechanism。
+
+作者随后在 [reply](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557359462) 中确认：旧文里的 “VPA” 只是类比，Static Pod manifest resource spec 变化实际会 delete-and-recreate。对应 commit `b6a784c fix VPA issue` 对 proposal 做了 31 行修改（+23/-8）。
+
+> 注释：回复者 `lichuqiang` 是 proposal 作者，GitHub association 为 `NONE`。这能确定作者设计意图，但不代表 AgentCube maintainer 已经接受该架构。
+
+### 新的规范路径
+
+更新后的设计是一个混合机制：
+
+| 层面 | 新机制 | 不再依赖什么 |
+| --- | --- | --- |
+| Kubernetes scheduler reservation | 修改 Static Pod manifest，kubelet rebuild Pod / mirror Pod | 不走 `/resize` subresource |
+| node-ctl actual capacity | node-level cgroup 在 placeholder rebuild 期间持续存在 | 不依赖 placeholder Pod cgroup 保存 sandbox state |
+| resource policy apply | placeholder-agent 在新一轮 `CreateContainer` 路径执行 custom CRI interception | 不依赖 VPA controller / `InPlacePodVerticalScaling` feature gate |
+| rebuild window safety | mirror Pod API view 可短暂消失；依赖 kubelet local podManager/admission 拒绝冲突 Pod | 不把 scheduler cache 连续可见当成安全前提 |
+
+> 分析：这已经正面修正了原 proposal 最危险的兼容性错误。Static Pod 仍然 rebuild，文档不再声称原生 no-rebuild resize，也删除了错误的 Kubernetes VPA 版本依赖。这里解决的是设计 contract；kubelet admission 能否在 mirror gap 中稳定阻止冲突 Pod，仍需真实节点 e2e 证明。
+
+### 已解决与未解决
+
+`SP-01` 可以标记为 resolved，因为作者已经补齐：
+
+- 机制选择；
+- rebuild 行为；
+- scheduler/mirror window 的设计假设；
+- feature gate / K8s version dependency；
+- scale-driven rebuild 与真实 deletion 对 node-ctl 生命周期的区分。
+
+但 `b6a784c` 让另一个问题变得更关键：正文现在把 `custom CRI interception` 作为核心机制，同时仍说 RuntimeClass handler 会让 kubelet 把单个 Pod 的 CRI 请求路由到 `/run/sandbox-pool/cri.sock`。
+
+Kubernetes 的实际契约是：kubelet 使用已配置的 runtime service endpoint，把 RuntimeClass 解析出的 handler 作为 `RunPodSandboxRequest.runtime_handler` 传给同一 CRI implementation。RuntimeClass 本身不会让 kubelet 切换到第二个 CRI socket。proposal 仍需明确 placeholder-agent 到底是 containerd runtime v2 shim / sandbox controller、CRI dispatch proxy，还是节点全局 CRI proxy。
+
+> 分析：这不是对已解决问题的追问，而是新方案暴露出的下一层 integration contract。它决定 Phase 2/3 能否在不替换正常 workload CRI 路径的前提下实现。
+
+### Review 决策
+
+- 不在已经解决的 resize thread 留纯礼貌回复。
+- `SP-01` 从 `POSTED_WAITING` 改为 `RESOLVED`。
+- `SP-02` 从 P1 提升到 P0，但仍需用户确认 exact inline comment 后才能发布。
+- Copilot 已覆盖 `VPA` 残留措辞、broken links、`<5s`、no-process/no-cgroup 等问题，不重复评论。
+- PR 最新观测 head 为 `b6a784c`；该 head 的 build、e2e、coverage、lint、codegen、DCO 等 ordinary checks 均成功，tide 仍因缺 `lgtm` / `approved` pending。
+
 ## 参考链接
 
 - AgentCube discussion #430: <https://github.com/volcano-sh/agentcube/issues/430>

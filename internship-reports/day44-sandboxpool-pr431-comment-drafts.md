@@ -9,7 +9,7 @@
 目标 PR：
 
 - PR: <https://github.com/volcano-sh/agentcube/pull/431>
-- Head observed: `35d361e` (`fix stale state issue`)
+- Head observed: `b6a784c` (`fix VPA issue`)
 - File: `docs/proposals/sandbox-pool-management/README.md`
 - Status: open; `@acsoto` 已提出一条真人 MEMBER 架构问题；普通 checks 已通过，仍缺 `lgtm` / `approved`
 - Comment rule: upstream-facing text must be English; do not post without explicit user confirmation.
@@ -29,9 +29,20 @@
 
 > 分析：这两点不是文案偏好，而是会决定 Phase 2/3 是否能按 proposal 实现。它们的优先级高于继续润色 API 字段或测试环境描述。
 
+2026-07-10 作者回复后更新：`lichuqiang` 在 [resize thread](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557359462) 明确接受 Static Pod manifest 变化会触发 delete-and-recreate，并说明旧文中的 VPA 只是类比。随后提交 `b6a784c fix VPA issue`：
+
+- 把 core design / goal / decision table 改为 `custom CRI interception (VPA analogy)`。
+- Update Flow 明确只有 Static Pod rebuild，不走 Kubernetes `/resize`。
+- 删除 `InPlacePodVerticalScaling` feature gate 和版本依赖。
+- 新增 rebuild 期间的 node-ctl、node-level cgroup、mirror Pod、scheduler/kubelet admission 安全表。
+
+这正面回答了 `SP-01`，不需要在原 thread 继续追问。但新方案把 `custom CRI interception` 变成 Phase 2/3 的核心机制，而正文仍声称 RuntimeClass handler 会让 kubelet 改连 `/run/sandbox-pool/cri.sock`。因此 `SP-02` 不再只是后续实现细节，而是新方案能否接入现有节点 runtime 的前置契约。
+
+> 分析：这是 proposal 作者对自己设计的明确修改，但作者的 GitHub association 是 `NONE`，不能表述成 maintainer consensus。是否接受整个 SandboxPool 方案仍要等 MEMBER/OWNER review。
+
 ## 剩余问题跟踪表
 
-最后同步：2026-07-10；PR head `35d361e`；本表是 #431 后续 review 状态的唯一索引。详细证据和英文草稿仍保留在各 Candidate 小节。
+最后同步：2026-07-10；PR head `b6a784c`；本表是 #431 后续 review 状态的唯一索引。详细证据和英文草稿仍保留在各 Candidate 小节。
 
 状态约定：
 
@@ -44,14 +55,14 @@
 
 | ID | Priority | Topic | 当前判断 | Coverage / Status | 下一步 |
 | --- | --- | --- | --- | --- | --- |
-| `SP-01` | P0 | Static Pod 与 native in-place resize | 默认 manifest 资源变化会改变 Static Pod UID 并触发 replacement；与 v1alpha1 no-rebuild resize 目标冲突 | `POSTED_WAITING`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395)，Candidate 4 | 等作者在 native `/resize`、local rebuild、custom runtime 三种路径中明确选择；不追评 |
-| `SP-02` | P1 | RuntimeClass / CRI socket integration | RuntimeClass handler 是同一 CRI `RunPodSandbox` 请求的配置名，不会自动让 kubelet 改连 agent socket；缺 containerd shim/sandboxer/CRI proxy 层 | `READY_LOCAL`；Candidate 1；现有 bot 只覆盖 no-process/no-cgroup | 仅在 `SP-01` 回复后仍保留该架构时，给用户审查独立评论 |
+| `SP-01` | P0 | Static Pod 与 native in-place resize | 作者明确选择 Static Pod rebuild + custom CRI interception，不再依赖 native `/resize`；设计歧义已解决，runtime guarantee 尚未实测 | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395)、[reply](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557359462)、`b6a784c` | 不在原 thread 追评；custom CRI integration 归入 `SP-02`，rebuild-window e2e 归入 `SP-08` |
+| `SP-02` | P0 | RuntimeClass / CRI socket integration | RuntimeClass handler 是同一 CRI `RunPodSandbox` 请求的配置名，不会自动让 kubelet 改连 agent socket；新正文把 custom CRI interception 提升为核心机制，但仍缺 containerd shim/sandboxer/CRI proxy 层 | `READY_LOCAL`；Candidate 1；现有 bot 只覆盖 no-process/no-cgroup 和 VPA 残留措辞 | 给用户审查独立 inline comment；未确认前不发布 |
 | `SP-03` | P2 | placeholder-agent heartbeat signal | `NodeCtl.LastHeartbeat` 同时承担 node-ctl 和 agent 心跳，会把 node-ctl failure 误报为 agent failure | `HOLD`；Candidate 3 follow-up | 等状态模型再次修改或进入实现 review，再要求独立 agent report heartbeat |
 | `SP-04` | P2 | Phase recovery 条件 | `PlaceholderAgentHealthy=True -> Ready` 没有重新检查 Pod、node-ctl、ResourceSynced | `HOLD`；Candidate 6 | 若作者更新状态机，确认改为 re-evaluate all conditions；否则再单点评论 |
 | `SP-05` | P2 | force-finalizer 后 orphan manifest | agent 不可达时 controller 强制完成 CR 删除，本地 Static Pod manifest 可能永久残留且没有 API 对象可观察 | `HOLD`；Candidate 7 | 等 deletion/recovery 设计更新；需要 startup orphan reconciliation 或 durable tombstone |
 | `SP-06` | P2 | per-node RBAC isolation | 每个 host agent 目前被描述为可 patch cluster-scoped SandboxPool status，可能具备跨节点伪造状态的权限 | `NEEDS_EVIDENCE`；尚未形成独立 Candidate | 先确认 ServiceAccount/kubeconfig、ClusterRoleBinding 和 admission 方案，再判断是否评论 |
 | `SP-07` | P3 | 与现有 WarmPool 路径的关系 | 作者口头说明 two-generation architecture，但正文尚未形成 Relationship / Compatibility contract | `HUMAN_THREAD`；`@acsoto` 已提问并获作者回复 | 不抢答；观察作者是否补正文、迁移/并存边界 |
-| `SP-08` | P3 | node-local validation environment | envtest 无法覆盖 systemd、Static Pod、RuntimeClass、CRI socket、cgroup、mirror rebuild | `HOLD`；Candidate 5 | Phase 2/3 实现前要求 real-node/dedicated e2e acceptance environment |
+| `SP-08` | P3 | node-local validation environment | envtest 无法覆盖 systemd、Static Pod、RuntimeClass、CRI socket、cgroup、mirror rebuild，也不能证明 mirror gap 中冲突 Pod 会被 kubelet admission 拒绝 | `HOLD`；Candidate 5 | Phase 2/3 实现前要求 real-node/dedicated e2e，覆盖 rebuild 时 UID/mirror gap、conflicting Pod admit failure 和 node-ctl cgroup continuity |
 | `SP-09` | P2 | agent unreachable 后 stale Ready | 原正文没有 agent stale detection，旧 True conditions 可能长期保留 | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549854078)，`35d361e` 已增加 `PlaceholderAgentHealthy` | 不重复；只跟踪 `SP-03` / `SP-04` 的后续精度问题 |
 
 ### 已有覆盖，不重复评论
@@ -104,12 +115,13 @@ flowchart LR
 
 ## Candidate 1: Node-side RuntimeClass / CRI integration contract
 
-建议状态：提升为 P1。已有 Copilot comments 只覆盖了 no-process/no-cgroup 的表面矛盾，没有覆盖 RuntimeClass handler 如何连接到独立 CRI socket 这个更基础的集成契约。
+建议状态：在 `b6a784c` 后提升为 P0。已有 Copilot comments 只覆盖 no-process/no-cgroup 和 VPA 残留措辞，没有覆盖 RuntimeClass handler 如何连接到独立 CRI socket 这个更基础的集成契约。
 
 ### Evidence
 
 Proposal evidence:
 
+- Head `b6a784c` lines 44/60/118: resource adjustment is now explicitly `custom CRI interception (VPA analogy)` and no longer uses native in-place resize.
 - Lines 112-113: design table says the placeholder uses Static Pod, and execution mode says no actual process / skip cgroup.
 - Lines 124-126: responsibility matrix says placeholder-agent is CRI handler; Static Pod routes CRI calls through RuntimeClass and claims no actual process / no cgroup.
 - Lines 174-181: placeholder pod template says the manifest uses `pause:3.9` as placeholder image, while placeholder-agent runs as host-level systemd.
@@ -142,7 +154,9 @@ Official contract evidence:
 ```md
 I have one question about the RuntimeClass integration contract.
 
-The proposal says that kubelet routes CRI calls to `/run/sandbox-pool/cri.sock` based on the `placeholder` RuntimeClass handler, and that `placeholder-agent` implements the CRI server. My understanding of the Kubernetes CRI contract is that kubelet keeps using its configured runtime service and passes the resolved handler as `RunPodSandboxRequest.runtime_handler`. For containerd, that handler selects a configured runtime/shim (or, in containerd 2.x, a sandboxer); RuntimeClass by itself does not select a second CRI endpoint.
+The updated proposal now makes custom CRI interception part of the resource-adjustment path. It also says that kubelet routes CRI calls to `/run/sandbox-pool/cri.sock` based on the `placeholder` RuntimeClass handler, and that `placeholder-agent` implements the CRI server.
+
+My understanding of the Kubernetes CRI contract is that kubelet keeps using its configured runtime service and passes the resolved handler as `RunPodSandboxRequest.runtime_handler`. For containerd, that handler selects a configured runtime/shim (or, in containerd 2.x, a sandboxer); RuntimeClass by itself does not select a second CRI endpoint.
 
 Could the proposal specify the missing integration layer between the `placeholder` handler and `placeholder-agent`?
 
@@ -366,6 +380,27 @@ Could the proposal clarify which mechanism Phase 3 intends to use?
 This distinction changes the compatibility table, implementation contract, and e2e acceptance criteria.
 ```
 
+### 2026-07-10 Author Reply and Resolution
+
+作者回复：<https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557359462>
+
+作者提交：`b6a784c fix VPA issue`
+
+作者选择的是一个组合路径：
+
+1. **Kubernetes-visible reservation**：修改节点本地 Static Pod manifest，接受 kubelet delete-and-recreate；不使用 `/resize`。
+2. **Actual sandbox capacity**：node-ctl 的 node-level cgroup 在 placeholder rebuild 期间保持运行，并通过 custom CRI interception 接收新 policy。
+3. **Scheduler safety**：mirror Pod 在 API Server 中有短暂删除窗口；proposal 不依赖这一窗口内的 scheduler cache，而依赖 kubelet local podManager/admission 拒绝冲突 Pod。
+
+这已经满足原评论要求的机制选择、compatibility table 修正和 rebuild-window 说明，因此 `SP-01` 状态改为 `RESOLVED`。同一 thread 不需要再回复。
+
+仍需区分两件事：
+
+- 原生 Static Pod `/resize` 兼容性问题已解决。
+- custom CRI interception 如何通过 RuntimeClass 接入仍未解决，转入独立 `SP-02`。
+
+正文还残留 `VPA resize tests`、Phase 3 `VPA resize`、v1alpha1 `VPA resize` 和 PR body 的 `VPA InPlaceResize` 表述；Copilot 已在 `b6a784c` 上直接指出这些术语一致性问题，不重复发 human comment。
+
 ## Candidate 5: validation environment for node-local behavior
 
 建议状态：不要单独发太早。可以并入 Candidate 4；如果 maintainer 要求 implementation confidence，再作为 validation-plan comment。
@@ -455,11 +490,11 @@ When the agent later recovers, how is that orphaned manifest detected and remove
 Could the proposal add a startup reconciliation rule that scans agent-managed manifests and removes any whose Pool UID no longer exists (or describe another durable tombstone mechanism)? This would ensure the timeout does not leave resources locked with no control-plane object or status.
 ```
 
-## Recommended Single Comment
+## Previous Recommended Comment (Already Posted)
 
-2026-07-10 判断：Candidate 4 已按用户确认发布。Candidate 3 已经发出并被吸收，不能重复发；Candidate 4 有官方 KEP 直接证据，并且决定 Phase 3 是否可实现。
+历史记录：Candidate 4 已按用户确认发布，并由 `b6a784c` 正面处理。Candidate 3 也已经发出并被吸收；两者都不能重复发。
 
-Nature: design clarification with implementation-blocking evidence. 建议发在 line 598 的 K8s Version Compatibility 表，或 line 634 的 Phase 3 implementation plan；发出前仍需用户确认 exact target 和全文。
+Nature: design clarification with implementation-blocking evidence. 原评论已发布在 line 598，对应 URL 为 <https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395>。
 
 Recommended text:
 
@@ -475,4 +510,28 @@ Could the proposal clarify which mechanism Phase 3 intends to use?
 - A custom `placeholder-agent` / runtime path: could the proposal describe how Kubernetes-visible requests, mirror Pod state, and node-ctl's actual limits remain consistent, instead of treating it as the native `InPlacePodVerticalScaling` path?
 
 This distinction changes the compatibility table, implementation contract, and e2e acceptance criteria.
+```
+
+## Current Recommended Single Comment
+
+2026-07-10 `b6a784c` 后判断：若继续 review，下一条只考虑 `SP-02` RuntimeClass / CRI integration contract。它应作为独立 inline question，不能塞进已经解决的 resize thread。
+
+推荐 target：`docs/proposals/sandbox-pool-management/README.md` 的 RuntimeClass 说明，即 `b6a784c` 中“kubelet routes CRI calls to placeholder-agent's Socket”这一行。
+
+Nature: implementation-contract clarification. 草稿已具备官方 Kubernetes CRI 和 containerd runtime-handler 证据，但未获得用户发布确认。
+
+```md
+I have one question about the RuntimeClass integration contract.
+
+The updated proposal now makes custom CRI interception part of the resource-adjustment path. It also says that kubelet routes CRI calls to `/run/sandbox-pool/cri.sock` based on the `placeholder` RuntimeClass handler, and that `placeholder-agent` implements the CRI server.
+
+My understanding of the Kubernetes CRI contract is that kubelet keeps using its configured runtime service and passes the resolved handler as `RunPodSandboxRequest.runtime_handler`. For containerd, that handler selects a configured runtime/shim (or, in containerd 2.x, a sandboxer); RuntimeClass by itself does not select a second CRI endpoint.
+
+Could the proposal specify the missing integration layer between the `placeholder` handler and `placeholder-agent`?
+
+- Is `placeholder-agent` intended to be a containerd runtime v2 shim / sandbox controller?
+- Is there a CRI proxy in front of containerd that dispatches by `runtime_handler`?
+- Or is the node-wide kubelet CRI endpoint expected to point directly to `placeholder-agent`, with normal workloads forwarded elsewhere?
+
+This determines which API `placeholder-agent` must implement and whether the proposed per-Pod routing can work without replacing the node's normal CRI path.
 ```
