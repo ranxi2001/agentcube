@@ -1146,6 +1146,34 @@ GitHub 当前状态：
 
 > 分析：下一步不是立即继续寻找新问题，而是等待作者按 thread 回复或提交新 commit。届时逐条判断 `RESOLVED`、需要一次窄追问，还是转成 Phase 2 spike/e2e gate，避免在 proposal 阶段连续堆积问题。
 
+### 实现就绪度与等待策略
+
+2026-07-13 在发布 batch review 后，进一步按“不同开发者能否只依赖 proposal 独立实现，并写出一致的验收测试”复核当前 head `3d1bd0d`。结论不是“完全不能开发”，而是：**当前文本足够启动可逆的 Phase 1 骨架和高风险技术 spike，不足以作为完整 v1alpha1 的冻结实现规格。**
+
+| 范围 | 当前就绪度 | 可执行动作 |
+| --- | --- | --- |
+| CRD 类型、生成链路、Class→Pool happy-path Reconcile | 可启动 | 本地定义 API 草案、controller 接口、fake client/envtest；在原子 ownership 结论出来前不冻结多 Class 行为 |
+| policy snapshot、SSA Conditions、Phase 纯函数 | 部分可启动 | 可写表驱动测试；`EverReady` 持久来源和 time-driven Reconcile 未闭合前不把 recovery 语义视为最终合同 |
+| placeholder-agent daemon | 只适合骨架 | 可定义 manifest/status adapter 和 fake node-ctl；真实 node-ctl RPC、进程 ownership、重启接管仍需补 |
+| containerd runtime shim | 只适合 spike | 先在真实 kubelet+containerd 节点证明 PID/State/Wait/exit/reconnect，不直接进入正式 Phase 2 实现 |
+| resize、强制删除、故障恢复 | 未就绪 | 等 Task、heartbeat、orphan cleanup、atomic ownership 四条 thread 收敛，再定义逐阶段验收条件 |
+| v1alpha1 发布 | 未就绪 | proposal 仍为 draft，尚无真人 maintainer `lgtm/approve`；公开 API 和 runtime contract 暂不冻结 |
+
+四条公开问题之外，内部还保留三个 implementation gate，但当前不追加 upstream 评论：
+
+1. Proposal 只出现 `ApplyResourcePolicy` / `GetPoolState` 名称，没有 node-ctl RPC/IDL、错误码、幂等、超时、版本协商和重试语义；这会阻塞 Phase 3，但适合在作者先回答 Task contract 后再判断是否仍需单独提问。
+2. Phase 依赖 never/was Ready，风险表引用 sticky `ConditionEverReady`，但 writer/初始化/持久规则没有进入 Condition Definitions；`deferredStartedAt` 仅在内存，agent 重启后的 Deferred 计时也未定义。
+3. Test Plan 目前只有 unit/integration/e2e/fault/VPA 分类，没有每个 Phase 的输入、预期 Condition/Event、时限和 pass/fail；RBAC/Webhook 又被整体排到 Phase 5，但 Phase 1/2 已需要最小权限和不变量保护。
+
+> 分析：这些缺口真实存在，但不代表现在应继续增加 review thread。当前四条已经分别覆盖 runtime contract、时间驱动状态、删除恢复和并发不变量，是最会改变架构的 P1 问题。作者尚未回复或提交新 commit 时继续追加，会降低单条问题的可见性，也无法利用作者的设计选择收窄后续问题。
+
+本轮 review 停止条件和恢复条件如下：
+
+- 当前停止新增 upstream 评论，把其余发现留在本报告作为实现门槛。
+- 等作者逐 thread 回复或 force-push 后，先基于 exact new head 重读正文，再分别标记 `RESOLVED`、窄追问或 spike/e2e gate。
+- 只有某个内部 gate 在新正文中仍未回答、会改变 PR 切分或公共 API，并且没有被现有 thread 覆盖时，才准备新的 exact comment 供用户确认。
+- 等待期间若要推进技术工作，只做本地 Phase 1 骨架或 runtime feasibility spike；不把实验实现描述成 proposal 已经确定的正式方案。
+
 ## 参考链接
 
 - AgentCube discussion #430: <https://github.com/volcano-sh/agentcube/issues/430>
