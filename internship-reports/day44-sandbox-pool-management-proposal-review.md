@@ -1059,6 +1059,76 @@ containerd runtime v2 shim 的 `Task` service 没有 `StopPodSandbox` 或 `Remov
 - 文件检查：`file` 确认为 8-bit RGB、non-interlaced PNG；大小约 1.4 MiB；已通过 `view_image` 原尺寸目视检查
 - 小问题：环境没有 ImageMagick `identify`，命令返回 `identify: command not found`；改用 `file` 获取格式与 `1672 x 941` 尺寸，并结合 `view_image` 完成验证，不影响产物
 
+## 2026-07-13 `3d1bd0d` Force-Push 复审
+
+### 当前事实
+
+PR #431 仍为 open、非 draft，最新 head 为 `3d1bd0d13928b2fa6320d6d50ce37c35f1d1db63`。作者把历史提交 force-push 为一个带 DCO signoff 的 proposal commit；相对上次观测 `ef96939`，同一文档修改 72 行（+40/-32）。
+
+GitHub 当前状态：
+
+- 1 个新增文件：`docs/proposals/sandbox-pool-management/README.md`，682 行；
+- 11 个 commit checks 全部成功，包括 build、e2e、coverage、lint、codegen、Python、spelling 和 DCO；
+- `tide` 仍为 pending，原因是缺少 `lgtm` / `approved`；
+- 尚无真人 maintainer review；`@acsoto` 的 WarmPool relationship 问题仍只有作者 issue comment 回复，正文没有 Relationship / Compatibility 小节；
+- 当前唯一非 outdated 的 unresolved inline thread 是 Copilot 指出的 PR body 仍声称 `<5s` 和 no-rebuild `VPA InPlaceResize`，与 proposal 正文不一致。
+
+> 注释：CI 全绿只能证明文档和仓库既有检查通过，不能验证 Static Pod、containerd shim、node-local manifest、cgroup 或 failure recovery 设计。
+
+### 本次 Force-Push 的有效改进
+
+`3d1bd0d` 不是纯 squash。它吸收了多项旧 review：
+
+| 旧问题 | 当前修正 | 判断 |
+| --- | --- | --- |
+| agent 与 node-ctl heartbeat 混用 | 新增 `status.placeholderAgent.lastHeartbeat`，controller 明确据此计算 `PlaceholderAgentHealthy` | `SP-03` resolved |
+| SSA 多 writer 更新 conditions | 明确要求 CRD conditions 使用 list-map keyed by `type` | 已被 Copilot 覆盖，不重复 |
+| optional struct + `omitempty` 无效 | template、nodeCtl 和 status 子结构改为 pointer | 已被 Copilot 覆盖，不重复 |
+| RuntimeClass 直连第二 CRI socket | 保持 kubelet → containerd CRI，由 `placeholder` handler 选择 v2 shim | `SP-02` resolved |
+| CRI method 与 shim method 混写 | deletion 改为 shim `Shutdown` cleanup，daemon 在 Pool deletion 时停止 node-ctl | 原矛盾大幅收窄 |
+| Pool identity 可变 | `spec.nodeName` / `spec.classRef.name` 增加 immutable webhook rule | 已被 Copilot 覆盖，不重复 |
+| `<5s` hard guarantee | proposal 正文改为 kubelet-dependent “typically within seconds” | 正文修复；PR body 仍旧，Copilot 已追踪 |
+
+> 分析：这些是作者设计文本的实质进步，但作者 association 为 `NONE`，不能写成 maintainer consensus。整个 fast/slow architecture 仍在 draft proposal review 阶段。
+
+### 新确认的未闭合不变量
+
+按严重性排序：
+
+| ID | Finding | Failure mode | 当前动作 |
+| --- | --- | --- | --- |
+| `SP-11` | heartbeat expiry 没有 reconcile trigger | agent 最后一笔 heartbeat 仍 fresh 时触发一次 reconcile；随后 agent 停止且无对象事件，wall clock 越过 2min 不会自行触发 controller，Phase 可永久停在 Ready | P1，`READY_LOCAL` follow-up 草稿 |
+| `SP-12` | single-Class-per-node webhook check 不原子 | 两个重叠 Class 生成不同 `{class}-{node}` Pool 名；并发 admission 都可能先读到“无冲突”并通过，最终同节点出现两个 Pool/agent manifest | P1，`READY_LOCAL` inline 草稿 |
+| `SP-05` | timeout 强制移除 finalizer 会丢失 node-local cleanup source of truth | agent 离线 10min 时 Pool CR 消失，但 manifest 仍可让 kubelet持续重建 Static Pod；agent 恢复后 watch 不会重放已完成 deletion | P1，Candidate 7 草稿可用 |
+| `SP-10` | no-workload-process shim 的完整 Task contract 未定义 | containerd Task v2 要求 `Create/Start/State/Wait/Kill/Delete/Shutdown`、PID、exit status/time；proposal 只描述“mark Running/stop” | P1，Phase 2 spike/e2e gate，暂不追评 |
+| `SP-04` / `SP-13` | Phase recovery 与 EverReady source 不完整 | `PlaceholderAgentHealthy=True → Ready` 可绕过其它 Ready 条件；sticky `ConditionEverReady` 未列 writer/初始化/持久规则 | P2，等状态机下一次更新一起核对 |
+
+> 分析：`SP-11` 是旧 stale-status 评论的下一层问题。补一个字段只能定义“看什么”，还必须定义“什么时候重新看”。controller-runtime 需要 `RequeueAfter` 到 heartbeat expiry 或独立 periodic sweep；agent 停止本身不会在两分钟后产生新的 Kubernetes watch event。
+
+> 分析：`SP-12` 不是普通 webhook validation 文案。Kubernetes admission 对两个不同对象没有跨对象事务；如果唯一性必须可靠，应让两个请求争用同一个稳定 per-node object/name，或定义 deterministic winner 和 loser cleanup，而不是只在 webhook 中 list/check。
+
+### containerd Task API 再核对
+
+本轮浅克隆 containerd 官方仓库到 `/tmp/containerd-pr431-review`，观测 main `ba015360dd6857dbd0f0b36912d89a5946220057`。`api/runtime/task/v2/shim.proto` 明确：
+
+- shim 是每 container 的 process parent / IO owner；
+- Task service 包含 `State`、`Create`、`Start`、`Delete`、`Kill`、`Wait`、`Shutdown` 等 RPC；
+- `CreateTaskResponse` / `StartResponse` 返回 PID；
+- `StateResponse` 返回 PID、status、exit status/time；
+- `WaitResponse` 返回 exit status/time。
+
+因此 proposal 当前的“stateless TTRPC proxy + no workload process + Start marks Running”还不是可执行合同。Phase 2 至少需要一个最小 shim spike 说明虚拟 task 的 process/state/exit/event 语义，以及 containerd CRI 如何把它观测为 Ready/Stopped。当前不把它和控制面问题一起发，避免连续堆评论。
+
+### Review 决策
+
+本轮没有执行任何 upstream comment、review、mention 或 branch push。三个可发问题中一次最多选择一条：
+
+1. 优先 `SP-11`，因为它直接验证作者对我们旧 stale-status comment 的修复是否真的能随时间生效；
+2. 若希望审查 Class→Pool control-plane invariant，则选 `SP-12`；
+3. `SP-05` 保留为 deletion/failure recovery 候选，不和前两条同时发布。
+
+精确英文草稿和状态统一保存在 [Day44 comment tracker](day44-sandboxpool-pr431-comment-drafts.md#剩余问题跟踪表)。任何一条都必须先由用户确认 exact target/body，再发布。
+
 ## 参考链接
 
 - AgentCube discussion #430: <https://github.com/volcano-sh/agentcube/issues/430>

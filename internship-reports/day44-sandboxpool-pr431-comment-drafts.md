@@ -9,7 +9,7 @@
 目标 PR：
 
 - PR: <https://github.com/volcano-sh/agentcube/pull/431>
-- Head observed: `ef96939` (`fix CRI flow issue`)
+- Head observed: `3d1bd0d` (`add sandbox-pool management proposal`, force-pushed 2026-07-12)
 - File: `docs/proposals/sandbox-pool-management/README.md`
 - Status: open; `@acsoto` 已提出一条真人 MEMBER 架构问题；普通 checks 已通过，仍缺 `lgtm` / `approved`
 - Comment rule: upstream-facing text must be English; do not post without explicit user confirmation.
@@ -46,9 +46,13 @@
 
 > 分析：作者回复和 `ef96939` 是有效的 proposal 改进，但仍然只是作者设计意图，不是 maintainer acceptance。当前普通 checks 全绿，`tide` 仍等待 `lgtm` / `approved`。
 
+2026-07-13 force-push 复审：作者把历史提交压成 `3d1bd0d`，相对 `ef96939` 修改 72 行（+40/-32）。独立 agent heartbeat、optional status pointer、conditions list-map、Pool immutable fields、shim/daemon 分工和 deletion wording 都有实质改进；旧的 CRI/shim method 混用基本消失。当前 11 个 checks 全绿，tide 仍等待 `lgtm` / `approved`，没有真人 maintainer review。
+
+新正文仍有三个未被现有 review 覆盖的实现不变量：heartbeat 超时没有 reconcile timer、跨 Class 的 per-node 唯一性没有原子冲突机制、`ConditionEverReady` 被状态机依赖但没有定义 writer/condition contract。前两项已形成短英文草稿，状态 `READY_LOCAL`；一次最多考虑发布一条。
+
 ## 剩余问题跟踪表
 
-最后同步：2026-07-10；PR head `ef96939`；本表是 #431 后续 review 状态的唯一索引。详细证据和英文草稿仍保留在各 Candidate 小节。
+最后同步：2026-07-13；PR head `3d1bd0d`；本表是 #431 后续 review 状态的唯一索引。详细证据和英文草稿仍保留在各 Candidate 小节。
 
 状态约定：
 
@@ -63,14 +67,17 @@
 | --- | --- | --- | --- | --- | --- |
 | `SP-01` | P0 | Static Pod 与 native in-place resize | 作者明确选择 Static Pod rebuild + custom CRI interception，不再依赖 native `/resize`；设计歧义已解决，runtime guarantee 尚未实测 | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3556111395)、[reply](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557359462)、`b6a784c` | 不在原 thread 追评；custom CRI integration 归入 `SP-02`，rebuild-window e2e 归入 `SP-08` |
 | `SP-02` | P0 | RuntimeClass / CRI socket integration | 作者选择 containerd runtime v2 shim；正文已改为 kubelet 保持连接 containerd，由 `placeholder` handler 选择 placeholder-agent shim，普通 Pod 继续走 `runc` | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557686951)、[reply](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3558484860)、`ef96939`；Candidate 1 | 不在原 thread 追评；Task API lifecycle 精度转入 `SP-10`，real-node acceptance 仍归 `SP-08` |
-| `SP-03` | P2 | placeholder-agent heartbeat signal | `NodeCtl.LastHeartbeat` 同时承担 node-ctl 和 agent 心跳，会把 node-ctl failure 误报为 agent failure | `HOLD`；Candidate 3 follow-up | 等状态模型再次修改或进入实现 review，再要求独立 agent report heartbeat |
+| `SP-03` | P2 | placeholder-agent heartbeat signal | `3d1bd0d` 已增加独立 `status.placeholderAgent.lastHeartbeat`，不再混用 node-ctl heartbeat | `RESOLVED`；Candidate 3 follow-up | 不重复；超时如何触发 reconcile 另记 `SP-11` |
 | `SP-04` | P2 | Phase recovery 条件 | `PlaceholderAgentHealthy=True -> Ready` 没有重新检查 Pod、node-ctl、ResourceSynced | `HOLD`；Candidate 6 | 若作者更新状态机，确认改为 re-evaluate all conditions；否则再单点评论 |
-| `SP-05` | P2 | force-finalizer 后 orphan manifest | agent 不可达时 controller 强制完成 CR 删除，本地 Static Pod manifest 可能永久残留且没有 API 对象可观察 | `HOLD`；Candidate 7 | 等 deletion/recovery 设计更新；需要 startup orphan reconciliation 或 durable tombstone |
+| `SP-05` | P1 | force-finalizer 后 orphan manifest | agent 不可达时 controller 强制完成 CR 删除，本地 Static Pod manifest 可能永久残留且没有 API 对象可观察；`3d1bd0d` 仍未定义 recovery sweep/ack | `READY_LOCAL`；Candidate 7 | 可作为 failure-recovery inline question；不要与 `SP-11`/`SP-12` 同轮堆叠 |
 | `SP-06` | P2 | per-node RBAC isolation | 每个 host agent 目前被描述为可 patch cluster-scoped SandboxPool status，可能具备跨节点伪造状态的权限 | `NEEDS_EVIDENCE`；尚未形成独立 Candidate | 先确认 ServiceAccount/kubeconfig、ClusterRoleBinding 和 admission 方案，再判断是否评论 |
 | `SP-07` | P3 | 与现有 WarmPool 路径的关系 | 作者口头说明 two-generation architecture，但正文尚未形成 Relationship / Compatibility contract | `HUMAN_THREAD`；`@acsoto` 已提问并获作者回复 | 不抢答；观察作者是否补正文、迁移/并存边界 |
 | `SP-08` | P3 | node-local validation environment | envtest 无法覆盖 systemd、Static Pod、RuntimeClass、CRI socket、cgroup、mirror rebuild，也不能证明 mirror gap 中冲突 Pod 会被 kubelet admission 拒绝 | `HOLD`；Candidate 5 | Phase 2/3 实现前要求 real-node/dedicated e2e，覆盖 rebuild 时 UID/mirror gap、conflicting Pod admit failure 和 node-ctl cgroup continuity |
 | `SP-09` | P2 | agent unreachable 后 stale Ready | 原正文没有 agent stale detection，旧 True conditions 可能长期保留 | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549854078)，`35d361e` 已增加 `PlaceholderAgentHealthy` | 不重复；只跟踪 `SP-03` / `SP-04` 的后续精度问题 |
-| `SP-10` | P1 | containerd shim Task lifecycle contract | `ef96939` 选择 runtime v2 shim 后，正文仍混用 CRI `StopPodSandbox` / `RemovePodSandbox` 与 shim Task API，并对 `Delete` 是否停止 node-ctl 给出相互矛盾的描述；no-process task 还需满足 `Create` / `Start` / `Wait` / PID / exit contract | `HOLD`；官方 containerd runtime v2 / Task API / CRI server source 已核对，暂无现有 review comment 精准覆盖 | 先不连续追评；若作者继续修改 node lifecycle 或进入 Phase 2 实现 review，再要求映射 `RunPodSandbox -> Task.Create/Start`、`StopPodSandbox -> Kill/Wait`、`RemovePodSandbox -> Delete/Shutdown`，并给出最小 shim spike/e2e |
+| `SP-10` | P1 | containerd shim Task lifecycle contract | `3d1bd0d` 已移除大部分 CRI/shim method 混用，并把 node-ctl stop 放回 daemon 的 Pool deletion path；但 no-workload-process shim 仍需满足 Task `Create/Start/State/Wait/Kill/Delete/Shutdown`、PID 和 exit contract | `HOLD`；containerd main `ba01536` Task v2 proto 已复核 | Phase 2 实现前要求最小 shim spike/e2e；本轮不和控制面不变量一起发 |
+| `SP-11` | P1 | heartbeat timeout reconcile trigger | controller 只在 Reconcile 中计算 `PlaceholderAgentHealthy`；agent 停止后不会再产生 status event，若没有 `RequeueAfter`/periodic sweep，2min 阈值不会自行触发 | `READY_LOCAL`；Candidate 8；现有 comments 无重复 | 推荐作为下一条单点 follow-up，但发布前仍需用户确认 exact reply |
+| `SP-12` | P1 | per-node Class uniqueness race | Pool 名是 `{class}-{node}`，两个重叠 Class 会创建不同对象；跨对象 validating webhook list/check 不是原子 reservation，并发请求可同时通过 | `READY_LOCAL`；Candidate 9；现有 comments 无重复 | 需要 deterministic ownership、per-node claim/name conflict 或明确 precedence，并加 concurrent create test |
+| `SP-13` | P2 | EverReady state source | Phase priority 依赖 never/was Ready，risk table 声称 sticky `ConditionEverReady` 已实现，但 Condition Definitions 未列 writer、初始化、持久语义 | `HOLD`；暂无独立 Candidate | 可与 `SP-04` 一起在作者再次修改状态机时核对，不单独发 |
 
 ### 已有覆盖，不重复评论
 
@@ -468,10 +475,10 @@ This would help set the acceptance criteria for the risky parts of the proposal,
 
 ### Evidence
 
-- Line 426 defines `Ready` as `PlaceholderPodReady=True + NodeCtlHealthy=True + ResourceSynced=True (or ResizeDeferred=True)`.
-- Line 427 says a `Degraded` Pool exits via `PlaceholderAgentHealthy=True -> Ready` without requiring `NodeCtlHealthy` or `ResourceSynced`.
-- Line 428 says an `Unready` Pool exits via `PlaceholderAgentHealthy=True -> Ready` without requiring `PlaceholderPodReady` or `NodeCtlHealthy`.
-- Line 430's Phase Computation Priority implies all higher-priority unhealthy conditions must be evaluated before the fallback `Ready` state.
+- Current line 445 defines `Ready` as `PlaceholderPodReady=True + NodeCtlHealthy=True + ResourceSynced=True (or ResizeDeferred=True)`.
+- Current line 446 says a `Degraded` Pool exits via `PlaceholderAgentHealthy=True -> Ready` without requiring `NodeCtlHealthy` or `ResourceSynced`.
+- Current line 447 says an `Unready` Pool exits via `PlaceholderAgentHealthy=True -> Ready` without requiring `PlaceholderPodReady` or `NodeCtlHealthy`.
+- Current line 449's Phase Computation Priority implies all higher-priority unhealthy conditions must be evaluated before the fallback `Ready` state.
 - Existing Gemini/Copilot review already required `NodeNotFound=False` to “re-evaluate all conditions”; `35d361e` correctly changed that branch but did not apply the same rule to `PlaceholderAgentHealthy=True`.
 
 ### Why It Matters
@@ -490,12 +497,12 @@ Could these exits also say `PlaceholderAgentHealthy=True -> re-evaluate all cond
 
 ## Candidate 7: forced finalizer removal can orphan node-local resources
 
-建议状态：P2 failure-recovery gap。它没有被已有 bot review 覆盖，但在 P0/P1 澄清前不优先发。
+建议状态：P1 failure-recovery gap。`3d1bd0d` 仍未解决，现有 bot/human review 均未覆盖；草稿可用，但不要和其它 `READY_LOCAL` 问题同轮发布。
 
 ### Evidence
 
-- Lines 487-492 say only `placeholder-agent` removes the local Static Pod manifest and stops/removes the CRI sandbox.
-- Lines 495-498 say the controller waits for mirror Pod removal, but after 10 minutes force-removes the finalizer and emits a Warning Event.
+- Current lines 524-529 say only `placeholder-agent` removes the local Static Pod manifest, while shim cleanup and node-ctl stop follow afterward.
+- Current lines 532-535 say the controller waits for mirror Pod removal, but after 10 minutes force-removes the finalizer and emits a Warning Event.
 - The node-local manifest is outside Kubernetes API storage and has no OwnerReference; deleting the `SandboxPool` CR cannot garbage-collect that file.
 - The node startup sequence only says the agent watches current `SandboxPool` objects. It does not describe scanning managed manifest files and deleting any whose Pool no longer exists.
 
@@ -513,6 +520,49 @@ The deletion flow says that `placeholder-agent` removes the node-local manifest,
 When the agent later recovers, how is that orphaned manifest detected and removed? A watch of current Pool objects would not replay the already-completed deletion.
 
 Could the proposal add a startup reconciliation rule that scans agent-managed manifests and removes any whose Pool UID no longer exists (or describe another durable tombstone mechanism)? This would ensure the timeout does not leave resources locked with no control-plane object or status.
+```
+
+## Candidate 8: heartbeat expiry needs a reconcile trigger
+
+建议状态：P1，`READY_LOCAL`。适合回复我们已有的 stale-status thread，而不是新开长 inline comment。
+
+### Evidence
+
+- Current lines 148-153 define the controller as owner of `PlaceholderAgentHealthy` and derive it from `status.placeholderAgent.lastHeartbeat > 2min`.
+- Current line 295 adds the correct independent agent heartbeat field.
+- Current lines 594 and 643 repeat the 2-minute stale rule.
+- The proposal only says the controller computes this during Pool Reconcile; it does not specify `RequeueAfter`, a periodic sweep, or another time-based trigger.
+- When the agent stops after its last successful status Patch, wall-clock time crossing two minutes does not itself generate a Kubernetes watch event.
+
+### Draft Follow-up
+
+```md
+Thanks for adding the separate `status.placeholderAgent.lastHeartbeat`; that makes the health signal clear.
+
+One remaining timing question: the controller derives `PlaceholderAgentHealthy` during Pool Reconcile, but if the agent stops after a fresh status patch, there may be no later object update when that timestamp crosses the two-minute threshold.
+
+Could the proposal specify how the timeout schedules another reconciliation, for example `RequeueAfter` based on the heartbeat expiry or a periodic controller sweep? It would also help to include a fault-injection case where the agent stops and no further Pool/Node events occur, verifying that the Phase still leaves `Ready` after the timeout.
+```
+
+## Candidate 9: single-Class-per-node validation is not atomic
+
+建议状态：P1，`READY_LOCAL`。这是 Class→Pool mapping 的核心不变量，现有 review comments 只覆盖字段 immutable，没有覆盖并发创建。
+
+### Evidence
+
+- Current line 344 defines Pool names as `{class-name}-{node-name}`.
+- Current lines 349-351 require `spec.nodeName` / `spec.classRef.name` immutability and say one node cannot have Pools from different Classes.
+- Current line 626 assigns the single-Class rule to a validating webhook, but does not define deterministic Class precedence or an atomic per-node claim.
+- Two overlapping Classes produce different Pool names, so Kubernetes object-name conflict does not serialize their creates. Concurrent webhook requests can both observe no conflicting Pool and both be admitted.
+
+### Draft Comment
+
+```md
+I have one concurrency question about the single-Class-per-node invariant.
+
+The proposal says a node cannot have Pools from different Classes, but Pool names include both the Class and node names. If two Classes select the same node, their controllers can therefore create two different Pool objects. A validating webhook that lists existing Pools cannot make that cross-object check atomic: concurrent create requests could both observe no conflicting Pool and both be admitted.
+
+Could the proposal define an atomic ownership mechanism for each node, such as a stable per-node claim/name that uses Kubernetes create conflict, or a deterministic Class precedence rule with reconciliation of the loser? A concurrent-create integration test would make this invariant verifiable.
 ```
 
 ## Previous Recommended Comment (Already Posted)
