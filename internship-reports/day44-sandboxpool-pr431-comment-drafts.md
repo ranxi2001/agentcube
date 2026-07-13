@@ -565,6 +565,95 @@ The proposal says a node cannot have Pools from different Classes, but Pool name
 Could the proposal define an atomic ownership mechanism for each node, such as a stable per-node claim/name that uses Kubernetes create conflict, or a deterministic Class precedence rule with reconciliation of the loser? A concurrent-create integration test would make this invariant verifiable.
 ```
 
+## 2026-07-13 Batch Review Payload
+
+用户决定本轮一次性提交多个问题。为保持可回复性，不使用一条 omnibus body，而是创建一个 `COMMENT` review，包含 4 条独立 inline comments。
+
+发布门禁状态：`PENDING_USER_CONFIRMATION`。以下 target/body 必须作为一个完整 payload 由用户确认；确认前不得调用 GitHub create-review API。
+
+### Review Metadata
+
+- Repository: `volcano-sh/agentcube`
+- PR: `#431`
+- Upstream-facing: yes
+- Event: `COMMENT`（不是 `REQUEST_CHANGES` / `APPROVE`）
+- Commit: `3d1bd0d13928b2fa6320d6d50ce37c35f1d1db63`
+- Path for all comments: `docs/proposals/sandbox-pool-management/README.md`
+- Duplicate check: 48 review threads；1 active current-diff thread 只覆盖 PR body 的 VPA mismatch；本批 4 个 topic 均无现有 review comment
+- Validation: proposal 全文 682 行已读；相对 `ef96939` diff 已读；containerd main `ba01536` Task v2 proto 已本地复核；latest 11 checks 全绿
+
+### Review Summary Body
+
+```md
+I reviewed the latest force-pushed proposal. The recent updates resolve the earlier heartbeat-source, RuntimeClass routing, optional-field, and SSA condition ownership questions. I left four focused questions about time-driven reconciliation, per-node ownership atomicity, deletion recovery, and the containerd Task contract.
+```
+
+### Inline 1: containerd Task lifecycle contract
+
+- Right-side line: `138`
+- Target text: `placeholder-agent shim | containerd runtime shim v2 (Task API), stateless TTRPC proxy`
+- Nature: implementation-contract question
+
+```md
+One implementation-contract question about the no-workload-process shim:
+
+The proposal describes the shim as a stateless TTRPC proxy and says `Start` only marks the container as Running. However, containerd's [Task v2 service](https://github.com/containerd/containerd/blob/ba015360dd6857dbd0f0b36912d89a5946220057/api/runtime/task/v2/shim.proto#L29-L50) expects the shim to own the task lifecycle and exposes `Create`, `Start`, `State`, `Kill`, `Wait`, `Delete`, `Connect`, and `Shutdown`; the responses also carry PID and exit status/time.
+
+What task or process represents this placeholder Pod, and how will PID, `State`, `Wait`, and exit events be satisfied when there is no workload process? Could the Phase 2 plan include a minimal shim spike/e2e covering create/start, CRI readiness, stop/remove, wait/exit, and reconnect behavior before `PlaceholderPodReady` is derived from “shim task created”?
+```
+
+### Inline 2: heartbeat expiry reconcile trigger
+
+- Right-side line: `151`
+- Target text: `Controller detects stale PlaceholderAgent.LastHeartbeat (> 2min)`
+- Nature: failure-detection question
+
+```md
+Thanks for adding the separate `status.placeholderAgent.lastHeartbeat`; that makes the health signal clear.
+
+One remaining timing question: the controller derives `PlaceholderAgentHealthy` during Pool Reconcile, but if the agent stops after a fresh status patch, there may be no later object update when that timestamp crosses the two-minute threshold.
+
+Could the proposal specify how the timeout schedules another reconciliation, for example `RequeueAfter` based on the heartbeat expiry or a periodic controller sweep? It would also help to include a fault-injection case where the agent stops and no further Pool/Node events occur, verifying that the Phase still leaves `Ready` after the timeout.
+```
+
+### Inline 3: forced-finalizer orphan recovery
+
+- Right-side line: `535`
+- Target text: `Timeout (> 10min) → force remove Finalizer + Warning Event`
+- Nature: failure-recovery question
+
+```md
+I have one failure-recovery question about the forced finalizer timeout.
+
+The deletion flow says that `placeholder-agent` removes the node-local manifest, while the controller force-removes the Pool finalizer after 10 minutes if cleanup has not completed. If the agent is unreachable for that whole window, the `SandboxPool` can disappear from the API while its local Static Pod manifest still exists on the node.
+
+When the agent later recovers, how is that orphaned manifest detected and removed? A watch of current Pool objects would not replay the already-completed deletion. Could the proposal add a startup reconciliation rule that scans agent-managed manifests and removes any whose Pool UID no longer exists, or describe another durable tombstone/cleanup-ack mechanism?
+```
+
+### Inline 4: atomic single-Class-per-node ownership
+
+- Right-side line: `626`
+- Target text: `A single node cannot have Pools of different Classes`
+- Nature: concurrency/invariant question
+
+```md
+I have one concurrency question about the single-Class-per-node invariant.
+
+The proposal says a node cannot have Pools from different Classes, but Pool names include both the Class and node names. If two Classes select the same node, concurrent reconciles can therefore create two different Pool objects. A validating webhook that lists existing Pools cannot make that cross-object check atomic: concurrent create requests could both observe no conflicting Pool and both be admitted.
+
+Could the proposal define an atomic ownership mechanism for each node, such as a stable per-node claim/name that uses Kubernetes create conflict, or a deterministic Class precedence rule with reconciliation of the loser? A concurrent-create integration test would make this invariant verifiable.
+```
+
+### Planned API Shape After Confirmation
+
+```text
+POST /repos/volcano-sh/agentcube/pulls/431/reviews
+commit_id = 3d1bd0d13928b2fa6320d6d50ce37c35f1d1db63
+event = COMMENT
+body = <Review Summary Body above>
+comments = [line 138, line 151, line 535, line 626]
+```
+
 ## Previous Recommended Comment (Already Posted)
 
 历史记录：Candidate 4 已按用户确认发布，并由 `b6a784c` 正面处理。Candidate 3 也已经发出并被吸收；两者都不能重复发。

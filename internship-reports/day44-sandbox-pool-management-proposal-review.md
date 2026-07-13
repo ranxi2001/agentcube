@@ -1129,6 +1129,19 @@ GitHub 当前状态：
 
 精确英文草稿和状态统一保存在 [Day44 comment tracker](day44-sandboxpool-pr431-comment-drafts.md#剩余问题跟踪表)。任何一条都必须先由用户确认 exact target/body，再发布。
 
+### Batch Review 决策更新
+
+用户随后明确决定这次一次性提交多个问题。发布形态调整为一个 GitHub `COMMENT` review 下的 4 条独立 inline comments，而不是把四个主题拼成一条长 comment：
+
+1. line 138：containerd Task lifecycle / PID / Wait / exit contract；
+2. line 151：heartbeat expiry 的 time-driven reconcile；
+3. line 535：force-finalizer 后 node-local orphan manifest recovery；
+4. line 626：single-Class-per-node 的 atomic ownership。
+
+> 分析：一次 review 批量提交能让作者分别回复和 resolve 每个 thread，同时避免四次独立 review 通知。event 使用 `COMMENT`，不使用 `REQUEST_CHANGES`，因为这些是 proposal contract questions，不代表正式 blocking verdict。
+
+完整 summary、每条 target/body 和 planned API shape 已固定在 [Batch Review Payload](day44-sandboxpool-pr431-comment-drafts.md#2026-07-13-batch-review-payload)。当前状态为 `PENDING_USER_CONFIRMATION`，尚未发布。
+
 ## 参考链接
 
 - AgentCube discussion #430: <https://github.com/volcano-sh/agentcube/issues/430>

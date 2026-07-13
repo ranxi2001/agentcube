@@ -20,7 +20,7 @@
 
 ## Active Upstream Threads
 
-- #431 SandboxPool proposal：review / observe only；本轮未发 upstream。下一条若用户确认，优先 `SP-11` heartbeat reconcile trigger；备选 `SP-12` atomic per-node Class ownership 或 `SP-05` orphan manifest cleanup，不连续堆叠。
+- #431 SandboxPool proposal：用户决定下一轮一次性发多个问题。tracker 已准备一个 `COMMENT` review batch：line 138 Task lifecycle、line 151 heartbeat timer、line 535 orphan cleanup、line 626 atomic per-node Class ownership；head 固定 `3d1bd0d`。状态 `PENDING_USER_CONFIRMATION`，必须展示完整 summary + 4 bodies 并获得明确确认后才能调用 create-review API。
 - #429 Go toolchain update workflow：已创建 upstream PR，普通 CI 绿，`tide` pending 等 review/labels；不要自动 push/comment。
 - #387 agent-sandbox v0.4.6 compatibility：保持 current stable compatibility 口径，不把 v0.5.x / Sleep/Resume / PicoD cleanup 混入；有 review 再小步处理并先确认。
 - #385 WarmPoolAvailable PoC：主要等 maintainer review / `lgtm` / `approve` / tide。
@@ -55,7 +55,7 @@
 ## Next
 
 - Community tasks：本轮不 `/assign`。下一次先刷新 open issue/PR；只有新的 focused unowned issue，或 maintainer 将 #386/#272 拆成 dedicated sub-issue，才进入认领准备。#433 若做协作，先在临时 worktree 完成 Helm render/lint 和 auth/RBAC focused validation，再向用户提交 exact review draft。
-- For #431: tracker 已同步 `3d1bd0d`。不要回复已解决的 resize/RuntimeClass threads，也不要重复最新 Copilot 的 PR-body mismatch。若用户要发评论，只从 `SP-11`/`SP-12`/`SP-05` 中选一条并重新核对 current line/thread 后提交 exact English payload。
+- For #431: tracker 已同步 `3d1bd0d` 并准备 4-comment batch review。不要回复已解决的 resize/RuntimeClass threads，也不要重复最新 Copilot 的 PR-body mismatch。提交前再次核对 head/line/active threads；只有用户确认 tracker 的完整 batch payload 后才可发布。
 - If validating #431 technically, focus on `SP-10` containerd Task lifecycle mapping plus kubelet admission/scheduler accounting for the rebuild window. Keep native `/resize` out of the design; require a real-node shim spike covering task PID/wait/exit, rebuild-vs-delete discrimination, node-ctl continuity, mirror gap, and conflicting Pod admission.
 - For Sleep/Resume: keep as design/fake-provider/test-plan unless maintainers clarify ownership. Next useful local work remains Router resume-before-proxy tests or API contract, not broad upstream PR.
 - For agent-sandbox v0.5.x: keep separate from #387. Clean follow-up only after official scope decision; disclose clean-install evidence and old CRD storedVersions migration gap.
