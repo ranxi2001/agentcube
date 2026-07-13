@@ -164,8 +164,9 @@ def limited_items(items, limit):
     for item in items[:head]:
         yield item
     yield {"_omitted": len(items) - head - tail}
-    for item in items[-tail:]:
-        yield item
+    if tail:
+        for item in items[-tail:]:
+            yield item
 
 
 def print_comment_list(title, comments, limit, chars):
