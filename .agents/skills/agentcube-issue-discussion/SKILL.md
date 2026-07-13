@@ -64,7 +64,7 @@ python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 386
 python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 379 --repo volcano-sh/agentcube
 ```
 
-It prints a token-efficient Markdown brief with metadata, assignees, `/assign` signals, body snippet, issue comments, and PR files/commits/review comments when applicable.
+It prints a token-efficient Markdown brief with metadata, assignees, `/assign` signals, body snippet, issue comments, and PR files/commits/review comments when applicable. For PRs, it also uses GraphQL to summarize active review threads separately from unresolved-but-outdated threads; this requires `GITHUB_TOKEN` and degrades to an explicit unavailable notice when the token is absent.
 
 Use the full JSON script when exact raw context is needed:
 

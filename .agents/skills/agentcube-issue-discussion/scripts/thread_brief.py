@@ -33,6 +33,28 @@ def request_json(url):
         raise RuntimeError(f"GitHub API request failed: {exc.code} {url}\n{detail}") from exc
 
 
+def request_graphql(query, variables):
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("GITHUB_TOKEN is required to query PR review thread state")
+    payload = json.dumps({"query": query, "variables": variables}).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.github.com/graphql",
+        data=payload,
+        headers={**github_headers(), "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"GitHub GraphQL request failed: {exc.code}\n{detail}") from exc
+    if result.get("errors"):
+        raise RuntimeError(f"GitHub GraphQL request failed: {json.dumps(result['errors'])}")
+    return result.get("data", {})
+
+
 def next_link(link_header):
     for part in link_header.split(","):
         if 'rel="next"' in part:
@@ -51,6 +73,52 @@ def request_all_pages(url):
         items.extend(data)
         url = next_link(headers.get("Link", ""))
     return items
+
+
+def request_review_threads(repo, number):
+    owner, name = repo.split("/", 1)
+    query = """
+query($owner: String!, $name: String!, $number: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100, after: $after) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          isResolved
+          isOutdated
+          path
+          line
+          comments(first: 20) {
+            nodes {
+              databaseId
+              author { login }
+              body
+              url
+              createdAt
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+    threads = []
+    after = None
+    while True:
+        data = request_graphql(
+            query,
+            {"owner": owner, "name": name, "number": number, "after": after},
+        )
+        pull_request = (data.get("repository") or {}).get("pullRequest")
+        if not pull_request:
+            raise RuntimeError(f"PR {repo}#{number} was not found in GraphQL response")
+        connection = pull_request.get("reviewThreads") or {}
+        threads.extend(connection.get("nodes") or [])
+        page_info = connection.get("pageInfo") or {}
+        if not page_info.get("hasNextPage"):
+            return threads
+        after = page_info.get("endCursor")
 
 
 def clean_text(text):
@@ -144,6 +212,45 @@ def print_assign_signals(comment_groups):
     print()
 
 
+def print_active_review_threads(threads, error, chars):
+    print("## Active PR Review Threads")
+    if error:
+        print(f"- unavailable: {clean_text(error)}")
+        print()
+        return
+
+    active = [
+        thread
+        for thread in threads
+        if not thread.get("isResolved") and not thread.get("isOutdated")
+    ]
+    unresolved_outdated = [
+        thread for thread in threads if not thread.get("isResolved") and thread.get("isOutdated")
+    ]
+    print(f"- Total threads: {len(threads)}")
+    print(f"- Active (unresolved, current diff): {len(active)}")
+    print(f"- Unresolved but outdated: {len(unresolved_outdated)}")
+    if not active:
+        print("- none")
+        print()
+        return
+
+    for index, thread in enumerate(active, start=1):
+        path = thread.get("path") or "-"
+        line = thread.get("line") or "-"
+        comments = (thread.get("comments") or {}).get("nodes") or []
+        first = comments[0] if comments else {}
+        latest = comments[-1] if comments else {}
+        author = ((first.get("author") or {}).get("login")) or "-"
+        print(f"{index}. @{author} `{path}:{line}`")
+        print(f"   {first.get('url') or '-'}")
+        print(f"   {clip(first.get('body', ''), chars) or '-'}")
+        if len(comments) > 1:
+            latest_author = ((latest.get("author") or {}).get("login")) or "-"
+            print(f"   Latest reply: @{latest_author}: {clip(latest.get('body', ''), chars) or '-'}")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("number", type=int, help="GitHub issue or PR number")
@@ -163,6 +270,8 @@ def main():
     commits = []
     reviews = []
     review_comments = []
+    review_threads = []
+    review_threads_error = None
 
     if is_pr:
         pr, _ = request_json(f"{base}/pulls/{args.number}")
@@ -170,6 +279,10 @@ def main():
         commits = request_all_pages(f"{base}/pulls/{args.number}/commits?per_page=100")
         reviews = request_all_pages(f"{base}/pulls/{args.number}/reviews?per_page=100")
         review_comments = request_all_pages(f"{base}/pulls/{args.number}/comments?per_page=100")
+        try:
+            review_threads = request_review_threads(args.repo, args.number)
+        except RuntimeError as exc:
+            review_threads_error = str(exc)
 
     print(f"# {args.repo}#{args.number}")
     print(f"- Type: {'PR' if is_pr else 'issue'}")
@@ -237,6 +350,7 @@ def main():
     print()
 
     print_comment_list("PR Reviews", reviews if isinstance(reviews, list) else [], 40, args.comment_chars)
+    print_active_review_threads(review_threads, review_threads_error, args.comment_chars)
     print_comment_list(
         "PR Review Comments",
         review_comments if isinstance(review_comments, list) else [],
