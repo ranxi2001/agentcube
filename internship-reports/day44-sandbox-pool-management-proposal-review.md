@@ -1140,7 +1140,11 @@ GitHub 当前状态：
 
 > 分析：一次 review 批量提交能让作者分别回复和 resolve 每个 thread，同时避免四次独立 review 通知。event 使用 `COMMENT`，不使用 `REQUEST_CHANGES`，因为这些是 proposal contract questions，不代表正式 blocking verdict。
 
-完整 summary、每条 target/body 和 planned API shape 已固定在 [Batch Review Payload](day44-sandboxpool-pr431-comment-drafts.md#2026-07-13-batch-review-payload)。当前状态为 `PENDING_USER_CONFIRMATION`，尚未发布。
+完整 summary、每条 target/body 和 API shape 已固定在 [Batch Review Payload](day44-sandboxpool-pr431-comment-drafts.md#2026-07-13-batch-review-payload)。用户确认后，已于 2026-07-13 发布为 [review `4681333180`](https://github.com/volcano-sh/agentcube/pull/431#pullrequestreview-4681333180)，状态为 `COMMENTED`，绑定 exact commit `3d1bd0d13928b2fa6320d6d50ce37c35f1d1db63`。
+
+四条 inline thread 分别是 [Task lifecycle，line 138](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680814)、[heartbeat timer，line 151](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680816)、[orphan cleanup，line 535](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680819) 和 [atomic Class ownership，line 626](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680822)。发布后通过 GitHub review comments API 回读到完整 4 条，并通过 GraphQL review-thread 状态确认它们都是当前 diff 上的 active threads；没有部分发布，也没有追加第五条评论。
+
+> 分析：下一步不是立即继续寻找新问题，而是等待作者按 thread 回复或提交新 commit。届时逐条判断 `RESOLVED`、需要一次窄追问，还是转成 Phase 2 spike/e2e gate，避免在 proposal 阶段连续堆积问题。
 
 ## 参考链接
 

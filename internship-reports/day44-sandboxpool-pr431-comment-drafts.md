@@ -48,7 +48,7 @@
 
 2026-07-13 force-push 复审：作者把历史提交压成 `3d1bd0d`，相对 `ef96939` 修改 72 行（+40/-32）。独立 agent heartbeat、optional status pointer、conditions list-map、Pool immutable fields、shim/daemon 分工和 deletion wording 都有实质改进；旧的 CRI/shim method 混用基本消失。当前 11 个 checks 全绿，tide 仍等待 `lgtm` / `approved`，没有真人 maintainer review。
 
-新正文仍有三个未被现有 review 覆盖的实现不变量：heartbeat 超时没有 reconcile timer、跨 Class 的 per-node 唯一性没有原子冲突机制、`ConditionEverReady` 被状态机依赖但没有定义 writer/condition contract。前两项已形成短英文草稿，状态 `READY_LOCAL`；一次最多考虑发布一条。
+新正文仍有多个未被现有 review 覆盖的实现不变量。本轮已经把其中四个可独立回复的问题作为同一个 `COMMENT` review 发布：containerd Task lifecycle、heartbeat timeout reconcile trigger、force-finalizer 后的 orphan cleanup，以及跨 Class 的 per-node 原子 ownership。`ConditionEverReady` 的 writer/condition contract 仍保留为 `HOLD`，不在这一批继续扩张范围。
 
 ## 剩余问题跟踪表
 
@@ -69,14 +69,14 @@
 | `SP-02` | P0 | RuntimeClass / CRI socket integration | 作者选择 containerd runtime v2 shim；正文已改为 kubelet 保持连接 containerd，由 `placeholder` handler 选择 placeholder-agent shim，普通 Pod 继续走 `runc` | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3557686951)、[reply](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3558484860)、`ef96939`；Candidate 1 | 不在原 thread 追评；Task API lifecycle 精度转入 `SP-10`，real-node acceptance 仍归 `SP-08` |
 | `SP-03` | P2 | placeholder-agent heartbeat signal | `3d1bd0d` 已增加独立 `status.placeholderAgent.lastHeartbeat`，不再混用 node-ctl heartbeat | `RESOLVED`；Candidate 3 follow-up | 不重复；超时如何触发 reconcile 另记 `SP-11` |
 | `SP-04` | P2 | Phase recovery 条件 | `PlaceholderAgentHealthy=True -> Ready` 没有重新检查 Pod、node-ctl、ResourceSynced | `HOLD`；Candidate 6 | 若作者更新状态机，确认改为 re-evaluate all conditions；否则再单点评论 |
-| `SP-05` | P1 | force-finalizer 后 orphan manifest | agent 不可达时 controller 强制完成 CR 删除，本地 Static Pod manifest 可能永久残留且没有 API 对象可观察；`3d1bd0d` 仍未定义 recovery sweep/ack | `READY_LOCAL`；Candidate 7 | 可作为 failure-recovery inline question；不要与 `SP-11`/`SP-12` 同轮堆叠 |
+| `SP-05` | P1 | force-finalizer 后 orphan manifest | agent 不可达时 controller 强制完成 CR 删除，本地 Static Pod manifest 可能永久残留且没有 API 对象可观察；`3d1bd0d` 仍未定义 recovery sweep/ack | `POSTED_WAITING`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680819)；Candidate 7 | 等待作者说明 startup sweep、durable tombstone 或 cleanup ack；回复前不追加同类评论 |
 | `SP-06` | P2 | per-node RBAC isolation | 每个 host agent 目前被描述为可 patch cluster-scoped SandboxPool status，可能具备跨节点伪造状态的权限 | `NEEDS_EVIDENCE`；尚未形成独立 Candidate | 先确认 ServiceAccount/kubeconfig、ClusterRoleBinding 和 admission 方案，再判断是否评论 |
 | `SP-07` | P3 | 与现有 WarmPool 路径的关系 | 作者口头说明 two-generation architecture，但正文尚未形成 Relationship / Compatibility contract | `HUMAN_THREAD`；`@acsoto` 已提问并获作者回复 | 不抢答；观察作者是否补正文、迁移/并存边界 |
 | `SP-08` | P3 | node-local validation environment | envtest 无法覆盖 systemd、Static Pod、RuntimeClass、CRI socket、cgroup、mirror rebuild，也不能证明 mirror gap 中冲突 Pod 会被 kubelet admission 拒绝 | `HOLD`；Candidate 5 | Phase 2/3 实现前要求 real-node/dedicated e2e，覆盖 rebuild 时 UID/mirror gap、conflicting Pod admit failure 和 node-ctl cgroup continuity |
 | `SP-09` | P2 | agent unreachable 后 stale Ready | 原正文没有 agent stale detection，旧 True conditions 可能长期保留 | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549854078)，`35d361e` 已增加 `PlaceholderAgentHealthy` | 不重复；只跟踪 `SP-03` / `SP-04` 的后续精度问题 |
-| `SP-10` | P1 | containerd shim Task lifecycle contract | `3d1bd0d` 已移除大部分 CRI/shim method 混用，并把 node-ctl stop 放回 daemon 的 Pool deletion path；但 no-workload-process shim 仍需满足 Task `Create/Start/State/Wait/Kill/Delete/Shutdown`、PID 和 exit contract | `HOLD`；containerd main `ba01536` Task v2 proto 已复核 | Phase 2 实现前要求最小 shim spike/e2e；本轮不和控制面不变量一起发 |
-| `SP-11` | P1 | heartbeat timeout reconcile trigger | controller 只在 Reconcile 中计算 `PlaceholderAgentHealthy`；agent 停止后不会再产生 status event，若没有 `RequeueAfter`/periodic sweep，2min 阈值不会自行触发 | `READY_LOCAL`；Candidate 8；现有 comments 无重复 | 推荐作为下一条单点 follow-up，但发布前仍需用户确认 exact reply |
-| `SP-12` | P1 | per-node Class uniqueness race | Pool 名是 `{class}-{node}`，两个重叠 Class 会创建不同对象；跨对象 validating webhook list/check 不是原子 reservation，并发请求可同时通过 | `READY_LOCAL`；Candidate 9；现有 comments 无重复 | 需要 deterministic ownership、per-node claim/name conflict 或明确 precedence，并加 concurrent create test |
+| `SP-10` | P1 | containerd shim Task lifecycle contract | `3d1bd0d` 已移除大部分 CRI/shim method 混用，并把 node-ctl stop 放回 daemon 的 Pool deletion path；但 no-workload-process shim 仍需满足 Task `Create/Start/State/Wait/Kill/Delete/Shutdown`、PID 和 exit contract | `POSTED_WAITING`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680814)；containerd main `ba01536` Task v2 proto 已复核 | 等待作者定义虚拟 task/process、PID、Wait/exit 和 reconnect contract；不先替作者假设实现 |
+| `SP-11` | P1 | heartbeat timeout reconcile trigger | controller 只在 Reconcile 中计算 `PlaceholderAgentHealthy`；agent 停止后不会再产生 status event，若没有 `RequeueAfter`/periodic sweep，2min 阈值不会自行触发 | `POSTED_WAITING`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680816)；Candidate 8 | 等待作者选择 `RequeueAfter`、periodic sweep 或其他 time-driven reconcile，并说明 fault-injection test |
+| `SP-12` | P1 | per-node Class uniqueness race | Pool 名是 `{class}-{node}`，两个重叠 Class 会创建不同对象；跨对象 validating webhook list/check 不是原子 reservation，并发请求可同时通过 | `POSTED_WAITING`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680822)；Candidate 9 | 等待作者定义 atomic claim、deterministic precedence 或等价机制，并说明 concurrent-create test |
 | `SP-13` | P2 | EverReady state source | Phase priority 依赖 never/was Ready，risk table 声称 sticky `ConditionEverReady` 已实现，但 Condition Definitions 未列 writer、初始化、持久语义 | `HOLD`；暂无独立 Candidate | 可与 `SP-04` 一起在作者再次修改状态机时核对，不单独发 |
 
 ### 已有覆盖，不重复评论
@@ -569,7 +569,7 @@ Could the proposal define an atomic ownership mechanism for each node, such as a
 
 用户决定本轮一次性提交多个问题。为保持可回复性，不使用一条 omnibus body，而是创建一个 `COMMENT` review，包含 4 条独立 inline comments。
 
-发布门禁状态：`PENDING_USER_CONFIRMATION`。以下 target/body 必须作为一个完整 payload 由用户确认；确认前不得调用 GitHub create-review API。
+发布状态：`POSTED_WAITING`。用户已确认以下完整 payload，并于 2026-07-13 作为一个 `COMMENT` review 发布；当前等待作者逐条回复。
 
 ### Review Metadata
 
@@ -644,7 +644,20 @@ The proposal says a node cannot have Pools from different Classes, but Pool name
 Could the proposal define an atomic ownership mechanism for each node, such as a stable per-node claim/name that uses Kubernetes create conflict, or a deterministic Class precedence rule with reconciliation of the loser? A concurrent-create integration test would make this invariant verifiable.
 ```
 
-### Planned API Shape After Confirmation
+### Publication Record
+
+- Review: [pullrequestreview-4681333180](https://github.com/volcano-sh/agentcube/pull/431#pullrequestreview-4681333180)
+- Review ID: `4681333180`
+- Submitted at: `2026-07-13T02:16:04Z`
+- Event / state: `COMMENT` / `COMMENTED`
+- Exact commit: `3d1bd0d13928b2fa6320d6d50ce37c35f1d1db63`
+- Inline 1, line 138, Task lifecycle: [discussion_r3567680814](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680814), ID `3567680814`
+- Inline 2, line 151, heartbeat timer: [discussion_r3567680816](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680816), ID `3567680816`
+- Inline 3, line 535, orphan cleanup: [discussion_r3567680819](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680819), ID `3567680819`
+- Inline 4, line 626, atomic ownership: [discussion_r3567680822](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680822), ID `3567680822`
+- Server-side verification: review comments API 回读到 4 条，全部绑定上述 exact commit；GraphQL review-thread 回读确认四条均为 current-diff active thread，锚点分别为 `138/151/535/626`。
+
+### Submitted API Shape
 
 ```text
 POST /repos/volcano-sh/agentcube/pulls/431/reviews
