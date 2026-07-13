@@ -16,7 +16,7 @@
 - #431 后续观察点：`@acsoto` 已问新 SandboxPool 与现有 WarmPool 路径关系，作者称是 two-generation architecture，但正文似乎还没补 Relationship section。我们此前的 stale/unreachable inline comment 已被 `35d361e` 基本吸收；新增实现仍把 `NodeCtl.LastHeartbeat` 当 agent heartbeat，且 Phase table 的 `PlaceholderAgentHealthy=True → Ready` 未重检其它 Ready 条件。删除超时强制移除 finalizer 还可能遗留无 CRD 对应的 node-local Static Pod manifest。三项先本地保留，不连续堆 upstream 评论。Copilot 已覆盖 endpoint source of truth、SSA conditions list-map、`omitempty`、`<5s` rebuild 和 no-process/no-cgroup，不重复。
 - GPT image workflow：本地 `/home/agentcube/.agents/skills/gpt-image-draw/SKILL.md` 已跑通。环境有 `OPENAI_API_KEY`；系统 Python 缺 `openai` 且受 PEP 668 限制，已用 `/tmp/gpt-image-draw-venv` 临时 venv 安装依赖。生成后必须用 `file` / `ls -lh` / `view_image` 复核，实际 PNG 尺寸可能不同于请求尺寸。不要打印或提交任何 key。
 - Diagram rule：`AGENTS.md` 已新增 `Diagram and Image Generation Guidelines`。Linux 上架构/控制流/状态机/proposal review 图默认用 Mermaid；draw.io 只在需要可编辑画布或复杂布局时用；GPT image draw 用于精致 raster、中文信息图、banner、报告视觉图。精确架构和 review 推理仍以 Mermaid / prose 为准。
-- Weekly report workflow：已迁移到独立本机仓库 `/home/intern-week-mail`，GitHub remote 为 private；唯一 skill source 是该仓库的 `.agents/skills/write-weekly-report-email/`。真实身份配置只在 ignored `.env`；最终 HTML/subject 允许仅在该 private repo 的 `output/` 版本化，AgentCube 不保存模板、skill 或含身份输出。2026-07-10 Week 5 验收稿已按原 Word 六列 `71/350/101/297/79/54pt` 固定网格重新生成，结构校验与 Playwright 截图通过，尚未授权发送邮件。
+- Weekly report workflow：已迁移到独立本机仓库 `/home/intern-week-mail`，GitHub remote 为 private；唯一 skill source 是该仓库的 `.agents/skills/write-weekly-report-email/`。岗位为“云原生开源实习生”，与真实身份一起只在 ignored `.env` 配置，不得从原始 CCE 示例推断；最终 HTML/subject 允许仅在该 private repo 的 `output/` 版本化。2026-07-10 Week 5 验收稿已按原 Word 六列 `71/350/101/297/79/54pt` 固定网格重新生成，结构校验与 Playwright 截图通过，尚未授权发送邮件。
 
 ## Active Upstream Threads
 
