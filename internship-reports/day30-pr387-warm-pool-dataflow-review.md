@@ -1224,3 +1224,11 @@ GitHub server-side 最终证据：
 - official E2E run `29313632039` 明确校验 `agent-sandbox-controller:v0.4.6`，`TestCodeInterpreterWarmPool` 8.11s PASS，WarmPool load 30.03s PASS；
 - OIDC/RLAC 仍因未部署 Keycloak skip，继续由 #433/认证专项负责；
 - 当前 labels 为 `kind/feature,size/XXL`，仍没有 `lgtm`/`approved`，不自动请求 reviewer 或发表评论。
+
+## 2026-07-14：补查 E2E runner 漂移
+
+最终代码规范复核时，用户发现 `.github/workflows/e2e.yml` 仍使用 `ubuntu-22.04`。全仓扫描确认它是 GitHub-hosted workflows 中唯一残留的 22.04；其他 build、lint、codegen、coverage、Python、publish 和 approval workflows 都已统一为 `ubuntu-24.04`。这不是有意保留的兼容矩阵，而是 #423 runner pinning 后的漏项。
+
+在 PR 更新 worktree 上形成单行 DCO commit `df8eb9b ci: run e2e on ubuntu 24.04`，并先推到 fork-only `ci/pr387-e2e-ubuntu-2404`。本地 YAML parse、diff check 和 runner 全仓扫描通过；fork workflows 9/9 success。E2E run `29314922163` 的两个 job 均明确记录 `Image: ubuntu-24.04`，focused job 继续通过 `TestCodeInterpreterWarmPool`（8.14s）与 load（33.17s），且校验 controller v0.4.6。
+
+> 分析：该修正只有一行，符合本 PR 已经修改 E2E workflow 的职责，不需要独立上游 PR。当前 PR head 仍为 `e32a463`；把 `df8eb9b` push 到 open PR branch 仍需用户确认。

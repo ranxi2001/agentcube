@@ -10,6 +10,7 @@
 
 - PR #387 body + conflict：2026-07-14 已按确认把 body 从 750 words / 59 lines 压缩为 266 words / 16 lines；随后将 5 个 DCO commits 从旧基线 `bed6bd4` rebase 到 `upstream/main@3de1272`。唯一冲突是 `go.sum`：main 的 agentd 清理与 #387 的 v0.4.6/K8s 0.35.4 依赖整理重叠，已用目标 `go.mod` + Go 1.26.4 `go mod tidy` 生成结果。用户确认后以精确 lease force-push，PR head `c2633c5 -> 401a00e`；GitHub 回读 `mergeable=true`、`rebaseable=true`，新 SHA 11/11 checks 全绿，Tide 不再报 conflict，只等 `approved`/`lgtm`。
 - PR #387 E2E version alignment：用户确认后，test-only commits `cf35435`/`e32a463` 已普通 fast-forward push 到 `origin/feat/agent-sandbox-latest`，PR head 现为 `e32a463`。只改 workflow/E2E 三个文件，不含 #433 auth/RBAC/WM 产品修改；保留 mTLS job并新增 focused CodeInterpreter job，对齐 v0.4.6，按 UID 验证 adoption、session cleanup 和 refill。fork 9/9、official 13/13 checks success；official run `29313632039` 目标 WarmPool 与 load 实际 PASS。
+- PR #387 runner follow-up：发现 E2E 是全仓唯一 `ubuntu-22.04` workflow。单行 DCO commit `df8eb9b` 已在 fork-only `ci/pr387-e2e-ubuntu-2404` 验证 9/9 绿；run `29314922163` 两个 job 均确认 `Image: ubuntu-24.04`，WarmPool 目标测试继续 PASS。尚未 push 到 open PR，需用户确认。
 - AgentCube PR review skill：独立 `.agents/skills/agentcube-pr-review/` 已完成并用 #387 前向验证；scanner 现在同时识别 dependency/runtime skew 和 target E2E default skip，4 个脚本单测通过。PR management 仍独立负责分支、CI 文案和 upstream 门禁。
 - Upstream writing gates：2026-07-14 已增强 `agentcube-issue-discussion` 与 `agentcube-pr-management`，新增 concise references 和 `draft_metrics.py`。规则把 upstream body/comment 定位为证据索引：普通 PR 目标 100-300 visible words，API/CRD/兼容/安全/benchmark/多组件 PR 目标 200-450；超 450 必须说明 long-form exception。近期样本和前向测试记录在 `internship-reports/open-source-contribution-format-standard.md`；没有发布任何 upstream 文本。
 - Branch/workflow：当前本地在 `intern`，该分支保存实习报告、TODO、本地 skills 和中文记录；fork `main` 必须保持 upstream clean mirror。记录类 commit 完成后默认 push `origin intern:intern`；任何 upstream issue/PR/comment/review request/maintainer mention 必须先让用户确认 exact target/body。
@@ -61,7 +62,7 @@
 
 ## Next
 
-- For #387: test-only update 已推送并通过 official checks。下一步只等待 maintainer review/labels；不要追加 #433 auth/RBAC 修改，也不要自动评论或请求 review。若 main 再前进，仅在出现真实 conflict 或 maintainer 要求时重新评估 rebase。
+- For #387: test-only update 已推送并通过 official checks；runner 单行 follow-up `df8eb9b` 已完成 fork 验证，下一步经用户确认后 fast-forward 到 open PR，再观察 official checks。不要追加 #433 auth/RBAC 修改，也不要自动评论或请求 review。
 - Community tasks：本轮不 `/assign`。下一次先刷新 open issue/PR；只有新的 focused unowned issue，或 maintainer 将 #386/#272 拆成 dedicated sub-issue，才进入认领准备。#433 若做协作，先在临时 worktree 完成 Helm render/lint 和 auth/RBAC focused validation，再向用户提交 exact review draft。
 - For #431: 4-comment batch review 已发布并完成 server-side 回读。不要回复已解决的 resize/RuntimeClass threads，也不要重复最新 Copilot 的 PR-body mismatch；先等待作者回复或新 commit，再逐 thread 判断 `RESOLVED`、窄追问或 Phase 2 spike/e2e gate。node-ctl RPC、`EverReady`、test DoD 和 RBAC/Webhook 顺序先写在 Day44，不立即追加评论；任何新的 upstream 回复仍需用户确认 exact body。
 - If validating #431 technically, focus on `SP-10` containerd Task lifecycle mapping plus kubelet admission/scheduler accounting for the rebuild window. Keep native `/resize` out of the design; require a real-node shim spike covering task PID/wait/exit, rebuild-vs-delete discrimination, node-ctl continuity, mirror gap, and conflicting Pod admission.
