@@ -111,6 +111,8 @@ git push --force-with-lease origin intern:intern
 
 For fork-only internship reports, TODO updates, local skills, and other `intern` branch record-keeping work, push to `origin intern:intern` in the same work loop after committing unless the user explicitly asks not to push. This automatic push preference applies only to the personal fork / `intern` branch workflow; upstream-facing PRs, issues, comments, review requests, maintainer mentions, and official topic branches still require explicit user confirmation.
 
+Append `[skip ci]` to commit subjects for `intern`-only reports, TODO/PROGRESS updates, local skills, and other record-keeping changes. The fork's core workflows run on ordinary branch pushes, provide no useful validation for these local-only records, and can generate unnecessary failure email. Do not use `[skip ci]` on upstream PR branches, fork validation branches, workflow changes, or any commit whose build/test result is intentionally being validated.
+
 Use `--force-with-lease`, not plain `--force`, after a rebase or mirror reset. If `--force-with-lease` is rejected, fetch `origin` and inspect the difference before pushing, because someone or something may have updated the fork branch. Do not push to `upstream`; keep its push URL disabled or treat it as read-only.
 
 For official upstream PRs, do not open PRs directly from the fork `main` branch. Create a clean topic branch from the latest `upstream/main`, and include only one focused change:
