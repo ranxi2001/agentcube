@@ -1174,6 +1174,34 @@ GitHub 当前状态：
 - 只有某个内部 gate 在新正文中仍未回答、会改变 PR 切分或公共 API，并且没有被现有 thread 覆盖时，才准备新的 exact comment 供用户确认。
 - 等待期间若要推进技术工作，只做本地 Phase 1 骨架或 runtime feasibility spike；不把实验实现描述成 proposal 已经确定的正式方案。
 
+### 2026-07-14 Current-Head 架构复核与第二批 Review
+
+PR head 更新到 `c2f25021938e64c92a9fbbaad729fe7588c5a602` 后，完整 proposal 增长到 743 行。新的 heartbeat timer、startup orphan scan、deterministic Pool name 和 synthetic Task contract 回答了上一批 review 的一部分机制问题，但也让资源 resize 的真实执行顺序更清楚：Pool spec 变化后，agent 先写 manifest，kubelet 重建 Static Pod，随后 shim `Create` 才调用 daemon/node-ctl 应用 policy。
+
+这个顺序在 scale-up 与 scale-down 上不能对称处理：
+
+```mermaid
+flowchart LR
+    A[Desired policy changes] --> B{Direction}
+    B -->|Scale up| C[Raise Static Pod reservation]
+    C --> D[Admission succeeds]
+    D --> E[Expand node-ctl allocation]
+    B -->|Scale down| F[Check watermark]
+    F -->|Unsafe| G[Deferred: keep old reservation]
+    F -->|Safe| H[Shrink node-ctl allocation]
+    H --> I[Lower Static Pod reservation]
+```
+
+> 分析：如果 unsafe downscale 仍先降低 manifest request，kubelet 本地 podManager 和 mirror Pod 最终都会反映较小 reservation，而 node-ctl 继续保留旧 allocation。此时 regular Pod 可以进入原本应由 sandbox pool 锁定的容量；Deferred 只避免直接缩小 sandbox cgroup，不能避免调度资源重叠。因此需要显式区分 desired policy、last-applied node-ctl allocation 和 last-applied Kubernetes reservation。
+
+同一轮还确认了四个独立合同问题：Static Pod 节点压力保护应直接设置 numeric `priority`；`PlaceholderAgentHealthy=True` 只能触发完整 Phase 重算；每个 host agent 的 cluster-wide status patch 需要服务端 node identity 边界；startup orphan scan 必须按 name GET 后比较 UID，并区分 NotFound、UID mismatch 与 API Server/authorization failure。
+
+用户确认 exact inline 文本后，五条问题已通过一个 `COMMENT` review 一次性发布：[review `4693432020`](https://github.com/volcano-sh/agentcube/pull/431#pullrequestreview-4693432020)。对应 thread 是 [Deferred downscale](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213523)、[Static Pod priority](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213525)、[Phase recovery](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213530)、[status RBAC](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213534) 和 [orphan API semantics](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213539)。服务端逐条回读确认五个锚点均位于 current diff，并绑定 exact commit `c2f2502`。
+
+> 注释：这次使用 inline review，而不是一条顶层长评论。原因是五个问题分别属于 resize、Kubernetes Pod API、状态机、安全边界和故障恢复，作者需要能够逐条回复和 resolve；同时一次性 submit 保持只有一个 review 通知事件。
+
+当前停止新增 comment。下一步等待作者回复或新 push，再逐 thread 验证设计是否真正闭合；CI 全绿只代表文档检查通过，不构成 Static Pod/containerd/node-ctl runtime 证据。
+
 ## 参考链接
 
 - AgentCube discussion #430: <https://github.com/volcano-sh/agentcube/issues/430>
