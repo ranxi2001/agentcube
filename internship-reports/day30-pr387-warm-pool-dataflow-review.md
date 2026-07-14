@@ -1231,4 +1231,6 @@ GitHub server-side 最终证据：
 
 在 PR 更新 worktree 上形成单行 DCO commit `df8eb9b ci: run e2e on ubuntu 24.04`，并先推到 fork-only `ci/pr387-e2e-ubuntu-2404`。本地 YAML parse、diff check 和 runner 全仓扫描通过；fork workflows 9/9 success。E2E run `29314922163` 的两个 job 均明确记录 `Image: ubuntu-24.04`，focused job 继续通过 `TestCodeInterpreterWarmPool`（8.14s）与 load（33.17s），且校验 controller v0.4.6。
 
-> 分析：该修正只有一行，符合本 PR 已经修改 E2E workflow 的职责，不需要独立上游 PR。当前 PR head 仍为 `e32a463`；把 `df8eb9b` push 到 open PR branch 仍需用户确认。
+> 分析：该修正只有一行，符合本 PR 已经修改 E2E workflow 的职责，不需要独立上游 PR。用户确认后已将 `df8eb9b` fast-forward push 到 open PR；GitHub 回读 `mergeable=true` / `rebaseable=true`，official checks 12/12 success。
+
+为帮助 reviewer 快速理解 E2E diff 大于单行版本升级的原因，用户确认后发布了 132 visible words / 13 nonblank lines 的英文 [Mermaid comment](https://github.com/volcano-sh/agentcube/pull/387#issuecomment-4966669956)。图中只保留两条关键信息：mTLS job 与 focused CodeInterpreter job 的职责分工，以及 `SandboxClaim -> adopted Sandbox -> same-UID pre-warmed Pod -> session cleanup -> refill` 生命周期。GitHub API 回读正文与本地草案完全一致；没有重复完整测试矩阵或修改 PR body。
