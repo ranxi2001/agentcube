@@ -29,6 +29,7 @@
 - 例如依赖升级需要更高 Go 版本时，Go/toolchain 升级本身应先作为独立 PR 从 `upstream/main` 提交，只修改原始项目需要的 Go / CI / toolchain 文件并证明原始项目能跑通；依赖升级 PR 等该前置 PR 合入后再 rebase。
 - 使用 AI 工具辅助可以，但作者必须理解每一处改动，并在 PR 的 `Special notes for your reviewer` 中披露。
 - 回复 review comment 时应由作者自己直接回复，不依赖 AI 生成回复。
+- Reviewer-facing text 是证据索引，不是实习报告副本。普通 PR/comment 优先控制在一屏内；文件级 rationale、完整测试矩阵、调试时间线、raw benchmark 和动态 CI 状态保留在稳定链接的 issue/proposal/report。
 
 ## 社区角色与评论权重
 
@@ -279,12 +280,13 @@ NONE
 - `/kind documentation`
 - `/kind feature`
 
-`Special notes for your reviewer` 至少说明：
+`Special notes for your reviewer` 只写会改变 review 判断的信息，并尽量压缩为三条：
 
-- 影响范围。
-- 是否改 CRD / generated clients / Helm chart。
-- 是否用了 AI 工具辅助。
-- 是否有已知限制或没有覆盖的测试。
+- Scope/compatibility：影响范围，以及 CRD/generated clients/Helm 等重要边界。
+- Tests：最相关命令、结果和未覆盖的关键路径。
+- AI assistance / limit：一句 AI 披露，以及确实重要的残余限制。
+
+普通 PR 软目标为 100-300 visible words；API/CRD、兼容、安全、benchmark 或多组件 PR 为 200-450 words。超过 450 words 时必须再做压缩，并说明为什么 detail 不能放到 linked issue/proposal/report。字数是 review trigger，不是删安全、兼容或 benchmark 可比性证据的硬门禁。
 
 `release-note`：
 
@@ -298,6 +300,7 @@ NONE
 | 检查项 | 要求 |
 | --- | --- |
 | 用户确认 | 创建 upstream PR、draft PR、WIP PR、issue 或 comment 前，先让用户确认目标 repo、标题、完整 body/comment、diff summary、测试结果和为什么现在需要 upstream 介入 |
+| Reviewer attention | 报告 visible words / nonblank lines；普通 PR 超过 300 words 做压缩检查，超过 450 words 说明 long-form exception |
 | 分支 | 基于最新 `upstream/main` 的干净 topic 分支 |
 | 范围 | 一个 PR 一个主题，不混入实习报告 |
 | Issue | 有对应 issue 时写 `Fixes #...`；讨论或部分工作写 `Refs #...` |
@@ -405,6 +408,18 @@ Initial test plan:
 ```
 
 如果 issue 已有人 `/assign` 或有 open PR，优先做 review / 测试反馈，不要重复实现。
+
+## 2026-07-14 简明写作规则校准
+
+这次校准读取 GitHub API 返回的近期 AgentCube 文本，并先去掉 HTML 模板注释。最近 26 个非 bot PR 的 reviewer-visible 中位数为 211.5 words / 22 nonblank lines；最近 20 个 issue 的中位数为 192 words / 19.5 nonblank lines。样本只用来确定“需要再压缩”的软触发点，不代表维护者认可每一篇历史文本，也不是硬性长度门禁。
+
+落地内容：
+
+- `agentcube-issue-discussion` 按 enhancement、bug、proposal、benchmark、普通评论区分结构，避免把完整排查记录贴进评论。
+- `agentcube-pr-management` 以官方模板为骨架，把普通 PR 控制在 100-300 visible words，把复杂 PR 控制在 200-450 words；超过 450 words 必须说明无法外链的原因。
+- `draft_metrics.py` 统一去掉隐藏注释后统计 visible words 和 nonblank lines，并可用 `--fail-over-limit` 作为压缩检查。
+
+校验结果：两个 skill 均通过 `quick_validate.py`；metrics 脚本通过隐藏注释和超限退出码 smoke test。一个全新 CRD/API 草稿前向测试得到 183 words / 14 nonblank lines，仍保留 omitted-field 默认行为、旧 controller 升级语义、CRD/generated client/Helm 范围、缺失 lifecycle e2e、AI 披露和 release note，没有退化成文件清单或测试流水账。
 
 ## 我们后续固定流程
 

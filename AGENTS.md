@@ -139,6 +139,8 @@ Before taking a feature or dependency-compatibility PR into maintainer review, p
 
 Before drafting or submitting upstream-facing issues, proposal comments, benchmark feedback, or PRs, follow `internship-reports/open-source-contribution-format-standard.md`. Upstream-facing content should be in English, use the official issue/PR templates, disclose AI assistance in PR reviewer notes, and keep Chinese analysis in internship reports.
 
+Treat reviewer-facing text as an index to stable evidence, not as the full internship report. For ordinary PR bodies and comments, keep the problem, behavior, material risk, validation, and requested action within one screen when practical; leave code-rationale tables, complete test matrices, chronological debugging logs, raw benchmark data, dynamic CI status, and full proposal analysis in a linked issue/proposal/report. Apply the concise-first gates in `agentcube-pr-management` and `agentcube-issue-discussion`, and explicitly justify long-form exceptions.
+
 ## Commit & Pull Request Guidelines
 
 Recent history uses scoped commits such as `docs: clarify redis password values`, `test: fix flaky router private key PEM test`, and `manifests: load REDIS_PASSWORD from Secret via secretKeyRef`. Prefer `component: imperative summary`; `feat:` and `fix:` are acceptable. PRs should explain the problem, summarize changes, link issues with `Fixes #...` or `Refs #...`, list tests run, and include logs or screenshots for user-facing behavior. Request review from relevant `OWNERS`.

@@ -2,11 +2,11 @@
 name: agentcube-pr-management
 description: >-
   Use when preparing, validating, submitting, updating, or reviewing AgentCube
-  upstream pull requests: enforce fork/upstream branch hygiene, fill the official
-  PR template, map files to OWNERS, run appropriate tests, disclose AI
-  assistance, track review state, read other contributors' PR code/proposals
-  before commenting, and avoid mixing internship reports with upstream PR
-  branches.
+  upstream pull requests: enforce fork/upstream branch hygiene, draft concise
+  reviewer-facing bodies, fill the official PR template, map files to OWNERS,
+  run appropriate tests, disclose AI assistance, track review state, read other
+  contributors' PR code/proposals before commenting, and avoid mixing
+  internship reports with upstream PR branches.
 ---
 
 # AgentCube PR Management Skill
@@ -29,6 +29,7 @@ Use this skill for AgentCube upstream PR work: branch prep, template filling, is
 - For other contributors' PRs, do not draft comments, conclusions, or review suggestions until you have read the PR body, changed files, proposal/design docs, key implementation/tests, and existing human review discussion.
 - For read-only analysis of another PR or issue, keep notes local unless a maintainer response is genuinely needed and the user approves posting.
 - Prefer script-first PR analysis. If status checks, file summaries, review comment filtering, CI state, or branch hygiene checks are repeated across PRs, improve `.agents/skills/agentcube-pr-management/scripts/` and update this skill instead of redoing the same manual analysis.
+- Keep the code rationale matrix, full benchmark record, and investigation history local. The upstream body is a concise index to the problem, behavior, risk, validation, and stable linked evidence. Read `references/concise-pr-writing.md` before drafting or materially expanding a PR body.
 
 ## Upstream Posting Gate
 
@@ -47,6 +48,7 @@ Approval request must include:
 - Body/comment formatting check: normal prose should use natural GitHub Markdown paragraphs, without manual hard-wrapping inside sentences.
 - Diff summary and tests run.
 - Why upstream attention is needed now.
+- Reviewer-visible word/nonblank-line count. If the body exceeds 450 words, include the exact long-form reason.
 
 If the goal is only to run CI, use local tests and any fork branch push checks that exist first. Do not ask maintainers to validate work that can be validated before upstream review.
 
@@ -525,6 +527,8 @@ Before asking for maintainer review, prepare a local table that the author can u
 
 Use this matrix for dependency and lifecycle work such as agent-sandbox adaptation, where review questions often focus on why a file was touched at all.
 
+Keep this matrix in the local report or review notes. Do not copy it, the complete test inventory, or the implementation timeline into the upstream PR body; compress it through the reviewer-attention gate below.
+
 Useful collection commands:
 
 ```bash
@@ -616,6 +620,30 @@ Use `OWNERS` by changed path:
 
 Let the bot guide exact approval requirements; do not over-tag reviewers unless needed.
 
+## Reviewer-Attention Gate
+
+Before requesting approval for a PR body:
+
+1. Start from `.github/PULL_REQUEST_TEMPLATE.md` and fill every required field.
+2. State the problem and resulting behavior in one short paragraph.
+3. Add at most three decision-relevant reviewer notes: scope/compatibility, validation, and one material limit or risk.
+4. Keep AI disclosure to one sentence and write a concrete release note or `NONE`.
+5. Measure reviewer-visible text:
+
+```bash
+python3 .agents/skills/agentcube-issue-discussion/scripts/draft_metrics.py <draft.md> --limit 300
+```
+
+Use soft targets:
+
+- Ordinary code, test, cleanup, or docs PR: 100-300 visible words and at most 35 nonblank lines.
+- API/CRD, compatibility, security, benchmark, or multi-component PR: 200-450 visible words and at most 55 nonblank lines.
+- Above 450 words: perform another compression pass and record why the remaining detail must be in the body.
+
+Delete by default: the local file matrix, complete test-case inventory, chronological debugging log, raw benchmark JSON, dynamic CI status/links, repeated scope lists, bot summaries, and full proposal text. Link a stable issue, proposal, or report instead. Diff size alone does not justify a long body.
+
+Do not shorten away API/CRD upgrade contracts, security boundaries, benchmark environment facts, or material residual risk. Lead with the decision-relevant summary and move supporting detail to the linked artifact when possible.
+
 ## PR Template
 
 Always use the repository's official `.github/PULL_REQUEST_TEMPLATE.md` exactly as the base for upstream PRs, including draft and WIP PRs. Do not replace it with a self-designed style. Fill every section; use `NONE` inside the release-note block when there is no user-facing change.
@@ -636,9 +664,9 @@ Fixes #<issue>
 
 **Special notes for your reviewer**:
 
-- Scope:
-- Tests:
-- AI assistance: Used Codex to help inspect code, draft tests, and prepare this PR. I reviewed and validated the changes.
+- Scope/compatibility: <only when material>
+- Tests: `<most relevant command>` passed; <exact-SHA CI or focused evidence when useful>.
+- AI assistance: Codex helped inspect the change and draft tests/text; I reviewed the code and validation results.
 
 **Does this PR introduce a user-facing change?**:
 
@@ -769,3 +797,5 @@ python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 379
 - Do not duplicate work on an issue with an active `PR 认领 @`; record the owner and switch to review/test feedback unless the maintainer asks for a separate PR.
 - Do not treat AI reviewer or automation bot comments as maintainer consensus.
 - If a first-time contributor workflow needs `ok-to-test`, mention it in local notes; do not spam maintainers.
+- Do not turn the local code rationale, benchmark record, or investigation report into the upstream PR body. Ordinary reviewer-facing text should fit one screen and point to stable evidence for detail.
+- Do not imitate empty `What/why`, `Fixes #`, or release-note fields from historical PRs; preserve brevity while completing the current template.

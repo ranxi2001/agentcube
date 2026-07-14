@@ -3,8 +3,9 @@ name: agentcube-issue-discussion
 description: >-
   Use when working with AgentCube GitHub issues, discussions, proposals, or
   issue comments: fetch full issue/PR conversation context, summarize community
-  discussion in Chinese, draft English replies, cross-link related issues/PRs,
-  and prepare benchmark/proposal comments that follow AgentCube community format.
+  discussion in Chinese, draft concise English issues and replies, cross-link
+  related issues/PRs, and prepare benchmark/proposal comments that follow
+  AgentCube community format.
 ---
 
 # AgentCube Issue Discussion Skill
@@ -20,6 +21,8 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
 - Search for related issues/PRs before proposing a new direction.
 - Do not invent maintainer consensus; distinguish explicit maintainer comments from inference.
 - For formal design/proposal PR review, read `references/proposal-review.md` before drafting comments.
+- Treat reviewer-facing text as an index to evidence, not a copy of the internship report. Read `references/concise-issue-writing.md` before drafting a new issue or non-trivial comment.
+- Do not post an issue, comment, `/assign`, reviewer request, or maintainer mention without explicit user approval of the exact text and target.
 
 ## Workflow
 
@@ -41,8 +44,31 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
 5. If an issue has an active assignee or linked open PR, recommend review/testing feedback instead of duplicate implementation.
 6. Produce Chinese internal summary first when the user is planning or discussing.
 7. Produce English upstream comment only when asked to draft or post.
-8. Include cross-links using GitHub `#123` references and short context.
-9. If the same issue/PR analysis requires repeated API calls, version matrices, log extraction, or manual filtering, add or improve a script under this skill before the next similar run.
+8. Run the concise-first publishing gate below before presenting exact text for approval.
+9. Include cross-links using GitHub `#123` references and short context.
+10. If the same issue/PR analysis requires repeated API calls, version matrices, log extraction, or manual filtering, add or improve a script under this skill before the next similar run.
+
+## Concise-First Publishing Gate
+
+Before presenting an issue or comment for approval:
+
+1. Select the artifact type first: enhancement, bug, question, proposal, benchmark, ordinary comment, or review finding.
+2. Lead with the outcome, bounded impact, or exact maintainer decision needed; do not recap the full thread.
+3. Keep one decisive evidence item per material claim and explain why each link matters.
+4. Keep chronology, complete logs/JSON, full benchmark tables, and broad source-reading notes in `internship-reports/` unless they change an upstream decision.
+5. Measure reviewer-visible text after hidden template comments are removed:
+
+```bash
+python3 .agents/skills/agentcube-issue-discussion/scripts/draft_metrics.py <draft.md> --limit 250
+```
+
+Use soft review triggers:
+
+- Enhancement/question: 80-250 visible words.
+- Reproducible bug: usually 120-400 visible words before irreducible logs/manifests.
+- Ordinary comment/review: 40-180 visible words; review again above 250.
+
+Proposal, benchmark, API/CRD, security, and cross-component reviews may be longer when the structure remains scan-first and the extra evidence changes the decision. When requesting posting approval, include visible word/nonblank-line counts and name the long-form reason when the draft exceeds the ordinary trigger.
 
 ## Proposal Review
 
@@ -133,27 +159,19 @@ https://api.github.com/repos/volcano-sh/agentcube/pulls/<number>/commits
 
 ## English Comment Draft Format
 
-Use this when drafting upstream comments:
+Use this compact default for upstream comments:
 
 ```md
-Thanks for the discussion here. My understanding is:
+I verified <scenario> at `<sha>`.
 
-- ...
+- Observation: <result>
+- Evidence: <test, log, code path, or benchmark case>
+- Impact: <bounded behavior>
 
-Based on #<related>, I think this issue is aligned with ...
-
-Proposed next step:
-
-1. ...
-2. ...
-3. ...
-
-I can help with:
-
-- ...
+Suggested next step: <one action or question>.
 ```
 
-For benchmark comments:
+Use the longer benchmark structure only when the environment and percentile fields materially affect comparison. Otherwise keep the complete record local and publish a compact result, limitation, and next step.
 
 ```md
 ## Benchmark scope
@@ -212,3 +230,5 @@ Summarize as:
 - Always report assignee state as `PR 认领 @` in planning tables or summaries.
 - If someone is assigned or an active PR exists, recommend review/test feedback instead of duplicate implementation.
 - Mention AI assistance in PR reviewer notes when used for upstream PR prep.
+- Do not paste file inventories, complete test matrices, chronological work logs, bot summaries, raw benchmark JSON, or dynamic CI status into an ordinary issue/comment.
+- Do not shorten away benchmark comparability, API/CRD compatibility, a security boundary, or a proposal decision merely to hit a word target.

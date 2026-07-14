@@ -1,6 +1,6 @@
 # 实习任务 TODO
 
-更新时间：2026-07-10
+更新时间：2026-07-14
 
 这个文档用于管理实习期间的后续任务。日报记录每天做了什么，TODO 记录“现在还要做什么、优先级是什么、做到哪里、卡在哪里”。
 
@@ -19,8 +19,8 @@
 | 优先级 | 任务 | 状态 | PR 认领 @ | 难度 | 成本 | 预计时间 | 产出/证据 | 下一步 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | P0 | 准备一个低争议 upstream PR 或 issue | REVIEW | #265 无 assignee；PR #385 | 中 | 低 | 0.5-1 天 | [Day 10](day10-warmpoolavailable-poc.md) 已成功提交 upstream PR [#385](https://github.com/volcano-sh/agentcube/pull/385)，并已按 Codecov 反馈补测试 | 持续追踪 CI、coverage、e2e、tide 和 reviewer 反馈 |
-| P0 | 固定开源贡献和社区讨论格式标准 | DONE | 不适用 | 中 | 低 | 0.5 天 | [格式标准](open-source-contribution-format-standard.md) 已整理官方 issue / PR / proposal / benchmark / review 格式 | 后续 issue、proposal、PR 前按 checklist 检查 |
-| P0 | 建立 issue 讨论和 PR 管理本地 skills | DONE | 不适用 | 中 | 低 | 0.5 天 | [issue skill](../.agents/skills/agentcube-issue-discussion/SKILL.md)、[PR skill](../.agents/skills/agentcube-pr-management/SKILL.md) 已创建 | 后续社区讨论和 PR 准备用对应 skill 工作流 |
+| P0 | 固定开源贡献和社区讨论格式标准 | DONE | 不适用 | 中 | 低 | 0.5 天 | [格式标准](open-source-contribution-format-standard.md) 已整理官方格式、近期样本、reviewer-attention 软阈值和 long-form exception | 后续草稿先报告 visible words/nonblank lines，再按类型保留关键风险证据 |
+| P0 | 建立 issue 讨论和 PR 管理本地 skills | DONE | 不适用 | 中 | 低 | 0.5 天 | [issue skill](../.agents/skills/agentcube-issue-discussion/SKILL.md)、[PR skill](../.agents/skills/agentcube-pr-management/SKILL.md) 已补 concise references、`draft_metrics.py` 和 CRD/API 前向测试 | 后续用对应 skill 起草；普通 PR 超 300 words 复查，超 450 words 说明例外 |
 | P0 | 建立实习周报邮件私有工作流 | DONE | 不适用 | 中 | 低 | 0.5 天 | 已在 `/home/intern-week-mail` 建立独立 private repository，包含 local-first Git evidence collector、脱敏 Outlook HTML 模板、结构化 renderer、Week 5 数据/证据和最终 HTML；真实身份配置仅在 ignored `.env`，含身份输出只进入该 private repo | 每周从本机仓库/报告生成，PR/Issue/review 状态按需从 GitHub 核对；任何发送动作前确认完整邮件 payload |
 | P0 | 建立干净 upstream PR 分支 | DONE | 不适用 | 中 | 低 | 0.5 天 | [Day 10](day10-warmpoolavailable-poc.md) 已在 `/home/agentcube-pr265` 基于 `upstream/main` 创建 `feat/warmpool-available-condition` | fork `intern` 保留实习报告；fork `main` 只同步 `upstream/main`；PR 分支只放 #265 代码改动 |
 | P0 | 准备 AgentCube push CI upstream PR | DONE | Upstream PR [#414](https://github.com/volcano-sh/agentcube/pull/414) | 中 | 低 | 0.5 天 | [Day 34](day34-agentcube-push-ci-workflow-pr-prep.md) 已完成 shared workflow 方案、fork push 9/9 验证和 upstream PR；#414 于 2026-07-02 合并 | 后续只观察 push workflow 行为；新 CI 问题另开 focused task |
