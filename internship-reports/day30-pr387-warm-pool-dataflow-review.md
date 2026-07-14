@@ -1202,3 +1202,25 @@ All tests passed!
 mTLS 基线 job 仍按现有设计 skip CodeInterpreter 用例，但它自身成功；focused job 实际执行并通过 CodeInterpreter/WarmPool，因此两类 coverage 没有互相替换。OIDC/RLAC 用例在 focused job 中因未部署 Keycloak 而 skip，不把这部分描述为 #387 已验证，也不借 #387 修改 #433 的认证边界。
 
 > 分析：本轮调整解决的是测试证据真实性，不是扩展产品职责。#387 的最小可移植更新现在可以限定在上述三个测试/CI 文件；任何向 open PR branch 的 port 仍属于 upstream-facing push，必须先展示 exact diff 并取得用户确认。
+
+## 2026-07-14：用户确认后更新 PR #387
+
+用户确认 test-only 方案需要进入上游后，将候选的两个 DCO commits 移植到 PR #387 实际分支 `origin/feat/agent-sandbox-latest`。为避免无必要地重写原 5 个 feature commits，本次使用普通 fast-forward push，而不是再次 rebase/force-push：
+
+```text
+401a00e -> cf35435 test: validate agent-sandbox warm pool feature path
+         -> e32a463 test: verify warm pool pod identity
+```
+
+移植后的三个文件与 fork candidate `e826041` 逐字一致；在 PR 原基线上重新通过 E2E package compile、lint、Shell syntax、workflow YAML parse 和 diff check。push 前再次 fetch 并验证远端仍是 `401a00e`，最终 `401a00e..e32a463` fast-forward 成功。
+
+> 调试记录：第一次把 `git worktree add` 与后续 cherry-pick 写在同一条 shell 命令中，误以为当前目录会自动切换到新 worktree；实际 cherry-pick 留在 `intern` 工作树，并在第二个提交处出现冲突。分支核对立即发现 `intern` ahead/unmerged，且尚未 push；执行 `git cherry-pick --abort` 精确恢复 `intern@54e11db`，确认 clean 后才在 `/tmp/agentcube-pr387-upstream-update` 正确重做。以后创建 worktree 与修改新 worktree必须拆成不同命令，或为后续命令显式设置新 worktree 的工作目录。
+
+GitHub server-side 最终证据：
+
+- PR head：`e32a46323c3bbfe5d387756ec64cf76e2eda92fe`；
+- `mergeable=true`、`rebaseable=true`；相对最新 main 为 `1 behind / 7 ahead`；
+- fork push workflows 9/9 success；官方 PR checks 13/13 success，新增两个 E2E check 均通过；
+- official E2E run `29313632039` 明确校验 `agent-sandbox-controller:v0.4.6`，`TestCodeInterpreterWarmPool` 8.11s PASS，WarmPool load 30.03s PASS；
+- OIDC/RLAC 仍因未部署 Keycloak skip，继续由 #433/认证专项负责；
+- 当前 labels 为 `kind/feature,size/XXL`，仍没有 `lgtm`/`approved`，不自动请求 reviewer 或发表评论。
