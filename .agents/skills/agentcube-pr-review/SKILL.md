@@ -20,6 +20,7 @@ Read the references needed for the changed surface:
 - Always read [references/agentcube-architecture-review.md](references/agentcube-architecture-review.md) for component ownership and point-to-line-to-surface analysis.
 - Always read [references/agentcube-review-checks.md](references/agentcube-review-checks.md) for language, API, lifecycle, test, and conflict checks.
 - Read [references/review-patterns.md](references/review-patterns.md) before finalizing findings and when deciding whether a reusable lesson is proven.
+- Read [references/maintainer-review-methods.md](references/maintainer-review-methods.md) when reviewing a proposal, controller, shared helper, or when calibrating review quality against maintainer history.
 
 ## Review Workflow
 
@@ -40,6 +41,16 @@ python3 .agents/skills/agentcube-pr-review/scripts/review_surface.py \
 ```
 
 Treat script output as leads. Verify every suspected defect in source, diff, tests, or runtime evidence.
+
+When studying a maintainer's repeated review method, fetch a bounded, diverse PR sample with:
+
+```bash
+python3 .agents/skills/agentcube-pr-review/scripts/maintainer_review_history.py \
+  --repo volcano-sh/agentcube --reviewer RainbowMango --exclude-authored \
+  299 326 366 391 393 414 420 431
+```
+
+Read each sampled PR's problem, diff, reviewer comment, author response, and merge outcome before promoting a pattern. Do not infer reviewer intent from isolated quotes or approval counts.
 
 When a force-push or rebase claims to resolve conflicts, use all three views:
 

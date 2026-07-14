@@ -138,3 +138,43 @@ Evidence labels:
 - Review question: Can the first 60 lines identify the user/administrator, their concrete problem, the promised outcome, stable feature/component names, current cross-project terminology, and authoritative references for external contracts?
 - Validation: Trace actor → pain → outcome back to the parent issue; compare feature and component names with their full responsibilities; search current related discussions for renamed/deprecated concepts; verify protocol links against primary upstream documentation before reviewing implementation detail.
 - False-positive guard: Temporary implementation names are acceptable in an explicitly internal spike that cannot become public API, documentation, CLI, metrics, or long-lived component vocabulary.
+
+### Validate the problem before accepting the patch
+
+- Trigger: A PR is labeled as a bug/regression or adds a test for a claimed failure.
+- Hidden assumption: The issue's diagnosis and expected behavior are correct because the patch looks harmless or defensive.
+- Failure mode: The project merges an unnecessary production change, codifies the wrong expected behavior, or expands a focused cleanup into an unrelated fix.
+- Evidence source: `MAINTAINER`, Karmada #7395 showed that the caller could not observe the alleged slice mutation and reclassified the change as cleanup; Karmada #7640 challenged a panic claim because omitted value-typed placement should remain valid; AgentCube #357 kept a sensible adjacent improvement out of a typo-only PR.
+- Review question: What exact caller observes the behavior, which contract says it is wrong, and does the correction belong to this PR's stated scope?
+- Validation: Trace the value to its consumer, reproduce the claimed behavior or write the smallest causal test, and compare the result with the API/issue contract before reviewing implementation detail.
+- False-positive guard: Defensive tests and cleanup remain useful when named honestly; do not require a runtime reproduction for a defect already proven by type/API semantics.
+
+### Shared helpers must preserve domain routing
+
+- Trigger: One helper handles namespaced and cluster-scoped resources, multiple kinds, multiple workers/queues, or multiple status/cleanup destinations.
+- Hidden assumption: Similar input shapes imply the same downstream route and ownership semantics.
+- Failure mode: A resource is sent to the wrong worker, looked up with invalid namespace semantics, silently skipped, or cleaned up by the wrong owner.
+- Evidence source: `MAINTAINER` and `CODE`, Karmada #7613 found that a helper shared by `ResourceBinding` and `ClusterResourceBinding` always selected the namespaced eviction worker, causing empty-namespace lookup and leaving cluster-scoped bindings unevicted.
+- Review question: For every caller kind, which queue, client scope, status writer, and cleanup owner receives the item?
+- Validation: Build a kind-to-destination matrix and add one focused test per distinct route, including the cluster-scoped or optional path most likely to collapse into a default.
+- False-positive guard: A shared route is correct when all callers intentionally share scope, identity, retry, and ownership semantics and tests prove that contract.
+
+### Status reconciliation should write only meaningful transitions
+
+- Trigger: A controller periodically probes health or derives status/conditions from an external system.
+- Hidden assumption: Rewriting status every reconcile is harmless and error handling can share the unhealthy-state path.
+- Failure mode: API-server churn, noisy watches, lost error distinction, incorrect transition timestamps, or a controller that waits/requeues without an explainable state contract.
+- Evidence source: `MAINTAINER`, Karmada #59 required error paths to return/requeue separately, unhealthy paths to update only the needed condition, status comparison before write, and explanation for finalizer waiting; Karmada #62 required logs for delayed readiness and useful resource identity.
+- Review question: Which observation is an error versus a valid unhealthy state, what transition changes status, who owns requeue timing, and can an operator identify the affected object from logs/events?
+- Validation: Table-test unchanged, changed, unhealthy, transient-error, deletion, and restart cases; assert status writes and transition times only change when intended.
+- False-positive guard: Periodic heartbeats may intentionally write on a fixed cadence when freshness is itself the contract; isolate that field from unrelated status churn.
+
+### Search for existing ownership before adding mechanism
+
+- Trigger: A PR introduces a helper, finalizer, controller loop, configuration convention, or reusable abstraction.
+- Hidden assumption: A locally clean implementation is preferable without checking repository or sibling-project precedent.
+- Failure mode: Duplicate helpers/finalizers diverge, two components own the same lifecycle rule, or configuration loses an established operational convention.
+- Evidence source: `MAINTAINER`, Karmada #59 found an existing readiness helper and duplicate finalizer; Karmada #84 requested a common helper for repeated controller logic; AgentCube #396 pointed to Karmada's Dependabot schedule and asked the author to justify grouping before accepting it.
+- Review question: Where does the repository already express this invariant, and if a new mechanism is still needed, what responsibility or semantics make it distinct?
+- Validation: Search definitions and call sites, compare field/owner/error semantics, and ask for the smallest rationale when choosing a new path over reuse.
+- False-positive guard: Similar syntax is not duplication when ownership, lifecycle, API surface, or failure semantics materially differ.
