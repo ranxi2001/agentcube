@@ -22,6 +22,7 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
 - Do not invent maintainer consensus; distinguish explicit maintainer comments from inference.
 - For formal design/proposal PR review, read `references/proposal-review.md` before drafting comments.
 - Treat reviewer-facing text as an index to evidence, not a copy of the internship report. Read `references/concise-issue-writing.md` before drafting a new issue or non-trivial comment.
+- When learning from a contributor's public writing history, compare multiple artifact types and read `references/concise-issue-writing.md` for the evidence/limitation gate; do not turn one person's template usage into a repository rule.
 - Do not post an issue, comment, `/assign`, reviewer request, or maintainer mention without explicit user approval of the exact text and target.
 
 ## Workflow
@@ -100,6 +101,15 @@ python3 .agents/skills/agentcube-issue-discussion/scripts/fetch_thread.py 366 --
 ```
 
 The script prints JSON with the issue/PR object, comments, PR files, PR commits, and PR review comments.
+
+For a sampled cross-repository study of one contributor's issue/PR writing, use:
+
+```bash
+python3 .agents/skills/agentcube-issue-discussion/scripts/contributor_writing_history.py \
+  --author <login> owner/repo#123 owner/other-repo#456
+```
+
+The script removes hidden template comments and known generated-summary blocks, reports body structure/size, records outcome, and shows the first external human response. Select samples before running it: include bugs, features/proposals, umbrella trackers, maintenance work, different years, and at least one cross-repository item. Treat merged/closed outcome as context rather than proof that every writing choice was good.
 
 If network/API fails, use `curl` against:
 

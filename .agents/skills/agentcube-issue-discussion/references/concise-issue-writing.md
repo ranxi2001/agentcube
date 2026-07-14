@@ -15,6 +15,18 @@ On 2026-07-14, the 20 most recent AgentCube issues with non-empty bodies had a m
 
 Above 400 words for an ordinary issue or 250 for an ordinary comment, perform a compression pass and name the long-form reason.
 
+## Evidence-To-Work Shape
+
+Public Karmada/AgentCube samples from `@zhzhuang-zju` show a useful progression that is stronger than merely filling a template:
+
+1. Anchor the observation with one runnable symptom, CI run, metric, or immutable code link.
+2. Trace only the ownership/data path needed to explain the impact; label root cause as confirmed or hypothesized.
+3. State the bounded expected contract or exact maintainer decision.
+4. For umbrella work, turn the body into a live ledger: one independently reviewable task per checkbox, with owner/PR/outcome updated in place.
+5. Put implementation detail in a follow-up comment when it is still being negotiated; split deferred lifecycle behavior into a separate issue instead of hiding it in the initial fix.
+
+Do not copy the weaknesses in the corpus: empty environment fields, a preselected implementation presented before the contract is agreed, stale checklists, or links without relevance notes. Repository templates explain some headings; they are not evidence that the author intentionally chose that structure.
+
 ## Type-Specific Shapes
 
 ### Enhancement Or Question
@@ -23,7 +35,7 @@ Use the repository template. State one concrete capability/question, first-phase
 
 ### Bug
 
-Use `What happened -> Expected -> Minimal reproduction -> Decisive evidence -> Relevant environment`. Label an unproven cause as a hypothesis.
+Use `What happened -> Expected -> Minimal reproduction -> Decisive evidence -> Relevant environment`. For controller/data-path bugs, add the shortest causal chain from source state to user-visible failure. Label an unproven cause as a hypothesis and keep the issue valid even if the proposed fix changes.
 
 ### Proposal
 

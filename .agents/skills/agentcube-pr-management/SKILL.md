@@ -634,6 +634,8 @@ Before requesting approval for a PR body:
 python3 .agents/skills/agentcube-issue-discussion/scripts/draft_metrics.py <draft.md> --limit 300
 ```
 
+When calibrating the body against a contributor's public history, use `contributor_writing_history.py` from `agentcube-issue-discussion` on a preselected, mixed sample. Compare problem-to-behavior shape, issue relationship, scope/non-goals, evidence, and release contract; do not copy another repository's template or infer quality from merge status alone.
+
 Use soft targets:
 
 - Ordinary code, test, cleanup, or docs PR: 100-300 visible words and at most 35 nonblank lines.

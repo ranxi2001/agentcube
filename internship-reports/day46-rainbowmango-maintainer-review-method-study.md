@@ -190,3 +190,211 @@ python3 -m unittest .agents/skills/agentcube-pr-review/scripts/test_maintainer_r
 - [AgentCube reviewed PR search](https://github.com/volcano-sh/agentcube/pulls?q=is%3Apr+reviewed-by%3ARainbowMango)
 - [Karmada reviewed PR search](https://github.com/karmada-io/karmada/pulls?q=is%3Apr+reviewed-by%3ARainbowMango)
 - [AgentCube PR #431 maintainer review](https://github.com/volcano-sh/agentcube/pull/431#pullrequestreview-4692780216)
+
+---
+
+## 追加研究：`@zhzhuang-zju` 的 Issue / PR 写作方法
+
+### 研究目标与边界
+
+这部分研究的是公开 issue / PR 文本如何帮助协作者理解问题、划分任务和验证变更，不评价个人，也不把 Karmada 模板原样搬到 AgentCube。
+
+2026-07-14 的 GitHub public search 快照显示：
+
+- `author:zhzhuang-zju is:issue` 共 103 条，其中 80 条位于 `karmada-io/karmada`，另外包括 AgentCube、Karmada website/community 等仓库；
+- `author:zhzhuang-zju is:pr` 共 479 条，其中 `karmada-io/karmada` 有 328 条；全局结果还混有 fork、cherry-pick、release 和文档发布 PR；
+- 公开账号创建时间是 2021-03-23。本轮不使用 profile 数据推断身份、职务或非公开经验。
+
+> 注释：GitHub search 总数是动态快照，会随新贡献变化。数量只能帮助确定采样面，不能直接证明写作质量。
+
+### 采样方法
+
+本轮精读 29 个样本，跨度为 2023-10 到 2026-07：
+
+- 17 个 issue：bug、question、feature、umbrella、CI、flaky-test、LFX project 和跨仓库 AgentCube issue；
+- 12 个 PR：早期 focused PR、proposal、bug fix、performance、API migration、admission validation、CI cleanup、deprecation 和跨项目文档修复；
+- 主要仓库为 Karmada，同时加入 AgentCube 与 `kubernetes-sigs/agent-sandbox`，用于区分个人习惯与仓库模板。
+
+采样工具会移除 HTML 隐藏模板注释和已知自动生成 summary block，再计算 reviewer-visible words、nonblank lines、heading、task、link 与 code fence；PR 额外记录 diff 大小、merge outcome 和第一条可见外部人工反馈。
+
+```mermaid
+flowchart LR
+    A[Public search corpus] --> B[Stratify by artifact type]
+    B --> C[Remove template and bot-generated text]
+    C --> D[Read body and discussion]
+    D --> E{Recurring across samples?}
+    E -- Yes --> F[Reusable writing pattern]
+    E -- No --> G[Case-specific observation]
+    F --> H[AgentCube skill gate]
+    G --> I[Report only]
+```
+
+> 分析：这里先分层再提炼，是为了避免只挑 merged PR 或长文。Merge 可能来自代码正确、maintainer 补充、仓库熟悉度或后续修改，不能反推初始正文的每个写法都值得复制。
+
+### 样本统计
+
+| 类型 | 样本数 | 可见词数中位数 | 范围 | 带任务清单 | 有可见外部人工文字反馈 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Issue | 17 | 254 | 156-441 | 9 | 13 |
+| PR | 12 | 138 | 57-318 | 不适用 | 9 |
+
+12 个 PR 中 11 个已 merged，唯一 open 样本是 performance PR [#7175](https://github.com/karmada-io/karmada/pull/7175)。这组数据证明了所选样本中 issue 通常比 PR 承担更多上下文，但不能外推为全部 479 个 PR 的总体分布。
+
+> 注释：可见词数只衡量 review 成本，不衡量正确性。61 词可以准确描述一个小修复，也可能严重遗漏 API migration；318 词可以提供必要 benchmark，也可能重复 issue 内容。
+
+### Issue 方法一：标题直接暴露现象或能力
+
+高信号标题通常能在不打开正文时说明对象和失败：
+
+- [Karmada #7135](https://github.com/karmada-io/karmada/issues/7135)：`Job.status.startTime immutability blocks status aggregation...` 同时给出字段、约束和影响；
+- [Karmada #7550](https://github.com/karmada-io/karmada/issues/7550)：`Multi-component workloads may be scheduled to clusters with insufficient resources` 描述用户可见错误；
+- [AgentCube #401](https://github.com/volcano-sh/agentcube/issues/401)：`Codegen Check path filter causes false pass` 描述 CI 机制和后果；
+- [AgentCube #417](https://github.com/volcano-sh/agentcube/issues/417)：`publish release artifacts only for tags` 把期望策略放进标题。
+
+可复用规则：标题使用 `affected object + observable failure/capability`。`[Umbrella]`、`[LFX]`、`[Feature]` 只在它确实改变 issue 类型时保留，不堆叠标签。
+
+### Issue 方法二：用最短因果链连接证据与影响
+
+[Karmada #7112](https://github.com/karmada-io/karmada/issues/7112) 从 quota plugin 所需 namespace，追到 gRPC request，再追到空的 `PodTemplateSpec.Namespace`，最后用日志证明空 namespace 导致跨 namespace quota listing。它不是简单贴错误，而是形成：
+
+```text
+observed failure -> required input -> actual source -> missing value -> wrong query scope
+```
+
+[Karmada #7135](https://github.com/karmada-io/karmada/issues/7135) 则用三个 member cluster 的时间值解释 first report 与 later earlier report 的 race，再连接 Kubernetes 对 running Job `startTime` immutable 的合同。
+
+[AgentCube #401](https://github.com/volcano-sh/agentcube/issues/401) 把 #367 引入的 `go.sum` 冗余、path filter skip 与 #393 后续暴露串成 latent inconsistency 的时间链。
+
+可复用规则：bug issue 不只要 `What happened`，还要一条能被 reviewer 复算的 causal path。若链路未被日志、源码或复现证明，明确写成 hypothesis，不能把猜测包装成 root cause。
+
+### Issue 方法三：Umbrella 是可维护台账，不是愿望清单
+
+- [Karmada #5048](https://github.com/karmada-io/karmada/issues/5048) 把 CLOMonitor maturity check 拆成 24 个 checkbox，并回填 owner、PR 与完成状态；
+- [Karmada #6841](https://github.com/karmada-io/karmada/issues/6841) 要求每个 flaky case 提供 test name、error symptom 和 CI link，再把修复 PR 回填；
+- [Karmada #7269](https://github.com/karmada-io/karmada/issues/7269) 按 macOS parity、Killercoda scenarios 等独立交付物组织 LFX 项目；
+- [Karmada #7390](https://github.com/karmada-io/karmada/issues/7390) 将 proposal、API、scheduler、webhook、E2E、docs 串成 feature delivery graph；
+- [AgentCube #392](https://github.com/volcano-sh/agentcube/issues/392) 将 workflow hardening 拆到具体 workflow 文件。
+
+> 分析：好的 umbrella body 同时是范围边界和并行协作协议。每个 task 应能独立认领、review、关闭；否则 checkbox 只是排版，没有降低冲突风险。
+
+维护要求同样重要。#7390 中 maintainer 提醒 tasks 要与 final proposal 保持一致，作者随后更新正文。我们应把“正文是否仍代表当前共识”加入 umbrella review，而不只检查 checkbox 是否勾选。
+
+### Issue 方法四：讨论回复直接回答问题，并及时切 scope
+
+[Karmada #7055](https://github.com/karmada-io/karmada/issues/7055) 的讨论用 quote 逐条回答 style guide 放置位置、AI tool 是否能引用 repo-local file，并纠正“不能通过 web link”与“能读取同仓库路径”的语义混淆。
+
+[Karmada #7135](https://github.com/karmada-io/karmada/issues/7135) 在正文说明 immutability failure 后，把 initial aggregation 与 suspended/resumed lifecycle 分成 Part 1/Part 2；当讨论确认 lifecycle 更大时，明确另开 issue 跟踪，而不是把当前 bug fix 扩成完整 Job lifecycle redesign。
+
+可复用规则：回复时引用 exact question，第一句给直接答案，再给必要证据；新发现若改变当前 scope，就更新 body 或拆 follow-up issue。
+
+### PR 方法一：从旧失败写到新行为
+
+[Karmada #7138](https://github.com/karmada-io/karmada/pull/7138) 是最完整的 focused bug-fix body：
+
+1. 说明 first-reporting 与 later-earlier member status 的 race；
+2. 说明 Kubernetes immutable validation 导致 persistent error loop；
+3. 说明新逻辑只在 control-plane `startTime == nil` 时设置；
+4. 明确 suspended/resumed lifecycle out of scope；
+5. 给出准确 release note。
+
+这比“fix race condition”多出的信息都改变 review 决策：为什么错、修复保持什么 invariant、什么尚未修。
+
+### PR 方法二：大兼容变更必须写迁移合同
+
+[Karmada #7298](https://github.com/karmada-io/karmada/pull/7298) 对 91 文件 protobuf migration 解释了 Kubernetes 1.35/1.36 的 `ProtoMessage()` 变化、temporary build tag、peer bytes fields、wire compatibility、helper layer 与 deprecated fields，并把用户可见字段变化写入 release note。
+
+可复用规则：API / generated-code / dependency migration 的正文至少回答：旧合同为什么失效、混合版本如何工作、何时删除兼容层、调用方需要做什么。文件很多不是长正文理由，兼容合同才是。
+
+### PR 方法三：性能结论要带 workload scale
+
+[Karmada #7175](https://github.com/karmada-io/karmada/pull/7175) 给出 workload 数量、namespace 分布、dependent resource 数量、重启场景和 before/after：existing-resource reconciliation 11 分钟降到 5 分钟，single match 100ms 降到 0.9ms。
+
+> 分析：这组样本仍缺少多轮重复、硬件与 p95/p99，因此可作为 reviewer attention evidence，不能直接当完整 benchmark。AgentCube 继续要求环境、方法、原始记录和 limitation。
+
+### PR 方法四：Issue 承担全局图，PR 只说明当前 delta
+
+[Karmada #7078](https://github.com/karmada-io/karmada/pull/7078) 用 proposal 解释 hybrid-cloud 用户问题；后续 [#7386](https://github.com/karmada-io/karmada/pull/7386)、[#7430](https://github.com/karmada-io/karmada/pull/7430) 分别交付 API 与 validation，并由 umbrella [#7390](https://github.com/karmada-io/karmada/issues/7390) 维护端到端任务图。
+
+[agent-sandbox #974](https://github.com/kubernetes-sigs/agent-sandbox/pull/974) 则展示小型跨项目 PR 的适配能力：一句话指出 manual PDB example 引用了缺失的 SandboxWarmPool，并说明补齐 example，无需复制整套 AgentCube compatibility 背景。
+
+### 不应复制的部分
+
+1. **Merge 不等于 body 完美。** API PR #7386 有 13 个文件、823 行新增，但可见正文只有 61 词，没有 upgrade/skew、generated artifacts 或验证说明。
+2. **不要保留空模板槽位。** #7561 的 rationale 清楚，但 issue link 是空的 `Fixes #`，special reviewer notes 与 release note 也为空；AgentCube 应写 `Refs`/`Fixes` 的真实关系和 `NONE`。
+3. **不要用 release note 替代正文。** #7590 准确列出 removed fields，但正文没有解释 removal timing、compatibility gate 和验证。
+4. **不要复制标题语法错误或大小写漂移。** 样本中存在 `waitingObkects`、`depercated`、`Parts of` 等拼写/格式问题；学习语义组织，不复制表面风格。
+5. **不要把 proposed fix 写成唯一问题定义。** #7693 很早提出 `--cert-mode=rotate`；更稳妥的 AgentCube issue 应先固定 user contract、secret ownership、failure/rollback，再把 flag 作为候选方案。
+6. **不要留下虚假的环境完整性。** 多个 bug issue 保留空的 environment 字段。未知可以明确写 `not captured`，但不能让模板存在看起来像证据齐全。
+
+### 对 AgentCube Skills 的升级
+
+新增 `.agents/skills/agentcube-issue-discussion/scripts/contributor_writing_history.py`：
+
+- 输入多个 `owner/repo#number`，验证 expected author；
+- 清除隐藏模板与已知 generated summary；
+- 输出可见正文结构、任务/链接/代码块、issue/PR outcome 与首条外部人工文字反馈；
+- 明确提示 template confound 和 merge-outcome limitation。
+
+新增 4 个单元测试，覆盖：
+
+- 隐藏模板和 generated block 清理；
+- 粗体模板 heading、task 与 code fence 统计；
+- author/bot/command-only 过滤与 item reference parsing。
+- GitHub REST `Link` header 的 next-page 解析。
+
+`concise-issue-writing.md` 新增 evidence-to-work shape；`concise-pr-writing.md` 新增 problem-to-behavior shape，并同时记录 thin API PR、空验证和不完整 link 等反例。
+
+### 过程阻塞与修正
+
+#### 自动化账号被误识别为人工反馈
+
+第一次前向测试中，`codecov-commenter` 和 `k8s-ci-robot` 的 API user type 不能只靠 `[bot]` 后缀可靠过滤，脚本把 coverage/welcome comment 当成 first external human response。
+
+修正：增加常见 automation login pattern，并把 inline review comments 纳入候选；若只有 bot 或 command-only review，则明确输出 `none found`，不伪造互动证据。该 pattern 仍是启发式过滤，遇到未知 automation account 时必须回读账号和正文，不能把脚本分类当作身份事实。
+
+#### 模板结构统计漏掉粗体字段
+
+Karmada issue / PR 模板常用 `**What happened**:`，不是 `### What happened`。第一版只识别 Markdown `#` heading，导致结构统计为空。
+
+修正：同时识别 ATX heading 与整行粗体 section label，单测锁定。
+
+#### 长管道首次无统计输出
+
+29 项 JSON 聚合第一次完成但终端没有返回文本，不能确认统计结果。
+
+修正：先用 2 项样本验证 script -> JSON -> `jq` 管道，再拆成 17 issue 与 12 PR 两批运行；两批均返回 exit 0 和完整统计。报告只记录拆分后的结果。
+
+### 下一次应用
+
+在起草 AgentCube issue 时先填写：
+
+```text
+Observable problem/capability:
+Decisive evidence:
+Expected contract or decision:
+Independent tasks / current owner:
+Unknowns and proposed solution status:
+```
+
+在起草 PR body 时先填写：
+
+```text
+Old observable behavior:
+New contract-level behavior:
+Issue relationship:
+Validation evidence:
+Compatibility / non-goal / residual risk:
+```
+
+然后再套 AgentCube 官方模板和 concise budget。个人历史用于校准，不替代仓库规则。
+
+### 追加参考链接
+
+- [zhzhuang-zju GitHub profile](https://github.com/zhzhuang-zju)
+- [Karmada authored issues search](https://github.com/karmada-io/karmada/issues?q=is%3Aissue%20author%3Azhzhuang-zju)
+- [Karmada authored PRs search](https://github.com/karmada-io/karmada/pulls?q=is%3Apr%20author%3Azhzhuang-zju)
+- [AgentCube #401](https://github.com/volcano-sh/agentcube/issues/401)
+- [Karmada #7135](https://github.com/karmada-io/karmada/issues/7135)
+- [Karmada #7138](https://github.com/karmada-io/karmada/pull/7138)
+- [Karmada #7298](https://github.com/karmada-io/karmada/pull/7298)
+- [Karmada #7390](https://github.com/karmada-io/karmada/issues/7390)

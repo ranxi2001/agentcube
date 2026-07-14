@@ -22,6 +22,17 @@ These are review triggers, not hard correctness limits. Do not remove an upgrade
 4. One-sentence AI disclosure and human-validation statement.
 5. A concrete release note, or `NONE`.
 
+## Problem-To-Behavior Shape
+
+Cross-year Karmada samples from `@zhzhuang-zju` show that the strongest PR bodies do four things in order:
+
+1. Name the old observable failure or operational risk, not just the edited symbol.
+2. Explain the new behavior at contract level; leave file narration to the diff.
+3. Link the exact issue relationship (`Fixes`, `Part of`, or `Refs`) and state one deliberate non-goal when lifecycle or compatibility work is deferred.
+4. For performance work, include workload scale, before/after measurement, and a stable evidence link; for API/deprecation work, include the migration/skew contract in the body or release note.
+
+This is a calibrated pattern, not a personal template. Some merged samples had thin API-change bodies, blank test notes, incomplete issue links, or empty release notes. Merge outcome does not make those omissions reusable. AgentCube still requires its own official template, validation evidence, AI disclosure, and upgrade/security details.
+
 ## Remove By Default
 
 - The local code rationale matrix or a file-by-file diff narration.
