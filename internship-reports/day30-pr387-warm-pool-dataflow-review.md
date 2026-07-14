@@ -1053,3 +1053,74 @@ cleanup = claim + adopted Sandbox + adopted Pod deleted; warm pool readyReplicas
 > 分析：截至本轮读取，PR head 仍为 `c2633c5`，GitHub `mergeable_state=dirty`，且 @RainbowMango 已要求解决冲突。body 清理不会解决分支冲突；后续 rebase 仍需单独验证，并在更新 open PR branch 前再次取得用户确认。
 
 用户确认 exact replacement 后，本轮已更新 GitHub PR body 并完成 server-side 回读。直接执行 `gh pr edit 387 --body-file ...` 时失败，报错为 token 缺少 GraphQL `read:org` / `read:discussion` scope；该失败发生在 GitHub CLI 查询组织元数据阶段，不是 PR 写权限不足。最终改用 GitHub REST `PATCH /repos/volcano-sh/agentcube/pulls/387` 提交同一 body，更新成功；回读内容与本地草案完全一致，metrics 仍为 266 visible words、16 nonblank lines。PR head 未变，仍为 `c2633c5`，`mergeable_state=dirty`。
+
+## 2026-07-14：rebase 最新 main 并解除 Tide 冲突
+
+### 触发条件与分支状态
+
+@RainbowMango 在 #387 请求作者解决冲突后，本轮重新读取 PR head、最新 upstream main 和 merge gate：
+
+- 旧 PR head：`c2633c531ddf33626d48e9c49c60e37b6daae61e`；
+- 旧 merge base：`bed6bd4cb9d965706e132aea9f252a3340849935`；
+- rebase 目标：`upstream/main@3de1272d5243edcce93fb42bf25aef0e9c151609`；
+- 旧 head 相对最新 main 为 `32 behind / 5 PR-only commits`；
+- GitHub 当时返回 `mergeable=false`、`mergeable_state=dirty`，Tide 的唯一失败描述为 `Not mergeable. PR has a merge conflict.`。
+
+本机最初执行 `git fetch upstream main` 失败，因为仓库配置里只有 `origin`，没有 `upstream` remote。按仓库约定恢复 `https://github.com/volcano-sh/agentcube.git` 作为 upstream fetch URL，并把 upstream push URL 设置为 `DISABLED`，防止误推官方仓库。当前环境也没有 `gh` CLI，因此 PR 状态继续通过现有 Python 脚本和 GitHub REST API 读取。
+
+> 注释：PR head 实际托管在个人 fork 的 `feat/agent-sandbox-latest`，但 push 会立刻更新官方仓库中的 open PR，所以仍属于 upstream-facing 操作，必须在验证完成后取得用户对 exact force-push 的确认。
+
+### 冲突来源与处理语义
+
+在独立 worktree `/tmp/agentcube-pr387-rebase` 上创建 `rebase/pr387-on-main`，将原有 5 个 DCO 提交重放到最新 main。实际只有第一个提交在 `go.sum` 发生内容冲突；其余 4 个提交 clean replay。
+
+冲突不是业务代码或依赖版本选择冲突，而是两个方向同时整理 checksum：
+
+- current main 的 agentd 清理已经删除不可达的 `golang.org/x/oauth2 v0.36.0` 两行 checksum；
+- #387 把依赖图升级为 `agent-sandbox v0.4.6`、Kubernetes `v0.35.4`、controller-runtime `v0.23.3`，最终使用 `golang.org/x/oauth2 v0.35.0`；
+- 直接 union 两边 `go.sum` 会重新引入无用 checksum，直接选旧 main 又会丢失 #387 的新依赖图。
+
+处理方式是保留已经成功合并的目标 `go.mod`，运行 Go 1.26.4 的 `go mod tidy` 重新生成 `go.sum`，然后继续 rebase。最终新 head 为 `401a00e58f16c4fe221ed6c6a250a1693b910838`，相对 main 为 `0 behind / 5 ahead`，仍只有原来的 15 个 PR 文件，diff 从旧 head 的 `+672/-273` 变为 `+672/-271`；少掉的两行正是 main 已删除的 OAuth2 checksum。
+
+> 分析：`git range-diff` 显示 4 个后续提交语义不变；首提交和撤销 PicoD cleanup 的提交只因 main 已更新到 Ubuntu 26.04 / 新 Docker 构建上下文而显示 patch context 变化。最终 `docker/Dockerfile.picod` 与 main 完全一致，没有把已撤销的无关 apt cleanup 带回 PR。
+
+5 个 rebased commit 均保留 `Signed-off-by: ranxi2001 <ranxi169@163.com>`，没有新增 merge commit，也没有把 `internship-reports/`、本地 skill 或 fork-only workflow 带入 upstream diff。
+
+### 本地验证与已知基线失败
+
+通过项：
+
+- `go mod tidy && git diff --exit-code`；
+- `go mod verify`；
+- `go test ./pkg/workloadmanager -count=1`；
+- `go test -race ./pkg/workloadmanager -count=1`；
+- `go test ./test/e2e -run '^$' -count=1`；
+- `make lint`；
+- `make gen-check`；
+- `make build-all`；
+- 排除 `pkg/store` 和 runtime e2e 后的其余 Go packages 全部通过；
+- `git diff --check`，最终 worktree clean。
+
+全量非 e2e Go 测试在 `pkg/store/TestInitStore/return_error_when_initRedisStore_fails` 失败：测试期望 gomonkey 返回 `assert.AnError`，实际进入真实 Redis 初始化并报 `missing env var REDIS_ADDR`。同一子测试在干净的 `upstream/main@3de1272` worktree 以完全相同的错误失败，因此归类为当前 Go 1.26.4 环境下的既有基线测试问题，不是 #387 rebase 回归。本轮没有借 #387 修复 `pkg/store`，避免扩大兼容 PR 范围。
+
+> 注释：本轮重新执行的是冲突消除后的静态、生成、构建和单元级验证，没有重复搭建 k3d 运行时。#387 对 v0.4.6 warm-pool adoption 的真实对象流、SDK、MCP 和 math-agent 证据仍由本报告前文及 `benchmarks/day30-pr387-warmpool-flow/` 保存。
+
+### 推送与 GitHub 回读
+
+在向用户展示 target、旧/新 SHA、diff、测试结果、基线失败和无新增 reviewer-visible 文本后，用户明确确认 force-push。实际使用带精确旧 SHA lease 的命令更新 `origin/feat/agent-sandbox-latest`，结果为：
+
+```text
+c2633c5...401a00e HEAD -> feat/agent-sandbox-latest (forced update)
+```
+
+GitHub server-side 回读已经确认：
+
+- PR head 为 `401a00e58f16c4fe221ed6c6a250a1693b910838`；
+- base 为 `3de1272d5243edcce93fb42bf25aef0e9c151609`；
+- `mergeable=true`、`rebaseable=true`，原 merge conflict 已解除；
+- Tide 从 conflict error 变为 pending，描述仅剩 `Needs approved, lgtm labels.`；
+- 新 SHA 已创建 11 个 checks；首次回读时 7 个成功，`coverage`、`e2e-test`、另一个 `build` 和 `golangci-lint` 正在运行。
+
+> 分析：这里的 `mergeable_state=unstable` 不再表示代码冲突，而是新一轮 CI 和 review labels 尚未满足。后续只观察新 SHA checks 与 maintainer review，不自动追加评论、请求 reviewer 或继续改动 PR 分支。
+
+最终回读时 11/11 checks 全部成功，包括 e2e、codegen、golangci-lint、coverage、两项 build、Python lint/SDK、spelling、workflow approval 和 DCO。GitHub 仍返回 `mergeable=true` / `rebaseable=true`；Tide 唯一剩余条件是 `approved` 与 `lgtm` labels。

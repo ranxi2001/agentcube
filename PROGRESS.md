@@ -8,11 +8,11 @@
 
 ## Current State
 
-- PR #387 concise body：2026-07-14 已按用户确认更新 upstream body，将 750 visible words / 59 nonblank lines 压缩为 266 words / 16 lines；删除 fork CI 链接、9 个动态 check 状态、完整命令/用例清单和 live LLM 结果，保留 v0.4.6 scope、claim/runtime identity、NetworkPolicy、generated-code boundary、focused validation 与 AI disclosure。`gh pr edit` 因 token 缺少 GraphQL `read:org` scope 失败，改用 REST pull PATCH 成功，server-side 回读与草案完全一致。当前 head `c2633c5` 仍 `mergeable_state=dirty`，body 清理不替代后续 conflict rebase。
+- PR #387 body + conflict：2026-07-14 已按确认把 body 从 750 words / 59 lines 压缩为 266 words / 16 lines；随后将 5 个 DCO commits 从旧基线 `bed6bd4` rebase 到 `upstream/main@3de1272`。唯一冲突是 `go.sum`：main 的 agentd 清理与 #387 的 v0.4.6/K8s 0.35.4 依赖整理重叠，已用目标 `go.mod` + Go 1.26.4 `go mod tidy` 生成结果。用户确认后以精确 lease force-push，PR head `c2633c5 -> 401a00e`；GitHub 回读 `mergeable=true`、`rebaseable=true`，新 SHA 11/11 checks 全绿，Tide 不再报 conflict，只等 `approved`/`lgtm`。
 - Upstream writing gates：2026-07-14 已增强 `agentcube-issue-discussion` 与 `agentcube-pr-management`，新增 concise references 和 `draft_metrics.py`。规则把 upstream body/comment 定位为证据索引：普通 PR 目标 100-300 visible words，API/CRD/兼容/安全/benchmark/多组件 PR 目标 200-450；超 450 必须说明 long-form exception。近期样本和前向测试记录在 `internship-reports/open-source-contribution-format-standard.md`；没有发布任何 upstream 文本。
 - Branch/workflow：当前本地在 `intern`，该分支保存实习报告、TODO、本地 skills 和中文记录；fork `main` 必须保持 upstream clean mirror。记录类 commit 完成后默认 push `origin intern:intern`；任何 upstream issue/PR/comment/review request/maintainer mention 必须先让用户确认 exact target/body。
 - Day45 community screening：2026-07-10 已按 assignee、`/assign`、active PR、scope、环境和当前源码筛选最新 open issues；没有可直接认领的 A 级任务。#432 已由 `avinxshKD` 认领并有 #433；#430 已有 #431 proposal；#365 依赖 #366/#379 和 Kuasar/KVM；#348 已由 merged PR #378 修复但 issue 未关闭。旧 #272 与 open PR #249/release policy 有交叉，需先协调，不能直接接手。详见 `internship-reports/day45-latest-community-issue-task-screening.md`。
-- Latest upstream baseline：本轮只执行 `git fetch upstream main`，未切换/rebase `intern`；最新观测 `upstream/main eee8aea`。#420、#422、#423 已合并，#403、#414 也早已合并；不要继续按 open PR 跟踪。
+- Latest upstream baseline：最新观测 `upstream/main 3de1272`（包含 #436 macOS PicoD path test fix）；本地 `intern` 未 rebase。#387 validation branch 已基于该 SHA，`0 behind / 5 ahead`。
 - Day44 / PR #431：latest observed force-push head `3d1bd0d`（2026-07-12）。相对 `ef96939` 修改 proposal 72 行，已补独立 agent heartbeat、conditions list-map、optional pointers、Pool immutable fields，并修正 shim/daemon deletion wording；`SP-01`/`SP-02`/`SP-03` resolved。11 checks 全绿，tide 仍缺 `lgtm`/`approved`，没有真人 maintainer review；PR body 仍残留 `<5s` + no-rebuild VPA，已有 Copilot unresolved comment，不重复。
 - Day44 输出：`internship-reports/day44-sandbox-pool-management-proposal-review.md` 保存架构剖析和两次回复后的设计迁移；`internship-reports/day44-sandboxpool-pr431-comment-drafts.md` 的 tracker 是唯一索引。当前 `SP-01`/`SP-02`/`SP-09` 已解决；`SP-10` no-process shim 的 `Create`/`Start`/`Wait`/PID/exit contract 已进入本轮 batch review，等待作者定义并在 Phase 2 用 real-node shim spike/e2e 验证。已生成 `day44-sandboxpool-runtimeclass-cri-routing-gap.png`（gpt-image-2，1672x941）及同前缀 prompt。
 - #431 后续观察点：`@acsoto` 的 WarmPool relationship 问题仍未进入正文。`SP-10` Task PID/Wait/exit、`SP-11` heartbeat timer、`SP-05` force-finalizer orphan cleanup、`SP-12` atomic per-node Class ownership 已在 [review `4681333180`](https://github.com/volcano-sh/agentcube/pull/431#pullrequestreview-4681333180) 批量发布，绑定 exact head `3d1bd0d`；四条 current-diff thread 分别位于 lines `138/151/535/626`。当前等待作者回复，不追加同类评论。
@@ -25,7 +25,7 @@
 
 - #431 SandboxPool proposal：[review `4681333180`](https://github.com/volcano-sh/agentcube/pull/431#pullrequestreview-4681333180) 已按用户确认作为一个 `COMMENT` review 发出，含 line 138 Task lifecycle、line 151 heartbeat timer、line 535 orphan cleanup、line 626 atomic per-node Class ownership；状态 `POSTED_WAITING`。等待作者逐条回复或提交新 commit，不自动追评。
 - #429 Go toolchain update workflow：已创建 upstream PR，普通 CI 绿，`tide` pending 等 review/labels；不要自动 push/comment。
-- #387 agent-sandbox v0.4.6 compatibility：保持 current stable compatibility 口径，不把 v0.5.x / Sleep/Resume / PicoD cleanup 混入；concise body 已按确认发布并回读验证。@RainbowMango 已要求 resolve conflict，后续 rebase/push 仍需另行确认。
+- #387 agent-sandbox v0.4.6 compatibility：concise body 与 conflict rebase 均已按确认发布；current head `401a00e`，GitHub 已确认 mergeable/rebaseable，11/11 checks 全绿，Tide 当前只缺 `approved`/`lgtm`。不把 v0.5.x / Sleep/Resume / PicoD cleanup 混入，不自动评论或请求 review。
 - #385 WarmPoolAvailable PoC：主要等 maintainer review / `lgtm` / `approve` / tide。
 - #433 WorkloadManager chart auth：`avinxshKD` 已认领并提交 PR；普通 checks 通过、tide 等 labels。只可考虑 Helm/RBAC/auth 验证协作，不开重复实现。
 
@@ -45,6 +45,7 @@
 - Current machine has no `/dev/kvm`; CPU virtualization flags are not exposed. Do not claim real MicroVM / KVM / forkd / CubeSandbox virtualization validation here.
 - Standard kind Kubernetes has failed on this host at kubelet/cgroup/QoS initialization. Use existing k3s or record KWOK/kind limitations clearly; do not describe kind environment failure as AgentCube code failure.
 - Full `go test ./...` can fail in `test/e2e` when Router/WorkloadManager/kubeconfig are not running. For ordinary code changes prefer targeted packages or non-e2e all-Go tests; document exclusions.
+- Go 1.26.4 下 `pkg/store/TestInitStore/return_error_when_initRedisStore_fails` 的 gomonkey patch 未生效，会落到真实 Redis 初始化并报 `missing env var REDIS_ADDR`；已在纯 `upstream/main@3de1272` 同样复现。#387 不修这个独立基线问题。
 - OpenSandbox / Agent Substrate runtime smoke tests are not yet deployed locally; use `.agents/skills/sandbox-runtime-smoke/SKILL.md` if resuming that work.
 - Do not run `make gen-check` and `make build-all` concurrently; both can touch generated/tidy state.
 - Weekly report evidence is local-first. Use `/home/intern-week-mail` for the workflow, keep identity configuration untracked, keep rendered identity output only in that verified private repo, and use GitHub only for authoritative PR/Issue/review state.
@@ -58,7 +59,7 @@
 
 ## Next
 
-- For #387: body 清理已完成。下一步是从当前 PR head 准备独立 rebase validation，解决与最新 `upstream/main` 的冲突并重跑相关测试；不要把已完成的 body approval 解释为 rebase/force-push approval，更新 open PR branch 前需另行准备与确认。
+- For #387: conflict 已解除且 `401a00e` 的 11/11 checks 全绿；下一步等待 maintainer `lgtm` / `approve`，不要自动评论、mention 或继续 push。完整 rebase/test 记录在 Day30 末尾。
 - Community tasks：本轮不 `/assign`。下一次先刷新 open issue/PR；只有新的 focused unowned issue，或 maintainer 将 #386/#272 拆成 dedicated sub-issue，才进入认领准备。#433 若做协作，先在临时 worktree 完成 Helm render/lint 和 auth/RBAC focused validation，再向用户提交 exact review draft。
 - For #431: 4-comment batch review 已发布并完成 server-side 回读。不要回复已解决的 resize/RuntimeClass threads，也不要重复最新 Copilot 的 PR-body mismatch；先等待作者回复或新 commit，再逐 thread 判断 `RESOLVED`、窄追问或 Phase 2 spike/e2e gate。node-ctl RPC、`EverReady`、test DoD 和 RBAC/Webhook 顺序先写在 Day44，不立即追加评论；任何新的 upstream 回复仍需用户确认 exact body。
 - If validating #431 technically, focus on `SP-10` containerd Task lifecycle mapping plus kubelet admission/scheduler accounting for the rebuild window. Keep native `/resize` out of the design; require a real-node shim spike covering task PID/wait/exit, rebuild-vs-delete discrimination, node-ctl continuity, mirror gap, and conflicting Pod admission.
