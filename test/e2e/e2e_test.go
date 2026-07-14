@@ -60,6 +60,7 @@ const (
 	ownerKindSandbox         = "Sandbox"
 
 	e2eCodeInterpreterName = "e2e-code-interpreter"
+	enabledEnvValue        = "true"
 )
 
 var (
@@ -173,8 +174,8 @@ func getEnv(key, defaultValue string) string {
 // The mTLS handshake is validated indirectly via the Router→WM path in AgentRuntime tests.
 func skipIfMTLS(t *testing.T) {
 	t.Helper()
-	if os.Getenv("MTLS_ENABLED") == "true" {
-		if os.Getenv("E2E_REQUIRE_CODEINTERPRETER") == "true" {
+	if os.Getenv("MTLS_ENABLED") == enabledEnvValue {
+		if os.Getenv("E2E_REQUIRE_CODEINTERPRETER") == enabledEnvValue {
 			t.Fatal("CodeInterpreter E2E coverage is required but mTLS would skip the direct WorkloadManager path")
 		}
 		t.Skip("skipping direct-WM test: mTLS is active (test client has no client cert)")
@@ -836,9 +837,20 @@ func TestCodeInterpreterWarmPool(t *testing.T) {
 
 	initialPods := ctx.verifyWarmPoolReady(t, namespace, name, warmPoolSize)
 
-	env.executeAndVerifyCode(t, namespace, name, "Hello from warmpool!")
+	sessionID := env.executeAndVerifyCode(t, namespace, name, "Hello from warmpool!")
+	sessionDeleted := false
+	defer func() {
+		if !sessionDeleted {
+			_ = env.deleteCodeInterpreterSession(sessionID)
+		}
+	}()
 
 	claimedResources = ctx.verifyWarmPoolStatus(t, namespace, name, warmPoolSize, initialPods)
+	require.NoError(t, env.deleteCodeInterpreterSession(sessionID), "session delete must remove the controlling SandboxClaim")
+	sessionDeleted = true
+	ctx.verifyClaimedResourcesDeleted(t, namespace, claimedResources)
+	ctx.verifyWarmPoolReady(t, namespace, name, warmPoolSize)
+	claimedResources = nil
 }
 
 // TestCodeInterpreterBasicInvocation tests basic code interpreter invocation
@@ -1016,10 +1028,13 @@ func (ctx *e2eTestContext) cleanupCodeInterpreter(t *testing.T, namespace, name,
 		return pods == 0
 	}, 30*time.Second, 1*time.Second, "WarmPool pods should be deleted")
 
-	if claimedResources == nil {
-		return
+	if claimedResources != nil {
+		ctx.verifyClaimedResourcesDeleted(t, namespace, claimedResources)
 	}
+}
 
+func (ctx *e2eTestContext) verifyClaimedResourcesDeleted(t *testing.T, namespace string, claimedResources *claimedSandboxResources) {
+	t.Helper()
 	require.Eventually(t, func() bool {
 		return ctx.objectUIDGone(namespace, claimedResources.claimName, claimedResources.claimUID, &extensionsv1alpha1.SandboxClaim{})
 	}, 30*time.Second, time.Second, "adopting SandboxClaim %s/%s should be deleted", namespace, claimedResources.claimName)
@@ -1052,7 +1067,7 @@ func (ctx *e2eTestContext) verifyWarmPoolReady(t *testing.T, namespace, name str
 	return pods
 }
 
-func (e *testEnv) executeAndVerifyCode(t *testing.T, namespace, name, expectedOutput string) {
+func (e *testEnv) executeAndVerifyCode(t *testing.T, namespace, name, expectedOutput string) string {
 	t.Log("Executing code command via REST API...")
 
 	// Execute command (simple echo)
@@ -1060,8 +1075,13 @@ func (e *testEnv) executeAndVerifyCode(t *testing.T, namespace, name, expectedOu
 		Command: []string{"echo", expectedOutput},
 	}
 
-	resp := e.invokeWithSession(t, namespace, name, req)
+	sessionID, err := e.createCodeInterpreterSession(namespace, name)
+	require.NoError(t, err, "Failed to create warm-pool code interpreter session")
+	resp, err := e.invokeCodeInterpreter(namespace, name, sessionID, req)
+	require.NoError(t, err, "Failed to invoke warm-pool code interpreter")
+	require.NotNil(t, resp)
 	require.Contains(t, resp.Stdout, expectedOutput)
+	return sessionID
 }
 
 func (ctx *e2eTestContext) verifyWarmPoolStatus(t *testing.T, namespace, name string, warmPoolSize int, initialPods []string) *claimedSandboxResources {
@@ -1652,7 +1672,7 @@ func TestCodeInterpreterBasicInvocationLoad(t *testing.T) {
 // skipIfNoOIDC skips the test when OIDC is not enabled in the E2E environment.
 func skipIfNoOIDC(t *testing.T) {
 	t.Helper()
-	if os.Getenv("OIDC_ENABLED") != "true" {
+	if os.Getenv("OIDC_ENABLED") != enabledEnvValue {
 		t.Skip("skipping OIDC test: OIDC_ENABLED not set (Keycloak not deployed)")
 	}
 }

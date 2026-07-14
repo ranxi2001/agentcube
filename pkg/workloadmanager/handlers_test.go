@@ -458,7 +458,8 @@ func TestWaitForClaimSandboxReadyStopsOnAuthorizationErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dynamicClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 			dynamicClient.PrependReactor("get", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
-				getAction := action.(k8stesting.GetAction)
+				getAction, ok := action.(k8stesting.GetAction)
+				require.True(t, ok)
 				switch action.GetResource() {
 				case SandboxClaimGVR:
 					if tt.forbidClaimRead {
