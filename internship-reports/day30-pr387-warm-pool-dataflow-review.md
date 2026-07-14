@@ -1169,3 +1169,36 @@ GitHub server-side 回读已经确认：
 - `target-e2e-skipped-by-default`：标准 E2E 开启 mTLS，而 `TestCodeInterpreterWarmPool` 调用 `skipIfMTLS`。
 
 两个检测都有单元测试，输出仍只是 review lead；最终 finding 必须以 workflow inputs、安装日志和 PASS/SKIP 清单验证。
+
+## 2026-07-14：收敛为 test-only E2E 候选并验证 Pod UID 连续性
+
+用户明确要求避开正在由其他贡献者推进的 #433。本轮因此放弃把认证、RBAC、user-scoped client 或 WorkloadManager 错误分类修改并入 #387，只保留测试基础设施与 E2E 断言。最终 fork-only 候选分支为 `ci/pr387-feature-candidate`，head `e826041a404e`，相对 rebase 后的 #387 feature head `570487a` 只修改：
+
+- `.github/workflows/e2e.yml`：保留现有 mTLS job，并新增 focused non-mTLS `codeinterpreter-e2e-test`；
+- `test/e2e/run_e2e.sh`：默认安装 `agent-sandbox v0.4.6`，校验实际 controller image，并让 SPIRE 安装与 mTLS mode 一致；
+- `test/e2e/e2e_test.go`：在 focused mode 下禁止目标测试静默 skip，验证 Claim -> adopted Sandbox -> Pod 的 UID owner chain、session delete cleanup、pool refill，并记录初始 warm-pool Pod 的 name + UID。
+
+最后一项把旧的“claimed Pod 名称属于初始 pool”断言升级为“名称和 UID 都一致”。这排除了初始 Pod 被删除后由同名对象替代仍误判为复用成功的可能，证明被 claim adoption 的是同一个预热 Pod 实例。
+
+本地门禁：
+
+```text
+go test ./test/e2e -run '^$' -count=1  PASS
+make lint                                  PASS
+bash -n test/e2e/run_e2e.sh                PASS
+PyYAML parse .github/workflows/e2e.yml     PASS
+git diff --check                           PASS
+```
+
+fork push CI run `29312033788` 与同 SHA 的其余 workflows 最终 9/9 success。focused job 日志明确记录：
+
+```text
+Verified agent-sandbox controller image: registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.4.6
+--- PASS: TestCodeInterpreterWarmPool (9.13s)
+--- PASS: TestCodeInterpreterWarmPoolLoad (32.70s)
+All tests passed!
+```
+
+mTLS 基线 job 仍按现有设计 skip CodeInterpreter 用例，但它自身成功；focused job 实际执行并通过 CodeInterpreter/WarmPool，因此两类 coverage 没有互相替换。OIDC/RLAC 用例在 focused job 中因未部署 Keycloak 而 skip，不把这部分描述为 #387 已验证，也不借 #387 修改 #433 的认证边界。
+
+> 分析：本轮调整解决的是测试证据真实性，不是扩展产品职责。#387 的最小可移植更新现在可以限定在上述三个测试/CI 文件；任何向 open PR branch 的 port 仍属于 upstream-facing push，必须先展示 exact diff 并取得用户确认。
