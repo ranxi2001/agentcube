@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -65,6 +66,15 @@ var (
 	agentcubeNamespace = getEnv("WORKLOAD_NAMESPACE", "agentcube")
 	scheme             = runtime.NewScheme()
 )
+
+type claimedSandboxResources struct {
+	claimName   string
+	claimUID    k8stypes.UID
+	sandboxName string
+	sandboxUID  k8stypes.UID
+	podName     string
+	podUID      k8stypes.UID
+}
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -164,6 +174,9 @@ func getEnv(key, defaultValue string) string {
 func skipIfMTLS(t *testing.T) {
 	t.Helper()
 	if os.Getenv("MTLS_ENABLED") == "true" {
+		if os.Getenv("E2E_REQUIRE_CODEINTERPRETER") == "true" {
+			t.Fatal("CodeInterpreter E2E coverage is required but mTLS would skip the direct WorkloadManager path")
+		}
 		t.Skip("skipping direct-WM test: mTLS is active (test client has no client cert)")
 	}
 }
@@ -816,13 +829,16 @@ func TestCodeInterpreterWarmPool(t *testing.T) {
 	t.Logf("Applying %s...", yamlPath)
 	require.NoError(t, ctx.applyYamlFile(yamlPath))
 
-	defer ctx.cleanupCodeInterpreter(t, namespace, name, yamlPath)
+	var claimedResources *claimedSandboxResources
+	defer func() {
+		ctx.cleanupCodeInterpreter(t, namespace, name, yamlPath, claimedResources)
+	}()
 
 	initialPods := ctx.verifyWarmPoolReady(t, namespace, name, warmPoolSize)
 
 	env.executeAndVerifyCode(t, namespace, name, "Hello from warmpool!")
 
-	ctx.verifyWarmPoolStatus(t, namespace, name, warmPoolSize, initialPods)
+	claimedResources = ctx.verifyWarmPoolStatus(t, namespace, name, warmPoolSize, initialPods)
 }
 
 // TestCodeInterpreterBasicInvocation tests basic code interpreter invocation
@@ -978,7 +994,7 @@ print("Fibonacci sequence generated")
 	})
 }
 
-func (ctx *e2eTestContext) cleanupCodeInterpreter(t *testing.T, namespace, name, yamlPath string) {
+func (ctx *e2eTestContext) cleanupCodeInterpreter(t *testing.T, namespace, name, yamlPath string, claimedResources *claimedSandboxResources) {
 	t.Log("Cleaning up code interpreter resources...")
 	if err := ctx.deleteYamlFile(yamlPath); err != nil {
 		t.Logf("Failed to delete yaml file: %v", err)
@@ -999,6 +1015,31 @@ func (ctx *e2eTestContext) cleanupCodeInterpreter(t *testing.T, namespace, name,
 		}
 		return pods == 0
 	}, 30*time.Second, 1*time.Second, "WarmPool pods should be deleted")
+
+	if claimedResources == nil {
+		return
+	}
+
+	require.Eventually(t, func() bool {
+		return ctx.objectUIDGone(namespace, claimedResources.claimName, claimedResources.claimUID, &extensionsv1alpha1.SandboxClaim{})
+	}, 30*time.Second, time.Second, "adopting SandboxClaim %s/%s should be deleted", namespace, claimedResources.claimName)
+	require.Eventually(t, func() bool {
+		return ctx.objectUIDGone(namespace, claimedResources.sandboxName, claimedResources.sandboxUID, &sandboxv1alpha1.Sandbox{})
+	}, 30*time.Second, time.Second, "adopted Sandbox %s/%s should be deleted", namespace, claimedResources.sandboxName)
+	require.Eventually(t, func() bool {
+		return ctx.objectUIDGone(namespace, claimedResources.podName, claimedResources.podUID, &corev1.Pod{})
+	}, 30*time.Second, time.Second, "adopted Pod %s/%s should be deleted", namespace, claimedResources.podName)
+}
+
+func (ctx *e2eTestContext) objectUIDGone(namespace, name string, uid k8stypes.UID, obj client.Object) bool {
+	err := ctx.ctrlClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: name}, obj)
+	if apierrors.IsNotFound(err) {
+		return true
+	}
+	if err != nil {
+		return false
+	}
+	return obj.GetUID() != uid
 }
 
 func (ctx *e2eTestContext) verifyWarmPoolReady(t *testing.T, namespace, name string, expectedSize int) []string {
@@ -1023,23 +1064,28 @@ func (e *testEnv) executeAndVerifyCode(t *testing.T, namespace, name, expectedOu
 	require.Contains(t, resp.Stdout, expectedOutput)
 }
 
-func (ctx *e2eTestContext) verifyWarmPoolStatus(t *testing.T, namespace, name string, warmPoolSize int, initialPods []string) {
+func (ctx *e2eTestContext) verifyWarmPoolStatus(t *testing.T, namespace, name string, warmPoolSize int, initialPods []string) *claimedSandboxResources {
 	t.Log("Verifying warmpool post-execution status...")
 
 	// 1. Find the SandboxClaim owned by the CodeInterpreter
 	claim, err := ctx.getSandboxClaimByOwner(namespace, "CodeInterpreter", name)
 	require.NoError(t, err)
 	require.NotNil(t, claim, "Should find exactly one SandboxClaim owned by CodeInterpreter")
+	require.NotEmpty(t, claim.UID, "SandboxClaim must have a stable UID")
 
 	// 2. Find the Sandbox owned by that SandboxClaim
 	sandbox, err := ctx.getSandboxByOwner(namespace, "SandboxClaim", claim.Name)
 	require.NoError(t, err)
 	require.NotNil(t, sandbox, "Should find exactly one Sandbox owned by SandboxClaim")
+	require.NotEmpty(t, sandbox.UID, "adopted Sandbox must have a stable UID")
+	require.True(t, hasOwnerReference(sandbox, "SandboxClaim", claim.Name, claim.UID), "adopted Sandbox ownerRef must identify the exact SandboxClaim UID")
 
 	// 3. Find the Pod owned by that Sandbox
 	pod, err := ctx.getPodByOwner(namespace, "Sandbox", sandbox.Name)
 	require.NoError(t, err)
 	require.NotNil(t, pod, "Should find exactly one Pod owned by Sandbox")
+	require.NotEmpty(t, pod.UID, "adopted Pod must have a stable UID")
+	require.True(t, hasOwnerReference(pod, "Sandbox", sandbox.Name, sandbox.UID), "adopted Pod ownerRef must identify the exact Sandbox UID")
 
 	// 4. Verify this pod is from the initial warmpool
 	found := false
@@ -1059,6 +1105,24 @@ func (ctx *e2eTestContext) verifyWarmPoolStatus(t *testing.T, namespace, name st
 		}
 		return currentPodCount == warmPoolSize
 	}, 30*time.Second, 1*time.Second, "Warmpool should be re-filled to %d pods", warmPoolSize)
+
+	return &claimedSandboxResources{
+		claimName:   claim.Name,
+		claimUID:    claim.UID,
+		sandboxName: sandbox.Name,
+		sandboxUID:  sandbox.UID,
+		podName:     pod.Name,
+		podUID:      pod.UID,
+	}
+}
+
+func hasOwnerReference(obj metav1.Object, kind, name string, uid k8stypes.UID) bool {
+	for _, owner := range obj.GetOwnerReferences() {
+		if owner.Kind == kind && owner.Name == name && owner.UID == uid {
+			return true
+		}
+	}
+	return false
 }
 
 // ===== YAML Helper Functions (using controller-runtime client) =====
@@ -1548,7 +1612,7 @@ func TestCodeInterpreterWarmPoolLoad(t *testing.T) {
 	t.Logf("Applying %s...", yamlPath)
 	require.NoError(t, ctx.applyYamlFile(yamlPath))
 
-	defer ctx.cleanupCodeInterpreter(t, namespace, name, yamlPath)
+	defer ctx.cleanupCodeInterpreter(t, namespace, name, yamlPath, nil)
 
 	ctx.verifyWarmPoolReady(t, namespace, name, warmPoolSize)
 

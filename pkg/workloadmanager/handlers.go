@@ -57,6 +57,24 @@ func isContextError(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
+func isSandboxAuthorizationError(err error) bool {
+	return apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err)
+}
+
+// terminalSandboxReadError returns nil for API errors that may recover while a
+// claim is being adopted. Deterministic client, authorization, and decoding
+// errors must not be retried until the two-minute readiness timeout.
+func terminalSandboxReadError(err error) error {
+	if apierrors.IsNotFound(err) || apierrors.IsTimeout(err) || apierrors.IsServerTimeout(err) ||
+		apierrors.IsTooManyRequests(err) || apierrors.IsServiceUnavailable(err) || apierrors.IsInternalError(err) {
+		return nil
+	}
+	if isSandboxAuthorizationError(err) {
+		return err
+	}
+	return api.NewInternalError(err)
+}
+
 // handleHealth handles health check requests
 func (s *Server) handleHealth(c *gin.Context) {
 	respondJSON(c, http.StatusOK, map[string]string{
@@ -207,6 +225,16 @@ func (s *Server) respondSandboxCreateError(c *gin.Context, sandbox *sandboxv1alp
 		respondError(c, http.StatusGatewayTimeout, err.Error())
 		return
 	}
+	if apierrors.IsForbidden(err) {
+		klog.Warningf("create sandbox forbidden %s/%s: %v", sandbox.Namespace, sandbox.Name, err)
+		respondError(c, http.StatusForbidden, "forbidden")
+		return
+	}
+	if apierrors.IsUnauthorized(err) {
+		klog.Warningf("create sandbox unauthorized %s/%s: %v", sandbox.Namespace, sandbox.Name, err)
+		respondError(c, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
 	klog.Errorf("create sandbox failed %s/%s: %v", sandbox.Namespace, sandbox.Name, err)
 	msg := err.Error()
@@ -227,14 +255,14 @@ func isInternalSandboxCreateError(err error) bool {
 func (s *Server) createK8sResources(ctx context.Context, dynamicClient dynamic.Interface, sandbox *sandboxv1alpha1.Sandbox, sandboxClaim *extensionsv1alpha1.SandboxClaim) error {
 	if sandboxClaim != nil {
 		if err := createSandboxClaim(ctx, dynamicClient, sandboxClaim); err != nil {
-			if isContextError(err) {
+			if isContextError(err) || isSandboxAuthorizationError(err) {
 				return err
 			}
 			return api.NewInternalError(fmt.Errorf("create sandbox claim %s/%s failed: %w", sandboxClaim.Namespace, sandboxClaim.Name, err))
 		}
 	} else {
 		if _, err := createSandbox(ctx, dynamicClient, sandbox); err != nil {
-			if isContextError(err) {
+			if isContextError(err) || isSandboxAuthorizationError(err) {
 				return err
 			}
 			return api.NewInternalError(fmt.Errorf("failed to create sandbox: %w", err))
@@ -287,6 +315,9 @@ func (s *Server) waitForClaimSandboxReady(ctx context.Context, dynamicClient dyn
 			if isContextError(err) {
 				return nil, err
 			}
+			if terminalErr := terminalSandboxReadError(err); terminalErr != nil {
+				return nil, terminalErr
+			}
 			klog.V(2).Infof("waiting for sandbox claim %s/%s status: %v", sandboxClaim.Namespace, sandboxClaim.Name, err)
 		}
 		if err == nil {
@@ -295,6 +326,9 @@ func (s *Server) waitForClaimSandboxReady(ctx context.Context, dynamicClient dyn
 				if err != nil {
 					if isContextError(err) {
 						return nil, err
+					}
+					if terminalErr := terminalSandboxReadError(err); terminalErr != nil {
+						return nil, terminalErr
 					}
 					klog.V(2).Infof("waiting for adopted sandbox %s/%s: %v", sandboxClaim.Namespace, sandboxName, err)
 				} else if getSandboxStatus(createdSandbox) == sandboxStatusReady {

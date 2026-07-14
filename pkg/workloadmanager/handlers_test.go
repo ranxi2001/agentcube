@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -134,6 +135,7 @@ func TestServerCreateSandbox(t *testing.T) {
 		updateErr              error
 		sendResult             bool
 		expectErr              bool
+		expectForbidden        bool
 		expectCreateCalls      int
 		expectClaimCalls       int
 		expectDeleteCalls      int
@@ -172,6 +174,16 @@ func TestServerCreateSandbox(t *testing.T) {
 			sandboxClaim:           true,
 			createClaimErr:         errors.New("create claim failed"),
 			expectErr:              true,
+			expectClaimCalls:       1,
+			expectDeleteCalls:      1,
+			expectStoreDeleteCalls: 1,
+		},
+		{
+			name:                   "sandbox claim creation forbidden triggers rollback",
+			sandboxClaim:           true,
+			createClaimErr:         apierrors.NewForbidden(schema.GroupResource{Group: SandboxClaimGVR.Group, Resource: SandboxClaimGVR.Resource}, "sandbox-1", errors.New("denied")),
+			expectErr:              true,
+			expectForbidden:        true,
 			expectClaimCalls:       1,
 			expectDeleteCalls:      1,
 			expectStoreDeleteCalls: 1,
@@ -294,6 +306,9 @@ func TestServerCreateSandbox(t *testing.T) {
 				require.Error(t, err)
 				if tt.storeErr != nil {
 					require.True(t, apierrors.IsInternalError(err))
+				}
+				if tt.expectForbidden {
+					require.True(t, apierrors.IsForbidden(err))
 				}
 				return
 			}
@@ -418,6 +433,61 @@ func TestServerCreateSandboxClaimUsesAdoptedSandboxButStoresClaimName(t *testing
 	require.Equal(t, "ns-1", storeInst.lastUpdated.SandboxNamespace)
 	require.Equal(t, "adopted-uid", storeInst.lastUpdated.SandboxID)
 	require.Equal(t, "10.0.0.10:8080", storeInst.lastUpdated.EntryPoints[0].Endpoint)
+}
+
+func TestWaitForClaimSandboxReadyStopsOnAuthorizationErrors(t *testing.T) {
+	claim := &extensionsv1alpha1.SandboxClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "ci-claim", Namespace: "ns-1"},
+		Status: extensionsv1alpha1.SandboxClaimStatus{
+			SandboxStatus: extensionsv1alpha1.SandboxStatus{Name: "adopted-sandbox"},
+		},
+	}
+	claimObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(claim)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name              string
+		forbidClaimRead   bool
+		forbidSandboxRead bool
+	}{
+		{name: "claim get forbidden", forbidClaimRead: true},
+		{name: "adopted sandbox get forbidden", forbidSandboxRead: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dynamicClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+			dynamicClient.PrependReactor("get", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				getAction := action.(k8stesting.GetAction)
+				switch action.GetResource() {
+				case SandboxClaimGVR:
+					if tt.forbidClaimRead {
+						return true, nil, apierrors.NewForbidden(
+							schema.GroupResource{Group: SandboxClaimGVR.Group, Resource: SandboxClaimGVR.Resource},
+							getAction.GetName(), errors.New("claim read denied"),
+						)
+					}
+					return true, &unstructured.Unstructured{Object: claimObj}, nil
+				case SandboxGVR:
+					if tt.forbidSandboxRead {
+						return true, nil, apierrors.NewForbidden(
+							schema.GroupResource{Group: SandboxGVR.Group, Resource: SandboxGVR.Resource},
+							getAction.GetName(), errors.New("sandbox read denied"),
+						)
+					}
+				}
+				return false, nil, nil
+			})
+
+			started := time.Now()
+			createdSandbox, err := (&Server{}).waitForClaimSandboxReady(context.Background(), dynamicClient, claim)
+
+			require.Nil(t, createdSandbox)
+			require.Error(t, err)
+			require.True(t, apierrors.IsForbidden(err))
+			require.Less(t, time.Since(started), 100*time.Millisecond, "authorization errors must not wait for readiness timeout")
+		})
+	}
 }
 
 func TestWaitForDirectSandboxReadyWatcherFailures(t *testing.T) {
@@ -555,6 +625,15 @@ func TestHandleSandboxCreate(t *testing.T) {
 			createErr:         errSandboxCreationTimeout,
 			expectStatus:      http.StatusGatewayTimeout,
 			expectMessage:     "sandbox creation timed out",
+			expectCreateCalls: 1,
+		},
+		{
+			name:              "sandbox creation forbidden returns 403",
+			kind:              types.CodeInterpreterKind,
+			body:              `{"name":"workload","namespace":"ns"}`,
+			createErr:         apierrors.NewForbidden(schema.GroupResource{Group: SandboxClaimGVR.Group, Resource: SandboxClaimGVR.Resource}, "claim", errors.New("denied")),
+			expectStatus:      http.StatusForbidden,
+			expectMessage:     "forbidden",
 			expectCreateCalls: 1,
 		},
 		{
