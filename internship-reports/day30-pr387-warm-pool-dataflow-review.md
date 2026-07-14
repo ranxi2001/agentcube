@@ -1052,4 +1052,4 @@ cleanup = claim + adopted Sandbox + adopted Pod deleted; warm pool readyReplicas
 
 > 分析：截至本轮读取，PR head 仍为 `c2633c5`，GitHub `mergeable_state=dirty`，且 @RainbowMango 已要求解决冲突。body 清理不会解决分支冲突；后续 rebase 仍需单独验证，并在更新 open PR branch 前再次取得用户确认。
 
-本轮未修改 GitHub PR body。按照 upstream posting gate，先向用户展示 exact replacement；只有用户确认完整文本后才执行 `gh pr edit 387 --body-file ...`，随后 server-side 回读验证。
+用户确认 exact replacement 后，本轮已更新 GitHub PR body 并完成 server-side 回读。直接执行 `gh pr edit 387 --body-file ...` 时失败，报错为 token 缺少 GraphQL `read:org` / `read:discussion` scope；该失败发生在 GitHub CLI 查询组织元数据阶段，不是 PR 写权限不足。最终改用 GitHub REST `PATCH /repos/volcano-sh/agentcube/pulls/387` 提交同一 body，更新成功；回读内容与本地草案完全一致，metrics 仍为 266 visible words、16 nonblank lines。PR head 未变，仍为 `c2633c5`，`mergeable_state=dirty`。

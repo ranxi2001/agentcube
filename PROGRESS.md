@@ -8,7 +8,7 @@
 
 ## Current State
 
-- PR #387 concise body：2026-07-14 已按最新 `agentcube-pr-management` gate 将当前 750 visible words / 59 nonblank lines 压缩为 266 words / 16 lines；草案删除 fork CI 链接、9 个动态 check 状态、完整命令/用例清单和 live LLM 结果，保留 v0.4.6 scope、claim/runtime identity、NetworkPolicy、generated-code boundary、focused validation 与 AI disclosure。尚未修改 GitHub，等待用户确认 exact replacement。当前 head `c2633c5` 仍 `mergeable_state=dirty`，body 清理不替代后续 conflict rebase。
+- PR #387 concise body：2026-07-14 已按用户确认更新 upstream body，将 750 visible words / 59 nonblank lines 压缩为 266 words / 16 lines；删除 fork CI 链接、9 个动态 check 状态、完整命令/用例清单和 live LLM 结果，保留 v0.4.6 scope、claim/runtime identity、NetworkPolicy、generated-code boundary、focused validation 与 AI disclosure。`gh pr edit` 因 token 缺少 GraphQL `read:org` scope 失败，改用 REST pull PATCH 成功，server-side 回读与草案完全一致。当前 head `c2633c5` 仍 `mergeable_state=dirty`，body 清理不替代后续 conflict rebase。
 - Upstream writing gates：2026-07-14 已增强 `agentcube-issue-discussion` 与 `agentcube-pr-management`，新增 concise references 和 `draft_metrics.py`。规则把 upstream body/comment 定位为证据索引：普通 PR 目标 100-300 visible words，API/CRD/兼容/安全/benchmark/多组件 PR 目标 200-450；超 450 必须说明 long-form exception。近期样本和前向测试记录在 `internship-reports/open-source-contribution-format-standard.md`；没有发布任何 upstream 文本。
 - Branch/workflow：当前本地在 `intern`，该分支保存实习报告、TODO、本地 skills 和中文记录；fork `main` 必须保持 upstream clean mirror。记录类 commit 完成后默认 push `origin intern:intern`；任何 upstream issue/PR/comment/review request/maintainer mention 必须先让用户确认 exact target/body。
 - Day45 community screening：2026-07-10 已按 assignee、`/assign`、active PR、scope、环境和当前源码筛选最新 open issues；没有可直接认领的 A 级任务。#432 已由 `avinxshKD` 认领并有 #433；#430 已有 #431 proposal；#365 依赖 #366/#379 和 Kuasar/KVM；#348 已由 merged PR #378 修复但 issue 未关闭。旧 #272 与 open PR #249/release policy 有交叉，需先协调，不能直接接手。详见 `internship-reports/day45-latest-community-issue-task-screening.md`。
@@ -25,7 +25,7 @@
 
 - #431 SandboxPool proposal：[review `4681333180`](https://github.com/volcano-sh/agentcube/pull/431#pullrequestreview-4681333180) 已按用户确认作为一个 `COMMENT` review 发出，含 line 138 Task lifecycle、line 151 heartbeat timer、line 535 orphan cleanup、line 626 atomic per-node Class ownership；状态 `POSTED_WAITING`。等待作者逐条回复或提交新 commit，不自动追评。
 - #429 Go toolchain update workflow：已创建 upstream PR，普通 CI 绿，`tide` pending 等 review/labels；不要自动 push/comment。
-- #387 agent-sandbox v0.4.6 compatibility：保持 current stable compatibility 口径，不把 v0.5.x / Sleep/Resume / PicoD cleanup 混入；exact concise body draft 已就绪，等用户确认后才更新。@RainbowMango 已要求 resolve conflict，后续 rebase/push 仍需另行确认。
+- #387 agent-sandbox v0.4.6 compatibility：保持 current stable compatibility 口径，不把 v0.5.x / Sleep/Resume / PicoD cleanup 混入；concise body 已按确认发布并回读验证。@RainbowMango 已要求 resolve conflict，后续 rebase/push 仍需另行确认。
 - #385 WarmPoolAvailable PoC：主要等 maintainer review / `lgtm` / `approve` / tide。
 - #433 WorkloadManager chart auth：`avinxshKD` 已认领并提交 PR；普通 checks 通过、tide 等 labels。只可考虑 Helm/RBAC/auth 验证协作，不开重复实现。
 
@@ -58,7 +58,7 @@
 
 ## Next
 
-- For #387: 先等待用户确认 266-word exact PR body；确认后只更新 body 并 server-side 回读。不要把 body approval 解释为 rebase/force-push approval；冲突处理、测试重跑和 open PR branch 更新需另行准备与确认。
+- For #387: body 清理已完成。下一步是从当前 PR head 准备独立 rebase validation，解决与最新 `upstream/main` 的冲突并重跑相关测试；不要把已完成的 body approval 解释为 rebase/force-push approval，更新 open PR branch 前需另行准备与确认。
 - Community tasks：本轮不 `/assign`。下一次先刷新 open issue/PR；只有新的 focused unowned issue，或 maintainer 将 #386/#272 拆成 dedicated sub-issue，才进入认领准备。#433 若做协作，先在临时 worktree 完成 Helm render/lint 和 auth/RBAC focused validation，再向用户提交 exact review draft。
 - For #431: 4-comment batch review 已发布并完成 server-side 回读。不要回复已解决的 resize/RuntimeClass threads，也不要重复最新 Copilot 的 PR-body mismatch；先等待作者回复或新 commit，再逐 thread 判断 `RESOLVED`、窄追问或 Phase 2 spike/e2e gate。node-ctl RPC、`EverReady`、test DoD 和 RBAC/Webhook 顺序先写在 Day44，不立即追加评论；任何新的 upstream 回复仍需用户确认 exact body。
 - If validating #431 technically, focus on `SP-10` containerd Task lifecycle mapping plus kubelet admission/scheduler accounting for the rebuild window. Keep native `/resize` out of the design; require a real-node shim spike covering task PID/wait/exit, rebuild-vs-delete discrimination, node-ctl continuity, mirror gap, and conflicting Pod admission.
