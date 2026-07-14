@@ -1202,6 +1202,26 @@ flowchart LR
 
 当前停止新增 comment。下一步等待作者回复或新 push，再逐 thread 验证设计是否真正闭合；CI 全绿只代表文档检查通过，不构成 Static Pod/containerd/node-ctl runtime 证据。
 
+### Maintainer Review：先审 Proposal 的产品入口
+
+2026-07-14，`@RainbowMango` 以仓库 `COLLABORATOR` 身份在 exact head `c2f2502` 提交 [review `4692780216`](https://github.com/volcano-sh/agentcube/pull/431#pullrequestreview-4692780216)。review summary 明确写着 `Review is still ongoing.`，因此下面是高权重 maintainer 反馈，不是最终 `lgtm` 或完整共识。
+
+| 入口 | Maintainer 意见 | 深层 review 问题 |
+| --- | --- | --- |
+| [proposal title](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3577673889) / [H1](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3577675217) | `SandboxPool Resource Pool Management` 有 double `pool` 冗余；建议 `Sandbox Resource Reservation` 或 `Sandbox Resource Pool Management` | proposal title 会成为 feature name，必须从产品能力命名，而不是把 API kind 和能力词机械拼接 |
+| [node agent](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3577872209) | 建议把 `placeholder-agent` 改成 `agentcube-pool-agent` | 组件名应表达项目归属和完整职责；`placeholder` 只是实现机制，无法覆盖 manifest、policy、status 和 runtime proxy 职责 |
+| [containerd shim](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3577971132) | 要求给 `containerd runtime shim (v2 Task API)` 增加参考链接 | 高风险外部协议不能只写名词；proposal 必须让实现者能追到 authoritative contract |
+| [co-location motivation](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578028522) | 要求说明 cluster administrator 为什么需要 sandbox pool | “没有 Kubernetes-native way”只是技术判断，缺少用户角色、运维痛点和预期结果；应恢复 #430 中 capacity planning 与 session lifecycle 解耦的核心用户故事 |
+| [node-ctl terminology](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578198018) | 其它讨论已废弃 `node-ctl` 组件名 | proposal 不能冻结并行架构讨论里已过期的词汇；需要先对齐当前组件名和职责边界 |
+
+> 分析：我们的 review 从 update/delete/restart 等 failure path 向外推，找到了 Deferred ordering、Task lifecycle、Phase 和 RBAC 问题；maintainer 则从 proposal 的前 60 行向内推，先问“谁为什么需要、能力叫什么、组件叫什么、依赖合同在哪里”。两种路径互补，但 review 顺序应该先经过 maintainer 这层产品/词汇门槛，再深入实现不变量，否则可能把一个技术上严密的方案建立在错误的 feature model 上。
+
+> 注释：#430 的公开正文已经给出更清楚的管理员动机：capacity planning 不应与短生命周期 session 一一绑定，Kubernetes 管 pool、AgentCube 管 session。当前 proposal 把它压缩成“co-location 没有 native way”，丢失了 actor → pain → outcome。后续 proposal review 应显式比较 parent issue 的问题陈述，而不只检查 `tracking-issue` 是否存在。
+
+本轮在公开 issue/PR comment 搜索中没有找到 `node-ctl` 被弃名的那场“other discussion”，也没有验证替代名称。当前只能记录 maintainer 明确说旧名 deprecated，不能自行推断新名；等待作者或 maintainer 在当前 thread 补充权威指向。
+
+这次 maintainer 反馈已提升为 `agentcube-pr-review` 的 reusable pattern：`Proposal front door must establish actor, outcome, and current vocabulary`。以后正式 proposal 在进入 API/状态机深审前，先验证前 60 行能回答用户角色、具体问题、能力结果、稳定命名、当前架构词汇和外部协议引用。
+
 ## 参考链接
 
 - AgentCube discussion #430: <https://github.com/volcano-sh/agentcube/issues/430>

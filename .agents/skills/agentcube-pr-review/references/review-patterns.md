@@ -128,3 +128,13 @@ Evidence labels:
 - Review question: What changed in the patch series beyond base-context movement?
 - Validation: Confirm base ancestry, clean structural merge, then inspect range-diff and hotspot behavior/tests.
 - False-positive guard: Patch IDs may legitimately change due to required adaptation; judge preserved intent, not textual identity.
+
+### Proposal front door must establish actor, outcome, and current vocabulary
+
+- Trigger: A formal proposal introduces a public feature name, API resource, node component, or external runtime integration.
+- Hidden assumption: A detailed CRD, state machine, and failure-path design is reviewable even when the opening does not clearly state who needs the feature, which operational outcome they need, or whether names match the current architecture.
+- Failure mode: An implementation-oriented name becomes an awkward long-lived feature name, a mechanism name hides component responsibility, deprecated roadmap vocabulary is frozen into APIs/docs, or implementers cannot trace a high-risk external protocol to its authoritative contract.
+- Evidence source: `MAINTAINER`, AgentCube PR #431 review by `@RainbowMango` asked the author to remove the redundant double `pool` feature name, rename `placeholder-agent` around its AgentCube pool responsibility, link the containerd Task v2 contract, explain the cluster administrator's co-location need, and stop using the deprecated `node-ctl` name.
+- Review question: Can the first 60 lines identify the user/administrator, their concrete problem, the promised outcome, stable feature/component names, current cross-project terminology, and authoritative references for external contracts?
+- Validation: Trace actor → pain → outcome back to the parent issue; compare feature and component names with their full responsibilities; search current related discussions for renamed/deprecated concepts; verify protocol links against primary upstream documentation before reviewing implementation detail.
+- False-positive guard: Temporary implementation names are acceptable in an explicitly internal spike that cannot become public API, documentation, CLI, metrics, or long-lived component vocabulary.
