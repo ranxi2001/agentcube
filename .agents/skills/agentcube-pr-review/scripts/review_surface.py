@@ -104,6 +104,36 @@ def dependency_runtime_versions(repo: Path, head: str) -> dict[str, str | None]:
     return extract_agent_sandbox_versions(go_mod, e2e_script)
 
 
+def extract_codeinterpreter_e2e_coverage(
+    e2e_script: str, e2e_workflow: str, e2e_go: str
+) -> dict[str, bool]:
+    default_mtls = bool(re.search(r"^\s*MTLS_ENABLED=true\s*$", e2e_script, re.MULTILINE))
+    workflow_disables_mtls = bool(
+        re.search(r"^\s*MTLS_ENABLED:\s*[\"']?false[\"']?\s*$", e2e_workflow, re.MULTILINE)
+    )
+    warm_pool_match = re.search(
+        r"func TestCodeInterpreterWarmPool\([^)]*\)\s*\{(?P<body>.*?)(?=\nfunc |\Z)",
+        e2e_go,
+        re.DOTALL,
+    )
+    warm_pool_skips_mtls = bool(warm_pool_match and "skipIfMTLS" in warm_pool_match.group("body"))
+    effective_mtls = default_mtls and not workflow_disables_mtls
+    return {
+        "default_mtls_enabled": default_mtls,
+        "workflow_disables_mtls": workflow_disables_mtls,
+        "warm_pool_skips_when_mtls": warm_pool_skips_mtls,
+        "warm_pool_skipped_by_default": effective_mtls and warm_pool_skips_mtls,
+    }
+
+
+def codeinterpreter_e2e_coverage(repo: Path, head: str) -> dict[str, bool]:
+    return extract_codeinterpreter_e2e_coverage(
+        object_text(repo, head, "test/e2e/run_e2e.sh") or "",
+        object_text(repo, head, ".github/workflows/e2e.yml") or "",
+        object_text(repo, head, "test/e2e/e2e_test.go") or "",
+    )
+
+
 def build_report(repo: Path, base: str, head: str) -> dict[str, Any]:
     base_sha = git(repo, "rev-parse", base).stdout.strip()
     head_sha = git(repo, "rev-parse", head).stdout.strip()
@@ -122,6 +152,7 @@ def build_report(repo: Path, base: str, head: str) -> dict[str, Any]:
 
     leads: list[dict[str, str]] = []
     versions = dependency_runtime_versions(repo, head)
+    codeinterpreter_coverage = codeinterpreter_e2e_coverage(repo, head)
     if versions["go_dependency"] and versions["e2e_default"]:
         if versions["go_dependency"] != versions["e2e_default"]:
             leads.append(
@@ -135,6 +166,18 @@ def build_report(repo: Path, base: str, head: str) -> dict[str, Any]:
                     "next_check": "Inspect workflow overrides and live install logs before judging coverage.",
                 }
             )
+
+    if codeinterpreter_coverage["warm_pool_skipped_by_default"]:
+        leads.append(
+            {
+                "id": "target-e2e-skipped-by-default",
+                "reason": (
+                    "The standard E2E setup enables mTLS while TestCodeInterpreterWarmPool "
+                    "calls skipIfMTLS, so the target warm-pool path is skipped by default."
+                ),
+                "next_check": "Inspect live logs for SKIP and design explicit mTLS and CodeInterpreter coverage modes.",
+            }
+        )
 
     changed_paths = {item["path"] for item in files}
     api_type_change = any(path.startswith("pkg/apis/") and path.endswith(".go") for path in changed_paths)
@@ -187,6 +230,7 @@ def build_report(repo: Path, base: str, head: str) -> dict[str, Any]:
         "changed_files": files,
         "categories": {key: sorted(value) for key, value in sorted(category_map.items())},
         "agent_sandbox_versions": versions,
+        "codeinterpreter_e2e_coverage": codeinterpreter_coverage,
         "review_leads": leads,
         "diff_stat": git(repo, "diff", "--stat", f"{base}...{head}").stdout.rstrip(),
     }

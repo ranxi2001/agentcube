@@ -142,6 +142,7 @@
 | 完成实习周报邮件私有工作流与 Week 5 验收 | `/home/intern-week-mail` 已成为唯一 skill/template/report-source 仓库；skill validation、author-date Git filtering、HTML escaping、隐私扫描和五段表格结构检查均通过；Week 5 HTML 仅版本化到 private repo 的 `output/week5/`，未发送 |
 | 完成 PR #387 warm pool adoption 数据流 review | [Day 30](day30-pr387-warm-pool-dataflow-review.md) 已从运行时对象流、claim status 观测、Pod 查找、Store/Router 语义和 delete/GC identity 拆解 #387，不再停留在 API import / interface 适配层面 |
 | 完成 PR #400 PicoD Prometheus metrics 本地 review | [Day 31](day31-picod-prometheus-metrics-review.md) 已验证 PicoD metrics PR 的测试状态、middleware 顺序缺口、指标语义问题和可选 upstream review 草稿 |
+| 完成独立 AgentCube PR Review skill 与 #387 前向验证 | [Day 30](day30-pr387-warm-pool-dataflow-review.md) 已建立 point-line-surface/组件职责/类型指针/冲突语义/测试真实性 review workflow；fork run `29304884501` 证明 v0.4.6 安装但目标用例被 mTLS skip，run `29306285285` 在 focused non-mTLS 模式实际跑通 WarmPool claim-adoption、SDK、LangChain 和 MCP |
 | 完成 Week 3 总结：从功能适配转向 Session Runtime Control Plane | [Week 3](week3-summary.md) 已把 Day24-Day32 的 Sleep/Resume 设计、Substrate 竞品复核、AgentCube 架构图、#387/#400/#403 review、开源流程修正和下周建议收束成能力复盘 |
 
 ## 卡点记录模板

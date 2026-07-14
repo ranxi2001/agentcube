@@ -39,14 +39,14 @@ Evidence labels:
 
 ## Seeded patterns
 
-### Green CI must run the target runtime version
+### Green CI must run the target runtime and target scenario
 
 - Trigger: Dependency/API compatibility PR changes `go.mod`, CRD/client behavior, or runtime adapter semantics.
-- Hidden assumption: A green e2e job uses the same controller/runtime version as the imported Go dependency.
-- Failure mode: Tests compile against the new library but install and exercise an old controller, leaving the changed runtime contract untested.
-- Evidence source: `CODE` and `OBS`, AgentCube PR #387 used `agent-sandbox v0.4.6` in `go.mod` while the e2e installer defaulted to `v0.1.1`.
-- Review question: Which exact controller, CRD, and image versions did the live test install?
-- Validation: Inspect workflow inputs and install logs; compare them with dependency and manifest versions.
+- Hidden assumption: A green e2e job uses the imported dependency's controller/runtime version and actually executes the feature-specific tests.
+- Failure mode: Tests compile against the new library but install an old controller, or install the right controller while the target suite is skipped by auth/mTLS/feature gates.
+- Evidence source: `CODE` and `OBS`, AgentCube PR #387 used `agent-sandbox v0.4.6` in `go.mod` while the e2e installer defaulted to `v0.1.1`; after aligning the installer, the standard mTLS job was green but skipped every CodeInterpreter/WarmPool test. A focused non-mTLS fork run then executed and passed the claim-adoption path.
+- Review question: Which exact controller, CRD, and image versions did the live test install, and which target tests passed rather than skipped?
+- Validation: Inspect workflow inputs, install logs, and the PASS/SKIP test list; compare them with dependency versions and the changed behavior.
 - False-positive guard: Version skew may be intentional for compatibility testing when explicitly named and paired with target-version coverage.
 
 ### New reads can create hidden RBAC requirements

@@ -35,6 +35,24 @@ class ReviewSurfaceTest(unittest.TestCase):
             {"go_dependency": "0.4.6", "e2e_default": None},
         )
 
+    def test_detects_warm_pool_test_skipped_by_default_mtls(self) -> None:
+        coverage = REVIEW_SURFACE.extract_codeinterpreter_e2e_coverage(
+            "if true; then\n  MTLS_ENABLED=true\nfi\n",
+            "run: make e2e\n",
+            "func TestCodeInterpreterWarmPool(t *testing.T) {\n\tskipIfMTLS(t)\n}\n",
+        )
+
+        self.assertTrue(coverage["warm_pool_skipped_by_default"])
+
+    def test_workflow_override_enables_warm_pool_test(self) -> None:
+        coverage = REVIEW_SURFACE.extract_codeinterpreter_e2e_coverage(
+            "if true; then\n  MTLS_ENABLED=true\nfi\n",
+            'env:\n  MTLS_ENABLED: "false"\n',
+            "func TestCodeInterpreterWarmPool(t *testing.T) {\n\tskipIfMTLS(t)\n}\n",
+        )
+
+        self.assertFalse(coverage["warm_pool_skipped_by_default"])
+
 
 if __name__ == "__main__":
     unittest.main()

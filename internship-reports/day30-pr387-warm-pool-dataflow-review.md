@@ -1124,3 +1124,48 @@ GitHub server-side 回读已经确认：
 > 分析：这里的 `mergeable_state=unstable` 不再表示代码冲突，而是新一轮 CI 和 review labels 尚未满足。后续只观察新 SHA checks 与 maintainer review，不自动追加评论、请求 reviewer 或继续改动 PR 分支。
 
 最终回读时 11/11 checks 全部成功，包括 e2e、codegen、golangci-lint、coverage、两项 build、Python lint/SDK、spelling、workflow approval 和 DCO。GitHub 仍返回 `mergeable=true` / `rebaseable=true`；Tide 唯一剩余条件是 `approved` 与 `lgtm` labels。
+
+## 2026-07-14：对齐 E2E agent-sandbox v0.4.6 并验证真实覆盖
+
+### 第一层：只对齐版本
+
+基于 PR head `401a00e` 创建 fork-only 分支 `ci/pr387-e2e-agent-sandbox-v046`，commit `d77491c` 只修改：
+
+```diff
+-AGENT_SANDBOX_VERSION=${AGENT_SANDBOX_VERSION:-v0.1.1}
++AGENT_SANDBOX_VERSION=${AGENT_SANDBOX_VERSION:-v0.4.6}
+```
+
+本地确认 v0.4.6 的 `manifest.yaml`、`extensions.yaml` 和多架构 controller image 可获取；WorkloadManager unit、E2E Go package compile、shell syntax 均通过。fork push 触发 9 个 workflow，9/9 success；E2E run `29304884501` 的服务端日志明确显示 pull、load 和 install 的都是 `agent-sandbox-controller:v0.4.6`。
+
+但这轮绿色不能作为 #387 claim-adoption 的充分证据。日志显示 Go/Python/LangChain/MCP 的 CodeInterpreter 用例全部因默认 `MTLS_ENABLED=true` 而 skip；真正执行的主要是 AgentRuntime invocation 和 TTL。
+
+> 注释：版本正确回答“CI 装了什么”，PASS/SKIP 清单回答“CI 测了什么”。两者缺一不可。job 名称为 E2E 且最终绿色，不代表目标 feature path 被执行。
+
+### 第二层：强制执行 CodeInterpreter / WarmPool
+
+为隔离“版本修复”和“测试夹具实验”，另建 fork-only 分支 `ci/pr387-e2e-v046-codeinterpreter`。commit `66bdf77` 在 `d77491c` 之上让 `MTLS_ENABLED=false` 同时控制 Helm `spire.enabled=false`，并跳过 SPIRE 安装/等待，使现有 direct-WorkloadManager CodeInterpreter 测试不再被 mTLS gate 跳过。
+
+第二轮同样 9/9 workflows success；E2E run `29306285285` 的关键结果为：
+
+| 层 | 实际结果 |
+|---|---|
+| Runtime | pull/load/install `agent-sandbox-controller:v0.4.6` |
+| Go warm pool | `TestCodeInterpreterWarmPool` PASS；验证 `CodeInterpreter -> SandboxClaim -> adopted Sandbox -> Pod`、claimed Pod 属于初始 warm pool、pool refill |
+| Go CodeInterpreter | basic、file operations、warm-pool load、basic load 全部 PASS |
+| Python SDK | CodeInterpreter 3/3 PASS |
+| LangChain | 4/4 PASS |
+| MCP | HTTP 5/5、stdio 1/1、in-cluster HTTP PASS |
+
+这证明把 E2E runtime 对齐到 v0.4.6 后，#387 的 claim-adoption 路径在 CI Kind 环境可以真实通过；原来的问题是标准 job 同时存在 runtime version skew 和 target-suite skip 两层覆盖空洞。
+
+> 分析：不应直接把验证分支的 `MTLS_ENABLED=false` 作为最终上游方案，因为这会用 CodeInterpreter coverage 替换现有 Router -> WorkloadManager mTLS coverage。更合理的设计需要明确双模式职责：保留 mTLS job 验证安全链，同时增加 focused non-mTLS CodeInterpreter/WarmPool job，或让 direct-WM 测试获得受控 client certificate。是否承担额外 CI 时长和如何拆 job，需要在更新 #387 前单独决定。
+
+### Review skill 的经验升级
+
+独立 `.agents/skills/agentcube-pr-review/` 已把本次真实漏检合并进既有 pattern，而不是新增同义规则：`Green CI must run the target runtime and target scenario`。`review_surface.py` 现在同时提示：
+
+- `dependency-runtime-version-skew`：Go 依赖 v0.4.6，E2E 默认 runtime v0.1.1；
+- `target-e2e-skipped-by-default`：标准 E2E 开启 mTLS，而 `TestCodeInterpreterWarmPool` 调用 `skipIfMTLS`。
+
+两个检测都有单元测试，输出仍只是 review lead；最终 finding 必须以 workflow inputs、安装日志和 PASS/SKIP 清单验证。
