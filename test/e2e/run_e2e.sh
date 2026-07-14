@@ -361,9 +361,11 @@ run_setup() {
     WM_EXTRA_ENV=$(printf '[{"name":"REDIS_PASSWORD_REQUIRED","value":"false"},{"name":"JWT_KEY_SECRET_NAMESPACE","value":"%s"}]' "${AGENTCUBE_NAMESPACE}")
     ROUTER_EXTRA_ENV='[{"name":"REDIS_PASSWORD_REQUIRED","value":"false"}]'
 
-    # Install SPIRE CRDs (Required before installing the chart with spire.enabled=true)
-    step "Installing SPIRE CRDs..."
-    kubectl apply -k "https://github.com/spiffe/spire-controller-manager/config/crd?ref=v0.6.4"
+    if [ "${MTLS_ENABLED}" = "true" ]; then
+        # Install SPIRE CRDs before installing the chart with spire.enabled=true.
+        step "Installing SPIRE CRDs..."
+        kubectl apply -k "https://github.com/spiffe/spire-controller-manager/config/crd?ref=v0.6.4"
+    fi
 
     # Install using Helm directly from the source chart
     # We use --set-json to pass the extra environment variables and enable RBAC/SA for the router
@@ -380,14 +382,16 @@ run_setup() {
         --set router.rbac.create=true \
         --set router.serviceAccountName="agentcube-router" \
         --set-json "router.extraEnv=${ROUTER_EXTRA_ENV}" \
-        --set spire.enabled=true \
+        --set spire.enabled="${MTLS_ENABLED}" \
         --set spire.agent.insecureBootstrap=true \
         --set spire.agent.skipKubeletVerification=true \
         --wait --timeout=10m
 
-    step "Waiting for SPIRE infrastructure..."
-    kubectl -n "${AGENTCUBE_NAMESPACE}" rollout status statefulset/spire-server --timeout=300s
-    kubectl -n "${AGENTCUBE_NAMESPACE}" rollout status daemonset/spire-agent --timeout=300s
+    if [ "${MTLS_ENABLED}" = "true" ]; then
+        step "Waiting for SPIRE infrastructure..."
+        kubectl -n "${AGENTCUBE_NAMESPACE}" rollout status statefulset/spire-server --timeout=300s
+        kubectl -n "${AGENTCUBE_NAMESPACE}" rollout status daemonset/spire-agent --timeout=300s
+    fi
 
     step "Waiting for deployments..."
     kubectl -n "${AGENTCUBE_NAMESPACE}" rollout status deployment/workloadmanager --timeout=300s
