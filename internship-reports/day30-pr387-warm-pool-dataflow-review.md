@@ -1234,3 +1234,109 @@ GitHub server-side 最终证据：
 > 分析：该修正只有一行，符合本 PR 已经修改 E2E workflow 的职责，不需要独立上游 PR。用户确认后已将 `df8eb9b` fast-forward push 到 open PR；GitHub 回读 `mergeable=true` / `rebaseable=true`，official checks 12/12 success。
 
 为帮助 reviewer 快速理解 E2E diff 大于单行版本升级的原因，用户确认后发布了 132 visible words / 13 nonblank lines 的英文 [Mermaid comment](https://github.com/volcano-sh/agentcube/pull/387#issuecomment-4966669956)。图中只保留两条关键信息：mTLS job 与 focused CodeInterpreter job 的职责分工，以及 `SandboxClaim -> adopted Sandbox -> same-UID pre-warmed Pod -> session cleanup -> refill` 生命周期。GitHub API 回读正文与本地草案完全一致；没有重复完整测试矩阵或修改 PR body。
+
+## 2026-07-14：PR #387 最终架构复核与 PR #433 认证边界观察
+
+### 复核结论
+
+本轮按独立 `agentcube-pr-review` 方法重新检查 PR #387 current diff，而不是只依赖已有 CI。检查面覆盖 component ownership、direct/claim 两条 readiness 路径、Store control identity、runtime identity、rollback、delete、GC、依赖和生成物、E2E 是否真实执行、与最新 main 的合并结果，以及 #433 认证方案的交叉影响。
+
+截至本轮回读：
+
+- PR #387 head 为 `9c3402ec3369a924779467b0541592f61427913a`；
+- 最新 `upstream/main` 为 `fa254b15fec43480a343a60cdf5773156c72b80a`；
+- 分支相对 main 为 `1 behind / 9 ahead`；
+- GitHub 返回 `mergeable=true`、`mergeStateStatus=UNSTABLE`，其中 `UNSTABLE` 来自 Tide 尚缺 review labels，不是 merge conflict；
+- 本地用 `git merge-tree --write-tree upstream/main HEAD` 生成合并树，无结构冲突；将该树临时物化后执行 `go test ./pkg/workloadmanager -count=1` 通过；临时 worktree 已删除；
+- current head 本地 `go test ./pkg/workloadmanager -count=1` 与 `go test -race ./pkg/workloadmanager -count=1` 均通过；`git diff --check`、`bash -n test/e2e/run_e2e.sh hack/update-codegen.sh` 通过；
+- official codegen、lint、build、coverage、Python 和两条 E2E 等可执行 checks 全部成功，Tide 仍 pending；PR 尚无 `lgtm` / `approved`。
+
+> 分析：最新 main 的唯一领先 commit `fa254b1` 强化了 sandbox create rollback 的 Store placeholder 清理断言。#387 已在 Store placeholder 写入后立即注册 rollback defer，因此合并后的新测试通过，说明这次 rebase 没有把 main 的 placeholder leak 修复重新破坏。
+
+### 生命周期与数据类型结论
+
+warm-pool path 中存在两个必须分离的身份：
+
+| 身份 | 保存内容 | 用途 |
+| --- | --- | --- |
+| control identity | `Kind=SandboxClaim`、`Name=<claim name>`、claim namespace | delete、GC 和 rollback 删除控制对象 |
+| runtime identity | adopted Sandbox UID、真实 Pod IP 和 entrypoints | Router 转发与用户响应 |
+
+`createSandbox` 先写带 session TTL 的 placeholder，再创建 Claim；Claim status 给出 adopted Sandbox name 后读取真实 Sandbox 和 Pod；最终 Store 保留 Claim name/namespace/Kind，同时用 adopted Sandbox UID 和 Pod entrypoint 更新 runtime 信息。Claim path 还保留 placeholder 的 `CreatedAt` / `ExpiresAt`，避免预热很久的 Sandbox 创建时间污染新 session TTL。显式 delete、GC 与失败 rollback 都按 `Kind=SandboxClaim` 删除 Claim，而不是拿 adopted Sandbox 名误删控制对象。
+
+> 注释：这里不是把一个字段同时当作两种含义，而是明确区分“谁负责生命周期”和“谁提供运行服务”。这也是本轮对 Go struct / string kind / pointer lifecycle 字段一致性的核心检查。
+
+未发现重复 controller 或重复 Store 职责：CodeInterpreter controller 负责维护 Template/WarmPool；WorkloadManager 负责 session create/readiness/store；agent-sandbox controller 负责 Claim adoption；Router 只消费 Store entrypoint。direct Sandbox 继续使用 watch-first，Claim path 因实际 Sandbox 名创建前未知而单独 polling，没有为了统一形式强行复制同一种机制。
+
+### 唯一中风险 finding：auth 模式下永久读取错误被伪装成超时
+
+PR #387 在 `pkg/workloadmanager/handlers.go` 的 auth path 中继续使用 `extractUserK8sClient` 得到的 caller dynamic client。Claim readiness 新增两次读取：
+
+- `GET SandboxClaim`，读取 `status.sandbox.name`；
+- `GET Sandbox`，等待 adopted Sandbox Ready。
+
+当前循环只把 context cancel/deadline 当作终止错误，其余错误全部每秒重试，直到 2 分钟后返回 `sandbox creation timed out` / HTTP 504。因此 `Forbidden`、`Unauthorized`、schema conversion error 等永久错误会被错误归类为暂时未 Ready。
+
+影响分两层：
+
+1. #387 单独合并且 chart 未开启 auth 时，主要 warm-pool path 不受影响，现有 E2E 已证明该路径正确。
+2. 一旦 chart 或手工配置开启 `EnableAuth`，caller credential 必须同时具有 Claim/Sandbox `get` 权限；缺失时不会快速返回权限错误，而是等待 2 分钟并给出误导性 504。rollback 仍使用同一 caller client，凭证失效或权限不足时还可能无法删除刚创建的 Claim。
+
+最小解决方向不是在 #387 继续堆 #433 的产品修改，而是先明确认证和凭证委托模型：
+
+- 如果 Router token 只用于认证，Kubernetes create/get/delete 应继续由 WorkloadManager ServiceAccount 执行；
+- 如果设计确实要求 caller credential delegation，则 RBAC contract 必须包含 Claim/Sandbox 的读取权限，并且 readiness loop 应把永久 API 错误分类为 terminal；
+- 两种方案都需要 auth-enabled warm-pool focused test，不能用当前非 auth E2E 代替。
+
+> 分析：这是一个 cross-PR compatibility finding，不等于要求我们修改 #433。用户已经明确 #433 有其他贡献者推进，因此本轮只记录 merge-order / contract gate，不提交重复 auth/RBAC 代码，也不在上游自动评论。
+
+### NetworkPolicy：兼容性选择，但仍是安全设计债务
+
+PR #387 会把 CodeInterpreter-owned `SandboxTemplate.spec.networkPolicyManagement` 持续 reconcile 为 `Unmanaged`。这不是偶然漏设：agent-sandbox v0.4.6 的默认 Managed policy 只允许 `app=sandbox-router`，而 AgentCube Router 使用 `app=agentcube-router`，且 workload namespace 可能与 Router namespace 不同。直接采用上游默认策略可能让 Sandbox/Pod 已 Ready，但 AgentCube Router 或 WorkloadManager 无法访问 PicoD entrypoint。
+
+因此 `Unmanaged` 在本兼容 PR 中保持了 v0.1.1 时代的既有连通行为，不构成相对当前 main 的新增网络行为回退；但它也明确放弃了 v0.4.6 secure-default NetworkPolicy，AgentCube 当前没有同步创建替代策略。长期方案应单独设计 Router/WM 到 sandbox entrypoint 的 namespace-aware ingress、必要 egress 和真实 CNI E2E，不应假装 Kind 绿色已经验证 NetworkPolicy enforcement。
+
+> 分析：本轮把它归类为 maintainer-visible design debt，而不是和 auth finding 混为一个 bug。兼容性 PR 可以先保留既有行为，但 reviewer 应知道隔离责任已经回到 AgentCube / cluster administrator。
+
+### E2E 真实性复核
+
+official run `29319618875` 的服务端日志确认：
+
+- 两个 job runner 均为 `ubuntu-24.04`；
+- 两个 job 均校验实际镜像 `registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.4.6`；
+- mTLS job 保留 Router -> WorkloadManager 安全链，direct-WM CodeInterpreter tests 明确 skip；
+- focused non-mTLS job 实际执行 `TestCodeInterpreterWarmPool` 和 `TestCodeInterpreterWarmPoolLoad`，分别 PASS；
+- Python CodeInterpreter、LangChain、MCP HTTP、MCP stdio 与 in-cluster MCP 均实际运行并 PASS；
+- OIDC / RLAC 因未部署 Keycloak 仍 skip，因此不能声称 auth path 已被 #387 E2E 覆盖。
+
+> 注释：这里继续使用“安装版本 + PASS/SKIP 清单”双证据。只看到绿色 check，无法排除目标用例被 skip；只看到测试名 PASS，也无法排除运行的仍是旧 controller。
+
+### PR #433 当前进展快照
+
+2026-07-14 本轮刷新 #433 后，没有观察到作者所说 rework 的新 push：
+
+- PR：`volcano-sh/agentcube#433`，title `chart: enable workloadmanager auth`；
+- author：`@avinxshKD`，当前无 assignee；
+- head 仍为 `fe295b6ddfd65401478730a3752cfc6bf43b7cd3`；
+- updatedAt 仍为 `2026-07-14T08:20:31Z`；
+- diff 仍是 3 个 chart 文件、`+32/-0`；
+- chart 默认 `workloadmanager.auth.enabled=true`，给 WM 加 `--enable-auth`；
+- Router ClusterRole 对 `sandboxes` / `sandboxclaims` 仍只有 `create`、`delete`，没有 `get`；
+- checks 为成功，Tide pending，未获 `lgtm` / `approved`。
+
+人类讨论已经指出真正的架构问题：`@acsoto` 认为当前 `EnableAuth` 把调用方认证与 Kubernetes credential delegation 耦合，使 Router 获得 cluster-wide sandbox 权限，而 Kubernetes 操作应由 WM 自身 ServiceAccount 承担。作者回复会按这个方向 rework 并删除额外 Router RBAC；但最新 maintainer 回复是尚不确定期望的 permission behavior，因此当前还没有可据此冻结的最终 contract。
+
+> 分析：绿色 CI 只说明旧 chart diff 能通过现有测试，不代表认证设计已被接受；作者文字承诺也不等于代码已经实现。当前 authoritative state 仍是 `fe295b6` 的旧 delegation 方案。
+
+### 后续观察门槛
+
+不与 #433 作者冲突，后续仅在以下信号出现后重新审计：
+
+1. #433 head 从 `fe295b6` 变化；
+2. maintainer 明确认证与 Kubernetes credential 的职责边界；
+3. diff 移除 Router sandbox RBAC，或修改 WM 使用 caller client 的产品代码；
+4. 新增 auth-enabled create/get/delete、跨 namespace 和 warm-pool Claim readiness 测试。
+
+新 push 后优先检查：WM 是只验证 token 还是继续使用 caller client；direct Sandbox 与 Claim path 是否都使用同一清晰模型；#387 新增的 `GET SandboxClaim` / `GET Sandbox` 是否由正确 ServiceAccount 执行；Forbidden 是否快速终止；rollback 是否仍能在请求取消或 caller token 失效后完成。
+
+停止条件保持不变：没有新 head 或新的 maintainer design decision 时，不自动评论、不请求 reviewer、不修改 #433，也不把认证/RBAC 产品逻辑塞回 #387。
