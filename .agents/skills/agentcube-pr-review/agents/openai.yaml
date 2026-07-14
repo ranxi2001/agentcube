@@ -1,0 +1,4 @@
+interface:
+  display_name: "AgentCube PR Review"
+  short_description: "Review AgentCube PRs with architectural depth"
+  default_prompt: "Use $agentcube-pr-review to review this AgentCube PR from changed symbols through cross-component lifecycle and update the local pattern library when a reusable lesson is proven."
