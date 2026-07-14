@@ -1035,3 +1035,21 @@ cleanup = claim + adopted Sandbox + adopted Pod deleted; warm pool readyReplicas
 ```
 
 > 分析：这轮结果回答了“是否只是 e2e 黑盒通过”的问题。它不是只看 math-agent 最后答对，而是逐段确认 PR #387 的 WorkloadManager 创建的是 claim、claim status 指向 adopted Sandbox、adopted Pod IP 写入并被 Router 使用、PicoD 在该 Pod 中执行代码、delete path 删除 claim 并触发 runtime cleanup/refill。也就是说，`c2633c5` 这版代码路径真正对齐了 `agent-sandbox v0.4.6` 的 warm-pool adoption 数据流。
+
+## 2026-07-14：PR body concise-first 清理草案
+
+按最新 `agentcube-pr-management` reviewer-attention gate 复核 #387 当前 body：原文为 750 visible words、59 nonblank lines，超过 compatibility PR 的 200-450 words 软目标。主要冗余是完整命令清单、fork CI PR 链接、9 个动态 check 状态、Python 用例逐项计数和 math-agent 最终答案；这些证据已经保存在本报告和 benchmark 记录中，不需要继续占用 reviewer 第一屏。
+
+本轮形成 266 visible words、16 nonblank lines 的替换草案，只保留以下会改变 review 判断的内容：
+
+- stable `agent-sandbox v0.4.6` / `v1alpha1` scope；
+- `SandboxClaim` control identity 与 adopted `Sandbox` runtime identity 的分离；
+- `networkPolicyManagement: Unmanaged` compatibility boundary；
+- Kubernetes `v0.35.4` generated diff 不代表 AgentRuntime API 主动变化；
+- 一条压缩后的 focused validation 结论和 AI assistance disclosure。
+
+> 注释：PR body 是稳定证据的索引，不是完整测试报告。动态 CI 结果会随 rebase 和新 commit 过期，应由 GitHub checks 页面表达；详细命令、日志和对象流断点继续以本报告为准。
+
+> 分析：截至本轮读取，PR head 仍为 `c2633c5`，GitHub `mergeable_state=dirty`，且 @RainbowMango 已要求解决冲突。body 清理不会解决分支冲突；后续 rebase 仍需单独验证，并在更新 open PR branch 前再次取得用户确认。
+
+本轮未修改 GitHub PR body。按照 upstream posting gate，先向用户展示 exact replacement；只有用户确认完整文本后才执行 `gh pr edit 387 --body-file ...`，随后 server-side 回读验证。
