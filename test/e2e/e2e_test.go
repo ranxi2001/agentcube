@@ -1057,12 +1057,12 @@ func (ctx *e2eTestContext) objectUIDGone(namespace, name string, uid k8stypes.UI
 	return obj.GetUID() != uid
 }
 
-func (ctx *e2eTestContext) verifyWarmPoolReady(t *testing.T, namespace, name string, expectedSize int) []string {
+func (ctx *e2eTestContext) verifyWarmPoolReady(t *testing.T, namespace, name string, expectedSize int) map[string]k8stypes.UID {
 	t.Logf("Waiting for warmpool to be created with %d pods...", expectedSize)
 	err := ctx.waitForWarmPoolReady(namespace, name, expectedSize, 5*time.Minute)
 	require.NoError(t, err)
 
-	pods, err := ctx.getWarmPoolPodNames(namespace, name)
+	pods, err := ctx.getWarmPoolPodIdentities(namespace, name)
 	require.NoError(t, err)
 	return pods
 }
@@ -1084,7 +1084,7 @@ func (e *testEnv) executeAndVerifyCode(t *testing.T, namespace, name, expectedOu
 	return sessionID
 }
 
-func (ctx *e2eTestContext) verifyWarmPoolStatus(t *testing.T, namespace, name string, warmPoolSize int, initialPods []string) *claimedSandboxResources {
+func (ctx *e2eTestContext) verifyWarmPoolStatus(t *testing.T, namespace, name string, warmPoolSize int, initialPods map[string]k8stypes.UID) *claimedSandboxResources {
 	t.Log("Verifying warmpool post-execution status...")
 
 	// 1. Find the SandboxClaim owned by the CodeInterpreter
@@ -1107,15 +1107,10 @@ func (ctx *e2eTestContext) verifyWarmPoolStatus(t *testing.T, namespace, name st
 	require.NotEmpty(t, pod.UID, "adopted Pod must have a stable UID")
 	require.True(t, hasOwnerReference(pod, "Sandbox", sandbox.Name, sandbox.UID), "adopted Pod ownerRef must identify the exact Sandbox UID")
 
-	// 4. Verify this pod is from the initial warmpool
-	found := false
-	for _, p := range initialPods {
-		if p == pod.Name {
-			found = true
-			break
-		}
-	}
+	// 4. Verify this exact pod instance is from the initial warmpool.
+	initialPodUID, found := initialPods[pod.Name]
 	require.True(t, found, "The claimed pod %s should be one of the initial warmpool pods: %v", pod.Name, initialPods)
+	require.Equal(t, initialPodUID, pod.UID, "The claimed pod %s should retain its initial warmpool UID", pod.Name)
 
 	// 5. Verify warmpool still has warmPoolSize pods (re-filled)
 	require.Eventually(t, func() bool {
@@ -1274,19 +1269,19 @@ func (ctx *e2eTestContext) countWarmPoolPods(namespace, codeInterpreterName stri
 	return len(pods), nil
 }
 
-// getWarmPoolPodNames returns the names of warmpool pods for a given CodeInterpreter
-func (ctx *e2eTestContext) getWarmPoolPodNames(namespace, codeInterpreterName string) ([]string, error) {
+// getWarmPoolPodIdentities returns the name and UID of each warmpool pod for a given CodeInterpreter.
+func (ctx *e2eTestContext) getWarmPoolPodIdentities(namespace, codeInterpreterName string) (map[string]k8stypes.UID, error) {
 	pods, err := ctx.listWarmPoolPods(namespace, codeInterpreterName)
 	if err != nil {
 		return nil, err
 	}
 
-	podNames := make([]string, 0, len(pods))
+	podIdentities := make(map[string]k8stypes.UID, len(pods))
 	for _, pod := range pods {
-		podNames = append(podNames, pod.Name)
+		podIdentities[pod.Name] = pod.UID
 	}
 
-	return podNames, nil
+	return podIdentities, nil
 }
 
 // listWarmPoolPods returns pods that still belong to the warm pool.
