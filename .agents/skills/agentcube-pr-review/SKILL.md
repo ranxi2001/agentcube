@@ -62,18 +62,21 @@ A clean merge proves only structural compatibility. It does not prove behavior w
 
 ### 2. Build a change model before judging code
 
-Summarize the change in four parts:
+Summarize the change in six parts:
 
 - problem and invariant being protected;
 - authoritative state and writers;
+- observations used by each decision and their freshness domains;
 - changed call paths and component contracts;
+- progress or commit markers and the side effects they certify;
 - expected success, failure, rollback, deletion, and recovery behavior.
 
 For each material resource, trace:
 
 ```text
 request -> validation -> desired state -> reconciliation/execution
-        -> observation/cache -> persisted identity -> routing/use
+        -> observation/cache -> decision snapshot -> persisted identity -> routing/use
+        -> required side effects -> progress/commit marker
         -> timeout/cancel -> cleanup/finalizer/GC
 ```
 
@@ -98,6 +101,7 @@ Ask:
 - Does it preserve control-plane versus data-plane boundaries?
 - Does its design fit the issue/proposal and nearby repository direction, or solve a local symptom by weakening a global invariant?
 - Are limitations explicit: unsupported modes, compatibility floor, permissions, concurrency assumptions, cache freshness, and operational prerequisites?
+- Does one decision combine live reads, informer caches, or reflected status, and who owns convergence before a stale observation can trigger rollback or another destructive action?
 - Is the abstraction proportional to the problem and consistent with existing repository patterns?
 
 Use the component map in `agentcube-architecture-review.md`. A responsibility overlap is not automatically a defect; prove duplicated ownership or divergent semantics.
@@ -108,7 +112,8 @@ Use `agentcube-review-checks.md` to inspect:
 
 - Go value versus pointer semantics, `nil` versus zero values, aliasing, mutation, deep copy, receiver choice, and interface contracts;
 - Kubernetes spec/status boundaries, GVK/GVR, JSON tags, markers, defaults, validation, CRDs, generated clients, and RBAC;
-- error classification, context propagation, timeout ownership, retries, goroutines, channels, locks, timers, and cleanup;
+- error classification through the exact production wrapping chain, context propagation, timeout ownership, retries, goroutines, channels, locks, timers, and cleanup;
+- ordering between required side effects and `lastSeen`, processed-generation, cached-executor, completion, or similar progress markers;
 - naming, package boundaries, code duplication, unnecessary abstraction, syntax/style consistency, and clean-code readability;
 - manifests, CLI/SDK/integration compatibility, dependency versions, and installed runtime versions.
 
@@ -121,6 +126,8 @@ At minimum, inspect:
 - malformed or unauthorized input;
 - not found, already exists, forbidden, conflict, timeout, cancellation, and partial success;
 - stale cache, delayed status, duplicate event, restart, and concurrent writer behavior;
+- divergent live/cache observations used by one decision, and wrapped transient/permanent errors reaching a retry classifier;
+- a late side-effect failure followed by an identical retry with no new event or desired-state change;
 - creation rollback, deletion, finalizer, garbage collection, leaked goroutine/resource, and repeated cleanup;
 - old/new version skew and optional feature disabled paths.
 
@@ -141,6 +148,8 @@ Evidence strength and production reachability are separate axes. A synthetic E3/
 Classify a bug as observed only when logs, CI, or a realistic end-to-end environment records the qualifying trigger and impact. E3/E4 strengthen causal proof but do not change the reachability class unless the reproduction itself is production-realistic. Permit a source-proven latent finding only when the production trigger, reachable preconditions, recovery behavior, and concrete consequence are all closed; state explicitly that no qualifying occurrence was observed.
 
 Tests must exercise the behavior they claim to validate. Check the installed controller/runtime/dependency version, feature flags, auth mode, and cleanup path rather than trusting a green job name.
+
+Test at the boundary the production code actually sees. Feed retry classifiers the wrapped errors produced by real helpers, construct divergent live/cache views when freshness matters, and for progress markers run two reconciles: fail a required late side effect first, then prove the identical retry performs the missing work before committing success.
 
 For high-risk claims, perform an independent falsification pass: attempt to disprove the finding through another call path, test, documentation contract, or runtime observation.
 

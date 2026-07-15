@@ -93,6 +93,8 @@ Concurrency checks:
 - Check timer/ticker stop and drain behavior.
 - Ensure idempotency under retries and duplicate reconciliation.
 - Distinguish fresh API reads from semantically fresh observations; a GET can still return status for an old generation.
+- For one readiness or rollback decision, enumerate every live, cached, and reflected observation. If their freshness can diverge, identify which layer retries convergence before a stale read can cause destructive cleanup or user-visible failure.
+- Treat `lastSeen`, processed generation/hash, cached executor version, and completion flags as logical commit records. Advance them only after the required side effects succeed, unless every incomplete side effect has an independent durable retry trigger.
 - Separate ephemeral liveness from durable semantic status. Estimate heartbeat write QPS as `object count / interval`, consider Lease for compact renewals, and keep CR status writes for meaningful transitions unless measured requirements justify otherwise.
 
 ## Errors, context, and resources
@@ -100,6 +102,8 @@ Concurrency checks:
 - Preserve causes with `%w` where callers use `errors.Is/As`.
 - Classify terminal errors such as forbidden/invalid separately from transient retryable errors.
 - Avoid retrying permanent authorization errors until a generic timeout.
+- Trace the concrete error chain that reaches each classifier. Test bare and nested `%w` forms, Kubernetes `StatusError`, transport wrappers, EOF variants, and context cancellation/deadline behavior that the real callers can produce.
+- Prefer an allowlist of boundary-supported transient errors over retrying every unknown error. Verify the chosen helper actually unwraps the wrapper forms used by this call path.
 - Give one layer clear timeout ownership; nested arbitrary timeouts create misleading failures.
 - Propagate request context into Kubernetes, Store, network, and process calls.
 - Map internal errors to stable API status codes without leaking secrets or internals.
@@ -138,6 +142,9 @@ Concurrency checks:
 - Separate trigger reachability from post-trigger consequence. A fake reactor can prove the latter while leaving the former unproven.
 - For an unobserved finding, identify the production entry point or writer, the interface contract that permits the trigger, supported preconditions, and whether retry/resync/restart/cleanup self-heals.
 - Prefer production-equivalent regressions over arbitrary errors. For Kubernetes optimistic-concurrency paths, create a real Conflict with stale `resourceVersion` or concurrent writers when feasible; use generic injection only after that error class is shown reachable at the boundary.
+- For mixed observation paths, construct intentionally divergent live/cache views instead of reusing one synchronized fake object graph.
+- For progress markers, fail the last required side effect on the first reconcile, invoke the same input again, and assert the second reconcile retries the missing work rather than returning success from an early-return cache path.
+- Exercise retry classifiers with the same nested wrappers emitted by production helpers; a table of bare sentinel errors is insufficient when callers wrap with `%w`.
 - A compile-only e2e package check does not validate a live lifecycle.
 
 ### CI environment

@@ -17,6 +17,8 @@ The initial corpus sampled public reviews by `@RainbowMango` across:
 - Karmada foundational PRs #4, #6, #34, #59, #62, #84, and #93 from 2020;
 - Karmada PRs #7395, #7613, #7640, and #7732 from 2026.
 
+A later AgentCube PR #387 review by `@acsoto` and its local red/green follow-up supply the implementation-level freshness and error-classification examples below. They are not part of the `@RainbowMango` historical corpus.
+
 Excluded from method inference:
 
 - PRs authored by the reviewer, because their comments are author replies;
@@ -68,6 +70,9 @@ For controllers, check:
 - whether status is written only when semantically changed;
 - whether high-frequency liveness belongs in compact `Lease` renewals rather than rewriting durable CR status, including the expected `object count / interval` write rate;
 - whether logs contain the identity needed to debug delayed or failed reconciliation.
+- whether progress markers advance only after the status, Store, executor, or external side effects they claim to certify;
+- whether one readiness decision mixes live and cached observations without an owner for convergence;
+- whether retry classification still works after the real helper stack wraps errors.
 
 Karmada #59 and #62 repeatedly applied these checks to status, finalizer, error, log, and delayed-readiness paths. AgentCube #431 applied the same scale question to per-node 30-second status writes and pointed to kubelet's Lease-based heartbeat precedent.
 
@@ -87,7 +92,7 @@ When a large patch still has structural problems, say that another review round 
 
 Treat an author reply such as `done` or a GitHub-resolved thread as a lead, not proof. Re-read the current text, open external references, and trace the protected invariant from failure detection through recovery completion.
 
-AgentCube #431 exposed both failure modes: a newly added containerd reference was still a dead link, and manifest self-healing recreated the file eventually but could temporarily release scheduler-visible reservation and make the restored Static Pod fail admission.
+AgentCube #431 exposed both failure modes: a newly added containerd reference was still a dead link, and manifest self-healing recreated the file eventually but could temporarily release scheduler-visible reservation and make the restored Static Pod fail admission. AgentCube #387 showed how to verify follow-up fixes: the maintainer-identified live/cache mismatch was reproduced with divergent views, then an independent audit found that a proposed retry classifier handled bare errors but failed after the real helpers added nested `%w` wrappers.
 
 ## Interaction Method
 

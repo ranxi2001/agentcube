@@ -69,6 +69,16 @@ Evidence labels:
 - Validation: Construct divergent live/cache views for the same object identity and assert the decision follows the authoritative read or retries the stale dependency until context expiry. Also trace whether a one-shot error triggers rollback, Store cleanup, or user-visible failure.
 - False-positive guard: Informer reads are appropriate when eventual consistency is part of the contract and the caller retries the complete decision without destructive side effects, or when all required state is derived from one synchronized cache snapshot. Do not require live GETs for ordinary reconcile loops that are designed around cache convergence.
 
+### Error classifiers must cover the production wrapping chain
+
+- Trigger: A polling, retry, fallback, or public-error path classifies errors after one or more helpers add `%w`, URL/transport wrappers, or Kubernetes API error types.
+- Hidden assumption: A classifier proven with bare sentinel errors still recognizes the values produced by the real caller stack, or an upstream helper unwraps every relevant form.
+- Failure mode: Wrapped transient transport failures terminate immediately, wrapped Forbidden/invalid errors retry until timeout, or context termination is masked by a generic readiness failure.
+- Evidence source: `CODE` and `OBS`, AgentCube PR #387 used `utilnet.IsProbableEOF` for retry classification, but the real typed client and local helpers produced nested `%w` around `io.ErrUnexpectedEOF`; a focused red test showed that helper did not unwrap the ordinary wrapper chain, and `errors.Is` closed the gap.
+- Review question: What exact concrete and wrapper types reach this classifier from every caller, and which predicate recognizes each transient, permanent, and context-termination class?
+- Validation: Table-test bare, one-layer, and multi-layer wrapped forms from the real boundaries. Assert both the retry decision and the final public error for transient API/transport failures, Forbidden/Unauthorized/invalid/conversion errors, and canceled/deadline contexts.
+- False-positive guard: Direct comparisons are sufficient when the boundary guarantees an unwrapped closed error set and tests enforce that contract. Do not parse error strings or unwrap unrelated causes mechanically.
+
 ### Keep control identity separate from adopted runtime identity
 
 - Trigger: A claim, allocation, or session adopts a pre-existing runtime object.
@@ -208,6 +218,16 @@ Evidence labels:
 - Review question: Which real producer and interface contract create the trigger, are its preconditions reachable despite validation/locking/ownership/order, and do retry, resync, restart, later events, or cleanup repair the state?
 - Validation: Establish the producer and supported state first, then use the closest production-equivalent trigger. For optimistic status writes, prefer a real Conflict from stale `resourceVersion` or concurrent writers over an arbitrary injected error; trace the retry to the final invariant.
 - False-positive guard: Fault injection remains valid for the consequence and counterfactual once reachability is independently proven. Source-proven but unobserved cases are reachable latent bugs; mock-only cases remain non-blocking questions or test gaps.
+
+### Progress markers must follow required side effects
+
+- Trigger: A reconcile path updates `lastSeen`, processed generation/hash, cached executor state, completion, or another early-return marker before status, Store, executor rebuild, or external effects finish.
+- Hidden assumption: Returning an error guarantees the retry will repeat every missing side effect even though the marker already says the desired input was processed.
+- Failure mode: The first reconcile fails late, while the identical retry sees the advanced marker and returns success without repairing incomplete durable state; recovery then depends on an unrelated change or process restart.
+- Evidence source: `CODE` and `OBS`, Karmada PR #7623 advanced an in-memory target marker before executor rebuild and `Status().Update`. A two-reconcile regression made the first status update fail; the second returned success with no second update and empty execution history. Removing the premature assignment made the retry perform the missing write. Production status Conflict/timeout remained a source-proven reachable trigger, not an observed incident.
+- Review question: Which line is the logical commit point, what required effects precede it, and what state causes an identical retry to re-enter each incomplete step?
+- Validation: Fail the last required side effect with a production-permitted error, then reconcile the same desired input again. Assert the marker remains uncommitted until all required effects succeed, or prove every incomplete effect has an independent durable retry condition.
+- False-positive guard: Early observation markers are valid when they explicitly mean only "input seen" and cannot suppress pending work, or when all following effects are independently idempotent and driven by durable state rather than that marker.
 
 ### Shared helpers must preserve domain routing
 

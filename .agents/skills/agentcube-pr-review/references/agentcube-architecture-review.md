@@ -127,6 +127,7 @@ Classify every important field:
 | Authoritative desired state | CR spec, Store ownership/session intent | writer and concurrency policy |
 | Authoritative observed state | controller status/conditions | writer, generation, transition time |
 | Cached observation | informer/lister result | staleness and read-after-write |
+| Progress/commit marker | last-seen target, processed generation/hash, cached executor version | exact completion meaning and commit point after required side effects |
 | Derived state | ready counts, endpoint, expiry index | invalidation and rebuild |
 | Control identity | session ID, claim name, store key | API/delete/ownership continuity |
 | Runtime identity | adopted Sandbox name/UID, Pod UID/IP | routing and runtime continuity |
@@ -168,3 +169,5 @@ For each arrow, ask who owns timeout, retry, error translation, and cleanup.
 8. Are compatibility and migration behavior explicit?
 9. Does the solution fit the issue/proposal and adjacent planned work?
 10. Is there a smaller design that preserves the same invariant with fewer ownership changes?
+11. Do all observations used by one decision have compatible freshness, or an explicit convergence owner?
+12. What does each progress marker certify, and which late failures must remain retryable before it advances?
