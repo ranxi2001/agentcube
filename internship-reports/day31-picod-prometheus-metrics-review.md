@@ -913,3 +913,56 @@ go test ./pkg/picod -count=1
 - Histogram bucket inline：https://github.com/volcano-sh/agentcube/pull/400#discussion_r3584390699
 
 GitHub API 回读确认：第一条准确挂在 `pkg/picod/metrics.go:111-112`，第二条挂在 `pkg/picod/metrics.go:66`；两条正文与用户确认稿一致，没有截断或行号漂移。
+
+## 2026-07-15：作者快速回复与新 head 复核
+
+作者在 review 发布约 19 分钟后 force-push 新 head `b8c4ed585ebac6413d98ff6f2479b45c84cf2961`，并在 PR 中集中回复：
+
+- 回复：https://github.com/volcano-sh/agentcube/pull/400#issuecomment-4976874601
+- 新 commit：`fix(picod): normalize HTTP method labels and extend histogram buckets`
+- 作者随后重新请求 `@RainbowMango` review；Prow 因新 push 自动移除了旧 `lgtm`。
+
+`git range-diff` 证明旧 head 的前三个 patch 与 rebase 后前三个 patch 等价；新分支已经包含 `upstream/main@fa254b1`，当前是 `0 behind / 4 ahead`。因此这次 force-push 同时完成了 rebase 和独立修复，没有偷偷改变此前已审过的功能。
+
+### P1 method cardinality：RESOLVED
+
+新实现增加 `normalizeMethod()`：
+
+- allowlist Go `net/http` 定义的 9 个标准 method；
+- 其它合法 token 全部折叠为 `unknown`；
+- 同一个 normalized value 同时写入 HTTP counter 与 duration histogram。
+
+新增测试覆盖标准/custom method，并通过真实 Gin middleware 路径证明多个 custom method 最终只有一个 `method="unknown"` counter series。独立对照还确认 histogram 也使用同一个 bounded label。该 finding 可以关闭。
+
+### P2 histogram range：PARTIAL
+
+作者把最高 finite bucket 从 10 秒扩展到 60 秒，并解释 `/api/execute` 是同步接口，所以 HTTP duration 已经包含阻塞的 `cmd.Run()`，无需再增加一个 execution-duration histogram。这个职责判断成立：重复指标不是必要修法。
+
+但“60 秒覆盖 PicoD full latency range”并不成立：
+
+1. 服务端 `time.ParseDuration(req.Timeout)` 没有最大值限制，现有 Go test 明确把 `2m` 视为合法。
+2. 官方 Python data-plane client 默认 `timeout=120`，并在未显式传值时把 `"120s"` 写入 `/api/execute` payload：`sdk-python/agentcube/clients/code_interpreter_data_plane.py:50,142-155`。
+3. LangChain sandbox 默认 timeout 是 `30 * 60`，即 1800 秒，并传给同一个 SDK execute path：`integrations/langchain-agentcube/langchain_agentcube/sandbox.py:37,53-55`。
+4. 即使服务端默认 command timeout 恰好是 60 秒，HTTP histogram 还包含 JSON parsing、working-dir setup 和 response serialization；超时请求的总 HTTP duration 也可能略高于 60 秒而只进入 `+Inf`。
+
+新增 bucket test 只断言配置中最后一个 upper bound 等于 60，没有实际观察长任务，也没有证明 bucket range 与支持的客户端契约一致。
+
+> 分析：这次复核补上了一个重要的 surface review 方法。server default 不是系统唯一 default；观测范围必须继续追到 SDK 和 integration 的真实 producer。否则局部看似对齐 60 秒，官方默认客户端却从第一条请求起就使用 120 秒。
+
+建议状态：P1 已解决；P2 继续保留。最小方向不是强制新增重复 histogram，而是在以下两种契约中选择一个：
+
+- 让 buckets 覆盖官方 SDK/集成的实际运行范围并留出 HTTP overhead margin；或
+- 在服务端定义并强制 maximum execution timeout，再让 SDK/integration default 与该上限对齐。
+
+### 新 head 验证
+
+```bash
+go test ./pkg/picod -count=1
+go test -race ./pkg/picod -count=1
+go test ./pkg/picod -run '^(TestNormalizeMethod|TestMetrics_UnknownMethod|TestMetrics_Exposition)$' -count=100
+go mod tidy -diff
+```
+
+结果全部通过；`git merge-tree --write-tree upstream/main upstream/pr-400` 也成功。新 SHA 的 12 个 check runs（包括 build、e2e、lint、codegen、coverage、DCO）全部成功，Tide 仍 pending，原因是新 push 后需要重新取得 review labels。
+
+两条旧 inline thread 已变成 outdated 并被标记 resolved。当前不自动追加评论；若要指出 P2 的真实 SDK/LangChain producer，必须先向用户展示新的精简英文 reply 并再次确认。
