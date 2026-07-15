@@ -1447,3 +1447,147 @@ kubelet 仍连接同一个 containerd CRI endpoint；它只把 RuntimeClass hand
 - Kubernetes Static Pod 创建文档: <https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/>
 - Kubernetes v1.33 In-Place Pod Resize Beta: <https://kubernetes.io/blog/2025/05/16/kubernetes-v1-33-in-place-pod-resize-beta/>
 - Kubernetes v1.35 In-Place Pod Resize Stable: <https://kubernetes.io/blog/2025/12/19/kubernetes-v1-35-in-place-pod-resize-ga/>
+
+## 2026-07-15 继续深审：API 可实现性之外的七个 Freeze Gate
+
+### 审查结论
+
+在 head `f380208` 不变的前提下，本轮重新读取 761 行 proposal，并把 116 条 review comments / 93 个 threads、`SP-01..SP-27` 和最新 8 条 active maintainer review 作为 duplicate baseline。结论是：除已经讨论的 Selector、ResourceList、字段 ownership 和 RuntimeClass bootstrap 外，仍有 7 个 source-proven、生产路径可达但尚未观察到事故的设计缺陷：
+
+1. status webhook 与 dual writer 自相矛盾；
+2. object name、label value 和 manifest filename 共用同一完整名称，长度预算不成立；
+3. Ready 不检查当前 Pool generation；
+4. 同名新 Node 没有 UID/incarnation fence；
+5. Phase priority 在组合故障下遮蔽 5 分钟 Unready；
+6. compatibility table 把 SSA 1.18 错写成 GA，且无法承载本设计的 `/status` multi-writer。
+7. node agent 获得没有 consumer 的 cluster-wide Endpoints full 权限。
+
+另有 4 个值得保留但证据等级较低的风险：mirror absence 不是 cleanup ack、runtime v2 crash/rebuild contract 尚未闭合、Static Pod 的 RuntimeClass overhead 可能产生双资源视图、跨 generation resize/delete 缺 stale-operation fence。详细 ID、优先级和后续动作见 [comment tracker](day44-sandboxpool-pr431-comment-drafts.md#2026-07-15-fresh-context-deep-review-sp-28-to-sp-38)。
+
+> Reachability 分类：这份 proposal 尚未落地，因此没有 observed bug。下面 7 条的 producer 都来自正常 Kubernetes API、controller reconcile、admission、Node replacement、RBAC authorization 或 host write，属于 **reachable latent design defects**。后 4 条仍依赖未定义的实现顺序或 real-node 行为，只记为 risk/question，不能作为“线上 bug”或未经反证的 blocking claim。
+
+### Finding 1：status 安全边界会拒绝 controller 的合法写入
+
+Proposal 的 writer table 明确规定：
+
+- placeholder-agent 写 node-local observations、Conditions 和 `lastAppliedGeneration`；
+- controller 写 `phase`、`NodeNotFound`、`PlaceholderAgentHealthy`。
+
+但 security boundary 又规定：任何 SandboxPool status UPDATE，只要 caller 没有绑定 `spec.nodeName` 就返回 `Forbidden`，并总结为“only the agent running on that node may patch that Pool's status”。Controller ServiceAccount 不是 node-bound identity，因此正常 Pool Reconcile 会走到：
+
+```text
+controller SSA Apply status
+  -> sandboxpools/status admission UPDATE
+  -> identity is controller SA, not node A
+  -> Forbidden
+  -> phase / controller conditions cannot converge
+```
+
+这不是重试问题。相同身份重试仍会被拒绝。反过来，只检查 node identity 也不够：通过检查的 agent 仍可能修改自己 Pool 的 controller-owned fields。SSA field ownership 处理 merge/conflict，不是 authorization；`fieldManager` 不是可信身份。
+
+最小修正是把设计写成 caller-to-field matrix：exact controller SA 只能改 controller fields；Node A identity 只能改 Pool A 的 agent fields；webhook 对 `sandboxpools/status` 比较 old/new object，其他改动 fail closed。测试至少覆盖 controller allow、own-node allow、cross-node deny、agent 改 phase deny、伪造 fieldManager deny和 webhook unavailable。
+
+> 注释：Admission webhook 对 status subresource 需要显式匹配，例如 `resources: ["sandboxpools/status"]`、`operations: ["UPDATE"]`；通配 `resources: ["*"]` 不自动包含 subresources。参考 Kubernetes [Dynamic Admission Control](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/)。
+
+### Finding 2：253-char object name 不能直接复制到 63-char label
+
+Proposal 已为 `placeholder-{node-name}` 的 253-char object name 做截断+hash，但随后把完整 Class、Node 和 Pool name 写入 labels：
+
+- `sandbox-pool.io/class`；
+- `sandbox-pool.io/node`；
+- `sandbox-pool.io/pool-name`。
+
+Kubernetes label value 上限是 63。最早的失败并不需要 253-char 极端 Node：当 Node name 长度为 52 时，`placeholder-` 前缀使 pool name 达到 64，Static Pod/mirror Pod 的 `pool-name` label 已非法。长 Class/Node 名也会分别使 Class/Node label 非法。
+
+同一名称还被拼成 `/etc/kubernetes/manifests/sandbox-pool-{pool}.yaml`。当前 Linux host `getconf NAME_MAX` 为 255；basename 长度是 `13 + len(pool) + 5`，Node name 从 226 起会超过 255。Object-name truncation 到 253 反而会产生 271-char basename。
+
+> 分析：合法 Kubernetes name 能到达 controller Create、kubelet static manifest validation 和 Linux `open(2)` 边界，所以这是生产可达，不是 mock-only scenario。修正应为每一种 representation 单独预算：bounded/hash label 用于 selector，完整 identity 放 spec/annotation，manifest filename再使用独立 bounded hash。参考 Kubernetes [Labels and Selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) 与 [Object Names and IDs](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/)。
+
+边界测试应包含 Node 51/52、label 63/64、manifest basename 255/256，以及 dot-separated 的合法长 DNS subdomain。
+
+### Finding 3：Ready 只看旧布尔值，不看当前 generation
+
+正常 Class policy update 就能产生该窗口：
+
+```text
+Pool generation N: ResourceSynced=True, lastAppliedGeneration=N, Ready
+controller updates Pool spec -> generation N+1
+agent has not applied N+1 yet
+controller computePhase reads old ResourceSynced=True
+current algorithm returns Ready
+```
+
+Proposal 已定义 `lastAppliedGeneration`，却没有说明它是 Class 还是 Pool generation，也没有把它用于 Ready predicate。`metav1.Condition` 本身也有 `observedGeneration`，其合同正是 generation 不同表示 condition 对当前 instance state 已过期。
+
+最小修正：定义 `lastAppliedGeneration` 为 agent 完整应用的 `SandboxPool.metadata.generation`；`ResourceSynced.ObservedGeneration` 同步写入；Ready 要求 generation 等于当前 object generation。测试覆盖 N Ready -> spec N+1 -> apply 前非 Ready -> apply N+1 后 Ready，以及快速 N+2、agent crash 和 apply failure。
+
+> 分析：30 秒 Phase delay只能解释何时重算，不能把 N 的成功报告变成 N+1 的成功报告。Freshness 是值域合同，不是 polling interval。
+
+### Finding 4：Node name 不是 Node incarnation
+
+Pool spec 只保存 `nodeName`。Kubernetes 允许对象删除后复用 name，但新对象一定有新 UID。当前设计下可达序列是：
+
+1. Node `n/UID=A` 的 Pool 已 Ready；
+2. Node A 被删除，controller 写 `NodeNotFound=True`，旧 agent Conditions/heartbeat仍保留；
+3. 2 分钟 heartbeat expiry 前创建同名 Node `n/UID=B`；
+4. controller 写 `NodeNotFound=False` 并重算；旧 heartbeat仍 fresh、旧 True Conditions仍存在；
+5. 新 Node B 尚未启动 agent/runtime，Pool/Class 却可短暂回到 Ready。
+
+最小修正是把 current Node UID 纳入 Pool/status identity：UID 变化时重建 Pool，或 reset/gate 所有 node-local status，直到新 agent report 同时绑定 Pool UID 和 Node UID。测试为 `Ready A -> delete A -> create same-name B -> before B heartbeat, never Ready`。
+
+这条与 active selector/member lifecycle thread 邻近，适合并入作者对 Node membership 的统一回答，不建议现在另开重复评论。Kubernetes name/UID 语义见 [Object Names and IDs](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/)。
+
+### Finding 5：组合故障让 Unready 条件不可达
+
+Phase table 规定 `NodeCtlHealthy=False >=5min -> Unready`，但 priority order 先匹配：
+
+```text
+PlaceholderAgentHealthy=False + PlaceholderPodReady=True -> Degraded
+```
+
+后面才匹配：
+
+```text
+NodeCtlHealthy=False >=5min -> Unready
+```
+
+若 node-ctl 先失败，随后 agent crash，而 mirror Pod仍显示 Ready，则 5 分钟后两条同时为真。算法永远在前一条返回 Degraded，后面的 Unready 不可达。这不是已有 Ready gate thread 的重复；已有评论问的是 Pending/Unready 进入 Ready 时漏 `ResourceSynced`，本条问的是多个 failure predicates 的组合优先级。
+
+最小修正可以是 severity-first ordering，也可以明确 stale agent 后不再信任 `DownSince` 并修改 table。无论选择哪种，都需要组合矩阵和 table-driven test，不能只测每个 condition 单独为 True。
+
+### Finding 6：Kubernetes 1.18 compatibility 承诺不成立
+
+Compatibility table 写 `SSA Apply (fieldManager) | 1.18 GA`，但官方状态是：
+
+- Kubernetes 1.18：SSA Beta 2；
+- Kubernetes 1.22：SSA GA，并新增 `status` / `scale` subresource full support；
+- RuntimeClass stable 是 1.20，proposal 使用的 manifest 是 `node.k8s.io/v1`；
+- RuntimeClass Pod overhead stable 是 1.24。
+
+本设计的核心并非普通 object Apply，而是 agent/controller 两个 manager 对 `/status` 的非重叠 Apply，因此最低可实现基线至少应写为 1.22，或为 1.18-1.21 设计不同 RuntimeClass API 与 single-writer/non-SSA fallback。参考 Kubernetes [SSA 1.18 Beta 2](https://kubernetes.io/blog/2020/04/01/kubernetes-1.18-feature-server-side-apply-beta-2/)、[SSA 1.22 GA](https://kubernetes.io/blog/2021/08/06/server-side-apply-ga/) 和 [RuntimeClass](https://kubernetes.io/docs/concepts/containers/runtime-class/)。
+
+> 分析：AgentCube 当前 Go dependencies 已在 Kubernetes `v0.34.1`，这会降低真实用户仍在 1.18 的概率，但不能让错误 compatibility promise 变正确。Proposal 应选一个真实最低版本，再在该版本 API server 上跑 two-manager `/status` integration test。
+
+### Finding 7：node agent 获得无 consumer 的全局 Endpoints 写权限
+
+RBAC table 给 node agent `endpoints (full)`，正文没有任何 Endpoints consumer。由于 Pool 是 cluster-scoped，若按表通过 ClusterRoleBinding 授权，一个被攻陷的节点身份可修改所有 namespace 的 shared Endpoints。Controller 的 `leases (full)` 若只用于 leader election，也应拆成 deployment namespace 的最小 Role。Kubernetes 的 [RBAC good practices](https://kubernetes.io/docs/concepts/security/rbac-good-practices/) 明确要求只授权 operation 必需的最小权限。
+
+最小修正是删除 agent Endpoints 权限，把 cluster-scoped CR/Node read-write 与 namespaced leader-election/heartbeat权限拆开，并用 `kubectl auth can-i` negative tests证明 node agent 不能创建、更新、patch 或删除任意 Endpoint/Lease。
+
+### Lifecycle residuals
+
+Deletion flow 则把 mirror Pod absence 当成 cleanup done。Kubernetes 明确说明，删除 mirror Pod不会停止 local Static Pod，kubelet会重建它。若 mirror 被独立删除、agent unavailable、随后 Pool 删除，controller 可能在短暂 absence window 立即移除 finalizer，绕过原本的 10 分钟等待；另一个半清理窗口是 manifest 已 unlink、node-ctl 尚未 release 时 agent crash，startup manifest scan 已无条目可恢复。参考 [Static Pods](https://kubernetes.io/docs/concepts/workloads/pods/static-pods/)。
+
+这两条的处理方向是：删除无 consumer RBAC；finalizer 等待按 Pool UID 绑定的 durable agent cleanup acknowledgement，而不是把独立观测对象的缺失当作因果证明。Cleanup 风险仍缺 daemon/node-ctl 原子性定义，因此当前记录为 lifecycle risk，不宣称 observed bug。
+
+### 当前 review 建议
+
+当前不应再堆一批 upstream comments。8 条 active maintainer threads 尚未收敛，且其中 Selector lifecycle、RuntimeClass bootstrap、字段 ownership 与本轮若干发现相邻。更合理的节奏是：
+
+- 本地把 `SP-28`、`SP-29`、`SP-30` 作为最高优先 freeze gates；
+- 等作者新 push 后重跑 duplicate/head audit；
+- 若只发一条，优先 status authorization contradiction；若作者正在改 security section，则改发 identifier length budget；
+- generation、Node UID 和 Phase combination 可要求一次性补 generation/incarnation-aware state table；
+- runtime v2 crash/reconnect、overhead split view 和 stale operation fence进入 real-node Phase 2 test plan，不以 fault injection 冒充 production proof。
+
+本轮未发布 upstream comment、review、mention 或 branch。`agentcube-drawio-pr431` 容器按用户要求继续保留并保持运行。

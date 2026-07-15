@@ -95,6 +95,17 @@
 | `SP-25` | P2 | Validation 单一文档真相源 | maintainer 要求字段级 validation 合并到 field comments，避免独立表漂移；跨对象和身份校验仍必须保留 webhook 合同 | `HUMAN_THREAD`；[maintainer](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584391775)，无作者回复 | 与 `SP-23` 同一 patch 收敛；不误删 single-Class 或 status identity admission 设计 |
 | `SP-26` | P2 | containerd Task v2 authoritative link | 作者新增的 `api/runtime/task/v2/README.md` 链接是 dead link；review 锚点随后因 diff 变化 outdated，但仍未 resolve | `UNRESOLVED_OUTDATED`；[maintainer follow-up](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585039966) | 新 push 后换成存在且稳定的 containerd Task v2 reference，并实际打开验证；无需另发重复评论 |
 | `SP-27` | P1 | manifest loss reservation gap | periodic self-healing 能重写文件，但 kubelet 会先停止 Static Pod并释放 reservation；regular Pod 可能在重写前占位，使恢复后的 Static Pod admission 失败。作者主张把它归类为 constraint | `THREAD_RESOLVED / RESIDUAL`；[maintainer](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585155189)、[author reply](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585184573) | 记录为 source-reachable constraint/latent risk，不宣称 observed bug；定义故障窗口、Condition/Event、恢复边界和 real-node test |
+| `SP-28` | P1 | dual-writer status authorization | writer 表要求 controller 写 `phase` 与两个 Conditions，但 webhook 又规定所有 status UPDATE 只有 node-bound agent 可通过；按字面实现会拒绝 controller，且 SSA ownership 不能阻止 agent 修改 controller fields | `READY_LOCAL`；current head lines 165-170/681；93 threads 无精确覆盖 | 先要求 caller-to-field/condition authorization matrix、`sandboxpools/status` rule、old/new diff 与 allow/deny auth tests；未获用户确认不发布 |
+| `SP-29` | P1 | identifier length budget | Pool 支持 253-char name，却把 Class/Node/Pool full name 写入 63-char label value，并把 Pool name拼入常见 `NAME_MAX=255` 的 manifest basename；合法长 name 会在 CR/Pod validation 或 host write 失败 | `READY_LOCAL`；current head lines 366-368/494/664-667；现有 long-name thread 只覆盖 object name | 用 bounded hash 作为 selectable label value，完整 identity 放 spec/annotation；独立约束 object、label、path budgets，并测 51/52、63/64、225/226 边界 |
+| `SP-30` | P1 | Ready generation freshness | `lastAppliedGeneration` 已存在，但 `computePhase` 不比较 current Pool generation；正常 Class update 后旧 `ResourceSynced=True` 可继续对外 Ready | `READY_LOCAL`；current head lines 169/295/472-476/507-520；93 threads 无精确覆盖 | 定义为 applied Pool generation，Ready 要求相等，并在 Conditions 写 `observedGeneration`；测 N Ready -> spec N+1 -> agent apply 前不得 Ready |
+| `SP-31` | P1 | Node incarnation fence | Pool 仅保存 `nodeName`；同名 Node UID A 删除后快速创建 UID B 时，旧 heartbeat/True Conditions 可被新对象复用，导致新节点 agent/runtime 未启动却短暂 Ready | `HOLD`；current head lines 254/474/657-658；与 active selector lifecycle 邻近但不重复 | 优先并入已有成员生命周期收敛：snapshot Node UID，UID 变化时重建 Pool或 reset/gate node-local status；测 same-name new-UID before heartbeat expiry |
+| `SP-32` | P2 | combined-failure phase priority | `AgentHealthy=False + PodReady=True -> Degraded` 排在 `NodeCtlHealthy=False >=5m -> Unready` 前；双故障时前者永久遮住后者，与 Phase table 冲突 | `READY_LOCAL`；current head lines 473-476；已有 Phase threads 只覆盖 Ready gate | 用组合状态矩阵或 severity-first predicate，表驱动测 node-ctl down 后 agent crash，超过 5m 必须得到约定状态 |
+| `SP-33` | P1 | Kubernetes minimum-version contract | compatibility 表称 SSA 1.18 GA，但 1.18 是 Beta 2，`status` subresource full support/GA 在 1.22；正文还使用 1.20 stable 的 `node.k8s.io/v1` RuntimeClass | `READY_LOCAL`；current head lines 410-424/705-713；93 threads 无覆盖 | 最小基线改为 >=1.22，或明确旧版本 RuntimeClass/非 SSA fallback；在 oldest-supported apiserver 测双 manager `/status` Apply |
+| `SP-34` | P1 | unused cluster-wide RBAC writes | node agent 获得 `endpoints (full)`，proposal 无任何 consumer；controller `leases (full)` 也未限定 leader-election/heartbeat namespace 与 verbs | `READY_LOCAL`；current head lines 675-676；93 threads 无覆盖 | 删除 Endpoints 权限；把 namespaced Lease/leader election 拆成最小 Role；增加 `kubectl auth can-i` negative tests |
+| `SP-35` | P1 risk | cleanup acknowledgement | mirror Pod absence 不是 node-local cleanup proof；独立 mirror deletion 可绕过 10m wait，manifest unlink 后 agent crash也可能让 startup scan 看不到残余 node-ctl state | `HOLD / RISK`；current head lines 569-602；不是 observed bug | finalizer 等待 PoolUID-keyed durable cleanup ack；startup 同时枚举 managed runtime allocation/config；presence-before-absence 与 half-cleanup restart tests |
+| `SP-36` | P1 residual | runtime v2 crash/rebuild lifecycle | Task RPC 表没有闭合 shim binary `start/delete`、event ordering、SIGKILL/containerd restart；`Shutdown` release resources 又与 resize rebuild 不停止 node-ctl 冲突 | `HOLD / SP-10 RESIDUAL`；current head lines 144-161/533/565/750 | 不以 PID=0 单独报 bug；Phase 2 real-node spike覆盖 shim SIGKILL、containerd restart、event order、bundle cleanup 与 resize-vs-delete discrimination |
+| `SP-37` | P2 risk | Static Pod RuntimeClass overhead view | RuntimeClass admission可给 API mirror Pod补 overhead，但 local Static Pod绕过 API mutation；scheduler mirror view 与 kubelet local podManager 可能不同 | `NEEDS_REAL_NODE`；current head lines 410-424/535/547 | 实机对比 local/mirror `spec.overhead`、CRI request和 mirror gap admission；未证明前不升级 blocking bug |
+| `SP-38` | P1 question | stale resize/delete operation fence | CR Watch 与 shim TTRPC 可并发；旧 generation 的延迟 node-ctl call 可能在新 resize/delete 后提交，正文无 per-Pool serialization 或 UID/generation fence | `HOLD / QUESTION`；current head lines 507-547 | 定义 per-Pool serialization、PoolUID+generation token、commit 前 fresh check；blocked N+1 与 N+2/delete 并发测试可反证或证实 |
 
 ### 已有覆盖，不重复评论
 
@@ -215,6 +226,102 @@ Could the proposal specify the missing integration layer between the `placeholde
 
 This determines which API `placeholder-agent` must implement, how normal Pods continue to use the default runtime, and whether the proposed per-Pod routing can work without replacing the node's CRI path.
 ```
+
+## 2026-07-15 Fresh-context Deep Review: SP-28 to SP-38
+
+### Evidence boundary
+
+- Exact head: `f380208b94ed9ff0ddb8e68f66aed24c7f6d4672`.
+- Duplicate audit: all 116 review comments grouped into 93 threads; 8 current-diff active and 1 unresolved-outdated.
+- Existing `SP-01..SP-27`, active maintainer API threads, issue comments and Day44 report were searched before assigning a new ID.
+- The proposal has not been deployed as this implementation, so this batch contains no observed production incident.
+
+> 分析：这里的 `P1` 表示 proposal/API freeze 前需要闭合，不表示线上已经发生 P1 事故。只有真实 Kubernetes object update、admission、label validation、Node replacement、controller reconcile 或 host filesystem write 能产生触发条件时，才记为 reachable latent design defect。只靠未来实现可能并发、shim 可能怎样处理或 real-node 尚未测出的状态，保留为 risk/question。
+
+### 推荐优先级
+
+1. `SP-28` status authorization contradiction：正常 controller Reconcile 就能触发，且会直接阻断状态机。
+2. `SP-29` identifier budget：最小复现只需合法长 Node/Class 名，修正会影响 API label、索引和 manifest naming。
+3. `SP-30` generation freshness：正常 Class update 就能产生 stale Ready，需要在 schema/phase contract freeze 前处理。
+4. `SP-33` minimum version：当前 compatibility table 会承诺一个无法承载本设计 dual-writer `/status` 的版本。
+5. `SP-34` least privilege：可单独修正，但应与 `SP-28` 一起形成完整 caller-to-field security contract。
+6. `SP-32` combined phase priority：确定性逻辑冲突，适合在作者处理已有 Phase threads 时一并修正。
+
+`SP-31` 应并入当前 selector/member lifecycle 对话，而不是立刻另发一条；`SP-35..SP-38` 先作为实现/实机门禁，不够资格宣称 observed bug。
+
+### SP-28 causal trace
+
+```text
+controller Reconcile
+  -> SSA Apply status.phase / NodeNotFound / PlaceholderAgentHealthy
+  -> admission operation UPDATE on sandboxpools/status
+  -> caller is controller ServiceAccount, not identity bound to spec.nodeName
+  -> proposal rule returns Forbidden
+  -> retry repeats the same authorization failure
+```
+
+SSA field ownership只解决并发合并，不校验 caller 身份。`fieldManager` 是客户端声明值；即使给 controller 一个 blanket exception，也仍需 old/new status diff，防止 node agent 修改 `phase` 或 controller-owned Conditions。
+
+最小验收矩阵：
+
+| Caller | Allowed | Denied |
+| --- | --- | --- |
+| exact controller ServiceAccount | `phase`, `NodeNotFound`, `PlaceholderAgentHealthy` | agent-owned observations |
+| authenticated node A agent | Pool A 的 agent fields/conditions | Pool B、`phase`、controller conditions |
+| other caller / forged fieldManager | none | all status fields |
+
+### SP-29 boundary table
+
+| Representation | Proposal input/output | Actual budget | First failing boundary |
+| --- | --- | --- | --- |
+| Kubernetes object name | `placeholder-{node}` | DNS subdomain up to 253 | proposal already truncates above Node length 241 |
+| label value | full Class/Node/Pool name | 63 | Pool label fails at Node length 52 because `placeholder-` adds 12 |
+| manifest basename | `sandbox-pool-{pool}.yaml` | common Linux `NAME_MAX=255` per path component | basename fails at Node length 226; current host reports 255 |
+| annotation/spec field | full identity | not the 63-char label budget | suitable for lossless identity after bounded label hash |
+
+> 注释：Kubernetes object name 的 253 字符上限不能直接传递给 label value。一个值从 API name 复制到 label、metric、socket、filename 或 DNS label 时，必须重新按目标 representation 校验。
+
+### SP-30 and SP-31 freshness model
+
+`Ready` 应同时绑定两个维度：
+
+```text
+desired spec freshness: status.lastAppliedGeneration == pool.metadata.generation
+node incarnation:       reportedNodeUID == currentNode.metadata.uid
+```
+
+只满足 heartbeat freshness 不够。Generation N 的 agent 仍可能定期 heartbeat，却尚未成功应用 N+1；同名 Node UID B 也不能继承 UID A 的旧 True Conditions。Kubernetes `metav1.Condition.ObservedGeneration` 已经提供标准表达，UID 则区分 name 相同的不同对象实例。
+
+### SP-32 combined failure
+
+```text
+t0: node-ctl unreachable -> NodeCtlHealthy=False, DownSince=t0
+t1: placeholder-agent crashes, mirror Pod still reads Ready
+t0+5m: AgentHealthy=False + PodReady=True + NodeCtlHealthy=False>=5m
+current priority: first matching agent predicate -> Degraded
+documented table: node-ctl >=5m -> Unready
+```
+
+若 stale agent 后不能再信任 `DownSince`，应明确修改 table；若 5 分钟边界仍是合同，就应把更严重组合放在前面。两套解释都比当前互相冲突的 table/priority 更可实现。
+
+### SP-33 and SP-34 compatibility/security
+
+- Kubernetes 1.18 的 SSA 是 Beta 2，不是 GA；SSA 对 `status` / `scale` subresource 的 full support 和 GA 在 1.22。
+- Proposal manifest 使用 `node.k8s.io/v1` RuntimeClass；RuntimeClass stable 是 1.20。
+- 因此 dual-writer `/status` 设计最小基线应至少是 1.22，除非明确实现旧版本 fallback。
+- `endpoints (full)` 在 proposal 中没有 producer/consumer；应删除而不是等待 Phase 5 hardening。
+- 若 controller 的 `leases (full)` 只为 leader election，应使用部署 namespace 内的最小 Role；若未来承载 per-node heartbeat，则需要独立 namespace、identity、renew/expiry 和 write-scope design。
+
+### HOLD items and falsification tests
+
+| ID | 为什么尚不升级为确定 bug | 最接近生产的反证/证实测试 |
+| --- | --- | --- |
+| `SP-35` | node-ctl release 与 manifest unlink 是否原子、持久，正文未定义 | mirror delete + agent stop + Pool delete；以及 unlink 后、release 前 kill agent，restart 后证明残余被清理 |
+| `SP-36` | containerd 版本和 shim library 选择可补足 start/delete/event contract | real node 上 shim SIGKILL、containerd restart、reconnect、resize rebuild 与 genuine delete |
+| `SP-37` | RuntimeClass admission 对 local static/mirror Pod overhead 的实际差异需实测 | 同时检查 local podManager/CRI、mirror `spec.overhead` 与 scheduler reservation |
+| `SP-38` | 实现可能天然 per-Pool serial/singleflight | block generation N+1 node-ctl call，再提交 N+2/delete，释放旧 call 后不得覆盖新状态 |
+
+本轮没有生成 upstream comment body，也没有发布 review/comment/mention。等作者先处理 8 条 active thread；若用户要求发言，先从 `SP-28` 或 `SP-29` 选一条，重新核对 exact head/line，再提交一屏内英文草稿供逐字确认。
 
 ## Candidate 2: node-ctl endpoint source of truth
 

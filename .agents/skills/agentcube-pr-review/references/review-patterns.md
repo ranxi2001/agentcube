@@ -209,6 +209,46 @@ Evidence labels:
 - Validation: Build a kind-to-destination matrix and add one focused test per distinct route, including the cluster-scoped or optional path most likely to collapse into a default.
 - False-positive guard: A shared route is correct when all callers intentionally share scope, identity, retry, and ownership semantics and tests prove that contract.
 
+### Field ownership is not status authorization
+
+- Trigger: Multiple controllers, node agents, or external actors write disjoint status fields using SSA field managers.
+- Hidden assumption: Non-overlapping managed fields prevent one writer from changing another writer's fields and therefore form a security boundary.
+- Failure mode: Admission rejects a legitimate writer, or an authenticated but compromised writer uses a different field manager, force apply, or ordinary Patch to modify fields outside its authority.
+- Evidence source: `CODE` and `DOC`, AgentCube PR #431 assigned `phase` and two Conditions to the controller while its proposed status webhook allowed only node-bound agents to update status. The same rule did not restrict an allowed agent to agent-owned fields.
+- Review question: For every authenticated caller, which exact status fields and condition types may change, and does admission compare old/new objects independently of the client-supplied field manager?
+- Validation: Build a caller-to-field matrix; test legitimate controller and own-node agent writes, cross-node writes, agent changes to controller fields, forged field-manager names, non-apply patches, force conflicts, and webhook failure policy.
+- False-positive guard: SSA remains the right merge/concurrency mechanism. It is sufficient without field-level admission only when all status writers are inside the same trust boundary and broader status write permission is intentional.
+
+### Derived identifiers need a budget for every representation
+
+- Trigger: An object name or external identifier is copied into a label, annotation, filename, metric label, DNS label, socket name, URL path, or generated child name.
+- Hidden assumption: Validation of the source identifier makes every derived representation valid.
+- Failure mode: A source-valid value exceeds a smaller downstream limit, changes allowed characters, collides after truncation, or fails only at a later API/runtime/filesystem boundary.
+- Evidence source: `CODE` and Kubernetes validation contracts, AgentCube PR #431 supported a 253-character Pool object name, copied full Class/Node/Pool names into 63-character label values, and embedded the Pool name in a manifest basename that can exceed Linux `NAME_MAX=255`.
+- Review question: What are the maximum length, character set, uniqueness, collision, and reversibility requirements at every transformation boundary?
+- Validation: Create a representation budget table and test immediately below/at/above each limit. Use bounded deterministic hashes for selectable identifiers and keep full lossless identity in a field or annotation whose contract permits it.
+- False-positive guard: Reusing a value is safe when the destination has equal or broader constraints and the same uniqueness scope; do not hash human-readable identifiers without a demonstrated budget or privacy need.
+
+### Readiness must be generation-fresh and incarnation-bound
+
+- Trigger: A controller aggregates Ready from conditions written asynchronously by another component, especially across spec updates or delete/recreate of the referenced object.
+- Hidden assumption: A True condition and fresh heartbeat describe the current desired generation and current object instance.
+- Failure mode: Generation N remains Ready after spec advances to N+1, or a new object with the same name inherits status from the deleted object's UID until heartbeat expiry.
+- Evidence source: `CODE` and Kubernetes object semantics, AgentCube PR #431 exposed `lastAppliedGeneration` but did not use it in the Ready predicate, and bound Pools to `nodeName` without a Node UID/incarnation fence.
+- Review question: Which desired generation and referenced-object UID produced each condition, and what resets or gates status when either changes?
+- Validation: Test Ready N -> spec N+1 before writer acknowledgement, rapid N+2, writer failure, object UID A deletion, and same-name UID B recreation. Require current `observedGeneration` plus the intended identity fence before Ready.
+- False-positive guard: Generation checks are unnecessary for observations intentionally independent of spec. UID checks are unnecessary when owner references or mandatory recreation guarantee that old status cannot survive a new incarnation; prove that lifecycle rather than assuming it.
+
+### State-machine priorities must compose under simultaneous failures
+
+- Trigger: A phase is computed by an ordered list of boolean conditions or early returns.
+- Hidden assumption: Only one failure predicate is true at a time, so each row can be reviewed independently.
+- Failure mode: An earlier, less severe predicate permanently shadows a later timeout or terminal state, making a documented transition unreachable under combined failures.
+- Evidence source: `CODE`, AgentCube PR #431 placed `agent unhealthy + Pod ready -> Degraded` before `node-ctl unhealthy >=5m -> Unready`; when both were true, the documented five-minute Unready transition could not execute.
+- Review question: For every pair or meaningful combination of simultaneously true predicates, which state wins, and does that result match the transition table and severity/recovery contract?
+- Validation: Generate a condition matrix or table-driven tests for combinations, boundary times, sticky history flags, recovery, and unknown/stale inputs; assert one canonical compute function rather than separate diagram/table shortcuts.
+- False-positive guard: Explicit priority is valid when the earlier predicate intentionally dominates and the documentation explains why. The defect is unexplained shadowing or contradiction, not the existence of ordered checks.
+
 ### Status reconciliation should write only meaningful transitions
 
 - Trigger: A controller periodically probes health or derives status/conditions from an external system.
