@@ -769,3 +769,136 @@ git status --short --branch
 - 不抢 #394 / #395 实现，因为已有 assignee。
 - 不直接给 #400 提 PR，先让作者自己处理 review feedback。
 - 不把 `/metrics` scrape discovery 设计混进 #400，除非 maintainer 明确要求扩 scope。
+
+## 2026-07-15：最新 head 架构复审
+
+PR #400 在第一次 review 后新增了两个修复 commit。本轮不复用旧结论，而是重新固定 base/head、读取完整 review thread、审查合并树，并用临时测试验证异常路径和指标基数。
+
+| 项 | 最新值 |
+| --- | --- |
+| PR head | `0d4576fe9195faf272db196548b4899c702e7d6a` |
+| upstream main | `fa254b15fec43480a343a60cdf5773156c72b80a` |
+| merge base | `fdb862b0e3f285b4a12550c85a315833f13141a4` |
+| divergence | main 领先 5 commits，PR 领先 3 commits |
+| structural merge | `git merge-tree --write-tree` 成功，无文本冲突 |
+| GitHub state | `MERGEABLE` / `UNSTABLE`，已有 `lgtm`，Tide 只缺 `approved` |
+| checks | build、e2e、codegen、lint、Python、coverage、DCO 等当前 head checks 均成功 |
+
+> 注释：`UNSTABLE` 在这里不等于代码冲突。GitHub 明确返回 `MERGEABLE`，Tide 当前等待的是 OWNER approval。由于 PR 比 main 落后 5 commits，本轮另外物化了临时合并树并跑 PicoD package test，避免只相信 7 月 8 日的旧 base CI。
+
+### Problem card
+
+- Claimed problem：PicoD 缺少 Prometheus-compatible request、latency 和 execute outcome metrics。
+- Observable caller：集群 Prometheus scraper、SRE dashboard，以及经 Router 或 Pod 网络访问 PicoD 的请求方。
+- Expected contract：指标 endpoint 可采集；所有 label 有界；panic、abort 和正常 handler 都被一致观测；latency histogram 能描述 PicoD 的实际执行时长。
+- PR scope：PicoD process-local registry、`/metrics`、HTTP middleware 和 execute handler instrumentation；不包含全自动 PodMonitor/ServiceMonitor discovery。
+
+### 已解决：旧 review 不再成立
+
+1. `path` 高基数已解决。`c.FullPath()==""` 时固定使用 `unmatched`，不再把原始 URL 写入 label。
+2. 413 覆盖已解决。metrics middleware 现在位于 body-size limiter 外层，`TestMetrics_OversizedRequest` 证明 counter 能记录 `POST /api/execute` 的 413。
+3. panic 覆盖已解决。metrics middleware 现在位于 `gin.Recovery()` 外层；临时 panic route 返回 500 后，registry 中存在对应 counter sample。
+4. working directory 创建失败已从 `invalid` 改为 `error`，与 HTTP 500 的服务端失败语义一致。
+5. `picod_active_executions` 仍覆盖 validation 阶段，但 Help 和 PR body 已明确它统计 in-flight execute handler invocation，因此这是明确的产品语义选择，不再作为缺陷。
+
+> 分析：review 的关键不只是发现问题，也要主动撤销已过期结论。作者回复“resolved”不等于自动相信；本轮通过源码和临时 panic/413 验证确认修复真实生效。
+
+### Finding P1：原始 HTTP method 仍造成无界 label cardinality
+
+位置：`pkg/picod/metrics.go:111-112`。
+
+当前实现把 `c.Request.Method` 原样传给两个 vector：
+
+```go
+m.HTTPRequestsTotal.WithLabelValues(c.Request.Method, path, status).Inc()
+m.HTTPRequestDuration.WithLabelValues(c.Request.Method, path).Observe(duration)
+```
+
+虽然 path 已归一化，但 HTTP method 并不是编译期枚举。Go HTTP server 接受合法 token 形式的自定义 method；全局 metrics middleware 又会观测 unmatched route，因此每个新 method 都会创建一个新的 counter child 和 histogram child。
+
+临时测试对 `/does-not-exist` 连续发送 `METHOD0` 到 `METHOD31`：
+
+```text
+32 requests -> 32 picod_http_requests_total label sets
+            -> 32 picod_http_request_duration_seconds label sets
+```
+
+测试运行在精确 PR head，所有请求返回 404。临时测试随后已删除，worktree 恢复 clean。
+
+影响：
+
+- series 数量随请求输入持续增长，process-local collector memory 没有上界；
+- 每个 histogram label set 还会展开 default buckets、sum 和 count，实际 scrape series 放大；
+- Router 正常入口只注册 GET/POST，能降低外部入口，但不能消除风险：仓库没有默认 NetworkPolicy，Pod 网络可直达；更直接的是 PicoD 启动的用户命令本身可访问同 sandbox 的 localhost。
+
+建议：把 method 映射到有限 allowlist，并把其它值统一折叠为 `unknown`/`other`。当前依赖的 `promhttp` 自身也采用这个契约：预定义 method 之外统一返回 `unknown`。回归测试应发送多种自定义 method，并断言最终只有一个 unknown method series。
+
+> 分析：之前的经验库把“method”列作天然的小集合，这是错误假设。route registration 是有限的，但 `Request.Method` 是线上的原始输入。已同步修正 `agentcube-pr-review` 的 bounded-cardinality pattern。
+
+### Finding P2：默认 latency buckets 与 execute 时长契约不匹配
+
+位置：
+
+- `pkg/picod/metrics.go:62-67`
+- `pkg/picod/execute.go:78-94`
+
+HTTP duration histogram 使用 `prometheus.DefBuckets`：
+
+```text
+0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10 seconds
+```
+
+但 `/api/execute` 默认 timeout 是 60 秒，而且调用者可以指定更长 timeout。所有超过 10 秒的执行在 classic bucket distribution 中只能落到 `+Inf`；它们的 sum/count 仍存在，但 11 秒、30 秒和 60 秒无法通过 finite buckets 区分。
+
+需要精确校正一个容易说错的点：这不会让 classic `histogram_quantile()` 直接返回 `+Inf`。Prometheus [query function documentation](https://prometheus.io/docs/prometheus/3.5/querying/functions/#histogram_quantile) 规定，quantile 位于最高 bucket 时返回第二高 bucket 的上界。因此 tail quantile 可能被钳在 10 秒，而不是真实的 30/60 秒。
+
+建议先确定 PicoD latency SLO 和需要查询的阈值，再扩展有限 buckets 覆盖默认 timeout/关键 tail；另一种职责更清楚的方案是给真实 command run duration 单独建 histogram。不能仅因为 library default 合法，就认为它适合 code execution workload。
+
+> 注释：histogram bucket 是 API 设计的一部分。bucket 选错时，代码、scrape 和 PromQL 都能“正常运行”，但 SRE 得到的 tail latency 判断仍然错误。这类问题只能通过领域范围与观测模型对齐发现。
+
+### 非阻塞测试缺口
+
+- 最新 panic-order commit 没有 panic regression test；本轮临时测试证明当前代码正确，但仓库测试没有锁住这个顺序契约。
+- active gauge 只在请求结束后断言值为 0；即使实现从未 `Inc()`，这个测试也能通过。应在并发 sleep command 运行中观测 1，再在结束后观测 0。
+- execute outcome 只断言 `success`，没有对 `invalid`、`error`、`timeout` 做 metrics-level mapping 测试。
+- 413/unmatched tests 只断言 counter，没有同时锁住 duration histogram。由于 counter 与 histogram 是两行独立写入，这仍有轻微回归空间。
+
+这些缺口不等于当前实现必然错误，但说明 100% statement coverage 不能替代指标契约测试。
+
+### 本轮验证
+
+精确 PR head：
+
+```bash
+go test ./pkg/picod -count=1
+go test -race ./pkg/picod -count=1
+go test ./pkg/picod -run '^TestMetrics_' -count=100
+```
+
+结果：
+
+```text
+ok  github.com/volcano-sh/agentcube/pkg/picod  6.634s
+ok  github.com/volcano-sh/agentcube/pkg/picod  10.504s
+ok  github.com/volcano-sh/agentcube/pkg/picod  43.152s
+```
+
+临时行为验证：
+
+- 32 个自定义 method 生成 32 个 counter + 32 个 histogram label sets；确认 P1。
+- panic route 返回 500，counter 中存在 GET `/review-panic` / 500；确认 middleware 修复有效。
+
+当前 main + PR 合并树：
+
+```bash
+git merge-tree --write-tree upstream/main upstream/pr-400
+go test ./pkg/picod -count=1
+```
+
+结果：结构合并成功，merged-tree PicoD tests 通过。main 自 merge base 后唯一相关 PicoD 变化是 macOS path test 修复，没有生产代码语义冲突。
+
+### 当前处理决定
+
+- 本轮只完成本地 review、测试和经验库升级，没有向 #400 发布 comment/review，也没有修改作者分支。
+- 若需要 upstream feedback，优先只发 P1 method cardinality 的 focused inline finding；P2 bucket 设计可作为同一 review 的第二条独立 inline comment，避免把测试清单和完整报告复制到 GitHub。
+- 发布前仍需用户确认 exact target 和英文全文。

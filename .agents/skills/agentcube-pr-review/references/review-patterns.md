@@ -101,13 +101,23 @@ Evidence labels:
 
 ### Metrics labels need bounded cardinality
 
-- Trigger: A label derives from URL, command, file path, session, error text, or user input.
+- Trigger: A label derives from URL, raw HTTP method, command, file path, session, error text, or other request input.
 - Hidden assumption: Convenient request detail is safe as a metric dimension.
 - Failure mode: Unbounded time series increase memory and storage cost and can destabilize monitoring.
-- Evidence source: `CODE`, AgentCube PR #400 metrics review.
-- Review question: Is every label drawn from a small, controlled set such as route template, method, or status class?
-- Validation: Exercise dynamic paths and confirm series count remains bounded.
+- Evidence source: `OBS`, `CODE`, and `DOC`, AgentCube PR #400 metrics review. Arbitrary valid HTTP method tokens created one counter child and one histogram child per value; Prometheus `promhttp` instead normalizes methods outside its finite set to `unknown`.
+- Review question: Is every label drawn from a genuinely finite set such as a route template, normalized allow-listed method, or status class?
+- Validation: Exercise dynamic paths and many custom HTTP methods, then confirm series count remains bounded and unknown values collapse to one label.
 - False-positive guard: High-cardinality detail belongs in logs/traces, not metrics; a truly finite enumerated set is acceptable.
+
+### Histogram buckets must cover the domain operating range
+
+- Trigger: A PR adds a latency or size histogram with library-default buckets.
+- Hidden assumption: Generic network-service defaults describe the component's normal workload and timeout range.
+- Failure mode: Values above the largest finite bucket become indistinguishable; classic-histogram quantiles that land in the `+Inf` bucket return the second-highest boundary, hiding the real tail.
+- Evidence source: `CODE` and `DOC`, AgentCube PR #400 uses Prometheus `DefBuckets` ending at 10 seconds while PicoD execute defaults to 60 seconds and accepts longer timeouts; Prometheus documents the highest-bucket quantile rule.
+- Review question: Do finite bucket boundaries cover the component's expected SLO, default timeout, and material tail range?
+- Validation: Map default and maximum practical operation durations to bucket boundaries, observe representative short and long values, and verify the intended percentile or threshold queries remain informative.
+- False-positive guard: The default buckets are acceptable when the measured handler has a documented sub-10-second contract, or when only count/sum and an explicit over-threshold ratio are required rather than tail quantiles.
 
 ### Do not duplicate lifecycle policy across Router, WorkloadManager, and Store
 
