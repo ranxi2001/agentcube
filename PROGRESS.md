@@ -29,6 +29,7 @@
 - Diagram rule：`AGENTS.md` 已新增 `Diagram and Image Generation Guidelines`。Linux 上架构/控制流/状态机/proposal review 图默认用 Mermaid；draw.io 只在需要可编辑画布或复杂布局时用；GPT image draw 用于精致 raster、中文信息图、banner、报告视觉图。精确架构和 review 推理仍以 Mermaid / prose 为准。
 - Draw.io skill sync：2026-07-15 已将 Karmada intern worktree `58761535f08a` 的 `drawio-skill` 精确镜像到本仓库，共 62 个文件；skill metadata、Python compile、JSON/gzip、CLI help、workflow import、现有图校验和 Draw.io -> Mermaid 冒烟均通过。本机缺可选 Graphviz `dot`。持久容器 `agentcube-drawio-pr431` 已安装 draw.io CLI `30.3.11` + xvfb/libasound2，并按用户要求保留供后续导出，不要删除。
 - Project Mermaid skill sync：2026-07-15 已从 Karmada intern worktree `8803dc6` 安装 `.agents/skills/project-mermaid/`，共 8 个文件；仅规范化两个模板的多余 EOF 空行以通过 `git diff --check`，其余内容与源一致。Renderer Python compile/CLI help 通过；使用固定 `@mermaid-js/mermaid-cli@11.16.0` 的显式 npx backend，data-flow 与 sequence 两个模板实际渲染和视觉检查均通过。后续数据流、时序、重试和小型生命周期图优先使用该 skill 的 canonical `.mmd` + PNG 工作流。
+- PR #387 Mermaid：新增 Day30 canonical `.mmd` + 白底 PNG，精确比较 `3de1272d` / agent-sandbox v0.1.1 的“adopt Pod + 同名 Sandbox watcher”与 `95fae1f8` / v0.4.6 的“adopt Sandbox + Claim status bridge + 双身份 Store/delete”数据流；PNG 已完成原图视觉检查。
 - Weekly report workflow：已迁移到 private repo `/home/intern-week-mail`；身份只从 ignored `.env` 注入。2026-07-15 新增 Week 4/5 双层总结：第一层用于公司成果提炼，第二层保留工程学习、失败和证据；Week 5 源数据已按 GitHub 回读把 #431 从 2/2 校准为 3/3 review 点，并区分已验证的默认 AgentRuntime mTLS 与未验证的 direct WorkloadManager harness。现有 HTML 尚未按新源重渲染，也未授权发送。
 
 ## Active Upstream Threads
