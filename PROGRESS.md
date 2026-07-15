@@ -28,6 +28,7 @@
 - #431 maintainer review：`@RainbowMango` review 仍未给 `lgtm/approve`。Title、containerd reference、admin motivation 已吸收；`placeholder-agent` 命名被作者暂缓，`node-ctl` 替代名仍未知。Maintainer 继续追问 manifest 被删、Phase/aggregation 和上千节点 status write；后两者尤其未闭合。
 - GPT image workflow：本地 `/home/agentcube/.agents/skills/gpt-image-draw/SKILL.md` 已跑通。环境有 `OPENAI_API_KEY`；系统 Python 缺 `openai` 且受 PEP 668 限制，已用 `/tmp/gpt-image-draw-venv` 临时 venv 安装依赖。生成后必须用 `file` / `ls -lh` / `view_image` 复核，实际 PNG 尺寸可能不同于请求尺寸。不要打印或提交任何 key。
 - Diagram rule：`AGENTS.md` 已新增 `Diagram and Image Generation Guidelines`。Linux 上架构/控制流/状态机/proposal review 图默认用 Mermaid；draw.io 只在需要可编辑画布或复杂布局时用；GPT image draw 用于精致 raster、中文信息图、banner、报告视觉图。精确架构和 review 推理仍以 Mermaid / prose 为准。
+- Draw.io skill sync：2026-07-15 已将 Karmada intern worktree `58761535f08a` 的 `drawio-skill` 精确镜像到本仓库，共 62 个文件；skill metadata、Python compile、JSON/gzip、CLI help、workflow import、现有图校验和 Draw.io -> Mermaid 冒烟均通过。本机缺可选 Graphviz `dot`，因此未覆盖 autolayout 实际渲染。
 - Weekly report workflow：已迁移到独立本机仓库 `/home/intern-week-mail`，GitHub remote 为 private；唯一 skill source 是该仓库的 `.agents/skills/write-weekly-report-email/`。岗位为“云原生开源实习生”，与真实身份一起只在 ignored `.env` 配置，不得从原始 CCE 示例推断；最终 HTML/subject 允许仅在该 private repo 的 `output/` 版本化。2026-07-10 Week 5 验收稿已按原 Word 六列 `71/350/101/297/79/54pt` 固定网格重新生成，结构校验与 Playwright 截图通过，尚未授权发送邮件。
 
 ## Active Upstream Threads
