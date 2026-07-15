@@ -1222,6 +1222,52 @@ flowchart LR
 
 这次 maintainer 反馈已提升为 `agentcube-pr-review` 的 reusable pattern：`Proposal front door must establish actor, outcome, and current vocabulary`。以后正式 proposal 在进入 API/状态机深审前，先验证前 60 行能回答用户角色、具体问题、能力结果、稳定命名、当前架构词汇和外部协议引用。
 
+### 2026-07-15 `f380208` Force-Push 与 Maintainer Review 继续
+
+#### 当前事实
+
+审计过程中作者先把 head 更新为 `67581df`，随后再次 force-push 并整理为单个 DCO commit `f380208b94ed9ff0ddb8e68f66aed24c7f6d4672`。最终结论只绑定 `f380208`：
+
+- 1 个 proposal 文件，`+761/-0`；相对上次审计 `c2f2502` 为 `+49/-31`；
+- 相对 `upstream/main` 为 `5 behind / 1 ahead`，`git merge-tree --write-tree` 成功，结构合并干净；
+- build、E2E、codegen、codespell、copyright、Go/Python lint、Python SDK、coverage、workflow approval 与 DCO 全部 success；
+- Tide 唯一明确原因仍是 `Needs approved, lgtm labels`；PR `mergeable=MERGEABLE`、`mergeStateStatus=UNSTABLE`；
+- maintainer 尚未给 `lgtm` / `approve`，此前 `Review is still ongoing.` 仍是最新 review posture。
+
+> 注释：proposal-only PR 的绿色 E2E/coverage 是仓库门禁证据，不证明 Static Pod、containerd shim、node-ctl restart、status QPS 或 failure recovery 设计可运行。
+
+#### 已吸收的设计反馈
+
+| 问题 | `f380208` 当前文本 | 判断 |
+| --- | --- | --- |
+| double `pool` feature name | title/H1 改为 `Sandbox Resource Pool Management` | resolved |
+| containerd authoritative reference | 增加 containerd Task v2 README 链接 | resolved at proposal entry |
+| administrator motivation | 增加 dedicated capacity、node pressure 与 regular Pod competition 场景 | materially improved |
+| accidental manifest deletion | 增加 agent periodic manifest self-healing，CRD 为 desired source of truth | current-diff maintainer thread 仍等待确认 |
+| Static Pod priority | `PriorityClassName` 改为 numeric `Priority *int32` | our thread resolved |
+| agent recovery shortcut | `PlaceholderAgentHealthy=True` 改为 re-evaluate all conditions | our exact thread resolved |
+| orphan API semantics | 改为 GET-by-name + UID compare，区分 NotFound/mismatch 与 transient/Forbidden | our thread resolved |
+| node ownership conflict | AlreadyExists 后 GET/compare classRef，发 `NodeConflict` Event/Condition | improved and test plan updated |
+| per-node status trust | 增加 authenticated per-node identity + status webhook 绑定 `spec.nodeName` | partial; identity provisioning/wiring not frozen |
+
+#### 仍未闭合的 current-head 问题
+
+GitHub GraphQL 在 `f380208` 上返回 85 个 review threads，其中 6 个是 current-diff active，3 个 unresolved-but-outdated。6 个 active 分别是：maintainer 的 `placeholder-agent` 命名、manifest self-healing、Phase/aggregation、status write scalability，以及我们的 Deferred resize 和 per-node status security。
+
+1. **Deferred resize 仍是 P1。** 新增 ordering table 正确写出 scale-up reservation-first、scale-down allocation-first，但实际 Update Flow 仍是 `spec change -> update manifest -> Pod rebuild -> shim.Create -> daemon`，无法在降低 manifest 前先调用 shim/daemon。正文又同时写 `write config + restart node-ctl` 与“scale-driven rebuild does NOT stop node-ctl”，直接冲突。新增 test invariant 要比较 Pod request 与 `status.poolInfo`，但当前 `PoolInfo` 只有 memory bytes，没有 CPU applied allocation，无法验证 `ResourcePolicy` 的 CPU+memory 合同。
+2. **Phase Ready predicate 仍不一致。** Ready entry 要求 `PlaceholderPodReady + NodeCtlHealthy + ResourceSynced`（或 Deferred），但 diagram 及 Pending/Unready exit 只检查前两项。2026-07-15 新增的 3 条 Copilot current-diff thread 已精确覆盖，不重复评论。
+3. **Status scalability 没有预算。** 每节点 agent 每 30s SSA status，加 controller 每 30s full Pool sweep；在上千节点规模下，proposal 没有给 QPS、payload、delta-write、jitter、watch/cache 或 benchmark 预算。Maintainer 已直接质疑，作者只回复“类似 kubelet，可降低频率”，未修改 30s 合同。
+4. **组件词汇仍未收敛。** 作者选择暂时保留 `placeholder-agent`，等待 broader discussion；maintainer thread 仍 active。`node-ctl` 又被 maintainer 明确标为 deprecated，但替代名和权威讨论仍未进入 proposal。
+5. **Status security 只完成设计方向。** Admission `userInfo` 到 `spec.nodeName` 的服务端校验方向合理，但 per-node certificate/ServiceAccount 如何创建、轮转、绑定，以及 webhook 如何覆盖 `sandboxpools/status` subresource 尚未成为可实现合同。
+
+> 分析：这次 push 的主要进步是把 review 问题写进 proposal，而不是只在 thread 里口头回答。但“写出目标顺序”不等于执行流已能实现该顺序。Review 第二轮必须比较新增表格与原流程、数据模型和测试可观测字段，否则容易把文字层面的 resolved 误判为语义 resolved。
+
+#### 当前结论
+
+PR 比 `c2f2502` 明显更完整，Static priority、orphan cleanup、agent recovery shortcut 和 node conflict 已实质收敛；但仍不具备完整 v1alpha1 freeze 条件。最关键的 implementation blockers 是 resize 调用顺序/node-ctl continuity、Phase aggregate predicate、status scalability budget 和 per-node identity provisioning。
+
+本轮没有发布 upstream comment、review、mention 或 branch push。已有 current-diff threads 足以覆盖主要问题；下一步等待 maintainer/作者在这 6 条 active thread 上继续收敛，避免重复评论。
+
 ## 参考链接
 
 - AgentCube discussion #430: <https://github.com/volcano-sh/agentcube/issues/430>
