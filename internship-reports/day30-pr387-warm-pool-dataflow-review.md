@@ -1430,3 +1430,73 @@ exact SHA 的 official checks 最终 12/12 success：build、copyright、codegen
 review skill 同步升级：既有 `New reads can create hidden RBAC requirements` pattern 现在要求测试 `%w` 包装后的 transient/permanent error；新增 `Keep one readiness decision on a freshness-consistent observation path`，要求 reviewer 在 live/cache 混读且失败会触发 rollback 时构造 divergent views，而不是用一份同步 fake cache 得出安全结论。
 
 > 分析：maintainer comment 的价值不只在修两行代码。它把 readiness review 从“对象最终会 Ready”推进到“同一个决定使用了哪些 freshness domain、一次 stale read 会不会产生破坏性副作用”，也把 polling review 从“有没有 timeout”推进到“谁拥有 retry，以及哪些错误有资格重试”。
+
+## 2026-07-15：单提交 squash 与 `handlers.go` 二次专项审计
+
+### Squash 结果与不变量
+
+在用户确认 exact force-with-lease 命令后，把 PR #387 的 10 个 topic commits 压成一个 DCO commit：
+
+- squash 前 head：`4d5d9fc651359a6f97c0d8e099a1abeb85a2ec56`；
+- squash 后 head：`baebe09c878c85f8d0b087378792ceb7c33f8c8d`；
+- 保留 parent / merge base：`3de1272d5243edcce93fb42bf25aef0e9c151609`；
+- commit：`fix: adapt code interpreter warm pool to agent-sandbox v0.4.6`；
+- 新旧 tree 均为 `93e32c3021ef5d8af0ea51f184865e5a3c068fc6`，`git diff 4d5d9fc..baebe09` 为空；
+- diff 仍是 18 个文件、`+1024/-310`，没有借 squash 修改代码或生成物。
+
+push 使用远端旧 head 作为显式 lease：
+
+```text
+git push --force-with-lease=refs/heads/feat/agent-sandbox-latest:4d5d9fc... \
+  origin baebe09c...:refs/heads/feat/agent-sandbox-latest
+```
+
+GitHub 回读确认 PR head 为 `baebe09c`、commit count 为 1、`mergeable=MERGEABLE`。`@acsoto` 的两个 inline thread 仍是 current diff，没有因 force-push 变成 outdated；本轮没有自动 resolve、追加评论或请求 review。
+
+> 注释：squash 的正确性不能只靠“文件数看起来一样”。tree object 相同和 old-head-to-new-head 空 diff 共同证明最终文件内容不变；显式 lease 则保证只有远端仍停在已审计旧 head 时才允许改写历史。
+
+### Squash 后验证
+
+本地 exact tree 重新通过：
+
+```text
+go test ./pkg/workloadmanager -count=1        PASS
+go test -race ./pkg/workloadmanager -count=1  PASS
+make lint                                     PASS
+make gen-check                                PASS
+make build-all                                PASS
+go test ./test/e2e -run '^$' -count=1         PASS
+git diff --check                              PASS
+```
+
+新 SHA 的 official CI 最终 12/12 success：DCO、build、copyright、codegen、codespell、lint、Python lint、Python SDK、coverage、普通 E2E 和 CodeInterpreter E2E 全部通过。E2E run `29406655781` 的两个 job 分别在 7m46s / 8m32s 后通过；PR 仍是 `MERGEABLE`，Tide 只缺 `lgtm` / `approved`。
+
+### `handlers.go` 二次专项审计结论
+
+本轮沿 create request -> Store placeholder -> K8s resource -> readiness -> Pod -> entrypoint -> Store commit -> rollback/delete/GC 重新贯通，并额外核对 agent-sandbox v0.4.6 Claim controller 的 adoption/status 更新顺序。Direct/Claim 分派、watcher nil/closed/empty guard、Claim control identity 与 adopted Sandbox runtime identity、Store name/UID、delete/GC kind 路由均未发现新的 PR blocker。
+
+审计收敛出一个 **P2、source-proven reachable latent** finding：`waitForClaimSandboxReady` 的 2 分钟 timer 不能中断正在执行的 Kubernetes live GET。
+
+当前执行顺序是：
+
+1. `getSandboxClaim(ctx, ...)` 同步执行；
+2. 如已有 adopted name，再执行 `getSandbox(ctx, ...)`；
+3. 两次 GET 返回后，循环才 `select` 2 分钟 timer、caller context 和 1 秒 ticker。
+
+两个 GET 都使用原始 caller context，而不是由内部 timer 控制的派生 context。`NewK8sClient` 没有设置 `rest.Config.Timeout`，WorkloadManager HTTP server 也没有 `WriteTimeout`。因此 API Server 或中间 LB 接受 GET 后若迟迟不返回，handler 可以超过注释承诺的 2 分钟；如果 GET 在 timer 已过期后返回 Ready，当前代码还会直接成功返回，完全绕过已到期 timer。
+
+这不是只存在于 mock 的假设：标准 Router client 的 2 分钟 timeout 通常会先取消外层请求，但仓库 E2E 直接调用 WorkloadManager 时使用 3 分钟 HTTP client，SDK timeout 也可配置。于是 supported direct-WM path 可以让 K8s GET 活到内部 deadline 之后。后果是响应超出合同、Claim 与 Store placeholder rollback 延迟，并占用 handler 资源直到 GET 或 caller context 最终结束。
+
+> 分析：timer 只是在 goroutine 回到 `select` 时可见，它不会自动取消同一 goroutine 正在阻塞的函数调用。要形成真正的 deadline，必须把 deadline 放进传给 I/O 的 context。
+
+最小修复应给完整 Claim wait 派生 2 分钟 context，并把它传给 Claim/Sandbox 两次 GET；返回时区分父 context 的 cancel/deadline 与内部 wait deadline，只有内部 deadline 映射为 `errSandboxCreationTimeout`。回归测试应让测试 API server 接受 GET 后等待 `request.Context().Done()`，并使用可注入的短 timeout 验证内部 deadline 确实取消 I/O，避免测试真实等待两分钟。
+
+现有测试的非阻塞缺口还包括：classifier table 没有驱动“transient read 后最终 Ready”的完整循环；direct watcher success 与 cancel/notification 竞争未独立覆盖；rollback table 把 Sandbox 和 SandboxClaim delete 共用一个计数器，未来 wrong-kind regression 可能漏检。当前生产分支逐项核对正确，这些是防回归缺口，不升级为当前 blocker。
+
+review skill 已把本次经验升级为 `A timer does not bound blocking I/O unless its deadline reaches the call` pattern，同时在架构图检查和 error/context checklist 中要求 deadline 实际进入 blocking call。skill schema、6 个脚本测试和 diff check 通过；一场 `fork_turns=none` 的 fresh-context 前向测试只拿 raw `baebe09c` 源码，独立复现同一 P2、direct-WM producer 和晚到 Ready 绕过 timer 的后果，说明规则可以迁移到新 reviewer，而不是依赖本轮答案泄漏。
+
+> 分析：该 finding 是 squash 后新发现的代码问题，不是 squash 引入的问题，因为新旧 tree 完全相同。本轮任务是 review，且任何再次更新 upstream PR 都需要用户对修复 diff 和 push 明确确认，因此这里只记录证据和最小修法，没有擅自修改 `baebe09c`。
+
+### 既有但不归责本 PR 的 lifecycle 风险
+
+`rollbackSandboxCreation` 使用一个 30 秒 context 先删 K8s resource，再无条件删除 Store placeholder。若 K8s delete 失败或耗尽 context，Store 记录仍会被移除，GC 随后失去重试锚点；Claim 又没有自身 lifecycle deadline，可能一直遗留到 owner CodeInterpreter 被删除。该逻辑在 #387 merge base 已存在，不作为本兼容 PR 的回归 finding，后续应单独设计 durable cleanup / retry ownership。

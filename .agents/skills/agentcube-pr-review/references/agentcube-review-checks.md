@@ -105,6 +105,7 @@ Concurrency checks:
 - Trace the concrete error chain that reaches each classifier. Test bare and nested `%w` forms, Kubernetes `StatusError`, transport wrappers, EOF variants, and context cancellation/deadline behavior that the real callers can produce.
 - Prefer an allowlist of boundary-supported transient errors over retrying every unknown error. Verify the chosen helper actually unwraps the wrapper forms used by this call path.
 - Give one layer clear timeout ownership; nested arbitrary timeouts create misleading failures.
+- Verify that the advertised deadline reaches every blocking I/O call. A timer selected only after a synchronous Kubernetes, Store, network, or process call returns cannot interrupt that call; also reject success observed after the internal deadline has already expired.
 - Propagate request context into Kubernetes, Store, network, and process calls.
 - Map internal errors to stable API status codes without leaking secrets or internals.
 - Close bodies, files, pipes, watchers, processes, and temporary resources on every return path.

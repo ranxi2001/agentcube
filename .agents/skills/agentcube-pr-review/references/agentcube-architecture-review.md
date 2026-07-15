@@ -155,7 +155,7 @@ Upgrade:
 go.mod/API client -> installed CRDs/controller/image -> manifests/CI/e2e
 ```
 
-For each arrow, ask who owns timeout, retry, error translation, and cleanup.
+For each arrow, ask who owns timeout, retry, error translation, and cleanup. Verify that the timeout owner's deadline is carried into the blocking call; a nearby timer is not an I/O cancellation mechanism.
 
 ## Architecture decision questions
 

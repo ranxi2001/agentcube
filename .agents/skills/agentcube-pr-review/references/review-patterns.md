@@ -79,6 +79,16 @@ Evidence labels:
 - Validation: Table-test bare, one-layer, and multi-layer wrapped forms from the real boundaries. Assert both the retry decision and the final public error for transient API/transport failures, Forbidden/Unauthorized/invalid/conversion errors, and canceled/deadline contexts.
 - False-positive guard: Direct comparisons are sufficient when the boundary guarantees an unwrapped closed error set and tests enforce that contract. Do not parse error strings or unwrap unrelated causes mechanically.
 
+### A timer does not bound blocking I/O unless its deadline reaches the call
+
+- Trigger: A readiness, polling, retry, or cleanup loop performs a synchronous Kubernetes, Store, network, or process call before selecting an internal timeout timer.
+- Hidden assumption: Expiring the timer preempts the in-flight call, or the loop will necessarily observe the timer before accepting a later result.
+- Failure mode: The operation exceeds its advertised deadline, cleanup and rollback are delayed, and a call that returns success after the deadline can bypass the expired timer entirely.
+- Evidence source: `CODE`, AgentCube PR #387 added a two-minute `SandboxClaim` readiness timer but passed the independent caller context to both live GETs. The WorkloadManager Kubernetes client had no `rest.Config.Timeout`, and the supported direct E2E client used a three-minute request timeout, so a stalled GET could outlive the internal deadline. No qualifying runtime occurrence was observed.
+- Review question: Which context or primitive can actually interrupt every blocking call, and can any result be committed after the internal deadline has expired but before the loop selects it?
+- Validation: Use a test server or fake boundary that accepts the request and blocks until its request context is canceled. Inject a short internal timeout, prove the I/O sees cancellation, assert no late success is accepted, and distinguish parent cancellation/deadline from the component's own timeout sentinel.
+- False-positive guard: A separate timer is sufficient when every preceding call has an independently enforced upper bound no longer than the advertised deadline and late success is explicitly permitted by contract. Do not add redundant nested deadlines when the parent context is deliberately the sole timeout owner.
+
 ### Keep control identity separate from adopted runtime identity
 
 - Trigger: A claim, allocation, or session adopts a pre-existing runtime object.
