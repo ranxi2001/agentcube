@@ -15,44 +15,48 @@ flowchart LR
     accTitle: PR 387 warm-pool data flow before and after the agent-sandbox upgrade
     accDescr: The old v0.1.1 path adopts a pre-warmed Pod and creates a Sandbox with the Claim name. The new v0.4.6 path adopts a pre-warmed Sandbox with a different runtime identity, publishes that name through Claim status, and preserves the Claim identity in Store for deletion.
 
-    subgraph BEFORE["更新前 | agent-sandbox v0.1.1"]
+    subgraph BEFORE["更新前 | v0.1.1 | 按【差异 1-7】横向对照"]
         direction TB
-        B_REQ["Client / SDK<br/>创建 CodeInterpreter session"]:::source
-        B_WM["WorkloadManager<br/>创建 SandboxClaim<br/>监听同名 Sandbox"]:::legacy
-        B_POOL["SandboxWarmPool<br/>预创建并维护 Pod"]:::controller
-        B_ADOPT["SandboxClaim controller<br/>adopt 预热 Pod<br/>创建同名 Sandbox"]:::controller
-        B_RUNTIME["Sandbox / Claim 同名<br/>annotation 指向 adopted Pod"]:::runtime
-        B_READY["Sandbox informer<br/>等待同名对象 Ready"]:::legacy
-        B_STORE[("Store + response<br/>Name = Claim = Sandbox<br/>ID / EntryPoints 来自 runtime")]:::state
-        B_DELETE["Delete / GC<br/>删除 SandboxClaim<br/>级联清理 runtime<br/>新建 replacement Pod"]:::lifecycle
+        B_REQ["<b>共同流程</b><br/>Client / SDK 创建 session"]:::source
+        B_WM["<b>共同流程</b><br/>WorkloadManager 创建 SandboxClaim"]:::process
+        B_POOL["<b>差异 1｜池化对象</b><br/>SandboxWarmPool 直接维护<br/><b>Pod</b>"]:::controller
+        B_ADOPT["<b>差异 2｜adopt 对象</b><br/>adopt <b>预热 Pod</b><br/>另建同名 Sandbox"]:::controller
+        B_IDENTITY["<b>差异 3｜身份关系</b><br/><b>Claim.name = Sandbox.name</b><br/>annotation 指向 adopted Pod"]:::runtime
+        B_READY["<b>差异 4｜就绪发现</b><br/>预注册同名 Sandbox watcher<br/>informer Ready event 驱动"]:::legacy
+        B_POD["<b>差异 5｜Pod 读取</b><br/>annotation → informer cache<br/>读取 Pod IP + 探测端口"]:::runtime
+        B_STORE[("<b>差异 6｜Store 身份</b><br/>Name = Claim = Sandbox<br/>控制/运行名称自然重合")]:::state
+        B_DELETE["<b>共同动作</b>：Delete / GC 删除 Claim<br/><b>差异 7｜补池对象</b><br/>新建 replacement <b>Pod</b>"]:::lifecycle
 
         B_REQ -->|create session| B_WM
         B_WM -->|create Claim| B_ADOPT
         B_POOL -.->|提供 ready Pod| B_ADOPT
-        B_ADOPT -->|name = Claim.name| B_RUNTIME
-        B_RUNTIME -->|同名 Ready event| B_READY
+        B_ADOPT -->|same-name contract| B_IDENTITY
+        B_IDENTITY -->|同名 Ready event| B_READY
         B_WM -.->|预注册 watcher| B_READY
-        B_READY -->|Pod IP + 端口探测| B_STORE
+        B_READY -->|Ready Sandbox| B_POD
+        B_POD -->|runtime fields| B_STORE
         B_STORE -->|按 Claim identity| B_DELETE
     end
 
-    subgraph AFTER["更新后 | PR #387 · agent-sandbox v0.4.6"]
+    subgraph AFTER["更新后 | PR #387 + v0.4.6 | 看右侧同编号"]
         direction TB
-        A_REQ["Client / SDK<br/>创建 CodeInterpreter session"]:::source
-        A_WM["WorkloadManager<br/>创建 SandboxClaim<br/>Claim 路径不注册 Sandbox watcher"]:::process
-        A_POOL["SandboxWarmPool<br/>预创建 Sandbox → Pod"]:::controller
-        A_ADOPT["SandboxClaim controller<br/>adopt 预热 Sandbox<br/>owner: Pool → Claim<br/>名称 / UID 保持不变"]:::controller
-        A_READY["Claim 状态桥接 + 就绪等待<br/>status.sandbox.name → live GET Sandbox<br/>Ready=True；2m context 覆盖两次 GET"]:::process
-        A_RUNTIME["adopted Sandbox → Pod<br/>annotation / 默认名 → live GET Pod<br/>读取 Pod IP + 探测端口"]:::runtime
-        A_STORE[("Store + response<br/>控制身份: Kind / Name = Claim<br/>运行身份: Sandbox UID / Pod EntryPoints")]:::state
-        A_DELETE["Delete / GC<br/>删除 SandboxClaim<br/>级联清理 adopted runtime<br/>新建 replacement Sandbox → Pod"]:::lifecycle
+        A_REQ["<b>共同流程</b><br/>Client / SDK 创建 session"]:::source
+        A_WM["<b>共同流程</b><br/>WorkloadManager 创建 SandboxClaim"]:::process
+        A_POOL["<b>差异 1｜池化对象</b><br/>SandboxWarmPool 维护<br/><b>Sandbox → Pod</b>"]:::controller
+        A_ADOPT["<b>差异 2｜adopt 对象</b><br/>adopt <b>预热 Sandbox</b><br/>owner: Pool → Claim；名称 / UID 不变"]:::controller
+        A_IDENTITY["<b>差异 3｜身份关系</b><br/><b>Claim.name ≠ Sandbox.name</b><br/>status.sandbox.name 建立桥接"]:::runtime
+        A_READY["<b>差异 4｜就绪发现</b><br/>live GET Claim → Sandbox<br/>检查 Sandbox Ready；2m context 覆盖两次 GET"]:::process
+        A_POD["<b>差异 5｜Pod 读取</b><br/>annotation / 默认名 → live GET Pod<br/>读取 Pod IP + 探测端口"]:::runtime
+        A_STORE[("<b>差异 6｜Store 身份</b><br/>控制身份：Kind / Name = Claim<br/>运行身份：Sandbox UID / Pod EntryPoints")]:::state
+        A_DELETE["<b>共同动作</b>：Delete / GC 删除 Claim<br/><b>差异 7｜补池对象</b><br/>新建 replacement <b>Sandbox → Pod</b>"]:::lifecycle
 
         A_REQ -->|create session| A_WM
         A_WM -->|create Claim| A_ADOPT
         A_POOL -.->|选择 ready Sandbox| A_ADOPT
-        A_ADOPT -.->|发布 status.sandbox.name| A_READY
-        A_READY -->|adopted Sandbox| A_RUNTIME
-        A_RUNTIME -->|runtime fields| A_STORE
+        A_ADOPT -.->|发布 runtime 名称| A_IDENTITY
+        A_IDENTITY -->|status.sandbox.name| A_READY
+        A_READY -->|adopted Sandbox| A_POD
+        A_POD -->|runtime fields| A_STORE
         A_STORE -->|按 Claim identity| A_DELETE
     end
 
@@ -65,6 +69,11 @@ flowchart LR
     classDef state fill:#e1d5e7,stroke:#9673a6,color:#4c1d5f;
     classDef lifecycle fill:#f5f5f5,stroke:#666666,color:#262626;
     classDef legacy fill:#f8cecc,stroke:#b85450,color:#7f1d1d,stroke-dasharray:6 4;
+    classDef beforeDiff stroke:#c2410c,stroke-width:2.5px;
+    classDef afterDiff stroke:#15803d,stroke-width:2.5px;
+
+    class B_POOL,B_ADOPT,B_IDENTITY,B_READY,B_POD,B_STORE,B_DELETE beforeDiff;
+    class A_POOL,A_ADOPT,A_IDENTITY,A_READY,A_POD,A_STORE,A_DELETE afterDiff;
 
     style BEFORE fill:#fffafa,stroke:#b85450,stroke-width:2px
     style AFTER fill:#f7fcf7,stroke:#82b366,stroke-width:2px
