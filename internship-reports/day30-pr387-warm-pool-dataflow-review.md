@@ -1534,3 +1534,100 @@ ok  github.com/volcano-sh/agentcube/pkg/workloadmanager  0.141s
 对照说明 dynamic client 会取消 HTTP request，前提是 deadline 真正存在于传给 GET 的 context。因果证据由源码 E1 提升到 production-equivalent HTTP/client-go boundary 的 E3；分类仍是 **reachable latent bug**，不是声称生产集群已经发生事故。完整原始结果见 [`15-claim-read-deadline-reproduction.txt`](benchmarks/day30-pr387-warmpool-flow/15-claim-read-deadline-reproduction.txt)。临时测试随后删除，PR worktree 恢复 clean。
 
 > 分析：这个复现同时验证了两种失败结果。第一，internal timeout 不会中断 in-flight I/O；第二，晚到的 Ready 结果还能绕过已经到期的 timer，因此问题不只是“最多多等两秒”，而是 deadline 合同本身没有成为 success commit gate。
+
+## 2026-07-15：Claim readiness deadline 修复与回归闭环
+
+### 修复决策与范围
+
+用户确认把复现后的最小修复推回 PR #387。本轮继续使用临时验证分支
+`fix/pr387-claim-deadline-validation`，没有把 #433 正在讨论的 auth/RBAC
+设计、独立 cleanup debt 或其他 `handlers.go` 测试缺口带入当前改动。
+
+实现保持原有 2 分钟产品合同，但把它从只能在循环尾部观察的 timer 改成真正进入
+I/O 边界的 context：
+
+1. 用 `context.WithTimeoutCause` 为完整 Claim readiness wait 派生 context；
+2. Claim GET 和 adopted Sandbox GET 都使用该 context；
+3. internal deadline 精确映射为 `errSandboxCreationTimeout`，父 context 的显式取消和
+   deadline 仍分别返回 `context.Canceled` 与 `context.DeadlineExceeded`；
+4. 每次同步 GET 返回后检查 deadline，并在 Ready success return 前再次检查，拒绝迟到
+   Ready；
+5. 通过私有 `waitForClaimSandboxReadyWithTimeout` 注入测试 timeout，没有新增公开 API、
+   `Config` 字段或可变 package global。
+
+> 注释：`context.WithTimeoutCause` 让同一个 `Done` 信号保留“为什么结束”。这里不能把
+> internal timeout 一律当作 `context.DeadlineExceeded`，因为 HTTP 层原有合同需要把父请求
+> deadline 与 Sandbox 自身 readiness timeout 分开记录；两者虽然都返回 504，但日志和错误
+> 文案不同。
+
+> 分析：success gate 与 request cancellation 解决的是两个相邻但不同的问题。把 deadline
+> 传给 client-go 可以及时中断正常实现；Ready 返回前再检查一次，则防止忽略 context 的 fake、
+> adapter 或边界竞态提交迟到结果。
+
+### 回归测试矩阵
+
+新增测试不是把真实 2 分钟 sleep 搬进 CI，而是用 250ms 私有 timeout 驱动真实
+`dynamic.Client` 与 `httptest.Server`：
+
+| 场景 | 证明的合同 |
+| --- | --- |
+| Claim GET 阻塞 | internal deadline 会取消实际 HTTP request，并返回 Sandbox timeout sentinel |
+| adopted Sandbox GET 阻塞 | 第二次 live GET 也使用同一个 wait context，不会只修第一跳 |
+| parent deadline 先发生 | 返回 `context.DeadlineExceeded`，不误报 Sandbox timeout |
+| parent 显式 cancel 先发生 | 返回 `context.Canceled`，保留客户端断开语义 |
+| fake 在 deadline 后返回 Ready | 即使边界不配合取消，也不能提交迟到 success |
+
+focused suite 连续 3 次通过；独立只读审计又执行 focused `-count=10`、focused race、
+完整 `pkg/workloadmanager`、`go vet`、格式和 diff 检查，未发现阻塞问题。审计认为这五个
+场景不可互相替代，约增加 0.85 秒 package test 时间，换取的是两个 I/O 边界和三类退出语义
+的明确回归保护。
+
+### 本机验证与环境边界
+
+候选提交通过：
+
+```text
+focused Claim deadline suite -count=3                 PASS
+go test ./pkg/workloadmanager -count=1                PASS
+go test -race ./pkg/workloadmanager -count=1          PASS
+go test <all packages except test/e2e> -count=1       PASS
+go test ./test/e2e -run '^$' -count=1                 PASS; compile only
+make lint                                             PASS
+make fmt-check                                        PASS
+go vet ./...                                          PASS
+make gen-check                                        PASS; generated tree clean
+make build-all                                        PASS
+git diff --check                                      PASS
+```
+
+`make test` 本身会运行 live `test/e2e`，本机没有 kubeconfig，也没有部署在
+`localhost:8080/8081` 的 WorkloadManager/Router，因此该部分分别报
+`no configuration has been provided` 与 `connection refused`。随后排除 live E2E 的全 Go
+测试和 E2E compile-only 均通过；这次失败被记录为环境前置条件缺失，不冒充产品回归。
+
+> 注释：compile-only 只能证明 E2E 包、依赖和类型合同可编译，不能替代 GitHub workflow
+> 在真实 cluster 中执行的 warm-pool lifecycle。最终是否 ready 仍要绑定新 commit 的 official
+> E2E checks，而不是沿用旧 SHA 的绿色结果。
+
+### 单提交推送
+
+修复 amend 进原有 DCO commit，PR 继续保持一个提交：
+
+- 旧 head：`baebe09c878c85f8d0b087378792ceb7c33f8c8d`；
+- 新 head：`95fae1f8eab0e9e289a6467f014ca4e96ccc86e5`；
+- parent / merge base 仍是 `3de1272d5243edcce93fb42bf25aef0e9c151609`；
+- commit subject 与 signoff 保持不变。
+
+push 前重新 fetch fork，远端仍精确等于 `baebe09c`；随后使用显式旧 SHA lease 更新
+`origin/feat/agent-sandbox-latest`。因此这次 history rewrite 不会覆盖其他人的新 push。本轮只
+更新 fork PR head，没有向 upstream remote push，也没有自动回复/resolve review thread、请求
+review 或修改 #433。
+
+GitHub 对 exact head `95fae1f` 的 official checks 最终 12/12 success。普通 E2E 在
+7m53s 后通过，CodeInterpreter E2E 在 9m28s 后通过；coverage、lint、build、copyright、
+codegen、codespell、Python lint/SDK、workflow approval 和 DCO 也全部成功。PR 回读仍是
+1 个 commit、`MERGEABLE`；`mergeStateStatus=UNSTABLE` 只因为 Tide 缺 `lgtm` / `approved`。
+
+Codecov 报告整项 PR patch coverage 为 `80.92%`、project coverage 为 `59.90%`，coverage
+check 成功。push 后 Copilot 自动 review 因 quota 用尽没有生成 code finding；本轮没有把 bot
+状态提示误当作 maintainer feedback，也没有自动重试 review。
