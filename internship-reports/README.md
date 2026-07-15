@@ -14,6 +14,8 @@
 - [Week 1 周会汇报：AgentCube 调研、测评与 Codex 协作](week1-summary.md)
 - [Week 2 总结：从写代码转向审代码与工程判断](week2-summary.md)
 - [Week 3 总结：从功能适配转向 Session Runtime Control Plane](week3-summary.md)
+- [Week 4 总结：从架构方向讨论走向可验证的工程闭环](week4-summary.md)
+- [Week 5 总结：从构建与 CI 维护走向版本适配和架构 Review](week5-summary.md)
 - [Day 1：跟着 Getting Started 跑通 AgentCube](day1-getting-started.md)
 - [Day 2：从编程语言和技术栈理解 AgentCube 的实现](day2-implementation-tech-stack.md)
 - [Day 3：从跑通架构到运行真实 Agent 工作流](day3-real-agent-workflow.md)

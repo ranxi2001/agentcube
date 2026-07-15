@@ -30,7 +30,7 @@
 - Diagram rule：`AGENTS.md` 已新增 `Diagram and Image Generation Guidelines`。Linux 上架构/控制流/状态机/proposal review 图默认用 Mermaid；draw.io 只在需要可编辑画布或复杂布局时用；GPT image draw 用于精致 raster、中文信息图、banner、报告视觉图。精确架构和 review 推理仍以 Mermaid / prose 为准。
 - Draw.io skill sync：2026-07-15 已将 Karmada intern worktree `58761535f08a` 的 `drawio-skill` 精确镜像到本仓库，共 62 个文件；skill metadata、Python compile、JSON/gzip、CLI help、workflow import、现有图校验和 Draw.io -> Mermaid 冒烟均通过。本机缺可选 Graphviz `dot`。持久容器 `agentcube-drawio-pr431` 已安装 draw.io CLI `30.3.11` + xvfb/libasound2，并按用户要求保留供后续导出，不要删除。
 - Project Mermaid skill sync：2026-07-15 已从 Karmada intern worktree `8803dc6` 安装 `.agents/skills/project-mermaid/`，共 8 个文件；仅规范化两个模板的多余 EOF 空行以通过 `git diff --check`，其余内容与源一致。Renderer Python compile/CLI help 通过；使用固定 `@mermaid-js/mermaid-cli@11.16.0` 的显式 npx backend，data-flow 与 sequence 两个模板实际渲染和视觉检查均通过。后续数据流、时序、重试和小型生命周期图优先使用该 skill 的 canonical `.mmd` + PNG 工作流。
-- Weekly report workflow：已迁移到独立本机仓库 `/home/intern-week-mail`，GitHub remote 为 private；唯一 skill source 是该仓库的 `.agents/skills/write-weekly-report-email/`。岗位为“云原生开源实习生”，与真实身份一起只在 ignored `.env` 配置，不得从原始 CCE 示例推断；最终 HTML/subject 允许仅在该 private repo 的 `output/` 版本化。2026-07-10 Week 5 验收稿已按原 Word 六列 `71/350/101/297/79/54pt` 固定网格重新生成，结构校验与 Playwright 截图通过，尚未授权发送邮件。
+- Weekly report workflow：已迁移到 private repo `/home/intern-week-mail`；身份只从 ignored `.env` 注入。2026-07-15 新增 Week 4/5 双层总结：第一层用于公司成果提炼，第二层保留工程学习、失败和证据；Week 5 源数据已按 GitHub 回读把 #431 从 2/2 校准为 3/3 review 点，并区分已验证的默认 AgentRuntime mTLS 与未验证的 direct WorkloadManager harness。现有 HTML 尚未按新源重渲染，也未授权发送。
 
 ## Active Upstream Threads
 
@@ -82,7 +82,7 @@
 - For agent-sandbox v0.5.x: keep separate from #387. Clean follow-up only after official scope decision; disclose clean-install evidence and old CRD storedVersions migration gap.
 - For benchmark work: only run tests current environment supports; record OS/kernel/glibc/CPU/K8s/runtime and distinguish local measured data from inference.
 - For diagrams/reports: 数据流、时序、重试和小型生命周期图使用 `$project-mermaid`，保留 canonical `.mmd` 与生成 PNG；复杂架构/泳道/精确布局使用 draw.io，presentation visuals 使用 GPT image draw，并按 day prefix 保存资产。
-- For the Week 5 email: review `/home/intern-week-mail/output/week5/week5-weekly-report-email.html`; do not send until recipients, CC, subject, final body, and attachments receive explicit approval.
+- For the Week 5 email: 先按已校准源数据重新渲染并 review `/home/intern-week-mail/output/week5/week5-weekly-report-email.html`；未逐项确认 recipients、CC、subject、final body 和 attachments 前不得发送。
 
 ## Stop Conditions
 
