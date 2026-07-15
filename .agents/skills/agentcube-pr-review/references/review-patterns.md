@@ -149,6 +149,36 @@ Evidence labels:
 - Validation: Trace actor → pain → outcome back to the parent issue; compare feature and component names with their full responsibilities; search current related discussions for renamed/deprecated concepts; verify protocol links against primary upstream documentation before reviewing implementation detail.
 - False-positive guard: Temporary implementation names are acceptable in an explicitly internal spike that cannot become public API, documentation, CLI, metrics, or long-lived component vocabulary.
 
+### Public API fields need a current owner and distinct behavior
+
+- Trigger: A proposal adds overlapping selectors, duplicate configuration paths, informational-only spec fields, or fields reserved for unspecified future behavior.
+- Hidden assumption: Keeping an extra field is cheap and future flexibility justifies an input that no current component consumes.
+- Failure mode: The API gains two sources of truth, undefined precedence, inert desired state, and compatibility obligations before a supported behavior exists.
+- Evidence source: `MAINTAINER` and `CODE`, AgentCube PR #431 asked why both `Selector` and `NodeSelector` existed and whether users should provide `NodeCtlEndpoint` when the runtime actually obtains it from host startup configuration; the author acknowledged that `NodeSelector` was redundant.
+- Review question: Who sets, reads, validates, and reconciles this field today, what distinct supported behavior does it enable, and how do related fields compose or conflict when both are set?
+- Validation: Build a field-to-writer-to-consumer matrix, trace unset and conflicting values through the actual control path, and remove fields that have no authoritative consumer.
+- False-positive guard: Separate fields are valid when they model orthogonal axes with explicit owners, defaults, precedence, and current supported behavior. Keep hypothetical future modes in non-normative design notes until their contract is ready.
+
+### Open Kubernetes dimensions should use native extensible types
+
+- Trigger: A Kubernetes-facing API hardcodes CPU/memory, device classes, topology keys, conditions, selectors, or another dimension whose valid names can expand.
+- Hidden assumption: The first supported members form a closed set and adding another field later is harmless.
+- Failure mode: GPU, hugepages, vendor resources, or future platform values require schema/client/version changes and parallel conversion logic even though Kubernetes already defines an extensible representation.
+- Evidence source: `CODE` and `DOC`, AgentCube PR #431 hardcoded CPU and memory in `ResourcePolicy`; a live maintainer review proposed `corev1.ResourceList`, whose contract is a map from `ResourceName` to `resource.Quantity`. The PR-level design decision remains pending.
+- Review question: Is this dimension intentionally closed, or will every new Kubernetes value require an API change, and does a native Kubernetes type already preserve the required validation and extension model?
+- Validation: Exercise at least one non-default native value such as an extended resource key, then apply project-specific validation only where the current implementation truly lacks support.
+- False-positive guard: Explicit typed fields are preferable for a genuinely closed set whose members have different semantics, ownership, or validation. Do not replace a clear contract with an arbitrary map merely for hypothetical extensibility.
+
+### Self-healing must preserve invariants through the recovery window
+
+- Trigger: A design claims self-healing by periodically recreating a manifest, control object, reservation, lock, route, or runtime process after deletion or failure.
+- Hidden assumption: Eventual restoration of desired state means the protected invariant remained true throughout recovery.
+- Failure mode: During detection and repair, capacity or ownership becomes visible to another actor; that actor consumes it, and the recreated resource can no longer be admitted or can conflict with the new state.
+- Evidence source: `CODE` and `INFERENCE`, a live maintainer review on AgentCube PR #431 traced how manifest self-healing could recreate a deleted Static Pod manifest only after kubelet had stopped the Pod and freed scheduler-visible reservation. The author classified the mutation as an unsupported constraint, so the PR-level guarantee remains unresolved.
+- Review question: Between failure detection and recovery completion, what state becomes visible or free, who may act on it, and can recovery still succeed after that competing action?
+- Validation: Inject the supported failure, introduce the realistic competing action during the gap, assert the invariant at each stage, and verify convergence or a clearly surfaced terminal/degraded state.
+- False-positive guard: If privileged destructive mutation is explicitly outside the supported contract, document that limitation and stop claiming continuity for it. Simple recreation is sufficient when an independent reservation or admission fence remains intact throughout the gap.
+
 ### Validate the problem before accepting the patch
 
 - Trigger: A PR is labeled as a bug/regression or adds a test for a claimed failure.
@@ -184,10 +214,10 @@ Evidence labels:
 - Trigger: A controller periodically probes health or derives status/conditions from an external system.
 - Hidden assumption: Rewriting status every reconcile is harmless and error handling can share the unhealthy-state path.
 - Failure mode: API-server churn, noisy watches, lost error distinction, incorrect transition timestamps, or a controller that waits/requeues without an explainable state contract.
-- Evidence source: `MAINTAINER`, Karmada #59 required error paths to return/requeue separately, unhealthy paths to update only the needed condition, status comparison before write, and explanation for finalizer waiting; Karmada #62 required logs for delayed readiness and useful resource identity.
-- Review question: Which observation is an error versus a valid unhealthy state, what transition changes status, who owns requeue timing, and can an operator identify the affected object from logs/events?
-- Validation: Table-test unchanged, changed, unhealthy, transient-error, deletion, and restart cases; assert status writes and transition times only change when intended.
-- False-positive guard: Periodic heartbeats may intentionally write on a fixed cadence when freshness is itself the contract; isolate that field from unrelated status churn.
+- Evidence source: `MAINTAINER`, Karmada #59 required error paths to return/requeue separately, unhealthy paths to update only the needed condition, status comparison before write, and explanation for finalizer waiting; Karmada #62 required logs for delayed readiness and useful resource identity. A live AgentCube #431 review questioned per-node 30-second CR status writes at thousand-node scale and asked whether to reuse kubelet's Lease-based heartbeat model; that design decision remains pending.
+- Review question: Which observation is an error versus a valid unhealthy state, what transition changes durable status, who owns requeue timing, is freshness better represented by a compact Lease, what is the `object count / interval` write rate, and can an operator identify the affected object from logs/events?
+- Validation: Table-test unchanged, changed, unhealthy, transient-error, deletion, and restart cases; assert status writes and transition times only change when intended. For liveness, validate Lease renewal, expiry detection, RBAC/identity, jitter, and the target-scale API write budget.
+- False-positive guard: Periodic status heartbeats may be correct at bounded scale or when the complete status must be renewed atomically and the load is measured. Lease carries freshness, not durable conditions or full observed state.
 
 ### Search for existing ownership before adding mechanism
 

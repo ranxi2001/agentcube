@@ -62,6 +62,8 @@
 - Define the authoritative status writer and use `observedGeneration` when required.
 - Verify GVK, GVR, pluralization, namespace scope, and TypeMeta/ObjectMeta handling.
 - Check JSON tags, `omitempty`, pointer optionality, validation/default markers, list/map semantics, and enum values.
+- For every public API field, require comments to state meaning, writer, optional or required behavior, mutability, default or zero-value semantics, and precedence with related fields. Keep field-local validation close to the field while documenting cross-object or identity checks with the webhook contract.
+- For open-ended Kubernetes dimensions such as resource names, prefer native extensible types such as `corev1.ResourceList` unless the domain is deliberately closed and each typed field has distinct semantics.
 - Check finalizers, owner references, controller/block-owner flags, and deletion timestamp behavior.
 - Use UID for object continuity and generation/resourceVersion for freshness/concurrency where names are insufficient.
 - API type changes normally require `make gen-all`, CRD manifests, deepcopy/client updates, RBAC review, and compatibility tests.
@@ -80,6 +82,7 @@ Trace:
 - delete, finalizer, owner-reference GC, and Store/index cleanup;
 - controller/process restart and reconciliation;
 - duplicate, delayed, or reordered events.
+- self-healing recovery gaps: identify what becomes visible or available between failure detection and restoration, which competing actor may act, and whether restoration can still succeed afterward.
 
 Concurrency checks:
 
@@ -90,6 +93,7 @@ Concurrency checks:
 - Check timer/ticker stop and drain behavior.
 - Ensure idempotency under retries and duplicate reconciliation.
 - Distinguish fresh API reads from semantically fresh observations; a GET can still return status for an old generation.
+- Separate ephemeral liveness from durable semantic status. Estimate heartbeat write QPS as `object count / interval`, consider Lease for compact renewals, and keep CR status writes for meaningful transitions unless measured requirements justify otherwise.
 
 ## Errors, context, and resources
 

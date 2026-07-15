@@ -515,3 +515,157 @@ Production-equivalent regression:
 ```
 
 只有这张卡能闭合 production path，才进入 bug issue 或 blocking finding 写作。
+
+---
+
+## 追加学习：PR #431 第二轮从 API Freeze 继续向恢复与规模推进
+
+### 证据边界
+
+2026-07-15 再次同步 [AgentCube PR #431](https://github.com/volcano-sh/agentcube/pull/431) 的完整 discussion、review comments、current proposal 和 checks。本轮固定证据为：
+
+- head `f380208b94ed9ff0ddb8e68f66aed24c7f6d4672`，base `fa254b15fec43480a343a60cdf5773156c72b80a`；
+- PR `OPEN / MERGEABLE`，没有 `lgtm`、`approved` 或正式 review decision；
+- `@RainbowMango` 发起的 17 个 root threads 中，8 个 current-diff unresolved、1 个 outdated unresolved、8 个 resolved；
+- 7 月 15 日新增的 8 条 current thread 全部围绕 API 字段、Kubernetes 原生类型、字段合同和节点 runtime 前置条件；
+- 旧 manifest/status thread 虽被 UI 标记 resolved，Mango 的最新追问仍暴露了 recovery gap 和 heartbeat scale 两个未闭合设计问题。
+
+> 注释：GitHub 的 `resolved` 只表示对话被折叠，不表示 reviewer 已接受正文，更不等于整个 PR 获得批准。本轮作者自行 resolve 了若干仍有技术分歧的 thread，因此必须回读当前正文、最后回复和 review decision 三项证据。
+
+### Review 关注点为什么发生了变化
+
+第一轮 review 先修 proposal front door：功能名、管理员动机、组件名、外部协议链接和 Phase/manifest 基本解释。第二轮开始审查这个设计能否形成长期 API：字段是否正交、是否有真实 consumer、是否复用 Kubernetes 已有语义，以及故障恢复和心跳在大规模下是否仍保护原目标。
+
+```mermaid
+flowchart LR
+    A[Proposal front door<br/>actor pain outcome vocabulary] --> B[API field agency<br/>writer reader default precedence]
+    B --> C[Native model reuse<br/>LabelSelector ResourceList RuntimeClass]
+    C --> D[Recovery invariant<br/>state visible during repair gap]
+    D --> E[Scale channel<br/>durable Status vs ephemeral Lease]
+    E --> F[Only then consider API freeze / LGTM]
+```
+
+> 分析：这不是从“重要问题”退化成“字段命名”。一个 `v1alpha1` 字段进入 CRD 后会传播到 OpenAPI、generated client、RBAC、controller、upgrade 和用户配置。API freeze 前删除冗余字段，比实现后背兼容债务更便宜。
+
+### 方法一：每个公共字段必须拥有独立的行为能力
+
+Mango 先问 [`Selector` 与 `NodeSelector` 的关系](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584268549)。`metav1.LabelSelector` 已包含 `matchLabels` 和 `matchExpressions`，额外 `map[string]string` 没有定义 AND/OR、优先级、冲突或独立 owner。作者明确承认这是 redundant design，但当前 head 尚未修改。
+
+随后他问 [`NodeCtlEndpoint` 是否真的应由用户填写](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584330267)。proposal 自己说明真实地址来自 host 启动参数 `--node-ctl-socket`，spec 字段只是 informational/future。这个字段没有 authoritative consumer，却让用户误以为修改 CRD 能改变运行时 endpoint。
+
+以后看到 proposal API 字段，先填：
+
+```text
+Field:
+Authoritative writer:
+Current reader / reconciler:
+Distinct behavior enabled:
+Unset / zero / nil behavior:
+Related-field precedence or conflict:
+Why this must be public now:
+```
+
+只有 distinct current behavior 成立，字段才值得进入 API。未来设想可以写在 non-normative design note，不应先占一个 inert spec 字段。
+
+### 方法二：开放维度先找 Kubernetes 原生扩展类型
+
+当前 `ResourcePolicy` 把 CPU 和 memory 写成两个字段。Mango 指出它不能自然表达 GPU、hugepages 或 vendor resource，并建议使用 [`corev1.ResourceList`](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584314319)。本地 `go doc` 验证其定义为：
+
+```go
+type ResourceList map[ResourceName]resource.Quantity
+```
+
+作者用“未来可能支持百分比”解释保留 `ResourcePolicy` 名称，但没有回答 ResourceList 扩展性。绝对量和百分比是两种不同合同：后者还需要基数、舍入、上下界、Node capacity 变化后的重算与互斥规则。不能用一个模糊名字代替模式设计。
+
+> 分析：原生类型优先不是机械复用。若维度确实是封闭集合，而且每个字段有不同 ownership、validation 或 lifecycle，显式字段更清楚；只有当新 Kubernetes resource name 会迫使 schema/client 每次升级时，`ResourceList` 才是正确的扩展模型。
+
+### 方法三：Self-healing 要检查恢复窗口，而不只是最终状态
+
+作者为 manifest 删除增加了定期重写，但 Mango 继续沿时间线检查：kubelet 发现 manifest 消失后会立即停止 Static Pod，scheduler-visible reservation 随之释放；普通 Pod 可能先占用容量，随后恢复的 Static Pod 反而 admission 失败。详见 [manifest recovery thread](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585155189)。
+
+作者回复这是 destructive operation constraint。这个回答可以形成一种边界，但必须二选一：
+
+- 若支持 manifest self-healing，就要说明恢复窗口如何保持 reservation，或如何进入可观测的 degraded/terminal 状态并安全恢复；
+- 若手工删除 manifest 明确不受支持，就应删除“与 mirror Pod 一样自动恢复”的连续性承诺，把它写成限制。
+
+> 注释：eventual convergence 只证明最后重新出现了对象；它没有证明中间的容量、ownership、identity 或 admission 不变量一直成立。
+
+通用检查顺序是：
+
+```text
+failure -> detection delay -> visible intermediate state
+        -> competing actor action -> repair attempt
+        -> repair admission/conflict -> final invariant
+```
+
+### 方法四：按语义和频率选择状态通道
+
+proposal 让每个 node agent 每 30 秒 SSA Apply Pool status。规模为 `N` 个节点时，仅 heartbeat 就是约 `N / 30` writes/s；1 万节点约 333 writes/s，还未计算 controller sweep、condition transition 和 watch fan-out。
+
+作者说机制“类似 kubelet”，Mango 进一步追问为何不复用 kubelet 的 [`Lease` heartbeat](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585166678)。Kubernetes 官方 [Lease 文档](https://kubernetes.io/docs/concepts/architecture/leases/) 明确说明 kubelet 用 `coordination.k8s.io/Lease.spec.renewTime` 传递 node liveness。
+
+可复用的拆分是：
+
+- Lease：高频、紧凑、短生命周期的 liveness/freshness；
+- CR status：`Ready`、`Degraded`、resource applied、failure reason 等语义转换；
+- controller：负责 Lease expiry 的时间驱动重算，因为“时间过去”本身不一定产生 watch event。
+
+Lease 不是无条件答案。仍需定义 name/namespace、RBAC、per-node identity、renew jitter、expiry threshold 和规模预算；若目标规模小，或完整 status 必须原子续约且实测负载可接受，status heartbeat 仍可能合理。
+
+### 方法五：作者回复与 UI 状态都必须二次验证
+
+这轮有三个清楚的互动样本：
+
+1. 作者对 component rename 给出“等待更广讨论”的合理 scope 解释，Mango直接回复 `Fair enough`，没有为了坚持建议继续拉扯。
+2. 作者说 containerd Task v2 reference 已 `done`，Mango实际打开后发现是 [dead link](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585039966)。当前有效的上游入口是 [containerd runtime v2](https://github.com/containerd/containerd/blob/main/docs/runtime-v2.md)。
+3. 多个 thread 被 resolve，但 Lease、manifest recovery 和 deprecated `node-ctl` vocabulary 仍无闭合答案。
+
+因此 review loop 应使用：
+
+```text
+author reply -> current diff -> actual link/test/runtime contract
+             -> reviewer acceptance or remaining disagreement
+```
+
+不能使用：
+
+```text
+author says done OR thread resolved -> assume fixed
+```
+
+### RuntimeClass 回答的精确边界
+
+作者回答“无需修改 kubelet configuration，因为 shim 注册在 containerd”方向基本正确，但“不需要 kubelet 特殊配置”不等于“不需要节点前置条件”。Kubernetes 官方 [RuntimeClass 文档](https://kubernetes.io/docs/concepts/containers/runtime-class/) 要求：
+
+- Node 的 CRI implementation 先配置对应 handler；
+- cluster 创建匹配的 RuntimeClass object；
+- kubelet 根据 `runtimeClassName` 选择 handler，并通过 CRI 传给 container runtime。
+
+因此 proposal 仍应说明 containerd handler、shim binary、daemon、RuntimeClass object、目标 Node readiness/label 和真实 kubelet+containerd spike。这个结论属于节点安装合同，不是说 kubelet 要增加一个 AgentCube 专用配置项。
+
+### 对 Review Skill 的增量
+
+本轮没有扩张主 `SKILL.md`，只更新按需 reference：
+
+- `maintainer-review-methods.md`：增加 API field agency、native type search、Lease cadence、恢复窗口和 resolved-thread 复核；
+- `agentcube-review-checks.md`：增加完整字段合同、开放维度、self-healing gap 和 liveness/status 分离检查；
+- `review-patterns.md`：新增 public field agency、native extensible type、recovery-window invariant 三个模式；
+- 现有 `Status reconciliation should write only meaningful transitions` 合并 Lease/QPS 增量，不再创建重复 pattern。
+
+没有把 `PlaceholderPod` 命名、单次 RuntimeClass 回答或 selector immutable 理由各自建成模式：这些仍可由 API naming、limitations 和 lifecycle gates 覆盖，且部分 thread 尚未收敛。
+
+### 过程阻塞与并行安全
+
+本轮出现四个需要保留的过程信号：
+
+1. 直接打开 GitHub PR 页面返回 `TimeoutError`；改用本地 `thread_brief.py`、GitHub REST/GraphQL 和 `gh pr view` 获取权威 conversation/state。
+2. `git fetch upstream refs/pull/431/head:refs/remotes/upstream/pr/431` 因作者 force-push 返回 non-fast-forward rejection；只对专用 remote-tracking ref 使用显式 `+refs/pull/431/head:...`，没有切换或改写工作分支。
+3. `gh pr view` 不支持 `baseRefOid` 字段；改用 REST PR 对象的 `.base.sha`，没有从 merge state 猜基线。
+4. 工作树中出现另一条并行任务正在修改 Day44 #431 报告并生成 draw.io 资产。本轮不修改、不删除、不暂存这些文件，只更新 Day46 与 review skill，避免覆盖并行成果。
+5. 首次用 `python3 -m unittest .agents.skills.agentcube-pr-review...` 运行测试时，带连字符的目录无法成为 Python module，报 `ValueError: Empty module name`；改为直接执行两个 `test_*.py` 文件，2 个 history tests 与 4 个 surface tests 全部通过。
+
+### 当前结论
+
+Mango 的最新 review 尚未完成，不能写成 maintainer consensus 或 LGTM。当前 proposal 可以继续做 CRD/controller happy-path 骨架和 runtime feasibility spike，但现有 selector/resource/endpoint/comment contract、manifest recovery guarantee 和 heartbeat channel 仍不足以冻结完整 `v1alpha1`。
+
+我们的学习重点不是复制他的短句，而是复制证据顺序：先问字段是否有 agency，再找成熟原生模型；对“自愈”追完整恢复窗口；对高频状态先算规模成本；最后回读实际产物而不是信任 `done` 或 resolved UI。
