@@ -1241,7 +1241,7 @@ flowchart LR
 | 问题 | `f380208` 当前文本 | 判断 |
 | --- | --- | --- |
 | double `pool` feature name | title/H1 改为 `Sandbox Resource Pool Management` | resolved |
-| containerd authoritative reference | 增加 containerd Task v2 README 链接 | resolved at proposal entry |
+| containerd authoritative reference | 增加 containerd Task v2 README 链接，但该 URL 后续被 maintainer 实际打开并确认 404 | `UNRESOLVED_OUTDATED`；应替换为有效官方入口 |
 | administrator motivation | 增加 dedicated capacity、node pressure 与 regular Pod competition 场景 | materially improved |
 | accidental manifest deletion | 增加 agent periodic manifest self-healing，CRD 为 desired source of truth | current-diff maintainer thread 仍等待确认 |
 | Static Pod priority | `PriorityClassName` 改为 numeric `Priority *int32` | our thread resolved |
@@ -1267,6 +1267,176 @@ GitHub GraphQL 在 `f380208` 上返回 85 个 review threads，其中 6 个是 c
 PR 比 `c2f2502` 明显更完整，Static priority、orphan cleanup、agent recovery shortcut 和 node conflict 已实质收敛；但仍不具备完整 v1alpha1 freeze 条件。最关键的 implementation blockers 是 resize 调用顺序/node-ctl continuity、Phase aggregate predicate、status scalability budget 和 per-node identity provisioning。
 
 本轮没有发布 upstream comment、review、mention 或 branch push。已有 current-diff threads 足以覆盖主要问题；下一步等待 maintainer/作者在这 6 条 active thread 上继续收敛，避免重复评论。
+
+## 2026-07-15 最新 8 条 Review：从故障流转向 API Freeze
+
+### 最新快照与一句话结论
+
+本轮再次同步 PR #431 的完整 GitHub conversation、current-diff review threads、proposal 正文和 checks。证据边界固定为：
+
+- PR head：`f380208b94ed9ff0ddb8e68f66aed24c7f6d4672`；
+- PR 最后更新时间：2026-07-15 15:29 CST；
+- 93 个 review threads，其中 8 个 current-diff active、1 个 unresolved outdated；
+- 8 个 active thread 全部来自 collaborator `@RainbowMango`；作者回复 3 条，另外 5 条尚无回复；
+- 11 个 check runs 全绿，`mergeable=true`；Tide 仍缺 `lgtm` 和 `approved`；
+- 本轮没有发布 comment、review、mention 或任何其它 upstream 写操作。
+
+**一句话结论：最新 review 不再主要追问旧 failure path，而是在阻止一个尚未闭合的 Kubernetes `v1alpha1` API 与节点安装合同被提前冻结。** Reviewer 要求删除冗余或不会生效的字段、使用 Kubernetes 原生可扩展类型、把字段 ownership/default/mutability 写成可实现合同，并澄清 RuntimeClass 的真实节点前置条件。
+
+> 注释：`active thread` 表示 GitHub 上当前 diff 尚未 resolve 的对话，不等同于 maintainer 已给出正式 blocking severity。下面的“freeze gate”是基于接口兼容性和实现依赖做出的工程判断，不冒充 reviewer 标签。
+
+### 八条最新 Thread 到底在问什么
+
+| Thread | Maintainer 问题 | 作者当前响应 | 当前收敛度 | 真正保护的合同 |
+| --- | --- | --- | --- | --- |
+| [Selector immutable](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584260262) | 为什么 `Selector` 必须 immutable，担心的变化是什么？ | 无回复 | Open | Class 选择范围变化时，新增/移除 Node 与 per-node Pool 的生命周期 |
+| [Selector / NodeSelector](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584268549) | 为什么同时保留两个节点过滤器，二者是什么关系？ | 承认冗余，表示会修改 | 方向一致，尚未 push | 节点选择只有一个语法和 source of truth |
+| [ResourceList / ResourcePolicy](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584314319) | CPU/Memory 硬编码不可扩展，为什么不用 `corev1.ResourceList`；这个类型是否真的叫 policy？ | 希望为未来百分比策略保留名称 | 仍有实质分歧 | Kubernetes resource name、Quantity、extended resource 与未来 percentage mode 的兼容模型 |
+| [PlaceholderPod field](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584321708) | 建议收敛为 `PlaceholderPod *PlaceholderPodTemplate` | 无回复 | Open | 对外 JSON/Go 字段名、nil/default 和模板 ownership |
+| [NodeCtlEndpoint](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584330267) | 用户是否真的需要提供 node-ctl endpoint；若不消费就应删除 | 无回复 | Open | desired API 与 host runtime config 之间只能有一个 authority |
+| [Field comments](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584355665) | `SandboxPoolSpec` 及子类型注释太薄 | 无回复 | Open | 每字段 meaning、writer、required/optional、default、immutability 和 edit policy |
+| [RuntimeClass constraint](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584380967) | 自定义 RuntimeClass 是否要求修改 kubelet；若是则是重大部署约束 | 回答无需 kubelet 专用配置，handler 注册在 containerd | 部分回答，thread 仍 active | RuntimeClass、CRI handler、shim binary、containerd 配置和节点 readiness 的部署合同 |
+| [Validation location](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584391775) | 不要让独立 validation 表和字段定义形成两套真相 | 无回复 | Open | 字段语义、CRD schema、webhook 与文档长期不漂移 |
+
+### Active 8 条之外，15:29 CST 前又讨论了什么
+
+在上面 8 条 current-diff active thread 之后，maintainer 又回到四个旧 thread 追加消息。它们的 GitHub conversation state 与设计含义需要分开看：
+
+| 旧 Thread 的最新消息 | GitHub 状态 | 当前含义 |
+| --- | --- | --- |
+| [`placeholder-agent` naming](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585028379)：maintainer 对“等待 broader discussion 再决定改名”回复 `Fair enough.` | resolved、current diff | 维护者接受暂缓命名，不再把改名当作当前 active 问题；这不等于 `node-ctl` 新名称已经确定 |
+| [containerd Task v2 reference](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585039966)：新增链接实际是 dead link | unresolved、outdated | 这是当前唯一 unresolved-outdated thread；下一次 push 仍需换成有效 authoritative reference，不能因为锚点 outdated 就忽略 |
+| [manifest self-healing](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585155189)：manifest 删除后 kubelet 会立即停止 Static Pod、释放 scheduler reservation；重写时 regular Pod 可能已占位，Static Pod 可能 admission 失败 | resolved、current diff；作者回答应归类为 constraint | periodic rewrite 只能恢复文件，不能保证 reservation 连续。Proposal 应诚实声明故障窗口、可观测 Condition/Event 和人工恢复边界 |
+| [status heartbeat](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585166678)：maintainer 建议借鉴 kubelet，考虑使用 Kubernetes `Lease` | resolved、current diff；作者 [回复 `good suggestion`](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585301870)，尚无新 commit | 双方已对探索 Lease 的方向形成口头共识，但对象结构、RBAC/identity、renew/expiry、status 分工和规模预算尚未落入 proposal |
+
+> Reachability 分类：manifest 文件被 host 管理员、配置管理器或节点故障删除，是生产节点上可达的 destructive/operational state；proposal 的 runtime path 能证明 reservation gap 的因果链，但目前没有真实事故日志。因此这里记录为 **reachable design constraint / latent risk**，不写成 observed bug，也不因 fault injection 就宣称线上已经发生。
+
+> 注释：Kubernetes `Lease` 是轻量、独立更新的协调对象，常用于节点 heartbeat。Reviewer 的意思不是简单把 30 秒改成 60 秒，而是避免每次 liveness 心跳都重写包含大量业务状态的 SandboxPool status。
+
+这八条可以压缩成四组问题：
+
+1. **节点成员关系：**一个 `metav1.LabelSelector` 是否足够，以及 selector、Node label drift、Pool drain/delete 的边界是什么。
+2. **公共资源 API：**资源量是否采用 Kubernetes 原生 `ResourceList`，未来百分比是否作为另一个显式 mode，而不是继续把 CPU/Memory 写死在一个名字含糊的 struct 中。
+3. **字段 ownership 和 source of truth：**模板怎样从 Class 到达 Pool/agent/manifest，node-ctl socket 到底由 host bootstrap 还是 CRD 管，字段默认值和 operator override 谁负责。
+4. **RuntimeClass 部署边界：**不需要改 kubelet 专用配置，不代表目标节点不需要安装 daemon/shim、注册 containerd handler、重载 runtime 并发布 readiness。
+
+### 图 1：Review 收敛状态
+
+![PR #431 latest review convergence](day44-pr431-latest-review-convergence.drawio.png)
+
+图中左侧是 maintainer 的 8 条问题，右侧是作者回复状态。最值得注意的是：
+
+- `NodeSelector` 已达成删除方向，但新 commit 尚未落盘；
+- `ResourcePolicy` 仍存在真正的数据模型分歧，作者关于“未来百分比”的回复没有回答 GPU、hugepages 或 vendor extended resource；
+- RuntimeClass 回答了“不改 kubelet config”，但没有闭合节点 bootstrap 和失败合同；
+- 其余字段 ownership/documentation 问题尚未回复。
+
+底部五个红色 gate 是本报告的实现冻结判断，而不是 maintainer 严重级别：成员生命周期、通用资源模型、模板/socket 真相源、字段 ownership、节点 bootstrap 证据。
+
+> 分析：此前 `SP-06`、`SP-14`、`SP-16`、`SP-17` 等 thread 已不再出现在 active 列表中。这只证明对话被 resolve；它不能反向证明 resize ordering、status scalability、Ready predicate 或 identity provisioning 已经被实现或验证。旧风险继续作为 residual implementation gates 保存，但不冒充“仍有 active reviewer objection”。
+
+### 图 2：当前 API 与 Review 方向
+
+![PR #431 API contract current versus review direction](day44-pr431-api-contract-current-vs-review.drawio.png)
+
+![draw.io source](day44-pr431-latest-review-api-runtime-map.drawio)
+
+这张图把 current `f380208` 和可实现的 review direction 对照在一起。绿色表示 maintainer 方向已经清楚，黄色表示仍需要作者/maintainer 对具体模型达成一致，底部红色只表示从当前 proposal 数据流推导出的缺口。
+
+#### 1. Immutable Selector 并不能冻结真实 Node 集合
+
+Proposal 用 immutable `Selector` 避免运行中节点集合变化，但 Node label 本身仍然可变；正文甚至把“删除 Node label”作为缩小范围的操作。因此 immutable 只冻结查询表达式，不冻结查询结果。
+
+需要补的合同不是一句 `immutable`，而是：
+
+- Node 从 match 变成 non-match 时，是立即删 Pool、先 drain，还是保留到显式删除；
+- Node 新进入匹配范围时是否自动创建 Pool；
+- 空 `LabelSelector` 是否允许，以及它匹配全部 Node 时如何避免误选；
+- 若 selector 永久不可变，管理员迁移 Class 的替换路径是什么。
+
+> 注释：`metav1.LabelSelector` 本身已经同时支持 `matchLabels` 和 `matchExpressions`。另加 `map[string]string NodeSelector` 只复制了前者的一个子集；没有 AND、覆盖或冲突规则时，它是冗余 API。
+
+#### 2. 资源“绝对量”和“百分比策略”不应共用一个模糊模型
+
+当前 `ResourcePolicy {CPU, Memory}` 同时承担绝对资源量和未来百分比策略的想象空间。更稳妥的方向是：
+
+- 绝对量使用 `corev1.ResourceList`，直接继承 Kubernetes resource name 和 `resource.Quantity` 语义；
+- 百分比若确有需求，设计成显式且互斥的 mode，并定义基数、舍入、最小值、最大值和 Node capacity 变化后的重算规则；
+- Pool status 同样需要通用 applied-resource 观测，而不是只报告 memory，才能验证 desired/applied invariant。
+
+> 分析：这不是为了“泛化而泛化”。GPU、hugepages 和设备插件资源都使用 Kubernetes extended-resource key；把 public API 写死为 CPU/Memory 会形成 v1alpha1 兼容负债。作者当前回复尚未闭合这一点。
+
+#### 3. Placeholder 模板目前没有完整传播路径
+
+`PlaceholderPodTemplate` 只存在于 Class；Pool spec 没有模板 snapshot，node agent RBAC 又只读取 Pool，不读取 Class，而 Creation Flow 当前只复制 resource policy。因此 Class template 怎样成为节点 Static Pod manifest 仍缺少一段权威数据流。
+
+公开字段改名只是表面工作，真正需要决定的是：
+
+- controller 是否把模板 snapshot 到 Pool；
+- 或者 agent 是否被授权读取 Class；
+- 哪些 Pod 字段允许用户覆盖，哪些字段由 agent 强制写入；
+- nil/default 如何表达，Class 更新是否传播到既有 Pool。
+
+#### 4. NodeCtlEndpoint 是当前 desired API 中的 inert input
+
+Class 有 `NodeCtlEndpoint`，Pool 又有 `NodeCtlConfig`，但 proposal 的真实 socket 来自 host systemd 参数 `--node-ctl-socket`。若 controller/agent 从不传播和消费 spec endpoint，这些字段会让用户误以为修改 CRD 能改变连接地址。
+
+因此 review 建议删除它是 source-of-truth 修正：host bootstrap 拥有 socket，`status.nodeCtl` 可以保留为 observation。若坚持把 endpoint 暴露为 desired state，就必须补 propagation、precedence、reconcile 和不可达时的 Condition/Event。
+
+#### 5. 字段注释是 API 合同，不是装饰
+
+`SandboxPoolSpec` 的 `ClassRef`、`NodeName`、resource snapshot、operator override 等字段需要写清 writer、default、mutability 和 precedence。字段级 required/immutable/default/validation 应靠近字段定义，避免正文 validation 表、CRD OpenAPI 和 Go 注释长期漂移。
+
+这不意味着删除所有 webhook 设计。single-Class-per-node 这类跨对象约束，以及基于 Admission `userInfo` 的 per-node status identity，无法只靠字段 schema 表达，仍需单独的 authenticated admission contract。
+
+### 图 3：RuntimeClass 的真实节点合同
+
+![PR #431 RuntimeClass and node bootstrap contract](day44-pr431-runtimeclass-node-contract.drawio.png)
+
+作者“无需 kubelet-specific configuration”的回复在机制上基本正确，但容易被误读成“节点无需预配置”。真实路径是：
+
+```text
+Static Pod runtimeClassName=placeholder
+  -> kubelet resolves RuntimeClass(handler=placeholder)
+  -> CRI RunPodSandbox(runtime_handler="placeholder")
+  -> containerd selects configured placeholder handler
+  -> placeholder shim v2
+  -> agent daemon
+  -> node runtime control
+```
+
+kubelet 仍连接同一个 containerd CRI endpoint；它只把 RuntimeClass handler 放进请求。Cluster 侧首先需要 `RuntimeClass(name=placeholder, handler=placeholder)` API object；每个目标 Node 还必须提前具备：
+
+1. agent daemon 和健康端点；
+2. 与 containerd 版本兼容的 shim binary；
+3. containerd `config.toml` 中的 handler stanza；
+4. reload/restart 后的可执行性与健康验证；
+5. 只有 bootstrap 完成后才会发布的 Node readiness/label。
+
+否则会出现四类需要显式定义的失败或误路由：RuntimeClass 不存在、handler/shim 不存在；若 agent 未强制写入或默认 `runtimeClassName=placeholder`，unset 可能走默认 runtime；selector 选中未准备节点时，Pool 在 bootstrap 修复前保持 NotReady。Proposal 需要说明 Condition/Event 和 recovery 行为。真实 kubelet+containerd Node spike 是本报告提出的 Phase 2 工程门禁，不是 maintainer 在该 thread 中已经明确要求的动作。
+
+> 注释：`RuntimeClass` 是 Kubernetes 把 Pod 绑定到某一 CRI runtime handler 的 API。它不安装 runtime，也不替节点修改 containerd；平台必须先在节点完成 handler 安装配置，再让 Pod 选择它。
+
+### 当前可以做什么，什么还不能 Freeze
+
+| 实现范围 | 当前判断 | 原因 |
+| --- | --- | --- |
+| CRD/controller happy-path 骨架 | 可以继续 | 可先验证 Class→per-node Pool、fake client/envtest 和生成链路，不依赖全部字段最终命名 |
+| 完整 v1alpha1 schema freeze | 暂不应 | Selector lifecycle、ResourceList/percentage、NodeCtlEndpoint、template propagation 和字段 ownership 尚未闭合 |
+| Phase 2 runtime feasibility spike | 应尽早做 | 能独立验证 RuntimeClass/containerd/shim/daemon 的真实可达路径和失败行为 |
+| Phase 2 runtime contract freeze | 暂不应 | 缺 bootstrap 安装规范、readiness gate、版本/重载合同和 real-node 证据 |
+| 完整 v1alpha1 发布 | 未就绪 | proposal 仍无真人 `lgtm/approve`，API 和 runtime contract 都在 review 中 |
+
+### Draw.io 生成与验证记录
+
+- 可编辑源：[`day44-pr431-latest-review-api-runtime-map.drawio`](day44-pr431-latest-review-api-runtime-map.drawio)，3 页、每页 `1650×1050`；
+- 参考布局：`/tmp/karmada-intern-worktree/internship-reports/day15-issue-7621-current-proposed-flow.drawio` 的三带式布局、蓝/绿/黄/红语义色和正交连线；
+- 结构校验：`validate.py --score` 返回 `0 error(s), 0 warning(s)`；XML 解析确认 3 页；
+- 导出器：保留中的 Docker 容器 `agentcube-drawio-pr431`，draw.io Desktop CLI `30.3.11`；
+- 最终 PNG：三张均为 `1524×974`，完成 `file` 检查、逐图视觉检查和 `repair_png.py`；PNG 内嵌 draw.io 源数据，可从图片重新编辑；
+- 视觉检查：未发现文字截断、节点重叠或关键连线穿过内容节点。
+
+> 调试记录：宿主机没有 draw.io/GTK。第一次断点续传 release `.deb` 时，`curl --continue-at -` 把已有不完整下载继续追加，导致 size/digest 不匹配；删除临时残片后完整重下，SHA-256 与 GitHub asset digest 一致。容器首次启动又缺 `libasound.so.2`，安装 `libasound2` 后恢复。CLI 在 embedded PNG 使用 `-e -s 2` 时触发 draw.io 自身的 buffer 越界，最终改为原生尺寸 `-e` 并运行 skill 自带 repair 脚本。按用户要求，容器不会删除，后续可直接复用。
 
 ## 参考链接
 

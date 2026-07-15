@@ -9,9 +9,9 @@
 目标 PR：
 
 - PR: <https://github.com/volcano-sh/agentcube/pull/431>
-- Head observed: `3d1bd0d` (`add sandbox-pool management proposal`, force-pushed 2026-07-12)
+- Head observed: `f380208b94ed9ff0ddb8e68f66aed24c7f6d4672` (`add sandbox-pool management proposal`, latest observed 2026-07-15)
 - File: `docs/proposals/sandbox-pool-management/README.md`
-- Status: open; `@acsoto` 已提出一条真人 MEMBER 架构问题；普通 checks 已通过，仍缺 `lgtm` / `approved`
+- Status: open；93 个 review threads 中 8 个 current-diff active、1 个 unresolved outdated；8 条 active 均来自 `@RainbowMango`；11 个 checks 全绿，仍缺 `lgtm` / `approved`
 - Comment rule: upstream-facing text must be English; do not post without explicit user confirmation.
 
 ## 总体策略
@@ -52,7 +52,7 @@
 
 ## 剩余问题跟踪表
 
-最后同步：2026-07-13；PR head `3d1bd0d`；本表是 #431 后续 review 状态的唯一索引。详细证据和英文草稿仍保留在各 Candidate 小节。
+最后同步：2026-07-15；PR head `f380208`；本表是 #431 后续 review 状态的唯一索引。详细证据和英文草稿仍保留在各 Candidate 小节。
 
 状态约定：
 
@@ -62,6 +62,8 @@
 - `NEEDS_EVIDENCE`：只有风险信号，证据未达到评论阈值。
 - `HUMAN_THREAD`：已有真人 reviewer 讨论，我们只观察、不重复提问。
 - `PARTIAL`：正文已吸收评论方向，但执行流、权限/身份或验证合同仍未闭合。
+- `UNRESOLVED_OUTDATED`：GitHub thread 仍未 resolve，但原锚点已不在 current diff；新 head 仍要复核语义，不能只因 outdated 忽略。
+- `THREAD_RESOLVED / RESIDUAL`：GitHub 对话已 resolve，但源码或接口合同中的残余风险仍需实现或测试闭合；不能继续说 reviewer 正在等待回复。
 - `RESOLVED`：正文或作者 commit 已吸收。
 
 | ID | Priority | Topic | 当前判断 | Coverage / Status | 下一步 |
@@ -71,7 +73,7 @@
 | `SP-03` | P2 | placeholder-agent heartbeat signal | `3d1bd0d` 已增加独立 `status.placeholderAgent.lastHeartbeat`，不再混用 node-ctl heartbeat | `RESOLVED`；Candidate 3 follow-up | 不重复；超时如何触发 reconcile 另记 `SP-11` |
 | `SP-04` | P2 | Phase recovery 条件 | `f380208` 已把 `PlaceholderAgentHealthy=True -> Ready` 改为完整条件重算，解决我们评论的 shortcut；但 Pending/Unready 的 Ready exit 仍漏 `ResourceSynced/ResizeDeferred`，当前由 3 条 Copilot thread 与 maintainer Phase thread 覆盖 | `RESOLVED`（原 thread）；[follow-up](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213530) | 不在原 thread 追问；观察 current-diff Phase threads，要求统一 diagram/table/computePhase predicate |
 | `SP-05` | P1 | force-finalizer 后 orphan manifest | `f380208` 已定义 GET-by-name + UID compare；NotFound/UID mismatch 删除，transient/Forbidden/API unavailable 保留重试 | `RESOLVED`；[original](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680819)、[follow-up](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213539) | 实现时测试 NotFound、mismatch、Forbidden/transient 和 startup retry；proposal thread 不重复 |
-| `SP-06` | P2 | per-node RBAC isolation | `f380208` 增加 status webhook + authenticated per-node identity 到 `spec.nodeName` 的服务端边界，但 per-node cert/ServiceAccount provisioning 与 status subresource webhook wiring 尚未展开；thread 仍 active | `PARTIAL`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213534) | 等 reviewer 接受或作者补 identity provisioning / admission rule；不自动追评 |
+| `SP-06` | P2 | per-node RBAC isolation | `f380208` 增加 status webhook + authenticated per-node identity 到 `spec.nodeName` 的服务端边界，但 per-node cert/ServiceAccount provisioning 与 status subresource webhook wiring 尚未展开 | `THREAD_RESOLVED / RESIDUAL`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213534) | 不把 resolved thread 当作部署证据；实现前仍需 identity provisioning / admission rule 和 auth-enabled test |
 | `SP-07` | P3 | 与现有 WarmPool 路径的关系 | 作者口头说明 two-generation architecture，但正文尚未形成 Relationship / Compatibility contract | `HUMAN_THREAD`；`@acsoto` 已提问并获作者回复 | 不抢答；观察作者是否补正文、迁移/并存边界 |
 | `SP-08` | P3 | node-local validation environment | envtest 无法覆盖 systemd、Static Pod、RuntimeClass、CRI socket、cgroup、mirror rebuild，也不能证明 mirror gap 中冲突 Pod 会被 kubelet admission 拒绝 | `HOLD`；Candidate 5 | Phase 2/3 实现前要求 real-node/dedicated e2e，覆盖 rebuild 时 UID/mirror gap、conflicting Pod admit failure 和 node-ctl cgroup continuity |
 | `SP-09` | P2 | agent unreachable 后 stale Ready | 原正文没有 agent stale detection，旧 True conditions 可能长期保留 | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3549854078)，`35d361e` 已增加 `PlaceholderAgentHealthy` | 不重复；只跟踪 `SP-03` / `SP-04` 的后续精度问题 |
@@ -79,10 +81,20 @@
 | `SP-11` | P1 | heartbeat timeout reconcile trigger | `c2f2502` 增加 heartbeat-expiry `RequeueAfter` 和 30s full Pool sweep，并补无事件 fault-injection test | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680816)、`c2f2502` | 实现时验证 leader switch/restart 不丢 timer；proposal thread 不重复 |
 | `SP-12` | P1 | per-node Class uniqueness race | `c2f2502` 改为稳定 `placeholder-{node}` 名，两个 Class 争用同一 API object，由 create conflict 保证同一时刻最多一个 Pool | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3567680822)、`c2f2502` | 实现时补 concurrent create + deterministic loser convergence test；proposal thread 不重复 |
 | `SP-13` | P2 | EverReady state source | Phase priority 依赖 never/was Ready，risk table 声称 sticky `ConditionEverReady` 已实现，但 Condition Definitions 未列 writer、初始化、持久语义 | `HOLD`；暂无独立 Candidate | 可与 `SP-04` 一起在作者再次修改状态机时核对，不单独发 |
-| `SP-14` | P1 | Deferred downscale reservation ordering | `f380208` 增加 asymmetric ordering 与 last-applied invariant，但 Update Flow 仍先写 manifest、后由 shim `Create` 调 daemon；同时新文写“restart node-ctl”又称 scale rebuild 不停止 node-ctl，且 `PoolInfo` 只暴露 memory，无法验证 CPU+memory invariant | `PARTIAL` / `POSTED_WAITING`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213523) | 等作者让执行路径与 ordering 一致，并统一 node-ctl restart/continuity 与可观测 applied allocation |
+| `SP-14` | P1 | Deferred downscale reservation ordering | `f380208` 增加 asymmetric ordering 与 last-applied invariant，但 Update Flow 仍先写 manifest、后由 shim `Create` 调 daemon；同时新文写“restart node-ctl”又称 scale rebuild 不停止 node-ctl，且 `PoolInfo` 只暴露 memory，无法验证 CPU+memory invariant | `THREAD_RESOLVED / RESIDUAL`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213523) | 不自动重开 thread；实现或 proposal 下一次改动时继续验证执行路径、continuity 和 applied allocation |
 | `SP-15` | P2 | Static Pod priority API | `f380208` 已改为 `Priority *int32` 并解释 Static Pod 不解析 `priorityClassName` | `RESOLVED`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3578213525) | 实现时验证 manifest numeric priority 与 node-pressure eviction ordering |
-| `SP-16` | P1 | status write scalability | proposal 仍让每节点 agent 每 30s SSA status，并让 controller 每 30s full Pool sweep；maintainer 质疑上千节点对 apiserver 的写/读放大，作者仅回复“类似 kubelet，可降低频率” | `HUMAN_THREAD`；[comment](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3579040898) | 等作者给 QPS/规模预算、event-driven/delta-write/heartbeat strategy；不重复 maintainer 问题 |
-| `SP-17` | P2 | Phase Ready predicate 一致性 | `f380208` 的 Ready entry 要求 `ResourceSynced=True` 或 `ResizeDeferred=True`，但 diagram 与 Pending/Unready exit 仍只检查 Pod+node-ctl；3 条 current-diff Copilot thread 已指出 | `HUMAN_THREAD` / bot-covered | 等作者统一 diagram、table 与 `computePhase`；不另发相同评论 |
+| `SP-16` | P1 | status write scalability | proposal 仍让每节点 agent 每 30s SSA status，并让 controller 每 30s full Pool sweep；maintainer 建议考虑 Kubernetes `Lease`，作者回复 `good suggestion`，但当前 head 尚未修改 | `THREAD_RESOLVED / DIRECTION_AGREED / RESIDUAL`；[original](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3579040898)、[Lease follow-up](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585166678)、[author reply](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585301870) | 新 push 后验证 Lease object/RBAC/identity/renew/expiry 与低频 CR status 分工，并给 QPS/规模预算或 benchmark |
+| `SP-17` | P2 | Phase Ready predicate 一致性 | `f380208` 的 Ready entry 要求 `ResourceSynced=True` 或 `ResizeDeferred=True`，但 diagram 与 Pending/Unready exit 仍只检查 Pod+node-ctl | `THREAD_RESOLVED / RESIDUAL`；旧 Copilot threads 已 resolve | 不把 thread resolution 当作状态机证明；实现前统一 diagram、table 与 `computePhase` 表驱动测试 |
+| `SP-18` | P1 | Selector immutability 与成员生命周期 | immutable selector 只冻结表达式，不冻结会随 Node label 改变的匹配集合；正文尚未定义 label drift、Pool drain/delete、空 selector 和迁移行为 | `HUMAN_THREAD`；[maintainer](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584260262)，无作者回复 | 等作者把 rationale 和 lifecycle 写入字段合同；不重复提问 |
+| `SP-19` | P2 | Selector / NodeSelector 重复 | `metav1.LabelSelector` 已含 matchLabels/matchExpressions；作者承认额外 NodeSelector 冗余，但尚未提交修改 | `PARTIAL`；[maintainer](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584268549) | 新 push 后确认删除字段及全部引用，只保留一个选择语法 |
+| `SP-20` | P1 | ResourceList 与 percentage policy | CPU/Memory 写死无法表达 GPU、hugepages 或 vendor resources；作者以未来百分比解释名称，但未回答资源可扩展性、基数和舍入语义 | `HUMAN_THREAD` / disagreement；[maintainer](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584314319) | 等作者拆开绝对 ResourceList 与显式 percentage mode，或给出同等可扩展模型 |
+| `SP-21` | P2 | PlaceholderPod 字段与模板传播 | maintainer 建议 `PlaceholderPod *PlaceholderPodTemplate`；更深层问题是模板只在 Class，Pool 无 snapshot、agent 不读 Class，模板无法到达 manifest | `HUMAN_THREAD`；[maintainer](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584321708)，无作者回复 | 等字段命名、nil/default、allowed fields 和 Class→Pool/agent propagation 一次闭合 |
+| `SP-22` | P1 | NodeCtlEndpoint source of truth | Class/Pool 中 endpoint 当前不会驱动 runtime，真实 socket 来自 host `--node-ctl-socket`；这是 inert desired input | `HUMAN_THREAD`；[maintainer](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584330267)，无作者回复 | 优先删除 desired-state endpoint；若保留则补 propagation/precedence/reconcile/failure contract |
+| `SP-23` | P1 | 公共字段 comments 与 ownership | `SandboxPoolSpec` 子字段缺 meaning、writer、default、optional、immutable 和 override precedence，无法从类型恢复实现合同 | `HUMAN_THREAD`；[maintainer](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584355665)，无作者回复 | 等逐字段补齐，并与 CRD schema/webhook 对齐 |
+| `SP-24` | P1 | RuntimeClass 节点安装合同 | 作者说明无需 kubelet 专用配置、handler 注册在 containerd，但仍缺 daemon/shim 安装、config.toml、reload/version、readiness 和未配置节点失败合同 | `PARTIAL`；[maintainer](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584380967) | 等 reviewer 确认当前回答；另把 real-node kubelet+containerd spike 作为我们的 Phase 2 门禁。明确 unset/default，若必须使用 shim 则由 agent 强制写入 `placeholder` |
+| `SP-25` | P2 | Validation 单一文档真相源 | maintainer 要求字段级 validation 合并到 field comments，避免独立表漂移；跨对象和身份校验仍必须保留 webhook 合同 | `HUMAN_THREAD`；[maintainer](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3584391775)，无作者回复 | 与 `SP-23` 同一 patch 收敛；不误删 single-Class 或 status identity admission 设计 |
+| `SP-26` | P2 | containerd Task v2 authoritative link | 作者新增的 `api/runtime/task/v2/README.md` 链接是 dead link；review 锚点随后因 diff 变化 outdated，但仍未 resolve | `UNRESOLVED_OUTDATED`；[maintainer follow-up](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585039966) | 新 push 后换成存在且稳定的 containerd Task v2 reference，并实际打开验证；无需另发重复评论 |
+| `SP-27` | P1 | manifest loss reservation gap | periodic self-healing 能重写文件，但 kubelet 会先停止 Static Pod并释放 reservation；regular Pod 可能在重写前占位，使恢复后的 Static Pod admission 失败。作者主张把它归类为 constraint | `THREAD_RESOLVED / RESIDUAL`；[maintainer](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585155189)、[author reply](https://github.com/volcano-sh/agentcube/pull/431#discussion_r3585184573) | 记录为 source-reachable constraint/latent risk，不宣称 observed bug；定义故障窗口、Condition/Event、恢复边界和 real-node test |
 
 ### 已有覆盖，不重复评论
 
