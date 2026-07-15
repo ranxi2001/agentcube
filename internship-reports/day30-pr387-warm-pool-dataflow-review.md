@@ -1340,3 +1340,93 @@ official run `29319618875` 的服务端日志确认：
 新 push 后优先检查：WM 是只验证 token 还是继续使用 caller client；direct Sandbox 与 Claim path 是否都使用同一清晰模型；#387 新增的 `GET SandboxClaim` / `GET Sandbox` 是否由正确 ServiceAccount 执行；Forbidden 是否快速终止；rollback 是否仍能在请求取消或 caller token 失效后完成。
 
 停止条件保持不变：没有新 head 或新的 maintainer design decision 时，不自动评论、不请求 reviewer、不修改 #433，也不把认证/RBAC 产品逻辑塞回 #387。
+
+## 2026-07-15：复现并修复 maintainer readiness review
+
+### Review 输入与范围判断
+
+`@acsoto` 在 PR head `9c3402ec3369a924779467b0541592f61427913a` 上提出两条 current-diff inline review：
+
+1. [live Claim/Sandbox 读取后切到 Pod informer cache](https://github.com/volcano-sh/agentcube/pull/387#discussion_r3585675346)，可能因为 cache 仍落后于 Ready status 而把有效 warm claim 回滚；
+2. [Claim/Sandbox GET 对所有错误统一重试](https://github.com/volcano-sh/agentcube/pull/387#discussion_r3585675580)，会把 Forbidden 或 conversion error 等永久错误掩盖成两分钟 readiness timeout。
+
+两条问题都由 #387 新增的 Claim readiness 路径引入，属于当前 PR 的正确性修复，不是 #433 的 chart/auth 重构。按照 open-PR follow-up 规则，本轮先从 exact PR head 建立临时验证 worktree `/tmp/agentcube-pr387-review-fix`，在 `fix/pr387-review-feedback-validation` 上做 red -> green 验证；直到用户确认前没有修改远端 PR 分支。
+
+> 分析：#433 讨论的是 Router token、WorkloadManager ServiceAccount 与 chart RBAC 的最终职责边界；本修复只保证现有 read path 在 cache freshness 和错误分类上行为正确。即使未来 #433 改成完全使用 WM ServiceAccount，permanent/transient 分类仍然有价值，因此不存在重复实现。
+
+### 先复现，不直接猜修法
+
+基线 `go test ./pkg/workloadmanager -count=1` 在 `9c3402e` 上通过。随后分别加入最小回归：
+
+- live API 返回同名 Pod `Running` 且带 `10.0.0.2`，informer lister 保留旧的 `Pending` / 空 IP 副本；旧实现从 cache 读取并拒绝该 Pod，证明 Ready Sandbox 与 Pod cache 之间不存在同步屏障；
+- dynamic client 对 `GET SandboxClaim` 返回真实 `apierrors.NewForbidden`，测试 context 设为 50ms；旧实现没有返回权限错误，而是持续轮询直到 `context.DeadlineExceeded`，证明 permanent error 被 readiness wait 掩盖。
+
+这两条测试都在生产代码修改前失败，修复后通过，达到 E4 counterfactual 证据。这里仍把问题准确归类为 **source-proven reachable latent bug**：Kubernetes informer 延迟、Forbidden 和截断响应都是生产边界允许产生的状态或错误，但本轮没有声称观察到线上事故。
+
+> 注释：fake reactor 只证明 Forbidden 发生后的控制流；它之所以不是 mock-only hypothetical，是因为 auth path 明确使用 caller dynamic client，而 Kubernetes RBAC 可以合法授予 create 却不授予 get。stale cache 回归使用真实 typed REST client 和独立 lister view，直接构造 informer 与 API server 允许出现的短暂分歧。
+
+### 最小实现
+
+最终 DCO commit 为 `4d5d9fc651359a6f97c0d8e099a1abeb85a2ec56`，父提交严格是旧 PR head `9c3402e`：
+
+| 文件 | 修改原因 | 行为边界 |
+| --- | --- | --- |
+| `pkg/workloadmanager/k8s_client.go` | 明确 Pod 名来自刚刚 live-GET 的 Sandbox/annotation | 对 explicit Pod name 使用带 request context 的 typed-client live GET；只有没有 Pod name 的旧 label lookup 继续使用 informer cache |
+| `pkg/workloadmanager/handlers.go` | polling loop 需要区分 transient 与 permanent read error | 只重试 NotFound、API timeout/429/5xx 和明确 transport transient；context 保持原语义；Forbidden、Unauthorized、conversion 等立即转为脱敏 InternalError |
+| `pkg/workloadmanager/k8s_client_test.go` | 证明 live/cache 分歧时选择 fresh Pod | stale Pending lister + live Running/IP API regression |
+| `pkg/workloadmanager/handlers_test.go` | 证明两个 GET stage 和 classifier | Claim Forbidden、adopted Sandbox Forbidden、conversion、wrapped transient/permanent matrix |
+
+生产代码没有引入新 controller、retry owner、RBAC 或 dependency；总 diff 为 4 个文件 `+208/-8`，其中大部分是 focused tests。创建失败仍经过原有 `createSandbox` defer，继续删除 Claim 并清理 Store placeholder；timer/ticker 继续由 defer 停止。
+
+### 独立审计发现的二次红测
+
+第一轮实现使用 Kubernetes `utilnet.IsProbableEOF` 判断 EOF 类 transport failure。独立测试审计继续检查真实错误包装链后发现：
+
+```text
+client-go transformResponse
+  -> fmt.Errorf("... %w", io.ErrUnexpectedEOF)
+getSandboxClaim / getSandbox
+  -> fmt.Errorf("failed to get ...: %w", err)
+```
+
+`utilnet.IsProbableEOF` 只会通过 `errors.As` 解开 `*url.Error`，对普通多层 `%w` 包装的 `io.ErrUnexpectedEOF` 仍使用直接相等判断。新增 `wrapped unexpected EOF` case 后测试先得到 `expected true, actual false`，随后只补 `errors.Is(err, io.EOF/io.ErrUnexpectedEOF)`，并同时验证 wrapped NotFound 仍重试、wrapped Forbidden 仍终止。
+
+> 分析：这一步说明“使用了上游 helper”不等于错误语义已经完整。review error classifier 时必须按真实 caller 的包装层验证，而不是只给 classifier 传裸 `StatusError` 或裸 EOF。
+
+### 本地验证与 main 合并模拟
+
+最终提交通过：
+
+```text
+focused five-test suite x100                 PASS
+go test ./pkg/workloadmanager -count=1       PASS
+go test -race ./pkg/workloadmanager -count=1 PASS
+make lint                                    PASS
+make gen-check                               PASS; generated tree clean
+make build-all                               PASS
+go test ./test/e2e -run '^$' -count=1        PASS; package compile
+git diff --check                             PASS
+```
+
+另从 `4d5d9fc` 建立临时 detached worktree，执行 `git merge --no-commit --no-ff upstream/main@fa254b1`；`handlers_test.go` 自动合并，无 conflict，合并态 `go test ./pkg/workloadmanager -count=1` 通过。随后 abort merge 并删除临时 worktree。
+
+残余限制是本机没有再部署一套 auth-enabled live cluster；Forbidden 的 production producer 由 auth client/RBAC contract 证明，conditional behavior 由 focused regression 证明。现有完整 create rollback table 已覆盖 readiness 返回错误后的 defer 路径，因此没有为同一 defer 再复制一套大型 lifecycle fixture。
+
+### 用户确认后的 upstream 更新
+
+push 前重新 fetch `origin/feat/agent-sandbox-latest`，远端仍为 `9c3402e` 且是本地提交父节点；因此使用普通 fast-forward push，不使用 force：
+
+```text
+9c3402e..4d5d9fc  -> feat/agent-sandbox-latest
+```
+
+GitHub 回读 PR head 为 `4d5d9fc`、`mergeable=MERGEABLE`、DCO success。两条经用户逐字确认的英文回复已分别发送到原 inline thread：
+
+- [stale Pod cache reply](https://github.com/volcano-sh/agentcube/pull/387#discussion_r3586039820)；
+- [permanent GET error reply](https://github.com/volcano-sh/agentcube/pull/387#discussion_r3586040734)。
+
+exact SHA 的 official checks 最终 12/12 success：build、copyright、codegen、codespell、lint、Python lint、Python SDK、coverage、DCO、workflow approval，以及 `e2e-test` / `codeinterpreter-e2e-test`。E2E run `29404360322` 的两个 job 分别在 7m28s / 8m05s 后通过；coverage run `29404360575` 在 7m36s 后通过。PR 仍为 `MERGEABLE`；`mergeStateStatus=UNSTABLE` 只因为 Tide 缺 `approved` / `lgtm` labels，不是代码失败或 merge conflict。
+
+review skill 同步升级：既有 `New reads can create hidden RBAC requirements` pattern 现在要求测试 `%w` 包装后的 transient/permanent error；新增 `Keep one readiness decision on a freshness-consistent observation path`，要求 reviewer 在 live/cache 混读且失败会触发 rollback 时构造 divergent views，而不是用一份同步 fake cache 得出安全结论。
+
+> 分析：maintainer comment 的价值不只在修两行代码。它把 readiness review 从“对象最终会 Ready”推进到“同一个决定使用了哪些 freshness domain、一次 stale read 会不会产生破坏性副作用”，也把 polling review 从“有没有 timeout”推进到“谁拥有 retry，以及哪些错误有资格重试”。

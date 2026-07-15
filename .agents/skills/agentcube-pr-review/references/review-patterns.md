@@ -54,10 +54,20 @@ Evidence labels:
 - Trigger: A request path starts polling or fetching an additional Kubernetes kind through a user-scoped client.
 - Hidden assumption: Existing create permission implies permission to read every derived runtime object.
 - Failure mode: A permanent `Forbidden` is retried until timeout and returned as a misleading gateway failure.
-- Evidence source: `CODE`, AgentCube PR #387 claim readiness added reads for both `SandboxClaim` and adopted `Sandbox`.
+- Evidence source: `CODE`, `MAINTAINER`, and `OBS`, AgentCube PR #387 claim readiness added reads for both `SandboxClaim` and adopted `Sandbox`; a focused regression reproduced a real Kubernetes `Forbidden` being retried until the request context expired, and maintainer review required permanent failures to return immediately.
 - Review question: Which identity executes each GET/LIST/WATCH, and are forbidden errors terminal and tested?
-- Validation: Auth-enabled unit/integration test with minimal RBAC and explicit error classification.
+- Validation: Use an auth-enabled unit/integration test with minimal RBAC and explicit error classification. Include wrapped API and transport errors because repository helpers commonly add `%w`; prove transient errors retry while Forbidden, Unauthorized, conversion, and context errors terminate without being masked as readiness timeouts.
 - False-positive guard: No defect if the call uses a controller service account with documented RBAC or authorization is guaranteed by the API contract.
+
+### Keep one readiness decision on a freshness-consistent observation path
+
+- Trigger: A readiness path live-GETs a control/runtime object, then reads a dependent Pod or status from an informer cache before returning success or rolling back creation.
+- Hidden assumption: Seeing the authoritative object become Ready implies every independent informer has already observed the causally related Pod state and IP.
+- Failure mode: A valid Ready Sandbox is rejected once because the Pod cache still contains Pending/no-IP state, and the surrounding create path treats that single stale read as terminal and rolls back the session.
+- Evidence source: `MAINTAINER`, `CODE`, and `OBS`, AgentCube PR #387 review identified a live Claim/Sandbox read followed by a Pod cache lookup. A red regression held a stale Pending Pod in the lister while the live API returned the same named Pod as Running with an IP; the old path failed and the explicit-name live GET fixed it.
+- Review question: Does every observation used by this readiness decision have compatible freshness, and if one source can lag, which layer retries until convergence before destructive rollback?
+- Validation: Construct divergent live/cache views for the same object identity and assert the decision follows the authoritative read or retries the stale dependency until context expiry. Also trace whether a one-shot error triggers rollback, Store cleanup, or user-visible failure.
+- False-positive guard: Informer reads are appropriate when eventual consistency is part of the contract and the caller retries the complete decision without destructive side effects, or when all required state is derived from one synchronized cache snapshot. Do not require live GETs for ordinary reconcile loops that are designed around cache convergence.
 
 ### Keep control identity separate from adopted runtime identity
 
