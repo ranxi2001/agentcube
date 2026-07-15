@@ -899,6 +899,17 @@ go test ./pkg/picod -count=1
 
 ### 当前处理决定
 
-- 本轮只完成本地 review、测试和经验库升级，没有向 #400 发布 comment/review，也没有修改作者分支。
-- 若需要 upstream feedback，优先只发 P1 method cardinality 的 focused inline finding；P2 bucket 设计可作为同一 review 的第二条独立 inline comment，避免把测试清单和完整报告复制到 GitHub。
-- 发布前仍需用户确认 exact target 和英文全文。
+- 用户确认 exact target、总评和两条英文 inline comment 后，本轮已向 #400 发布一次 `COMMENT` review；没有修改作者分支。
+- review 只包含 P1 method cardinality 与 P2 bucket range 两条独立 finding，没有复制完整测试清单，也没有重复已经修复的 413/path/panic 意见。
+- 下一步等待作者回复或新 push；不得基于 `0d4576f` 的旧行号继续评论新 head。
+
+### Upstream review 发布记录
+
+- Review：https://github.com/volcano-sh/agentcube/pull/400#pullrequestreview-4700751218
+- 状态：`COMMENTED`
+- Commit：`0d4576fe9195faf272db196548b4899c702e7d6a`
+- 发布时间：2026-07-15T04:07:15Z
+- Method cardinality inline：https://github.com/volcano-sh/agentcube/pull/400#discussion_r3584390695
+- Histogram bucket inline：https://github.com/volcano-sh/agentcube/pull/400#discussion_r3584390699
+
+GitHub API 回读确认：第一条准确挂在 `pkg/picod/metrics.go:111-112`，第二条挂在 `pkg/picod/metrics.go:66`；两条正文与用户确认稿一致，没有截断或行号漂移。
