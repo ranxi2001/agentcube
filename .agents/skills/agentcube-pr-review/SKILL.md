@@ -136,11 +136,29 @@ Prefer this evidence ladder:
 - **E3:** focused reproduction or regression test shows the behavior;
 - **E4:** causal validation shows the behavior fails without the fix and passes with it.
 
-Use E3 or stronger for definitive bug claims when feasible. Label weaker conclusions as risks or questions.
+Evidence strength and production reachability are separate axes. A synthetic E3/E4 test can prove what happens after an injected trigger without proving that production can create that trigger. Conversely, source plus an API contract can prove a reachable latent bug without an observed incident.
+
+Classify a bug as observed only when logs, CI, or a realistic end-to-end environment records the qualifying trigger and impact. E3/E4 strengthen causal proof but do not change the reachability class unless the reproduction itself is production-realistic. Permit a source-proven latent finding only when the production trigger, reachable preconditions, recovery behavior, and concrete consequence are all closed; state explicitly that no qualifying occurrence was observed.
 
 Tests must exercise the behavior they claim to validate. Check the installed controller/runtime/dependency version, feature flags, auth mode, and cleanup path rather than trusting a green job name.
 
 For high-risk claims, perform an independent falsification pass: attempt to disprove the finding through another call path, test, documentation contract, or runtime observation.
+
+#### Production Reachability Gate
+
+Apply this gate before calling an unobserved scenario a bug or using it as a blocking finding:
+
+1. Define the exact trigger and bad outcome separately, including input, error, timing, concurrency, and prior state.
+2. Identify the real producer. Require either an observed occurrence or `CODE`/`DOC` proving that a production component or interface may produce the trigger. An arbitrary mock return is not a producer.
+3. Prove the preconditions are reachable through supported operations. Check validation, locks, ownership, controller ordering, feature gates, and every writer of the affected Store entry or Kubernetes spec/status.
+4. Trace retry, resync, restart, later events, rollback, and cleanup. Determine whether the consequence persists or self-heals within the contract.
+5. Run a counterfactual or regression test only after reachability is established, and inject an error or state that the real boundary is allowed to produce.
+6. Classify the result accurately:
+   - **Observed bug:** the trigger and impact occurred in logs, CI, or a realistic end-to-end environment.
+   - **Reachable latent bug:** source or contract evidence proves that production can reach the trigger and bad outcome, but no qualifying occurrence has been observed.
+   - **Hypothetical scenario:** only a mock, manually constructed state, or imagined ordering creates the trigger; production reachability remains unproven.
+
+Fault injection proves conditional control flow, not production reachability. A reachable latent bug may still block when the trigger is a routine external failure mode and the consequence violates a correctness or safety invariant. Reachability is necessary but not sufficient for blocking: also prove that the current PR introduces or modifies the path, the correction is in scope, and the consequence is material. Keep a hypothetical scenario non-blocking and present it as a question, evidence gap, or realistic-test request rather than a bug.
 
 ### 8. Write findings reviewer-first
 
@@ -150,7 +168,7 @@ Order findings by severity. Each finding must include:
 2. precise file and line;
 3. trigger or execution path;
 4. concrete consequence;
-5. evidence and confidence;
+5. reachability class, evidence, and confidence;
 6. smallest direction for correction or missing test.
 
 Do not report:

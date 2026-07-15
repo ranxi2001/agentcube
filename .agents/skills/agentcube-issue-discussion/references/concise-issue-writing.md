@@ -9,7 +9,7 @@ On 2026-07-14, the 20 most recent AgentCube issues with non-empty bodies had a m
 ## Soft Budgets
 
 - Enhancement or question: aim for 80-250 visible words.
-- Reproducible bug: aim for 120-400 visible words before irreducible logs/manifests.
+- Observed or source-proven reachable bug: aim for 120-400 visible words before irreducible logs/manifests.
 - Ordinary issue/PR comment: aim for 40-180 visible words; review again above 250.
 - Proposal, benchmark, API/CRD, security, or cross-component review: longer text is allowed when the result remains scan-first and each environment/contract field changes the decision.
 
@@ -36,6 +36,8 @@ Use the repository template. State one concrete capability/question, first-phase
 ### Bug
 
 Use `What happened -> Expected -> Minimal reproduction -> Decisive evidence -> Relevant environment`. For controller/data-path bugs, add the shortest causal chain from source state to user-visible failure. Label an unproven cause as a hypothesis and keep the issue valid even if the proposed fix changes.
+
+Classify the evidence before drafting. For an observed bug, name the log, CI, or realistic end-to-end occurrence. For a reachable latent bug, name the production producer, supported preconditions, permitted trigger, persistent consequence, and explicitly state that no occurrence was observed. A fault-injected test alone is not production evidence; if no real producer or reachable state is proven, use a question or test-hardening request instead of the bug template.
 
 ### Proposal
 

@@ -59,7 +59,7 @@
 
 | 场景 | 使用入口 | 标准格式 |
 | --- | --- | --- |
-| 复现明确的 bug | GitHub Bug Report issue | `What happened`、`Expected`、`Reproduce`、`Environment` |
+| 已观察或源码证明可达的 bug | GitHub Bug Report issue | `What happened / can happen`、`Expected`、`Reproduce or reachability evidence`、`Environment` |
 | 新能力或增强 | Enhancement issue | `What would you like to be added`、`Why is this needed` |
 | 设计问题或方向讨论 | GitHub Discussions 或 design proposal | Motivation、Goals、Non-Goals、Use Cases、Design Details、Alternatives |
 | 小代码修复 | PR | 官方 PR template + 测试结果 + 关联 issue |
@@ -73,7 +73,9 @@
 ```md
 **What happened**:
 
-Describe the observed behavior. Include the exact error message, status code, log line, or command output when possible.
+For an observed bug, describe the occurrence and include the exact error message, status code, log line, or command output when possible.
+
+For a reachable latent bug, describe what can happen and state explicitly that no qualifying occurrence has been observed.
 
 **What you expected to happen**:
 
@@ -84,6 +86,8 @@ Describe the expected behavior.
 1. ...
 2. ...
 3. ...
+
+If no occurrence has been observed, replace synthetic "reproduction" wording with the production producer/interface contract, supported preconditions, recovery behavior, and the focused test that proves the consequence.
 
 **Anything else we need to know?**:
 
@@ -98,7 +102,9 @@ Add related logs, screenshots, suspected root cause, or workaround.
 
 我们的补充要求：
 
-- 复现步骤必须能被 reviewer 执行。
+- 先执行 AgentCube skills 中的 Bug / Production Reachability Gate，并区分 Observed bug、Reachable latent bug 和 Hypothetical scenario。
+- Observed bug 的复现步骤必须能被 reviewer 执行；latent bug 必须提供可复算的 producer、contract、reachable preconditions 和 recovery analysis，不能把 mock-only test 写成线上复现。
+- Hypothetical scenario 不使用 bug issue；改成 question、evidence request 或 test-hardening discussion。
 - 不贴真实 token、kubeconfig、API key、Redis password。
 - 如果是 benchmark 或环境兼容问题，要写 OS、kernel、glibc、CPU、`/dev/kvm`、Kubernetes 版本。
 

@@ -17,7 +17,7 @@ Add or revise a pattern only when a real PR, regression test, incident, runtime 
 
 Evidence labels:
 
-- `OBS`: directly observed runtime/test behavior;
+- `OBS`: directly observed runtime/test behavior; synthetic or fake-test `OBS` proves only the asserted conditional behavior and does not by itself make a scenario an Observed bug;
 - `CODE`: source or diff evidence;
 - `DOC`: authoritative project/dependency documentation;
 - `MAINTAINER`: explicit accepted maintainer decision;
@@ -158,6 +158,16 @@ Evidence labels:
 - Review question: What exact caller observes the behavior, which contract says it is wrong, and does the correction belong to this PR's stated scope?
 - Validation: Trace the value to its consumer, reproduce the claimed behavior or write the smallest causal test, and compare the result with the API/issue contract before reviewing implementation detail.
 - False-positive guard: Defensive tests and cleanup remain useful when named honestly; do not require a runtime reproduction for a defect already proven by type/API semantics.
+
+### Fault injection does not prove production reachability
+
+- Trigger: A bug claim or blocking review finding relies on a fake client, mock error, or manually constructed state.
+- Hidden assumption: Showing bad behavior after an injected trigger also proves that a production component can emit the trigger under supported operations.
+- Failure mode: Reviewers classify an impossible or unproven scenario as a production bug, request the wrong fix, or overstate an unobserved latent defect as an incident.
+- Evidence source: `CODE` and Kubernetes API semantics from Karmada PR #7623. An injected `Status().Update` error proved the broken retry consequence; the real API write boundary, independent status writer, and permitted Conflict/timeout errors separately proved reachability. No production occurrence was observed.
+- Review question: Which real producer and interface contract create the trigger, are its preconditions reachable despite validation/locking/ownership/order, and do retry, resync, restart, later events, or cleanup repair the state?
+- Validation: Establish the producer and supported state first, then use the closest production-equivalent trigger. For optimistic status writes, prefer a real Conflict from stale `resourceVersion` or concurrent writers over an arbitrary injected error; trace the retry to the final invariant.
+- False-positive guard: Fault injection remains valid for the consequence and counterfactual once reachability is independently proven. Source-proven but unobserved cases are reachable latent bugs; mock-only cases remain non-blocking questions or test gaps.
 
 ### Shared helpers must preserve domain routing
 

@@ -398,3 +398,120 @@ Compatibility / non-goal / residual risk:
 - [Karmada #7138](https://github.com/karmada-io/karmada/pull/7138)
 - [Karmada #7298](https://github.com/karmada-io/karmada/pull/7298)
 - [Karmada #7390](https://github.com/karmada-io/karmada/issues/7390)
+
+---
+
+## 追加学习：Production Reachability Gate 与 Karmada PR #7623
+
+### 为什么 E0-E4 还不够
+
+原有 review skill 用 E0-E4 表达证据强度：源码机制、focused test、baseline-versus-patch counterfactual 逐级增强。这条轴仍然必要，但它没有单独回答另一个问题：测试里的 trigger 是否能由真实系统产生。
+
+一个 fake client 可以注入任意 error，并做出很强的 E4 counterfactual：旧代码失败、补丁后通过。但如果真实 client 永远不会返回这种 error，或测试状态被 validation、lock、ownership、controller ordering 排除，这个 E4 仍然不能证明 production reachability。反过来，即使没有事故日志，源码和 Kubernetes API 合同也可以证明一个真实 writer conflict 能发生。
+
+> 注释：`production reachability` 不是“必须先在线上出事故”。它要求证明 trigger 有真实 producer、前置状态可由受支持操作到达，并且 retry/resync/restart/cleanup 不会在合同允许的时间内自动修复后果。
+
+因此，证据强度与生产可达性是两条正交轴：
+
+| 分类 | 最小证据 | 可以说什么 | Issue / review 边界 |
+| --- | --- | --- | --- |
+| Observed bug | 真实日志、CI、live/e2e reproduction 同时覆盖 trigger 与 impact | `发生了`，但影响时长仍按观测范围描述 | 可以写 bug；若由当前 PR 引入且影响达到门槛，可以 blocking |
+| Reachable latent bug | `CODE` / `DOC` 证明真实 producer 和可达前置状态，focused test 证明坏结果，无真实 occurrence | `可以发生`、`尚未观察到实例` | 可以作为 source-proven bug 风险；常规外部错误破坏 correctness/safety 时可以 blocking |
+| Hypothetical scenario | 只有 mock、手工对象或想象时序，producer 或前置状态未闭合 | `如果该状态可达，则...` | 不得作为 bug issue 或 blocking finding；改成 question、evidence gap 或 test idea |
+
+> 分析：`can occur` 与 `has occurred` 必须分开。把 latent bug 写成 incident 会夸大证据；把所有未观察问题都降成 hypothetical，又会漏掉源码和接口合同已经证明的真实 correctness 缺陷。
+
+### 可执行 Gate
+
+```mermaid
+flowchart TD
+    A[Bug claim or blocking finding] --> B[Separate exact trigger and bad outcome]
+    B --> C{Real producer or interface contract?}
+    C -- No --> H[Hypothetical: question or evidence gap]
+    C -- Yes --> D{Preconditions reachable by supported operations?}
+    D -- No --> H
+    D -- Yes --> E{Retry/resync/restart/cleanup self-heals in contract?}
+    E -- Yes --> I[Reclassify impact or request a narrower test]
+    E -- No --> F{Occurrence observed?}
+    F -- Yes --> G[Observed bug]
+    F -- No --> J[Reachable latent bug]
+    G --> K[Use production-equivalent counterfactual]
+    J --> K
+```
+
+执行顺序不能倒置：
+
+1. 先拆开 trigger 与 bad outcome，包括 error、timing、concurrency 和 prior state。
+2. 找真实 producer；mock return 不是 producer。
+3. 检查 validation、lock、ownership、ordering、feature gate 和所有 writer，证明前置状态可达。
+4. 追 retry、resync、restart、later event、rollback、cleanup，判断状态是否持续错误。
+5. 可达性闭合后再做 counterfactual，并尽量注入真实边界允许的 error/state。
+6. 最后才决定 observed、reachable latent 或 hypothetical，以及是否足以 blocking。
+
+### #7623 为什么是 Reachable Latent Bug
+
+Karmada PR #7623 的 finding 不是“mock 能返回 error，所以线上一定坏了”。完整证据链是：
+
+1. 新 target fingerprint 在 executor rebuild 和 rule-history status 写入完成前就提交到进程内 cache。
+2. 第一次 `Status().Update` 失败后，下一次 reconcile 看到 fingerprint unchanged，提前返回并跳过缺失的 status side effect。
+3. fault-injected focused test 证明了这个 post-trigger consequence：第一次 update error，第二次 reconcile 返回 `nil` 且不再尝试 status write。
+4. `Status().Update` 是真实 Kubernetes API 写边界，不是 fake-only 方法；Conflict、timeout 和 transport/server error 都属于边界允许的错误。
+5. 另一个 cron status writer 会读取并写同一个对象的 `ExecutionHistories`，因此 stale `resourceVersion` / concurrent status write 的前置条件可由受支持操作产生。
+6. 当前没有生产日志、CI artifact 或真实集群 reproduction 证明该顺序已经发生。
+
+结论应准确写成 **reachable latent correctness bug**：真实触发路径与错误后果可达，但没有 observed production incident。它仍可作为 blocking finding，因为 controller 必须正确处理常规 API 写失败，不能让 retry 被过早提交的 cache marker 吞掉。
+
+> 分析：通用 injected error 只证明“这个错误分支之后会怎样”，不能宣称复现了具体的 Kubernetes Conflict。更强 regression 应使用 `apierrors.NewConflict`，最好在 `envtest` / real API server 中让两个 writer 先读同一版本，由 writer B 更新 status 后让 writer A 用 stale `resourceVersion` 提交，再验证下一次 reconcile 确实重试并保留双方 status 字段。
+
+本次 AgentCube 吸收没有修改 #7623 的既有 upstream review，也没有向 AgentCube upstream 发布 issue、comment 或 finding。
+
+### AgentCube Overlay 的改动
+
+- `agentcube-pr-review/SKILL.md`：在 evidence ladder 后新增 Production Reachability Gate，明确 evidence strength 与 reachability 正交，并要求 finding 输出 reachability class。
+- `agentcube-pr-review/references/agentcube-review-checks.md`：要求区分 trigger reachability 与 consequence；Kubernetes concurrency regression 优先使用真实 Conflict/stale `resourceVersion`。
+- `agentcube-pr-review/references/review-patterns.md`：新增 `Fault injection does not prove production reachability`，保留 producer、precondition、recovery 和 false-positive guard。
+- `agentcube-issue-discussion/SKILL.md`：在 bug title、label、severity、requested fix 之前强制执行 Bug Reachability Gate。
+- `agentcube-issue-discussion/references/concise-issue-writing.md`：Observed 与 latent 使用不同措辞；mock-only 场景不套 bug template。
+- `open-source-contribution-format-standard.md`：官方 bug template 的本地使用规范同时容纳 observed reproduction 与 source-proven latent evidence，不再强迫 latent bug 假装成已观察事故。
+
+没有新建第三套 skill。PR review 与 issue writing 分别拥有 review blocker 和 upstream bug publication 的门禁，详细模式继续放在 reference，避免主 `SKILL.md` 膨胀。
+
+### 校验与 Fresh-Context Forward Test
+
+结构与现有工具验证：
+
+```text
+quick_validate.py agentcube-pr-review: PASS
+quick_validate.py agentcube-issue-discussion: PASS
+agentcube-pr-review script tests: 6/6 PASS
+agentcube-issue-discussion script tests: 4/4 PASS
+git diff --check: PASS
+```
+
+三个 fresh-context Agent 只拿到更新后的两份 skills 和各自原始场景，没有收到预期分类：
+
+| 原始场景 | 独立结论 | 关键边界 |
+| --- | --- | --- |
+| live k3s 记录真实 409、两次 retry no-op、Session `Creating` 五分钟且 Router 503 | Observed bug；PR attribution 成立时可 P1/blocking | 只能说“至少五分钟”，未验证 restart/later event 前不得说 permanently stuck |
+| 真实 `Status().Update`、独立 status writer、API contract 允许 Conflict，但只有 generic fake error test | Reachable latent bug；当前 PR 引入时可 blocking | 明说无 production/CI/e2e occurrence；建议 two-writer envtest 触发真实 Conflict |
+| 手工插入构造器禁止的 empty owner，加 mock-only `ErrHalfResumed` | Hypothetical；不得开 bug 或 blocking | 先用受支持 Store/session API 和真实 WorkloadManager error contract 验证 producer |
+
+> 注释：这些 forward tests 验证的是 gate 能否把三类证据传播到 issue/review 决策，并不证明 #7623 已在线上发生，也不替代真实 API server regression。
+
+### 过程修正与后续使用
+
+最初在 `/home/agentcube` 内找不到用户提到的源 skill；继续做本机 local-first 检索后，在 `/tmp/karmada-intern-worktree` 找到已验证版本。精读源 gate 后补回了摘要中容易漏掉的 recovery/self-heal 步骤，并把 Karmada controller 术语映射为 AgentCube 的 Store writer、CR spec/status writer 和 lifecycle cleanup，而不是直接复制目录。
+
+以后每个潜在 bug 先填写：
+
+```text
+Exact trigger / bad outcome:
+Observed occurrence:
+Real producer / interface contract:
+Reachable preconditions and writers:
+Retry / resync / restart / cleanup recovery:
+Classification and wording boundary:
+Production-equivalent regression:
+```
+
+只有这张卡能闭合 production path，才进入 bug issue 或 blocking finding 写作。

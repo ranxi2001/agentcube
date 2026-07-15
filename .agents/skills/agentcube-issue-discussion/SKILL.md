@@ -42,12 +42,29 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
    - open questions
    - blocked/duplicate/conflicting work
    - related issue/PR graph
-5. If an issue has an active assignee or linked open PR, recommend review/testing feedback instead of duplicate implementation.
-6. Produce Chinese internal summary first when the user is planning or discussing.
-7. Produce English upstream comment only when asked to draft or post.
-8. Run the concise-first publishing gate below before presenting exact text for approval.
-9. Include cross-links using GitHub `#123` references and short context.
-10. If the same issue/PR analysis requires repeated API calls, version matrices, log extraction, or manual filtering, add or improve a script under this skill before the next similar run.
+5. For every bug claim, classify production reachability before choosing a bug title, label, severity, or definitive wording.
+6. If an issue has an active assignee or linked open PR, recommend review/testing feedback instead of duplicate implementation.
+7. Produce Chinese internal summary first when the user is planning or discussing.
+8. Produce English upstream comment only when asked to draft or post.
+9. Run the concise-first publishing gate below before presenting exact text for approval.
+10. Include cross-links using GitHub `#123` references and short context.
+11. If the same issue/PR analysis requires repeated API calls, version matrices, log extraction, or manual filtering, add or improve a script under this skill before the next similar run.
+
+## Bug Reachability Gate
+
+Before opening a bug issue or describing a scenario as a confirmed bug:
+
+1. State the exact trigger and bad outcome separately.
+2. Identify the production producer. Accept an observed log/reproduction, or source/contract evidence that a real component or API may return that error or state.
+3. Prove supported operations can reach the required preconditions; check validation, locks, ownership, ordering, feature gates, and concurrent writers.
+4. Trace retries, resyncs, restarts, later events, rollback, and cleanup. A transient inconsistency that self-heals within the documented contract may not justify a bug issue.
+5. Use fault injection only after steps 2-3, and inject a value the real boundary is allowed to produce.
+6. Classify the draft:
+   - **Observed bug:** report the actual log, CI, or realistic end-to-end occurrence and impact.
+   - **Reachable latent bug:** state that source or contract proves the path, but no qualifying occurrence has been observed.
+   - **Hypothetical scenario:** production reachability remains unproven; ask a question or request realistic evidence instead of filing a bug.
+
+A mock proves only conditional behavior. Do not use an arbitrary fake error, impossible object, or unsupported event order as the sole basis for a bug issue, severity label, blocking request, or claimed production incident.
 
 ## Concise-First Publishing Gate
 
@@ -66,7 +83,7 @@ python3 .agents/skills/agentcube-issue-discussion/scripts/draft_metrics.py <draf
 Use soft review triggers:
 
 - Enhancement/question: 80-250 visible words.
-- Reproducible bug: usually 120-400 visible words before irreducible logs/manifests.
+- Observed or source-proven reachable bug: usually 120-400 visible words before irreducible logs/manifests.
 - Ordinary comment/review: 40-180 visible words; review again above 250.
 
 Proposal, benchmark, API/CRD, security, and cross-component reviews may be longer when the structure remains scan-first and the extra evidence changes the decision. When requesting posting approval, include visible word/nonblank-line counts and name the long-form reason when the draft exceeds the ordinary trigger.
@@ -237,6 +254,7 @@ Summarize as:
 - Never claim we will implement something unless user asks to commit to it.
 - Do not post comments without explicit user instruction.
 - Do not treat automation bot or AI reviewer comments as maintainer consensus.
+- Do not turn fault injection or constructed state into a production bug claim without a real producer, reachable preconditions, and recovery analysis.
 - Always report assignee state as `PR 认领 @` in planning tables or summaries.
 - If someone is assigned or an active PR exists, recommend review/test feedback instead of duplicate implementation.
 - Mention AI assistance in PR reviewer notes when used for upstream PR prep.

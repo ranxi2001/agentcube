@@ -131,6 +131,9 @@ Concurrency checks:
 - A regression test should fail without the patch and pass with it when feasible.
 - Assertions must observe the invariant, not only an HTTP code, log line, or final absence.
 - Fakes must preserve the production behavior being tested; check fake clients, clocks, Store implementations, and reactors.
+- Separate trigger reachability from post-trigger consequence. A fake reactor can prove the latter while leaving the former unproven.
+- For an unobserved finding, identify the production entry point or writer, the interface contract that permits the trigger, supported preconditions, and whether retry/resync/restart/cleanup self-heals.
+- Prefer production-equivalent regressions over arbitrary errors. For Kubernetes optimistic-concurrency paths, create a real Conflict with stale `resourceVersion` or concurrent writers when feasible; use generic injection only after that error class is shown reachable at the boundary.
 - A compile-only e2e package check does not validate a live lifecycle.
 
 ### CI environment
@@ -163,9 +166,9 @@ Record what was not verified:
 
 Label conclusions:
 
-- **Finding:** reachable defect with concrete consequence and evidence.
-- **Risk:** plausible material failure with incomplete reproduction.
+- **Finding:** observed or source-proven reachable defect with concrete consequence and evidence; name which class applies.
+- **Risk:** non-blocking concern with partial reachability evidence; state the missing producer, precondition, recovery, or consequence link.
 - **Question:** missing contract or intent that changes correctness.
 - **Nit:** small maintainability issue; omit unless useful.
 
-Do not convert uncertainty into confidence through forceful wording.
+Keep mock-only or constructed-state scenarios as questions, evidence gaps, or test-hardening ideas. Do not convert uncertainty into confidence through forceful wording.
