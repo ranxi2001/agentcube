@@ -966,3 +966,24 @@ go mod tidy -diff
 结果全部通过；`git merge-tree --write-tree upstream/main upstream/pr-400` 也成功。新 SHA 的 12 个 check runs（包括 build、e2e、lint、codegen、coverage、DCO）全部成功，Tide 仍 pending，原因是新 push 后需要重新取得 review labels。
 
 两条旧 inline thread 已变成 outdated 并被标记 resolved。当前不自动追加评论；若要指出 P2 的真实 SDK/LangChain producer，必须先向用户展示新的精简英文 reply 并再次确认。
+
+## 2026-07-15：review 完成与 LGTM 权限结果
+
+用户决定接受 60 秒 buckets 作为本 PR 对 PicoD 服务端默认执行窗口的改进，并确认发布感谢与 review-complete 评论：
+
+- 评论：https://github.com/volcano-sh/agentcube/pull/400#issuecomment-4977532327
+- 目标 head：`b8c4ed585ebac6413d98ff6f2479b45c84cf2961`
+- 公开结论：method labels 已有界，histogram buckets 已覆盖 PicoD default execution window，focused package/race tests 通过，我们的 review 完成。
+
+评论同时包含独立一行 `/lgtm`。Prow 随即回复：
+
+```text
+@ranxi2001: changing LGTM is restricted to collaborators
+```
+
+- Bot 回复：https://github.com/volcano-sh/agentcube/pull/400#issuecomment-4977532690
+- 结果：评论发布成功，但 `lgtm` label 没有添加。
+
+> 注释：这是权限边界，不是 PR 失败。普通 contributor 可以完成源码 review、提交验证证据并公开表示 review complete，但 AgentCube 的 Prow 只允许 collaborator 改变 `lgtm`。不应重复发送 `/lgtm`，也不应为了绕过限制改用未经确认的 GitHub approval；等待现有 maintainer/collaborator review 即可。
+
+内部仍保留 SDK 120 秒、LangChain 1800 秒与 server 无 max timeout 的范围说明，作为后续 observability contract 设计材料；本轮按用户判断将它视为非阻塞 residual scope，不继续扩张 #400。
