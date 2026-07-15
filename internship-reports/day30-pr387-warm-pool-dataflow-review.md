@@ -1500,3 +1500,37 @@ review skill 已把本次经验升级为 `A timer does not bound blocking I/O un
 ### 既有但不归责本 PR 的 lifecycle 风险
 
 `rollbackSandboxCreation` 使用一个 30 秒 context 先删 K8s resource，再无条件删除 Store placeholder。若 K8s delete 失败或耗尽 context，Store 记录仍会被移除，GC 随后失去重试锚点；Claim 又没有自身 lifecycle deadline，可能一直遗留到 owner CodeInterpreter 被删除。该逻辑在 #387 merge base 已存在，不作为本兼容 PR 的回归 finding，后续应单独设计 durable cleanup / retry ownership。
+
+### 真实 HTTP / client-go 边界复现
+
+用户要求具体复现后，本轮在 clean `baebe09c` worktree 临时增加 `handlers_deadline_repro_test.go`。测试不 patch 生产函数或 Go timer，而是使用 `dynamic.NewForConfig` 连接 `httptest.Server`，让真实 dynamic client 访问 Kubernetes GVR URL：
+
+- parent context 为 3 分钟，对齐仓库 direct-WorkloadManager E2E client；
+- `rest.Config.Timeout` 保持零值，对齐 `NewK8sClient`；
+- `GET SandboxClaim` 建连后阻塞 `2m2s`，然后返回 `status.sandbox.name=adopted-sandbox`；
+- 随后的 `GET Sandbox` 立即返回 `Ready=True`；
+- HTTP handler 同时监听 `request.Context().Done()`，因此如果内部 deadline 真正进入 GET，Server 会观察到取消。
+
+预期行为是约 2 分钟取消 Claim GET 并返回 `errSandboxCreationTimeout`。实际结果为：
+
+```text
+BUG REPRODUCED: function returned success after 2m2.007s, beyond its 2m internal deadline
+--- PASS: TestReproduceClaimReadOutlivesInternalTimer (122.01s)
+PASS
+ok  github.com/volcano-sh/agentcube/pkg/workloadmanager  122.047s
+```
+
+这证明 timer 在 2 分钟时虽然已经到期，但执行 goroutine 仍阻塞在同步 GET；2m2s 后 GET 返回，代码继续读取 Ready Sandbox，并在到达 timer `select` 之前直接 success return。
+
+为排除“client-go 或测试 Server 本身不响应取消”，同一边界增加 100ms parent-context 对照：
+
+```text
+CONTROL PASSED: parent context canceled the same stalled GET after 100ms
+--- PASS: TestControlParentContextCancelsStalledClaimRead (0.10s)
+PASS
+ok  github.com/volcano-sh/agentcube/pkg/workloadmanager  0.141s
+```
+
+对照说明 dynamic client 会取消 HTTP request，前提是 deadline 真正存在于传给 GET 的 context。因果证据由源码 E1 提升到 production-equivalent HTTP/client-go boundary 的 E3；分类仍是 **reachable latent bug**，不是声称生产集群已经发生事故。完整原始结果见 [`15-claim-read-deadline-reproduction.txt`](benchmarks/day30-pr387-warmpool-flow/15-claim-read-deadline-reproduction.txt)。临时测试随后删除，PR worktree 恢复 clean。
+
+> 分析：这个复现同时验证了两种失败结果。第一，internal timeout 不会中断 in-flight I/O；第二，晚到的 Ready 结果还能绕过已经到期的 timer，因此问题不只是“最多多等两秒”，而是 deadline 合同本身没有成为 success commit gate。

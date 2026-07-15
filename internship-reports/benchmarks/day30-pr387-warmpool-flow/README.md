@@ -46,6 +46,8 @@ The second run passed the L1 data-flow assertions:
 | `12-namespace-cleanup.txt` | Namespace cleanup evidence |
 | `13-cluster-cleanup.txt` | k3d cluster cleanup evidence |
 | `14-pr387-live-codeinterpreter-breakpoint-result.txt` | Full PR #387 head CodeInterpreter/Router/PicoD breakpoint result |
+| `15-claim-read-deadline-reproduction.txt` | Exact client-go/HTTP reproduction proving a blocked Claim GET can outlive and bypass the 2-minute internal timer |
+| `day30-claim-read-deadline-repro_test.go.txt` | Reusable source for the two reproduction/control tests; `.txt` keeps it out of normal Go package discovery |
 | `trace_math_dataflow_breakpoints.py` | Reusable white-box breakpoint script: math payload through WorkloadManager, SandboxClaim adoption, adopted Sandbox/Pod, Router, and PicoD |
 | `failed-*` | First attempt with missing PicoD public key; object graph existed but Pods were not Ready |
 

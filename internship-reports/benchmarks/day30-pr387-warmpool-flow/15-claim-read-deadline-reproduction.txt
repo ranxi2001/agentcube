@@ -1,0 +1,76 @@
+PR #387 Claim readiness internal-deadline reproduction
+Date: 2026-07-15
+Head: baebe09c878c85f8d0b087378792ceb7c33f8c8d
+Worktree: /tmp/agentcube-pr387-squash
+
+Purpose
+=======
+
+Prove whether waitForClaimSandboxReady's 2-minute timer can cancel a
+synchronous Kubernetes GET that uses a longer parent context.
+
+Production-equivalent boundary
+==============================
+
+- client: k8s.io/client-go/dynamic created with dynamic.NewForConfig
+- rest.Config.Timeout: zero / unset, matching NewK8sClient
+- API boundary: httptest.Server speaking the real Kubernetes resource URLs
+- parent context: 3 minutes, matching the repository direct-WorkloadManager E2E client
+- Claim GET: connection accepted, response delayed for 2m2s
+- Sandbox GET: returns Ready immediately after the delayed Claim response
+- no production code, timer, or client-go function was patched
+
+Reproduction source
+===================
+
+See day30-claim-read-deadline-repro_test.go.txt in this directory. It is stored
+as text so normal repository Go test discovery does not compile a deliberately
+two-minute diagnostic test.
+
+Expected contract
+=================
+
+At about 2 minutes, the internal readiness deadline should cancel the in-flight
+Claim GET and return errSandboxCreationTimeout. A Ready response arriving after
+that deadline must not be accepted.
+
+Actual command and output
+=========================
+
+$ go test ./pkg/workloadmanager -run '^TestReproduceClaimReadOutlivesInternalTimer$' -count=1 -v
+=== RUN   TestReproduceClaimReadOutlivesInternalTimer
+    handlers_deadline_repro_test.go:96: BUG REPRODUCED: function returned success after 2m2.007s, beyond its 2m internal deadline
+--- PASS: TestReproduceClaimReadOutlivesInternalTimer (122.01s)
+PASS
+ok  github.com/volcano-sh/agentcube/pkg/workloadmanager  122.047s
+
+Control experiment
+==================
+
+The same dynamic-client GET was blocked, but the parent context was set to
+100ms. This proves client-go and the test server do propagate request-context
+cancellation when the deadline is actually carried by the context passed to
+GET.
+
+$ go test ./pkg/workloadmanager -run '^TestControlParentContextCancelsStalledClaimRead$' -count=1 -v
+=== RUN   TestControlParentContextCancelsStalledClaimRead
+    handlers_deadline_repro_test.go:128: CONTROL PASSED: parent context canceled the same stalled GET after 100ms
+--- PASS: TestControlParentContextCancelsStalledClaimRead (0.10s)
+PASS
+ok  github.com/volcano-sh/agentcube/pkg/workloadmanager  0.141s
+
+Conclusion
+==========
+
+The two-minute timer expires, but its channel is not selected while the same
+goroutine is blocked in getSandboxClaim. After the delayed Claim response, the
+code live-GETs the adopted Sandbox and returns Ready before reaching the select,
+so the expired timer is bypassed. The reproduction upgrades causal evidence to
+E3 at the production HTTP/client-go boundary. It remains a reachable latent bug,
+not a claim that the failure occurred in a production cluster.
+
+Cleanup
+=======
+
+The temporary handlers_deadline_repro_test.go was removed after capturing these
+results. The PR worktree was restored clean at baebe09c.
