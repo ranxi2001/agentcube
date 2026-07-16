@@ -351,7 +351,7 @@ owners: add RainbowMango as reviewer and approver
 
 PR body canonical draft：[day48-rainbowmango-owners-pr-draft.md](day48-rainbowmango-owners-pr-draft.md)
 
-- reviewer-visible words：234
+- reviewer-visible words：221
 - nonblank lines：17
 - ordinary PR 软门槛：100-300 words / ≤35 nonblank lines
 - 官方模板、`/kind cleanup`、`NONE` release note、AI disclosure 均已包含
