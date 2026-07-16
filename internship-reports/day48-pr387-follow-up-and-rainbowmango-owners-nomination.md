@@ -286,6 +286,8 @@ AgentCube 历史上只有 [#137 Add reviewers and approvers](https://github.com/
 
 GitHub Search 当前返回 23 个 `repo:volcano-sh/agentcube reviewed-by:RainbowMango -author:RainbowMango` PR；逐 PR GraphQL review state 复核，其中 19 个 PR 包含 `APPROVED` review，18 个已合并。数量只说明职责已被反复执行，能力判断仍看具体事件：
 
+- #386 把 v0.2.0 社区 proposal 收集、triage、负责人和合并结果组织成持续维护的 umbrella checklist；
+- #430 明确 pool/session 的长期架构边界，并通过 #431 多轮 review 推进其中 Kubernetes resource-pool 一侧；
 - #396 追问 Dependabot schedule 与 grouping trade-off，作者解释后接受；
 - #420 在批准前用 Docker `FROM --platform` 合同确认多架构构建根因；
 - #431 对 API 扩展性、字段合同、状态写入规模和恢复窗口进行多轮审查；
@@ -351,7 +353,7 @@ owners: add RainbowMango as reviewer and approver
 
 PR body canonical draft：[day48-rainbowmango-owners-pr-draft.md](day48-rainbowmango-owners-pr-draft.md)
 
-- reviewer-visible words：221
+- reviewer-visible words：230
 - nonblank lines：17
 - ordinary PR 软门槛：100-300 words / ≤35 nonblank lines
 - 官方模板、`/kind cleanup`、`NONE` release note、AI disclosure 均已包含
