@@ -2,14 +2,14 @@
 
 日期：2026-07-16
 
-状态：#387 两项 follow-up 已完成源码审计；Claim polling 暂不改 watch；Pod label fallback cleanup 已在独立分支实现并通过验证，但不是 correctness hotfix。`RainbowMango` root OWNERS 提名已在干净分支形成两行 DCO commit。两个 upstream PR 均未 push / 创建，等待用户确认精确 payload。
+状态：#387 两项 follow-up 已完成源码审计；Claim polling 暂不改 watch；Pod label fallback cleanup 已在独立分支实现并通过验证，但不是 correctness hotfix。`RainbowMango` root OWNERS 提名已在干净分支形成两行 DCO commit。两个 fork topic branch 已按用户确认推送，upstream PR 均未创建，等待用户检查 branch 后再决定。
 
 ## 今日目标
 
 1. 复核 #387 合并后的两个次要观察，区分 correctness bug、可维护性 cleanup 与没有规模证据的架构优化。
 2. 不用 commit 数量代替维护贡献，按 issue、comment、review、作者响应和最终结果梳理 `RainbowMango` 的项目质量把控事件。
 3. 基于最新 `upstream/main` 准备只修改 root `OWNERS` 的提名分支，并核对 Volcano 社区晋升规则。
-4. 保存精确 PR body、验证结果、失败命令和发布门禁；任何 push / upstream PR 仍需用户确认。
+4. 保存精确 PR body、验证结果、失败命令和发布门禁；fork branch push 与 upstream PR 创建分别确认。
 
 > 注释：`reviewer` 和 `approver` 不只是 YAML 中的两个名字。它们分别对应 `/lgtm` 与 `/approve` 权限，会改变整个仓库的合并门禁，因此贡献依据应重点证明长期 review 判断、项目方向和质量责任，而不是简单列举 authored commits。
 
@@ -86,7 +86,7 @@ createdSandbox.Name
 - DCO commit：`eefce59d95bd5be4566abf10ce5b817bc74df139`
 - subject：`workloadmanager: remove unused pod informer`
 - diff：6 files，`+45/-231`
-- 状态：clean，`0 behind / 1 ahead`，未 push。
+- 状态：clean，`0 behind / 1 ahead`；已 push [fork branch](https://github.com/ranxi2001/agentcube/tree/cleanup/remove-sandbox-pod-fallback)，未创建 PR。
 
 实际改动严格限于上述范围：保留四参数 `GetSandboxPodIP` 签名，空 Pod 名回退到 Sandbox 名后 live GET；删除 Pod lister/informer/cache-sync；收紧 Pod RBAC；更新相关测试夹具。Claim polling 没有改动。
 
@@ -268,7 +268,7 @@ Claim 与 Sandbox 是两个资源阶段。每请求 watch 需要额外处理：
 - base：`upstream/main@146b75f`
 - local DCO commit：`63bea7ac2dbda785a1ace9ef6a37c7f0d7a5236c`
 - diff：`OWNERS | 2 ++`
-- 未 push、未创建 PR、未 mention maintainer。
+- 已 push [fork branch](https://github.com/ranxi2001/agentcube/tree/owners/add-rainbowmango)；未创建 PR、未 mention maintainer。
 
 ```diff
  reviewers:
@@ -343,11 +343,11 @@ cleanup PR body canonical draft：[day48-pod-informer-cleanup-pr-draft.md](day48
 | --- | --- | --- |
 | #387 post-merge 两项审计 | DONE | polling 不改；Pod fallback cleanup 作为独立低中优先级候选 |
 | RainbowMango 维护事件账本 | DONE | 后续若 maintainer 要求，只补直接相关证据，不追加 approval 计数 |
-| OWNERS 两行分支与 DCO commit | DONE | 等用户确认 exact target/title/body/diff/tests |
-| push `origin owners/add-rainbowmango` | PENDING | 用户确认后执行；不 push upstream |
-| 创建 `volcano-sh/agentcube` PR | PENDING | push 后以官方模板创建，并回读 URL/head/checks |
+| OWNERS 两行分支与 DCO commit | DONE | 用户先检查 fork branch；upstream payload 仍需另行确认 |
+| push `origin owners/add-rainbowmango` | DONE | remote exact SHA `63bea7a`；未 push upstream |
+| 创建 `volcano-sh/agentcube` PR | PENDING | 等用户检查 branch 并确认 exact title/body 后执行 |
 | Volcano membership 流程 | OPEN QUESTION | 由 existing root approver 确认；不替候选人声明私有前置条件 |
-| Pod informer/RBAC cleanup PR | READY_LOCAL / SEPARATE | branch `cleanup/remove-sandbox-pod-fallback`、commit `eefce59` 已通过 unit/race/repeat/lint/qualified-Helm 验证；等用户确认 exact payload，不与 nomination PR 混合 |
+| Pod informer/RBAC cleanup PR | READY_FORK / SEPARATE | fork branch `cleanup/remove-sandbox-pod-fallback@eefce59` 已 push，通过 unit/race/repeat/lint/qualified-Helm 验证；upstream PR 等用户另行确认，不与 nomination PR 混合 |
 
 ## 今日复用经验
 
