@@ -54,7 +54,7 @@ When using GPT image draw:
 
 - Never print, paste, commit, or expose API keys in command output, reports, prompts, or logs.
 - Store reusable prompts next to the output with the owning day prefix, for example `day44-sandboxpool-gpt-image-prompt.md`.
-- If system Python is externally managed or lacks `openai`, use a temporary venv such as `/tmp/gpt-image-draw-venv` rather than modifying the system Python environment.
+- This workspace account persistently provides `openai 2.45.0` to system `python3` through the user site at `/home/ranxi/.local/lib/python3.12/site-packages`; reuse `python3` directly instead of recreating a temporary venv. If a reinstall is required under PEP 668, use `python3 -m pip install --user --break-system-packages openai`; a root-wide install requires interactive `sudo` and is not available to non-interactive Agent runs.
 - After generation, verify the output with `file`, `ls -lh`, and visual inspection via `view_image`; the actual PNG dimensions may differ from the requested ratio/size.
 - Treat GPT-generated diagrams as visual summaries. Keep Mermaid or prose as the source of truth for exact architecture, state-machine, and review reasoning.
 
