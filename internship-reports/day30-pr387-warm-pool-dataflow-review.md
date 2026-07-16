@@ -1703,3 +1703,22 @@ adoption/身份、readiness/Pod/Store、生命周期/验证。底部单独列出
 > 分析：该 PNG 是视觉摘要，适合报告和 review 导读；对象 ownerReference、状态来源和
 > 同步/异步边界仍以本节前面的 Mermaid、源码和 E2E 证据为准。尤其是删除后会级联清理
 > `Claim -> adopted Sandbox -> Pod`，随后新建 replacement，而不是把旧 runtime 归还池中。
+
+## 2026-07-16：Maintainer LGTM 与剩余合并门槛
+
+`@acsoto` 在 2026-07-16 03:03:35 UTC 发布
+[`/lgtm`](https://github.com/volcano-sh/agentcube/pull/387#issuecomment-4987735233)，Prow 随后为
+PR 加上有效的 `lgtm` label。GitHub 回读确认 head 仍是单个 DCO commit `95fae1f8`，没有新
+push，PR 仍为 `MERGEABLE`；12 项 GitHub Actions checks 与 DCO 成功，Tide 的唯一 pending
+说明已收敛为 `Needs approved label.`。
+
+Approval Notifier 指明根 `OWNERS` 当前可由 `@hzxuzhonghu` 执行 `/approve`。这意味着代码、
+exact-SHA CI 和 reviewer LGTM 已闭环，下一阶段是 approver gate，不再是继续修改实现。GitHub
+仍可能显示未 resolve 的 current/outdated review threads，但 Prow 不以 thread resolve 状态作为
+当前剩余门槛；`@acsoto` 的 LGTM 晚于其两条 finding 和作者修复回复，因此不应代替 reviewer
+自动 resolve、重发回复或继续堆 commit。
+
+> 开源流程记录：`lgtm` 表示 reviewer 认可当前改动，`approved` 表示 OWNERS approver 认可
+> 合并；两者是不同角色和门禁。按 Approval Notifier 指引请求 approver 属于 upstream-facing
+> 动作，仍需用户确认 exact target/comment 后才能执行。本轮只读核对并更新本地记录，没有
+> 自动 assign、mention、comment、resolve 或 push PR branch。

@@ -8,7 +8,7 @@
 
 ## Current State
 
-- PR #387 current：单个 DCO commit `95fae1f`，`MERGEABLE`，exact SHA official 12/12 checks 全绿；普通 E2E 7m53s、CodeInterpreter E2E 9m28s，Tide 只缺 `approved`/`lgtm`。Claim in-flight GET deadline bug 已修复。经用户确认已删除 11 条零回复、共 27,583 字符的自发 file-rationale inline comments；只保留 4 条 reviewer 回复（3 current、1 structurally outdated），没有 resolve、重发或新增评论。完整证据见 Day30 和 benchmark `15-*`。
+- PR #387 current：单个 DCO commit `95fae1f`，`MERGEABLE`，exact SHA official 12/12 checks 与 DCO 全绿；普通 E2E 7m53s、CodeInterpreter E2E 9m28s。2026-07-16 `@acsoto` 发布 `/lgtm`，Prow `lgtm` label 已生效；Tide 现在只缺 `approved`，Approval Notifier 指向根 OWNERS approver `@hzxuzhonghu`。Claim in-flight GET deadline bug 已修复。完整证据见 Day30 和 benchmark `15-*`。
 - AgentCube PR review skill：独立 `.agents/skills/agentcube-pr-review/` 已完成并用 #387 前向验证；scanner 同时识别 dependency/runtime skew 和 target E2E default skip。2026-07-15 follow-up 将 live/cache freshness、真实 `%w` chain、progress-marker commit point 和“timer 不会自动约束 blocking I/O”纳入 checks、architecture map 与 pattern library；skill schema、6 个脚本单测、diff check 和 fresh-context raw-source review 通过。PR management 仍独立负责分支、CI 文案和 upstream 门禁。
 - Production reachability learning：已把 Karmada #7623 的方法吸收到 AgentCube PR review / issue discussion skills；bug claim 现在必须区分 observed、source-proven reachable latent 和 mock-only hypothetical，并先证明真实 producer、受支持前置状态与 recovery/self-heal behavior。两个 skill 校验、10 个脚本测试、三场景 fresh-context forward test 和 diff check 均通过；未修改任何 upstream 评论。
 - Maintainer review learning：2026-07-14 已抽样 `@RainbowMango` 在 AgentCube/Karmada 2020-2026 的 15 个有效 review PR，排除 reviewer-authored 与 approval-only 噪音；[Day46](internship-reports/day46-rainbowmango-maintainer-review-method-study.md) 总结 problem-first、scope、existing ownership/precedent、shared helper routing、status transition、second-round 方法。`agentcube-pr-review` 新增 history extractor、2 tests、maintainer methods reference 和 4 条 proven patterns。
@@ -38,7 +38,7 @@
 - #431 SandboxPool proposal：旧的两个用户确认 `COMMENT` review threads 已从 active 列表退出；残余实现风险继续记在 tracker，但不再称 `POSTED_WAITING`。当前 8 条 active 均为 `@RainbowMango` 最新 API/runtime review；先等待作者新 push 或逐条回复，不自动追评。
 - #429 Go toolchain update workflow：已创建 upstream PR，普通 CI 绿，`tide` pending 等 review/labels；不要自动 push/comment。
 - #400 PicoD Prometheus metrics：current head `b8c4ed5`，`MERGEABLE`，12 checks/DCO 绿。我们的 review 已公开完成：https://github.com/volcano-sh/agentcube/pull/400#issuecomment-4977532327；Prow 因 collaborator-only 权限拒绝 `/lgtm`，label 仍需 maintainer/collaborator 添加。不重复命令、不自动追评。
-- #387 agent-sandbox v0.4.6 compatibility：current head `95fae1f`，1 commit，`MERGEABLE`，official 12/12 checks 成功；Tide 只缺 `lgtm`/`approved`。maintainer 两条 readiness finding 与二次审计的 Claim deadline finding 均已修复。review surface 已清掉 11 条无回复的文件说明，只保留 4 条真实 reviewer 回复；等待 maintainer review，不自动评论/resolve/request review。NetworkPolicy `Unmanaged` 仍是已知安全设计债务，详见 Day30。
+- #387 agent-sandbox v0.4.6 compatibility：current head `95fae1f`，1 commit，`MERGEABLE`，official 12/12 checks 与 DCO 成功；`@acsoto` 的 `/lgtm` 已转成 Prow label，Tide 唯一 pending 是 `Needs approved label.`。maintainer 两条 readiness finding 与二次审计的 Claim deadline finding 均已修复；不自动 assign/mention approver、评论、resolve thread 或 push。NetworkPolicy `Unmanaged` 仍是已知安全设计债务，详见 Day30。
 - #385 WarmPoolAvailable PoC：主要等 maintainer review / `lgtm` / `approve` / tide。
 - #433 WorkloadManager chart auth：2026-07-14 最新 head 仍是 `fe295b6`，3 个 chart 文件 `+32/-0`，没有作者承诺 rework 后的新 push。当前代码仍给 Router cluster-wide Sandbox/SandboxClaim `create/delete`，未包含 #387 Claim readiness 所需 `get`；maintainer 质疑 auth 与 credential delegation 耦合，作者口头计划改为 Router token 只认证、WM 用自身 ServiceAccount，但最终 permission contract 尚未确定。用户明确要求不与其冲突；只有 head 变化或 maintainer 明确设计后才重新审计。
 
@@ -72,7 +72,7 @@
 
 ## Next
 
-- For #387：代码与 exact-SHA CI 已闭环，下一步只等待 maintainer `lgtm` / approver；有新 comment 或 push 时再按当前 head 复核，不自动评论、resolve、request review，也不要追加 #433 auth/RBAC 修改。
+- For #387：代码、exact-SHA CI 与 reviewer `lgtm` 已闭环，下一步只等待 `@hzxuzhonghu` 或其他合格 approver 给出 `approved`；未经用户确认不自动 assign、mention、comment、resolve 或 request approval，也不要追加 #433 auth/RBAC 修改。
 - Community tasks：本轮不 `/assign`。下一次先刷新 open issue/PR；只有新的 focused unowned issue，或 maintainer 将 #386/#272 拆成 dedicated sub-issue，才进入认领准备。#433 若做协作，先在临时 worktree 完成 Helm render/lint 和 auth/RBAC focused validation，再向用户提交 exact review draft。
 - For #431: 当前固定 head `f380208`；不新增评论。等待 8 个 active thread 收敛；新 push 后先复核单一 Selector、ResourceList/percentage、template/NodeCtlEndpoint/field comments/RuntimeClass bootstrap，再重验 `SP-28` status caller-to-field matrix、`SP-29` name/label/path budget 和 `SP-30` generation freshness。任何 upstream 回复仍需用户确认 exact body。
 - For #400: 我们的 review 已结束。保留 Python SDK `120s`、LangChain `1800s`、server 无 max 的 residual scope 供后续设计使用，但不继续扩张本 PR；等待 collaborator `lgtm` / approver，不重复 `/lgtm` 或自动 mention。
