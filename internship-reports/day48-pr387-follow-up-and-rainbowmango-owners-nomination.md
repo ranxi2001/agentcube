@@ -2,7 +2,7 @@
 
 日期：2026-07-16
 
-状态：#387 两项 follow-up 已完成源码审计；Claim polling 暂不改 watch；Pod label fallback cleanup 已在独立分支实现并通过验证，但不是 correctness hotfix。两个 fork topic branch 已按用户确认推送，upstream PR 均未创建。用户进一步澄清 `RainbowMango` 已多次实际承担 AgentCube review/approve；公开记录验证后，OWNERS 变更按 formalize existing responsibilities 处理，不再要求新建 membership issue。
+状态：#387 两项 follow-up 已完成源码审计；Claim polling 暂不改 watch；Pod label fallback cleanup 已在独立分支实现并通过验证，但不是 correctness hotfix。RainbowMango OWNERS 变更已按用户确认创建 upstream [PR #439](https://github.com/volcano-sh/agentcube/pull/439)；cleanup PR 仍未创建。公开记录验证后，OWNERS 变更按 formalize existing responsibilities 处理，不再要求新建 membership issue。
 
 ## 今日目标
 
@@ -332,7 +332,7 @@ GitHub Search 当前返回 23 个 `repo:volcano-sh/agentcube reviewed-by:Rainbow
 - base：`upstream/main@146b75f`
 - local DCO commit：`63bea7ac2dbda785a1ace9ef6a37c7f0d7a5236c`
 - diff：`OWNERS | 2 ++`
-- 已 push [fork branch](https://github.com/ranxi2001/agentcube/tree/owners/add-rainbowmango)；未创建 PR、未 mention maintainer。
+- 已 push [fork branch](https://github.com/ranxi2001/agentcube/tree/owners/add-rainbowmango)，并按用户对 exact payload 的确认创建 [upstream PR #439](https://github.com/volcano-sh/agentcube/pull/439)；未额外 mention maintainer。
 
 ```diff
  reviewers:
@@ -389,6 +389,14 @@ PR body canonical draft：[day48-rainbowmango-owners-pr-draft.md](day48-rainbowm
 4. #419 以 Docker 官方 `FROM --platform` 合同确认多架构构建根因；
 5. nomination 的治理确认边界。
 
+### Upstream 创建结果
+
+- PR：[volcano-sh/agentcube#439](https://github.com/volcano-sh/agentcube/pull/439)
+- exact head：`63bea7ac2dbda785a1ace9ef6a37c7f0d7a5236c`
+- 回读 diff：`OWNERS | 2 ++`，`MERGEABLE`，`kind/cleanup`、`size/XS`
+- 创建前 fork push 的 10 个 checks 全部成功；upstream PR 初始 DCO 已通过，其余 checks 正在收敛
+- Prow 提示先等待 `lgtm`，之后再 assign `hzxuzhonghu` approval；本轮不提前 mention 或追加命令
+
 cleanup PR title：
 
 ```text
@@ -407,9 +415,9 @@ cleanup PR body canonical draft：[day48-pod-informer-cleanup-pr-draft.md](day48
 | --- | --- | --- |
 | #387 post-merge 两项审计 | DONE | polling 不改；Pod fallback cleanup 作为独立低中优先级候选 |
 | RainbowMango 维护事件账本 | DONE | 后续若 maintainer 要求，只补直接相关证据，不追加 approval 计数 |
-| OWNERS 两行分支与 DCO commit | DONE | formalize existing responsibilities；等待 exact payload 确认 |
+| OWNERS 两行分支与 DCO commit | DONE | formalize existing responsibilities；exact payload 已确认并发布 |
 | push `origin owners/add-rainbowmango` | DONE | remote exact SHA `63bea7a`；未 push upstream |
-| 创建 `volcano-sh/agentcube` PR | PENDING_CONFIRMATION | 不关联新 issue；等待用户确认更新后的 exact title/body 后执行 |
+| 创建 `volcano-sh/agentcube` PR | OPEN / #439 | 不关联新 issue；等待 CI、真人 `lgtm`，再按 Prow 指引进入 approval |
 | Volcano membership issue | NOT_REQUIRED | 本次 formalize 已实际执行的 AgentCube collaborator duties；不另造 promotion issue |
 | Pod informer/RBAC cleanup PR | READY_FORK / SEPARATE | fork branch `cleanup/remove-sandbox-pod-fallback@eefce59` 已 push，通过 unit/race/repeat/lint/qualified-Helm 验证；upstream PR 等用户另行确认，不与 nomination PR 混合 |
 

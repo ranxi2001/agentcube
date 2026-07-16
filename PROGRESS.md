@@ -9,7 +9,7 @@
 ## Current State
 
 - PR #387 merged：2026-07-16 `@acsoto` `/lgtm` 后，`@RainbowMango` 于 08:35:56 UTC `/approve`，Tide 在 08:37:15 UTC 合并；merge commit `146b75f` 的两个 parent 是旧 main `fa254b1` 与 exact head `95fae1f`。`tide/merge-method-squash` 在批准前被移除，因此最终是 two-parent merge，不是 squash；feature head 本身仍只有一个 DCO commit。完整证据见 Day30。
-- Day48 post-merge / OWNERS：Pod cleanup branch `cleanup/remove-sandbox-pod-fallback@eefce59` 与 RainbowMango OWNERS branch `owners/add-rainbowmango@63bea7a` 已 push 到 fork，upstream PR 均未创建。用户澄清这是 formalize existing duties，不是新成员晋升；分页审计支持 23 个非本人 reviewed PR（19 human / 4 Dependabot）、19 个含 `APPROVED`、28 条 inline comment / 20 个 root threads，以及本人创建的 #386/#430 两个规划/提案 Issue。285-word PR 草稿继续用具体 outcome 说明质量，不新建 membership issue，PR 使用 `NONE`。
+- Day48 post-merge / OWNERS：Pod cleanup branch `cleanup/remove-sandbox-pod-fallback@eefce59` 仍只在 fork；RainbowMango OWNERS branch `owners/add-rainbowmango@63bea7a` 已按用户确认创建 upstream PR [#439](https://github.com/volcano-sh/agentcube/pull/439)。分页审计支持 23 个非本人 reviewed PR（19 human / 4 Dependabot）、19 个含 `APPROVED`、28 条 inline comment / 20 个 root threads，以及本人创建的 #386/#430 两个规划/提案 Issue。PR 仅 `OWNERS +2`，DCO 通过；等待 CI、真人 `lgtm`，再按 Prow 指引进入 approval。
 - AgentCube PR review skill：独立 `.agents/skills/agentcube-pr-review/` 已完成并用 #387 前向验证；scanner 同时识别 dependency/runtime skew 和 target E2E default skip。2026-07-16 修复 maintainer history 的 REST 单页 100 条截断，files/reviews/inline/conversation 全量分页；8/8 tests、schema 与真实 #431（22 条 RainbowMango inline comments）回归通过。PR management 仍独立负责分支、CI 文案和 upstream 门禁。
 - Review communication learning：2026-07-16 从 Karmada PR #7764 作者明确“难理解”的真实 miss 提炼 standalone comprehension 与 visualization gates。非平凡 finding 必须自包含 observation/counterexample/reasoning/action，并区分 signal 与 claim；3+ actor/state/step、竞争原因、retry/cleanup/recovery 或 current/proposed 默认比较 4-10 节点 inline Mermaid。`agentcube-pr-management` 已接入 exact-text/render gate；两场 fresh-context teach-back 经一次 sequence `Note` 分号 parse failure 修正后均实际渲染并视觉通过，不复制 Karmada 专属结论。
 - Production reachability learning：已把 Karmada #7623 的方法吸收到 AgentCube PR review / issue discussion skills；bug claim 现在必须区分 observed、source-proven reachable latent 和 mock-only hypothetical，并先证明真实 producer、受支持前置状态与 recovery/self-heal behavior。两个 skill 校验、10 个脚本测试、三场景 fresh-context forward test 和 diff check 均通过；未修改任何 upstream 评论。
@@ -37,6 +37,7 @@
 
 ## Active Upstream Threads
 
+- #439 RainbowMango OWNERS：open、`MERGEABLE`，exact head `63bea7a`，labels `kind/cleanup` / `size/XS`，DCO 已通过；Prow 要求先有 `lgtm`，之后再 assign `hzxuzhonghu` approval。不要提前 mention 或重复命令。
 - #431 SandboxPool proposal：latest head `49576e8` 已吸收一批 maintainer API/Lease/runtime 建议；当前 5 条 current active、6 条 unresolved outdated，仍无 review decision。先等待作者继续收敛，不自动追评。
 - #429 Go toolchain update workflow：已创建 upstream PR，普通 CI 绿，`tide` pending 等 review/labels；不要自动 push/comment。
 - #400 PicoD Prometheus metrics：current head `b8c4ed5`，`MERGEABLE`，12 checks/DCO 绿。我们的 review 已公开完成：https://github.com/volcano-sh/agentcube/pull/400#issuecomment-4977532327；Prow 因 collaborator-only 权限拒绝 `/lgtm`，label 仍需 maintainer/collaborator 添加。不重复命令、不自动追评。
@@ -74,7 +75,7 @@
 ## Next
 
 - For #387：已合并，不再请求 review/approval 或修改该 PR。stable v0.4.6 compatibility 前置已解除；v0.5 adapter 必须作为独立 scope 基于新 main 重新验证。#433 已关闭，auth/RBAC 等新合同，不混入 #387 follow-up。
-- For RainbowMango OWNERS：fork branch `owners/add-rainbowmango@63bea7a` 已 push，当前按 formalize existing review/approval responsibilities 处理，不关联新 issue。等待用户确认更新后的 exact target/title/body、两行 diff 与 YAML/order/DCO validation 后创建 PR；不得把 approval 数量替代为唯一能力证据，正文继续保留 issue/review/outcome 样本。
+- For RainbowMango OWNERS：upstream PR #439 已创建，exact head `63bea7a`，按 formalize existing review/approval responsibilities 处理且不关联新 issue。等待 CI 和真人 `lgtm`；只有 Prow 进入下一阶段后才按指引 assign `hzxuzhonghu` approval，不自动 mention、comment 或更新分支。
 - For Pod informer cleanup：fork branch `cleanup/remove-sandbox-pod-fallback@eefce59` 已 push。等待用户单独确认 title、208-word body、6-file `+45/-231` diff、unit/race/repeat/lint/qualified-Helm evidence 后再创建独立 PR；默认 PATH 无 Helm，必须准确写已有 `v3.18.4` binary 的 PATH-qualified 验证。
 - Community tasks：本轮不 `/assign`。下一次先刷新 open issue/PR；只有新的 focused unowned issue，或 maintainer 将 #386/#272 拆成 dedicated sub-issue，才进入认领准备。#433 已关闭，不基于旧实现另开重复 auth PR。
 - For #431: 当前固定 head `49576e8`；不新增评论。等待 5 个 current active 和 6 个 outdated thread 收敛；新 push 后先复核 Lease namespace/RBAC、required ResourceList serialization、字段 comments/RuntimeClass bootstrap，再重验 `SP-28` status caller-to-field matrix、`SP-29` name/label/path budget 和 `SP-30` generation freshness。任何 upstream 回复仍需用户确认 exact body。
