@@ -67,6 +67,7 @@ Do not upload source, topology, service names, or internal flows to a public ren
 - Chrome refuses to run as root: use the wrapper or pass a Puppeteer config with `--no-sandbox`.
 - Blank image: verify the first Mermaid keyword (`flowchart`, `sequenceDiagram`, or `stateDiagram-v2`) and render again.
 - Parse failure around `end`: quote or bracket labels containing the reserved word `end`.
+- Parse failure after a sequence `Note`: an unescaped semicolon can terminate the statement; use a comma or `<br/>`, then render the exact comment source again.
 - Tiny text: reduce participants/nodes before increasing scale. Split the diagram when the canvas is the real problem.
 - Dark or transparent PNG: keep `--background white`; avoid relying only on an SVG viewer's background behavior.
 - Layout differs after a CLI upgrade: record the CLI version and visually review regenerated assets before committing them.

@@ -308,3 +308,23 @@ Evidence labels:
 - Review question: Where does the repository already express this invariant, and if a new mechanism is still needed, what responsibility or semantics make it distinct?
 - Validation: Search definitions and call sites, compare field/owner/error semantics, and ask for the smallest rationale when choosing a new path over reuse.
 - False-positive guard: Similar syntax is not duplication when ownership, lifecycle, API surface, or failure semantics materially differ.
+
+### Polite review questions still need standalone causal context
+
+- Trigger: A non-trivial review comment leads with an abstract conclusion or polite request, then lists lifecycle, queue, cache, identity, or retry terms.
+- Hidden assumption: The line anchor and implementation vocabulary let the author reconstruct the reviewer's private reasoning.
+- Failure mode: The technical direction may be correct, but the author cannot identify the contradicting case or requested change; follow-up adds more jargon while the evidence gap remains unclear.
+- Evidence source: `OBS`, Karmada PR #7764. The author explicitly said the fast-wait and single-log-hit comments were hard to understand even though the supporting investigation existed in the local report.
+- Review question: With local notes and chat hidden, can the author state the exact current claim, one concrete counterexample, what the signal proves, what it does not prove, and the smallest edit?
+- Validation: Draft in `observation -> counterexample -> reasoning -> action` order, then perform a fresh-context teach-back using only the diff/thread and the proposed comment.
+- False-positive guard: A short direct comment is sufficient for a local condition whose trigger and consequence are visible at the anchor. Do not inflate a one-step fix into a tutorial.
+
+### Visualize branching or temporal review arguments
+
+- Trigger: A finding asks the author to compare multiple causes, actors, state layers, event order, retry, cleanup, recovery, or current/proposed flows.
+- Hidden assumption: Compressing the relationships into a dense paragraph reduces reviewer noise.
+- Failure mode: The author must mentally draw the graph, misses the signal-versus-claim distinction, or reads visual certainty into an inference that lacks provenance.
+- Evidence source: `OBS` from Karmada PR #7764's hard-to-understand fast-wait/retry comments and `CODE` from the follow-up inline Mermaid drafts; AgentCube PR #387's warm-pool diagrams are a positive project-local example of separating control identity, runtime identity, and ordered readiness reads.
+- Review question: Must the reader track at least three meaningful nodes, competing causes, or temporal transitions, and would a 4-10 node Mermaid diagram expose the invariant faster than prose?
+- Validation: Use one finding sentence, the smallest locally rendered Mermaid diagram, and one evidence-boundary/action sentence. Preserve stable labels and order in current/proposed views; mark hypotheses and verify consequential arrows against source, logs, or tests.
+- False-positive guard: Keep prose for a single condition or one-step correction. A diagram supplements evidence and accessibility; it does not justify a claim whose producer, reachability, or source boundary remains unproven.

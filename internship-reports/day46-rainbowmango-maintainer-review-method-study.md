@@ -671,3 +671,37 @@ author says done OR thread resolved -> assume fixed
 Mango 的最新 review 尚未完成，不能写成 maintainer consensus 或 LGTM。当前 proposal 可以继续做 CRD/controller happy-path 骨架和 runtime feasibility spike，但现有 selector/resource/endpoint/comment contract、manifest recovery guarantee 和 heartbeat channel 仍不足以冻结完整 `v1alpha1`。
 
 我们的学习重点不是复制他的短句，而是复制证据顺序：先问字段是否有 agency，再找成熟原生模型；对“自愈”追完整恢复窗口；对高频状态先算规模成本；最后回读实际产物而不是信任 `done` 或 resolved UI。
+
+## 追加学习：Karmada PR #7764 的 Review 可理解性与可视化 Gate
+
+2026-07-16 继续学习 Karmada intern commit `462c6acd8`。这次经验不是“多画图更专业”，而是一次真实 review miss：PR #7764 作者分别在 fast-wait 和 retry thread 明确表示难以理解。两条评论的技术方向并非完全错误，问题在于关键因果桥只存在于 reviewer 的本地报告和聊天上下文中，评论本身只留下抽象结论与 UID、generation、`handleErr`、`Forget` 等术语。
+
+> 分析：line anchor 只能说明“评论放在哪里”，不能替代“为什么这里有问题”。礼貌的 `Could ...?` 也只负责提出 action，不能替代 observation、counterexample 和 reasoning。
+
+因此 AgentCube review workflow 新增两道相邻但不同的 gate：
+
+1. **Comprehension Gate**：非平凡评论按 `observation -> concrete counterexample -> reasoning -> action` 自包含；反驳推断时明确写出 signal 与 claim，例如“单次日志命中”不等于“运行时没有 retry”。
+2. **Visualization Gate**：涉及三个以上 actor/state/step、竞争原因、retry/cleanup/recovery 时序或 current/proposed 节点变化时，默认比较一个 4-10 节点 inline Mermaid 与 prose，选择认知成本更低的表达。
+
+图的结构固定为“一句 finding -> 最小关系图 -> 一句 evidence boundary 与 action”。图用来替换原本需要读者脑补的箭头和顺序，不是在长评论后再追加一个附件。单一局部条件仍用一两句文字；作者说不理解时，应从具体反例重写，而不是继续叠加术语、链接或更大的架构图。
+
+> 注释：GitHub 可以直接在 Pull Request、Issue 和 Discussion 中渲染 fenced Mermaid。一次性 upstream comment 的 exact fenced block 可以作为本地待审批草稿的 canonical source，不强制额外生成 `.mmd + PNG`；报告、proposal 或可复用证据仍保存 canonical `.mmd` 和渲染图。
+
+current/proposed 对比还增加了稳定视觉语义：两侧保持相同方向、节点顺序和标签；current/unchanged 使用中性色，changed/new 使用克制强调色，open question 使用琥珀色，只有 material risk 使用红色。颜色必须由 `Current`、`Changed`、`Risk` 等文字、边框或线型重复表达，不能成为唯一信息载体。
+
+这条规则还有证据边界：会议、日志、实验或研究综合图必须同时说明 source supports、does not establish 和 provenance limitation。Mermaid 让关系显得确定，反而更需要防止把 hypothesis 画成事实。
+
+### 对 AgentCube 的选择性迁移
+
+- `project-mermaid` 同步 Karmada clean commit `462c6acd8` 的 inline review mode、proposal-change 模板和 preview；
+- `agentcube-pr-review` 新增 comprehension/visualization gates，并在 pattern library 固化真实 miss 与 false-positive guard；
+- `agentcube-pr-management` 把两道 gate 接入 exact-text posting approval，要求报告 Mermaid source 和本地 render/syntax 状态；
+- 不复制 Karmada #7764 的具体日志结论，也不把 hard-wrap 风格偏好升级为 AgentCube correctness blocker。
+
+AgentCube #387 的 comment 清理提供了另一侧反例：把完整 file rationale、调试时间线和测试矩阵搬进 inline comment 会淹没 reviewer；Karmada #7764 则说明过度压缩成术语也会让作者无法补全因果。新的目标不是“更长”或“更短”，而是让评论只保留完成当前判断所需的最小自包含模型。
+
+### 验证
+
+三个 skill 的 quick validation、renderer Python compile/CLI help 和 `agentcube-pr-review` 的 6 个脚本测试均通过。data-flow、sequence 和新增 proposal-change 三个模板使用官方 `@mermaid-js/mermaid-cli@11.16.0` 的显式 npx backend 成功白底渲染；proposal preview 为 `1531x554`，重新渲染与 bundled PNG byte-identical，原图检查无文字裁切、节点重叠或歧义箭头。
+
+两场 fresh-context teach-back 分别生成 live API / stale informer / rollback 的 sequence comment，以及 current delete-first / proposed target-first 的 comparison comment。第一份 exact source 初次渲染失败：sequence `Note` 中的分号被 Mermaid 当作语句分隔符，报 parse error；改为 `<br/>` 后得到 `769x487` PNG。第二份直接得到 `1118x618` PNG。两张原图均无裁切、重叠或不连贯箭头，且都保留 finding、evidence boundary 和 action。这个失败说明 syntax gate 必须验证最终准备发布的 fenced source，不能只看草稿结构；对应 troubleshooting 已写回 `project-mermaid`。本轮没有发布任何 upstream comment。

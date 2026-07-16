@@ -190,6 +190,35 @@ Do not report:
 
 If no defects are proven, say so clearly and list remaining test gaps or unverified assumptions.
 
+#### Review Comment Comprehension Gate
+
+A technically correct finding still fails review quality when the author needs the reviewer's private report or follow-up chat to understand it. Treat a line anchor as location, not explanation. Before finalizing a non-trivial finding, hide the local investigation and check whether a reader with only the diff and thread can answer:
+
+1. What exact behavior, statement, or conclusion is under review?
+2. What concrete input, event order, or counterexample exposes the issue?
+3. What does the observed signal prove, and what stronger claim does it not prove?
+4. Why does that distinction matter to correctness, diagnosis, compatibility, or maintenance?
+5. What is the smallest requested code, text, or test change?
+
+Draft in `observation -> counterexample -> reasoning -> action` order without requiring literal labels. Translate identifiers and domain terms into their roles before listing them. Put polite wording such as `Could ...?` on the action; politeness does not replace the causal bridge.
+
+When challenging an inference, state the contrast directly, for example `signal = one log match; claim = no runtime retry`. If an author says a comment is hard to understand, treat that as a review-quality miss. Rewrite from one plain-language counterexample instead of adding more jargon or links.
+
+#### Review Visualization Gate
+
+Use a visualization when it materially reduces the relationship the author must reconstruct. Default to comparing a compact inline Mermaid diagram against prose when a finding contains:
+
+- three or more actors, state layers, or dependent transitions;
+- ordering, retry, cleanup, race, or recovery behavior;
+- one signal with multiple plausible causes;
+- current-versus-proposed flow whose invariant is difficult to scan in prose.
+
+Use `flowchart` for branching causes or decision logic, `sequenceDiagram` for actor order and retries, and `stateDiagram-v2` for lifecycle transitions. Keep one question and usually 4-10 nodes. Structure the comment as one plain-language finding, the smallest useful diagram, then one evidence-boundary and action sentence. Follow `project-mermaid` for syntax, labels, and local rendering.
+
+For current/proposed comparisons, preserve node order and stable labels. Keep unchanged/current nodes neutral, accent changed/new nodes, use amber for open questions and red only for material risk, and repeat color meaning in labels, borders, or line styles.
+
+Do not diagram a single local condition that is clearer in one or two sentences. Keep a prose conclusion for accessibility, label hypotheses explicitly, and cite evidence for consequential arrows. When synthesizing meeting, log, experiment, or research evidence, say what the source supports, what it does not establish, and its provenance limits. A diagram must not turn inference into fact.
+
 ## Output Shape
 
 Use this order:

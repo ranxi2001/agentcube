@@ -27,6 +27,8 @@ Use this skill for AgentCube upstream PR work: branch prep, template filling, is
 - Open upstream PRs only when the change is ready for community review or the user explicitly asks to involve upstream. Do not create upstream PRs merely to trigger CI for a private validation path.
 - Keep internship reports, raw benchmark results, and Chinese-only notes out of upstream PRs unless explicitly intended.
 - For other contributors' PRs, do not draft comments, conclusions, or review suggestions until you have read the PR body, changed files, proposal/design docs, key implementation/tests, and existing human review discussion.
+- For every non-trivial upstream review comment, use `agentcube-pr-review` and pass its Review Comment Comprehension Gate before requesting exact-text approval. The comment must stand on the diff and thread without the local internship report or chat.
+- Apply the `agentcube-pr-review` Review Visualization Gate. For three or more actors/steps, competing causes, retries, lifecycle order, or current/proposed node changes, default to comparing a compact inline Mermaid diagram against prose. Keep a prose conclusion and action, do not rely on color alone, and preserve evidence/provenance boundaries.
 - For read-only analysis of another PR or issue, keep notes local unless a maintainer response is genuinely needed and the user approves posting.
 - Prefer script-first PR analysis. If status checks, file summaries, review comment filtering, CI state, or branch hygiene checks are repeated across PRs, improve `.agents/skills/agentcube-pr-management/scripts/` and update this skill instead of redoing the same manual analysis.
 - Keep the code rationale matrix, full benchmark record, and investigation history local. The upstream body is a concise index to the problem, behavior, risk, validation, and stable linked evidence. Read `references/concise-pr-writing.md` before drafting or materially expanding a PR body.
@@ -49,6 +51,8 @@ Approval request must include:
 - Diff summary and tests run.
 - Why upstream attention is needed now.
 - Reviewer-visible word/nonblank-line count. If the body exceeds 450 words, include the exact long-form reason.
+- For a non-trivial review comment, confirmation that the exact text names the current claim, gives one concrete counterexample or failing scenario, explains the impact or evidence gap in plain language, and requests a specific change.
+- When the visualization gate triggers, the exact Mermaid source and local render/syntax status; when prose is retained, the reason it is easier to scan than a diagram.
 
 If the goal is only to run CI, use local tests and any fork branch push checks that exist first. Do not ask maintainers to validate work that can be validated before upstream review.
 
@@ -745,6 +749,8 @@ When review comments arrive:
 7. Apply fixes in small local commits on the chosen branch, validate them, then update the PR with a clean history.
 8. Reply directly and specifically.
 9. Do not use AI-generated reviewer replies verbatim; author should respond.
+10. If an author says a comment is hard to understand, do not repeat the same abstraction with more jargon. Restate the exact claim, one concrete counterexample, what the signal does and does not prove, and the smallest requested change.
+11. If the clarification describes branches, actors, or event order, use a compact Mermaid diagram instead of making the prose denser.
 
 Useful response format:
 
