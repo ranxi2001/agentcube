@@ -409,6 +409,14 @@ cleanup PR body canonical draft：[day48-pod-informer-cleanup-pr-draft.md](day48
 - nonblank lines：15
 - 官方模板、`/kind cleanup`、`Refs #387`、source-compatibility limit、AI disclosure 与 `NONE` release note 均已包含
 
+## #438 后续升级任务归属
+
+[Issue #438](https://github.com/volcano-sh/agentcube/issues/438) 于 2026-07-16 09:02 UTC 创建，明确承接 #387 未纳入的 agent-sandbox `v0.5.2+` 升级：`v1alpha1 -> v1beta1`、direct/warm-pool lifecycle、active Claim 升级路径和 unit/E2E coverage。`@safiya2610` 在 09:30 UTC `/assign`，bot 已完成正式分配；维护者 `@acsoto` 随后要求等待 v0.5.2 release。
+
+当前 agent-sandbox 最新 stable 仍是 v0.5.1，#438 没有 linked PR。该任务已有明确 owner 且上游版本前置尚未满足，因此不做重复实现、不在 issue 中竞争认领。后续只在作者 PR 出现后复用 #387 的 claim adoption、delete/GC、pool refill 与 clean-install/upgrade E2E 经验做 review 或测试反馈。
+
+> 注释：v0.5.0/v0.5.1 的升级风险涉及 active warm-started claims；#438 要求等待包含 kubernetes-sigs/agent-sandbox#1124 修复的 v0.5.2 或更高稳定版，因此现在基于 v0.5.1 开发不能提前完成该 issue 的版本合同。
+
 ## Day48 待办状态
 
 | 事项 | 状态 | 下一步 |
@@ -418,6 +426,7 @@ cleanup PR body canonical draft：[day48-pod-informer-cleanup-pr-draft.md](day48
 | OWNERS 两行分支与 DCO commit | DONE | formalize existing responsibilities；exact payload 已确认并发布 |
 | push `origin owners/add-rainbowmango` | DONE | remote exact SHA `63bea7a`；未 push upstream |
 | 创建 `volcano-sh/agentcube` PR | OPEN / #439 | 不关联新 issue；等待 CI、真人 `lgtm`，再按 Prow 指引进入 approval |
+| agent-sandbox v0.5.2+ follow-up #438 | ASSIGNED / BLOCKED_UPSTREAM | `@safiya2610` 已认领；等待 v0.5.2 release，不重复实现，后续转 review/E2E feedback |
 | Volcano membership issue | NOT_REQUIRED | 本次 formalize 已实际执行的 AgentCube collaborator duties；不另造 promotion issue |
 | Pod informer/RBAC cleanup PR | READY_FORK / SEPARATE | fork branch `cleanup/remove-sandbox-pod-fallback@eefce59` 已 push，通过 unit/race/repeat/lint/qualified-Helm 验证；upstream PR 等用户另行确认，不与 nomination PR 混合 |
 

@@ -38,6 +38,7 @@
 ## Active Upstream Threads
 
 - #439 RainbowMango OWNERS：open、`MERGEABLE`，exact head `63bea7a`，labels `kind/cleanup` / `size/XS`，DCO 已通过；Prow 要求先有 `lgtm`，之后再 assign `hzxuzhonghu` approval。不要提前 mention 或重复命令。
+- #438 agent-sandbox v0.5.2+：`@safiya2610` 已于 2026-07-16 `/assign` 并成为正式 assignee；`@acsoto` 要求等待 v0.5.2 release，当前 latest stable 仍是 v0.5.1，且没有 linked PR。不重复实现；作者 PR 出现后只做 migration/lifecycle/E2E review feedback。
 - #431 SandboxPool proposal：latest head `49576e8` 已吸收一批 maintainer API/Lease/runtime 建议；当前 5 条 current active、6 条 unresolved outdated，仍无 review decision。先等待作者继续收敛，不自动追评。
 - #429 Go toolchain update workflow：已创建 upstream PR，普通 CI 绿，`tide` pending 等 review/labels；不要自动 push/comment。
 - #400 PicoD Prometheus metrics：current head `b8c4ed5`，`MERGEABLE`，12 checks/DCO 绿。我们的 review 已公开完成：https://github.com/volcano-sh/agentcube/pull/400#issuecomment-4977532327；Prow 因 collaborator-only 权限拒绝 `/lgtm`，label 仍需 maintainer/collaborator 添加。不重复命令、不自动追评。
@@ -77,7 +78,7 @@
 - For #387：已合并，不再请求 review/approval 或修改该 PR。stable v0.4.6 compatibility 前置已解除；v0.5 adapter 必须作为独立 scope 基于新 main 重新验证。#433 已关闭，auth/RBAC 等新合同，不混入 #387 follow-up。
 - For RainbowMango OWNERS：upstream PR #439 已创建，exact head `63bea7a`，按 formalize existing review/approval responsibilities 处理且不关联新 issue。等待 CI 和真人 `lgtm`；只有 Prow 进入下一阶段后才按指引 assign `hzxuzhonghu` approval，不自动 mention、comment 或更新分支。
 - For Pod informer cleanup：fork branch `cleanup/remove-sandbox-pod-fallback@eefce59` 已 push。等待用户单独确认 title、208-word body、6-file `+45/-231` diff、unit/race/repeat/lint/qualified-Helm evidence 后再创建独立 PR；默认 PATH 无 Helm，必须准确写已有 `v3.18.4` binary 的 PATH-qualified 验证。
-- Community tasks：本轮不 `/assign`。下一次先刷新 open issue/PR；只有新的 focused unowned issue，或 maintainer 将 #386/#272 拆成 dedicated sub-issue，才进入认领准备。#433 已关闭，不基于旧实现另开重复 auth PR。
+- Community tasks：本轮不 `/assign`。#438 已由 `@safiya2610` 认领且等待 v0.5.2，不竞争实现；作者 PR 出现后可复用 #387 的 direct/warm-pool、Claim adoption、delete/GC/pool-refill 与 upgrade E2E 经验做 review。下一次只考虑新的 focused unowned issue，或 maintainer 从 #386/#272 拆出的 dedicated sub-issue。
 - For #431: 当前固定 head `49576e8`；不新增评论。等待 5 个 current active 和 6 个 outdated thread 收敛；新 push 后先复核 Lease namespace/RBAC、required ResourceList serialization、字段 comments/RuntimeClass bootstrap，再重验 `SP-28` status caller-to-field matrix、`SP-29` name/label/path budget 和 `SP-30` generation freshness。任何 upstream 回复仍需用户确认 exact body。
 - For #400: 我们的 review 已结束。保留 Python SDK `120s`、LangChain `1800s`、server 无 max 的 residual scope 供后续设计使用，但不继续扩张本 PR；等待 collaborator `lgtm` / approver，不重复 `/lgtm` 或自动 mention。
 - For future reviews: 先填 `Claimed problem / Observable caller / Expected contract / PR scope` problem card；shared helper 先画 kind/scope/destination/owner matrix；大型 PR 明确 Round 1 architecture 与 Round 2 semantic-preservation。评论发布前做 standalone teach-back；关系达到 3+ nodes、竞争原因或时序时优先 inline Mermaid，不以评论已回复代替 ready。
