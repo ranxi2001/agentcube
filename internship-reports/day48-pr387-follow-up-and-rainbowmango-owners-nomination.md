@@ -143,6 +143,18 @@ verbs: ["get"]
 
 残余 source-compatibility 风险：`Informers.PodInformer` 是导出字段，仓库外若直接引用会编译失败；仓库内无调用者，`pkg/workloadmanager` 也不是已声明稳定的库 API。`GetSandboxPodIP` 导出签名保持不变，但仓库外若依赖“空 Pod 名通过 label 找到不同名 Pod”的历史行为，会改为同名 live GET。这个边界已写入 PR draft，不伪装成零风险。
 
+### Pod informer cleanup 前后数据流
+
+![Pod informer cleanup 前后数据流](day48-pod-informer-cleanup-before-after-data-flow.png)
+
+Canonical Mermaid source：[day48-pod-informer-cleanup-before-after-data-flow.mmd](day48-pod-informer-cleanup-before-after-data-flow.mmd)
+
+读图重点：正常 direct / warm-pool 路径在清理前已经按显式 Pod 名执行 live GET，本分支不是把正常请求从 cache 改成 API。它删除的是受支持 Ready producer 不使用的空名称 fallback，以及这个 fallback 为启动过程带来的全集群 Pod initial LIST、持续 WATCH、本地 cache、cache-sync gate 和 `list/watch` RBAC。清理后的 `get` 仍来自 WorkloadManager ClusterRole，不代表 namespace-scoped 权限。
+
+> 兼容边界：HTTP/CRD 和 `GetSandboxPodIP` 方法签名不变，但导出的 `Informers.PodInformer` 字段被删除；empty-name helper 语义也从 label + ownerRef 搜索变为 Sandbox 同名 Pod GET。图中黄色节点专门保留这两个 reviewer 需要判断的边界。
+
+首轮用默认 renderer 失败：`mmdc not found`。随后显式使用官方 `@mermaid-js/mermaid-cli@11.16.0` 的 `npx` backend 渲染成功；最终 PNG 为 `1984x1745`、白色背景，并完成原图检查，没有空白画布、裁切或重叠。
+
 ## 观察二：Claim readiness polling
 
 ### 精确负载模型

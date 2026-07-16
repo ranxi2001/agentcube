@@ -1,0 +1,107 @@
+---
+config:
+  theme: base
+  themeVariables:
+    background: '#ffffff'
+    primaryTextColor: '#172554'
+    lineColor: '#64748b'
+    fontFamily: 'Arial, Noto Sans CJK SC, sans-serif'
+  flowchart:
+    curve: linear
+    nodeSpacing: 30
+    rankSpacing: 45
+---
+flowchart TB
+    subgraph COMPARE[" "]
+        direction LR
+
+    subgraph BEFORE["清理前 · legacy fallback 持续占用后台机制"]
+        direction TB
+
+        subgraph B_BOOT["启动路径"]
+            direction TB
+            B_START["WorkloadManager 启动"]:::current
+            B_CR["启动 AgentRuntime /<br/>CodeInterpreter informer<br/>保留"]:::current
+            B_POD["启动全集群 Pod informer<br/>将删除"]:::removed
+            B_API[("Kubernetes API Server")]:::external
+            B_CACHE[("本地 Pod cache<br/>将删除")]:::removed
+            B_SYNC["等待 Pod cache sync<br/>启动门槛将删除"]:::removed
+
+            B_START --> B_CR
+            B_START --> B_POD
+            B_POD -->|"LIST + WATCH Pods"| B_API
+            B_API -. "Pod events" .-> B_CACHE
+            B_CACHE --> B_SYNC
+        end
+
+        subgraph B_REQUEST["Session 创建路径"]
+            direction TB
+            B_READY["读取 Ready Sandbox"]:::current
+            B_NAME["Pod 名 = Sandbox.Name<br/>或 pod-name annotation"]:::current
+            B_EMPTY{"Pod 名为空？"}:::decision
+            B_GET["Live API GET<br/>精确 Pod 名"]:::current
+            B_LIST["历史 fallback<br/>按 label 查 cache + ownerRef<br/>受支持 Ready producer 不走此路"]:::removed
+            B_VALIDATE["校验 Running + Pod IP"]:::current
+
+            B_READY --> B_NAME --> B_EMPTY
+            B_EMPTY -->|"否 · supported path"| B_GET
+            B_EMPTY -. "是 · legacy path" .-> B_LIST
+            B_GET --> B_VALIDATE
+            B_LIST --> B_VALIDATE
+        end
+
+        B_RBAC["WorkloadManager ClusterRole<br/>Pod verbs: get + list + watch"]:::removed
+        B_RBAC -. "授权 informer" .-> B_POD
+        B_RBAC -. "授权 live read" .-> B_GET
+    end
+
+    subgraph AFTER["清理后 · 单一路径按名称读取 live Pod"]
+        direction TB
+
+        subgraph A_BOOT["启动路径"]
+            direction TB
+            A_START["WorkloadManager 启动"]:::unchanged
+            A_CR["Informers 只启动 AgentRuntime /<br/>CodeInterpreter informer"]:::unchanged
+            A_SYNC["只等待这两个 CR cache sync"]:::changed
+            A_REMOVED["该 helper 不再创建 Pod informer / cache<br/>不再等待 Pod cache sync"]:::changed
+
+            A_START --> A_CR --> A_SYNC
+            A_START --> A_REMOVED
+        end
+
+        subgraph A_REQUEST["Session 创建路径"]
+            direction TB
+            A_READY["读取 Ready Sandbox"]:::unchanged
+            A_NAME["Pod 名 = Sandbox.Name<br/>或 pod-name annotation"]:::unchanged
+            A_EMPTY{"Pod 名为空？"}:::decision
+            A_DEFAULT["空值改为 Sandbox.Name<br/>新的 helper 语义"]:::changed
+            A_GET["统一 Live API GET<br/>精确 Pod 名"]:::changed
+            A_VALIDATE["校验 Running + Pod IP"]:::unchanged
+
+            A_READY --> A_NAME --> A_EMPTY
+            A_EMPTY -->|"否"| A_GET
+            A_EMPTY -->|"是"| A_DEFAULT --> A_GET
+            A_GET --> A_VALIDATE
+        end
+
+        A_RBAC["WorkloadManager ClusterRole<br/>Pod verbs: get<br/>仍为 cluster-scoped"]:::changed
+        A_RBAC -. "授权 exact GET" .-> A_GET
+    end
+
+    BEFORE ~~~ AFTER
+    end
+
+    A_VALIDATE --> RESULT["结果 · supported direct / warm-pool request path 不变<br/>移除 Pod initial LIST、ongoing WATCH、cache / sync 依赖"]:::result
+    A_REMOVED --> RESULT
+    A_RBAC --> RESULT
+    RESULT -. "reviewer 注意" .-> BOUNDARY["兼容边界 · 删除导出的 Informers.PodInformer 字段<br/>空 Pod 名从 label + ownerRef 查找改为同名 GET"]:::boundary
+
+    classDef current fill:#dae8fc,stroke:#6c8ebf,color:#172554;
+    classDef unchanged fill:#dae8fc,stroke:#6c8ebf,color:#172554;
+    classDef changed fill:#d5e8d4,stroke:#4f8a3d,color:#14532d,stroke-width:2px;
+    classDef removed fill:#f3f4f6,stroke:#6b7280,color:#374151,stroke-dasharray:6 4;
+    classDef decision fill:#fff2cc,stroke:#d6b656,color:#713f12;
+    classDef external fill:#ffffff,stroke:#64748b,color:#1f2937,stroke-dasharray:4 3;
+    classDef result fill:#dcfce7,stroke:#15803d,color:#14532d,stroke-width:2px;
+    classDef boundary fill:#fef3c7,stroke:#b45309,color:#78350f,stroke-width:2px;
+    style COMPARE fill:transparent,stroke:transparent
