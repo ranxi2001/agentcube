@@ -357,7 +357,6 @@ func TestBuildSandboxByAgentRuntime_NotFound(t *testing.T) {
 	ifm := &Informers{
 		AgentRuntimeLister:   agentRuntimeInformer.Lister(),
 		AgentRuntimeInformer: agentRuntimeInformer.Informer(),
-		informerFactory:      newFactory(),
 		cubeInformerFactory:  factory,
 	}
 
@@ -399,7 +398,6 @@ func TestBuildSandboxByAgentRuntime_Success(t *testing.T) {
 	ifm := &Informers{
 		AgentRuntimeLister:   agentRuntimeInformer.Lister(),
 		AgentRuntimeInformer: agentRuntimeInformer.Informer(),
-		informerFactory:      newFactory(),
 		cubeInformerFactory:  factory,
 	}
 
@@ -462,7 +460,6 @@ func TestBuildSandboxByAgentRuntime_DefaultTimeouts(t *testing.T) {
 	ifm := &Informers{
 		AgentRuntimeLister:   agentRuntimeInformer.Lister(),
 		AgentRuntimeInformer: agentRuntimeInformer.Informer(),
-		informerFactory:      newFactory(),
 		cubeInformerFactory:  factory,
 	}
 
@@ -505,7 +502,6 @@ func TestBuildSandboxByAgentRuntime_CustomTimeouts(t *testing.T) {
 	ifm := &Informers{
 		AgentRuntimeLister:   agentRuntimeInformer.Lister(),
 		AgentRuntimeInformer: agentRuntimeInformer.Informer(),
-		informerFactory:      newFactory(),
 		cubeInformerFactory:  factory,
 	}
 
@@ -526,7 +522,6 @@ func TestBuildSandboxByCodeInterpreter_NotFound(t *testing.T) {
 	ifm := &Informers{
 		CodeInterpreterLister:   codeInterpreterInformer.Lister(),
 		CodeInterpreterInformer: codeInterpreterInformer.Informer(),
-		informerFactory:         newFactory(),
 		cubeInformerFactory:     factory,
 	}
 
@@ -561,7 +556,6 @@ func TestBuildSandboxByCodeInterpreter_PicodAuthFailsWithoutKey(t *testing.T) {
 	ifm := &Informers{
 		CodeInterpreterLister:   codeInterpreterInformer.Lister(),
 		CodeInterpreterInformer: codeInterpreterInformer.Informer(),
-		informerFactory:         newFactory(),
 		cubeInformerFactory:     factory,
 	}
 
@@ -596,7 +590,6 @@ func TestBuildSandboxByCodeInterpreter_SuccessNoWarmPool(t *testing.T) {
 	ifm := &Informers{
 		CodeInterpreterLister:   codeInterpreterInformer.Lister(),
 		CodeInterpreterInformer: codeInterpreterInformer.Informer(),
-		informerFactory:         newFactory(),
 		cubeInformerFactory:     factory,
 	}
 
@@ -654,7 +647,6 @@ func TestBuildSandboxByCodeInterpreter_SuccessWithWarmPool(t *testing.T) {
 	ifm := &Informers{
 		CodeInterpreterLister:   codeInterpreterInformer.Lister(),
 		CodeInterpreterInformer: codeInterpreterInformer.Informer(),
-		informerFactory:         newFactory(),
 		cubeInformerFactory:     factory,
 	}
 

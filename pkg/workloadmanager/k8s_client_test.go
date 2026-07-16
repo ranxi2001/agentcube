@@ -24,31 +24,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
-	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 )
 
-// Helper function to create a pod with owner reference
-func createPodWithOwner(name, namespace, sandboxName string, phase corev1.PodPhase, podIP string) *corev1.Pod {
-	controller := true
+func createTestPod(name, namespace string, phase corev1.PodPhase, podIP string) *corev1.Pod {
 	return &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Pod"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels: map[string]string{
-				SandboxNameLabelKey: sandboxName,
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					Kind:       "Sandbox",
-					Name:       sandboxName,
-					Controller: &controller,
-				},
-			},
 		},
 		Status: corev1.PodStatus{
 			Phase: phase,
@@ -57,94 +45,15 @@ func createPodWithOwner(name, namespace, sandboxName string, phase corev1.PodPha
 	}
 }
 
-// mockPodNamespaceLister is a mock implementation of listersv1.PodNamespaceLister
-type mockPodNamespaceLister struct {
-	pods []*corev1.Pod
-}
-
-func (m *mockPodNamespaceLister) List(selector labels.Selector) ([]*corev1.Pod, error) {
-	if selector == nil {
-		return m.pods, nil
-	}
-	result := make([]*corev1.Pod, 0)
-	for _, pod := range m.pods {
-		if selector.Matches(labels.Set(pod.Labels)) {
-			result = append(result, pod)
-		}
-	}
-	return result, nil
-}
-
-func (m *mockPodNamespaceLister) Get(name string) (*corev1.Pod, error) {
-	for _, pod := range m.pods {
-		if pod.Name == name {
-			return pod, nil
-		}
-	}
-	return nil, nil
-}
-
-// mockPodLister is a mock implementation of listersv1.PodLister
-type mockPodLister struct {
-	podsByNamespace map[string][]*corev1.Pod
-}
-
-func newMockPodLister() *mockPodLister {
-	return &mockPodLister{
-		podsByNamespace: make(map[string][]*corev1.Pod),
-	}
-}
-
-func (m *mockPodLister) List(selector labels.Selector) ([]*corev1.Pod, error) {
-	result := make([]*corev1.Pod, 0)
-	for _, pods := range m.podsByNamespace {
-		for _, pod := range pods {
-			if selector == nil || selector.Matches(labels.Set(pod.Labels)) {
-				result = append(result, pod)
-			}
-		}
-	}
-	return result, nil
-}
-
-func (m *mockPodLister) Pods(namespace string) listersv1.PodNamespaceLister {
-	return &mockPodNamespaceLister{
-		pods: m.podsByNamespace[namespace],
-	}
-}
-
-func (m *mockPodLister) addPod(pod *corev1.Pod) {
-	if m.podsByNamespace[pod.Namespace] == nil {
-		m.podsByNamespace[pod.Namespace] = make([]*corev1.Pod, 0)
-	}
-	m.podsByNamespace[pod.Namespace] = append(m.podsByNamespace[pod.Namespace], pod)
-}
-
-// TestGetSandboxPodIP_Success verifies GetSandboxPodIP returns IP when pod is present and valid
-func TestGetSandboxPodIP_Success(t *testing.T) {
-	// Setup: Create a mock pod lister with a valid running pod
-	pod := createPodWithOwner("test-pod", "test-namespace", "test-sandbox", corev1.PodRunning, "10.0.0.1")
-	mockPodLister := newMockPodLister()
-	mockPodLister.addPod(pod)
-
-	client := &K8sClient{
-		podLister: mockPodLister,
-	}
-
-	// Execute
-	ip, err := client.GetSandboxPodIP(context.Background(), "test-namespace", "test-sandbox", "")
-
-	// Verify
-	assert.NoError(t, err, "Expected no error for valid pod")
-	assert.Equal(t, "10.0.0.1", ip, "Expected IP to match pod IP")
-}
-
-func TestGetSandboxPodIPReadsNamedPodFromLiveAPI(t *testing.T) {
-	pod := createPodWithOwner("warm-pool-pod", "test-namespace", "warm-pool-sandbox", corev1.PodRunning, "10.0.0.2")
-	pod.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Pod"}
-
+func newK8sClientForPod(t *testing.T, podName string, pod *corev1.Pod) *K8sClient {
+	t.Helper()
+	expectedPath := "/api/v1/namespaces/test-namespace/pods/" + podName
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/namespaces/test-namespace/pods/warm-pool-pod" {
+		if r.Method != http.MethodGet || r.URL.Path != expectedPath {
+			http.NotFound(w, r)
+			return
+		}
+		if pod == nil {
 			http.NotFound(w, r)
 			return
 		}
@@ -153,18 +62,26 @@ func TestGetSandboxPodIPReadsNamedPodFromLiveAPI(t *testing.T) {
 			t.Errorf("encode pod response: %v", err)
 		}
 	}))
-	defer apiServer.Close()
+	t.Cleanup(apiServer.Close)
 
 	clientset, err := kubernetes.NewForConfig(&rest.Config{Host: apiServer.URL})
-	if !assert.NoError(t, err) {
-		return
-	}
-	stalePod := pod.DeepCopy()
-	stalePod.Status.Phase = corev1.PodPending
-	stalePod.Status.PodIP = ""
-	staleLister := newMockPodLister()
-	staleLister.addPod(stalePod)
-	client := &K8sClient{clientset: clientset, podLister: staleLister}
+	require.NoError(t, err)
+	return &K8sClient{clientset: clientset}
+}
+
+func TestGetSandboxPodIPFallsBackToSandboxName(t *testing.T) {
+	pod := createTestPod("test-sandbox", "test-namespace", corev1.PodRunning, "10.0.0.1")
+	client := newK8sClientForPod(t, "test-sandbox", pod)
+
+	ip, err := client.GetSandboxPodIP(context.Background(), "test-namespace", "test-sandbox", "")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "10.0.0.1", ip)
+}
+
+func TestGetSandboxPodIPReadsNamedPodFromLiveAPI(t *testing.T) {
+	pod := createTestPod("warm-pool-pod", "test-namespace", corev1.PodRunning, "10.0.0.2")
+	client := newK8sClientForPod(t, "warm-pool-pod", pod)
 
 	ip, err := client.GetSandboxPodIP(context.Background(), "test-namespace", "warm-pool-sandbox", "warm-pool-pod")
 
@@ -172,41 +89,17 @@ func TestGetSandboxPodIPReadsNamedPodFromLiveAPI(t *testing.T) {
 	assert.Equal(t, "10.0.0.2", ip)
 }
 
-// TestGetSandboxPodIP_PodNotFound verifies GetSandboxPodIP returns error when pod is not found
 func TestGetSandboxPodIP_PodNotFound(t *testing.T) {
-	// Setup: Create a mock pod lister with pod that has wrong label
-	mockPodLister := newMockPodLister()
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod",
-			Namespace: "test-namespace",
-			Labels: map[string]string{
-				SandboxNameLabelKey: "other-sandbox",
-			},
-		},
-		Status: corev1.PodStatus{
-			Phase: corev1.PodRunning,
-			PodIP: "10.0.0.1",
-		},
-	}
-	mockPodLister.addPod(pod)
+	client := newK8sClientForPod(t, "test-sandbox", nil)
 
-	client := &K8sClient{
-		podLister: mockPodLister,
-	}
-
-	// Execute
 	ip, err := client.GetSandboxPodIP(context.Background(), "test-namespace", "test-sandbox", "")
 
-	// Verify
-	assert.Error(t, err, "Expected error when pod not found")
-	assert.Empty(t, ip, "Expected empty IP when error occurs")
-	assert.Contains(t, err.Error(), "no pod found for sandbox test-sandbox", "Error message should indicate pod not found")
+	assert.Error(t, err)
+	assert.Empty(t, ip)
+	assert.Contains(t, err.Error(), "failed to get sandbox pod test-namespace/test-sandbox")
 }
 
-// TestGetSandboxPodIP_InvalidPodStatus verifies GetSandboxPodIP returns error when pod status is invalid
 func TestGetSandboxPodIP_InvalidPodStatus(t *testing.T) {
-	// Test cases: pod not running or pod without IP
 	testCases := []struct {
 		name   string
 		phase  corev1.PodPhase
@@ -229,21 +122,13 @@ func TestGetSandboxPodIP_InvalidPodStatus(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup: Create a mock pod lister with invalid pod status
-			pod := createPodWithOwner("test-pod", "test-namespace", "test-sandbox", tc.phase, tc.podIP)
-			mockPodLister := newMockPodLister()
-			mockPodLister.addPod(pod)
+			pod := createTestPod("test-sandbox", "test-namespace", tc.phase, tc.podIP)
+			client := newK8sClientForPod(t, "test-sandbox", pod)
 
-			client := &K8sClient{
-				podLister: mockPodLister,
-			}
-
-			// Execute
 			ip, err := client.GetSandboxPodIP(context.Background(), "test-namespace", "test-sandbox", "")
 
-			// Verify
-			assert.Error(t, err, "Expected error for invalid pod status")
-			assert.Empty(t, ip, "Expected empty IP when error occurs")
+			assert.Error(t, err)
+			assert.Empty(t, ip)
 			assert.Contains(t, err.Error(), tc.errMsg, "Error message should indicate the issue")
 		})
 	}

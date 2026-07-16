@@ -24,8 +24,6 @@ import (
 
 	cubefake "github.com/volcano-sh/agentcube/client-go/clientset/versioned/fake"
 	cubeinformers "github.com/volcano-sh/agentcube/client-go/informers/externalversions"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -62,10 +60,6 @@ func runCanceled(t *testing.T, ifm *Informers) error {
 	}
 }
 
-func newFactory() informers.SharedInformerFactory {
-	return informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
-}
-
 func newCubeFactory() cubeinformers.SharedInformerFactory {
 	return cubeinformers.NewSharedInformerFactory(cubefake.NewSimpleClientset(), 0)
 }
@@ -78,25 +72,16 @@ func TestRunAndWaitForCacheSync_ContextCancellation(t *testing.T) {
 		name            string
 		agentRuntime    cache.SharedIndexInformer
 		codeInterpreter cache.SharedIndexInformer
-		pod             cache.SharedIndexInformer
 	}{
 		{
 			name:            "AgentRuntimeInformer never syncs",
 			agentRuntime:    never(),
 			codeInterpreter: never(),
-			pod:             never(),
 		},
 		{
 			name:            "CodeInterpreterInformer never syncs",
 			agentRuntime:    always(),
 			codeInterpreter: never(),
-			pod:             never(),
-		},
-		{
-			name:            "PodInformer never syncs",
-			agentRuntime:    always(),
-			codeInterpreter: always(),
-			pod:             never(),
 		},
 	}
 
@@ -105,8 +90,6 @@ func TestRunAndWaitForCacheSync_ContextCancellation(t *testing.T) {
 			ifm := &Informers{
 				AgentRuntimeInformer:    tc.agentRuntime,
 				CodeInterpreterInformer: tc.codeInterpreter,
-				PodInformer:             tc.pod,
-				informerFactory:         newFactory(),
 				cubeInformerFactory:     newCubeFactory(),
 			}
 			err := runCanceled(t, ifm)
@@ -121,8 +104,6 @@ func TestRunAndWaitForCacheSync_AllSynced(t *testing.T) {
 	ifm := &Informers{
 		AgentRuntimeInformer:    &alwaysSyncedInformer{},
 		CodeInterpreterInformer: &alwaysSyncedInformer{},
-		PodInformer:             &alwaysSyncedInformer{},
-		informerFactory:         newFactory(),
 		cubeInformerFactory:     newCubeFactory(),
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

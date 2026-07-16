@@ -28,13 +28,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -69,10 +66,7 @@ type K8sClient struct {
 	baseConfig          *rest.Config // Store base config for creating user clients
 	clientCache         *ClientCache // LRU cache for user clients
 	dynamicInformer     dynamicinformer.DynamicSharedInformerFactory
-	informerFactory     informers.SharedInformerFactory
 	cubeInformerFactory cubeinformers.SharedInformerFactory
-	podInformer         cache.SharedIndexInformer
-	podLister           listersv1.PodLister
 }
 
 type sandboxEntry struct {
@@ -130,15 +124,8 @@ func NewK8sClient() (*K8sClient, error) {
 		return nil, fmt.Errorf("failed to add agent-sandbox scheme: %w", err)
 	}
 
-	// Create informer factory for core resources (Pods, etc.)
-	informerFactory := informers.NewSharedInformerFactory(clientset, 0)
-
 	// Create shared informer factory for typed objects
 	cubeInformerFactory := cubeinformers.NewSharedInformerFactory(cubeClientset, 0)
-
-	// Get pod informer and lister
-	podInformer := informerFactory.Core().V1().Pods().Informer()
-	podLister := informerFactory.Core().V1().Pods().Lister()
 
 	return &K8sClient{
 		clientset:           clientset,
@@ -148,10 +135,7 @@ func NewK8sClient() (*K8sClient, error) {
 		baseConfig:          config,
 		clientCache:         NewClientCache(100), // Cache up to 100 clients
 		dynamicInformer:     dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
-		informerFactory:     informerFactory,
 		cubeInformerFactory: cubeInformerFactory,
-		podInformer:         podInformer,
-		podLister:           podLister,
 	}, nil
 }
 
@@ -336,35 +320,19 @@ func (u *UserK8sClient) DeleteSandboxClaim(ctx context.Context, namespace, sandb
 	return deleteSandboxClaim(ctx, u.dynamicClient, namespace, sandboxClaimName)
 }
 
-// GetSandboxPodIP gets the IP address of the pod corresponding to the Sandbox
+// GetSandboxPodIP gets the IP address of the pod corresponding to the Sandbox.
+// Direct Sandbox Pods use the Sandbox name when no explicit Pod name is provided.
 func (c *K8sClient) GetSandboxPodIP(ctx context.Context, namespace, sandboxName, podName string) (string, error) {
-	// An explicit Pod name comes from the live Sandbox object. Read the Pod from
-	// the API too, so a lagging informer cannot reject an otherwise ready Sandbox.
-	if podName != "" {
-		pod, err := c.clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
-		if err != nil {
-			return "", fmt.Errorf("failed to get sandbox pod %s/%s: %w", namespace, podName, err)
-		}
-		return validateAndGetPodIP(pod)
+	if podName == "" {
+		podName = sandboxName
 	}
 
-	// Find pod through label selector (sandbox-name label we set)
-	pods, err := c.podLister.Pods(namespace).List(labels.SelectorFromSet(map[string]string{SandboxNameLabelKey: sandboxName}))
+	// Read the Pod from the API so a lagging informer cannot reject an otherwise ready Sandbox.
+	pod, err := c.clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to list pods from cache: %w", err)
+		return "", fmt.Errorf("failed to get sandbox pod %s/%s: %w", namespace, podName, err)
 	}
-	// Find the pod that belongs to this sandbox by checking ownerReferences
-	for _, pod := range pods {
-		for _, ownerRef := range pod.OwnerReferences {
-			if ownerRef.Kind == "Sandbox" && ownerRef.Name == sandboxName {
-				if ownerRef.Controller == nil || *ownerRef.Controller {
-					return validateAndGetPodIP(pod)
-				}
-			}
-		}
-	}
-
-	return "", fmt.Errorf("no pod found for sandbox %s", sandboxName)
+	return validateAndGetPodIP(pod)
 }
 
 // validateAndGetPodIP validates pod status and returns IP
