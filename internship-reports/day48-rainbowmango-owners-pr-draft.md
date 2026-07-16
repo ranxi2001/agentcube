@@ -4,7 +4,7 @@
 
 **What this PR does / why we need it**:
 
-This nominates `RainbowMango` as a root reviewer and approver based on repository-wide stewardship already being performed:
+This formalizes `RainbowMango`'s existing AgentCube review and approval responsibilities in the root `OWNERS` file. Public GitHub records show 23 reviewed AgentCube PRs, including 19 with an `APPROVED` review; the examples below show the scope and quality behind that activity:
 
 - Turns broad project needs into reviewable work: the v0.2.0 tracker (#386) triages focused tasks, while #430 defines the boundary between Kubernetes-owned resource pools and AgentCube-owned session lifecycle.
 - Keeps changes focused and requires rationale for exceptions: [split](https://github.com/volcano-sh/agentcube/pull/250#issuecomment-4429092718) PicoD request-body hardening into #326; in #396 requested a [predictable schedule](https://github.com/volcano-sh/agentcube/pull/396#discussion_r3517204392) and accepted [grouping](https://github.com/volcano-sh/agentcube/pull/396#discussion_r3517411007) after the author explained the noise-reduction trade-off.
@@ -17,8 +17,7 @@ NONE
 
 **Special notes for your reviewer**:
 
-- Scope/validation: the two entries are case-insensitively sorted; YAML parsing, ordering, and uniqueness checks pass.
-- Governance: this nominates both roles together; existing root approvers should confirm the applicable [Volcano membership, sponsorship, and role-tenure requirements](https://github.com/volcano-sh/community/blob/master/community-membership.md).
+- Scope/validation: this formalizes existing repository-level responsibilities without changing runtime behavior or APIs. The two entries are case-insensitively sorted; YAML parsing, ordering, and uniqueness checks pass.
 - AI assistance: Codex helped audit the public contribution history; I reviewed the two-line change and this text.
 
 **Does this PR introduce a user-facing change?**:

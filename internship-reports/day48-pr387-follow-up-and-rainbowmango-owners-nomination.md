@@ -2,7 +2,7 @@
 
 日期：2026-07-16
 
-状态：#387 两项 follow-up 已完成源码审计；Claim polling 暂不改 watch；Pod label fallback cleanup 已在独立分支实现并通过验证，但不是 correctness hotfix。两个 fork topic branch 已按用户确认推送，upstream PR 均未创建。历史提名流程复核后，`RainbowMango` 同时加入 reviewer/approver 的 branch 仅保留供检查，不直接创建 PR；需先完成候选人 membership/sponsor 确认，或由现有 maintainer 明确 AgentCube 的独立例外。
+状态：#387 两项 follow-up 已完成源码审计；Claim polling 暂不改 watch；Pod label fallback cleanup 已在独立分支实现并通过验证，但不是 correctness hotfix。两个 fork topic branch 已按用户确认推送，upstream PR 均未创建。用户进一步澄清 `RainbowMango` 已多次实际承担 AgentCube review/approve；公开记录验证后，OWNERS 变更按 formalize existing responsibilities 处理，不再要求新建 membership issue。
 
 ## 今日目标
 
@@ -259,7 +259,7 @@ Claim 与 Sandbox 是两个资源阶段。每请求 watch 需要额外处理：
 
 > 注释：没有搜到公开 request 不等于候选人不满足能力要求，也不能推断其 2FA 或 sponsor 状态；它只说明我们没有权限替其勾选模板中的私有前置条件。
 
-当前处理：不替被提名人创建 membership request，不伪造 sponsor；先复核历史提名 PR，再决定 branch 是否应拆成 reviewer-only。
+当前处理：历史 membership 流程保留为新角色申请的背景，但不再把它机械套到本次 existing-responsibility formalization。
 
 ## 历史提名 PR 校准
 
@@ -278,16 +278,27 @@ AgentCube 历史上只有 [#137 Add reviewers and approvers](https://github.com/
 | Approver | [community#150](https://github.com/volcano-sh/community/issues/150) | [volcano#5464](https://github.com/volcano-sh/volcano/pull/5464)，14 words | 候选人已通过 #119/#4933 成为 Reviewer 约 5 个月，再单独申请 Approver；贡献和 sponsor 证据留在 issue，PR 只做角色落盘 |
 | Approver | [community#101](https://github.com/volcano-sh/community/issues/101) | [volcano#4676](https://github.com/volcano-sh/volcano/pull/4676)，51 words | 两位 maintainer 已在 membership issue 支持后，PR 简短链接该决定并只增加 approver |
 
-当前 community policy 要求 Reviewer 先成为 Member 至少 2 个月；Approver 先成为 Reviewer 至少 2 个月；两者均需要两位 maintainer sponsor、足量 review 和 codebase knowledge。近期没有发现普通贡献者一次从非 Reviewer 直接进入 reviewer+approver 的成功样本。
+当前 community policy 要求普通新申请者按 Member、Reviewer、Approver 逐级进入；近期没有发现普通贡献者一次从无角色直接进入 reviewer+approver 的成功样本。
 
-> 注释：公开 API 未显示 `RainbowMango` 为 Volcano public member，也没有搜索到其 membership issue；这不能排除 private organization membership 或 maintainer 已掌握的线下事实。AgentCube GitHub review 显示其为 collaborator，只能证明技术信任，不能替代候选人对 2FA、sponsor consent 和 role tenure 的确认。
+> 注释：这组普通申请样本回答的是“新成员如何晋升”，不能单独回答“如何把已有 collaborator 长期执行的职责写入 OWNERS”。把两类场景混为一谈，是本轮第一次判断过度收紧的原因。
 
-### 对当前草稿的修正判断
+### 用户澄清后的证据复核
 
-- 220-word contribution block 本身不是垃圾计数；其中 issue/review/outcome 链可作为 membership issue 或 sponsor 判断的证据。
-- 但它不应在缺少 membership decision 时充当整个治理流程。近期 OWNERS PR 只有 14-94 words，负责链接已经形成的社区决定，而不是在 PR body 内同时证明资格和授予两个角色。
-- 当前 branch 同时增加 reviewer/approver，与近期 `Member -> Reviewer -> Approver` 的顺序不一致。默认方向应改为 reviewer-only；只有现有 maintainers 明确确认 AgentCube 的独立治理例外时，才保留两项。
-- 因 membership template 包含候选人的 2FA、mailing list、sponsor consent 等第一人称确认，我们不能代 RainbowMango 提交或勾选。
+GitHub Search 当前返回 23 个 `repo:volcano-sh/agentcube reviewed-by:RainbowMango -author:RainbowMango` PR；逐 PR GraphQL review state 复核，其中 19 个 PR 包含 `APPROVED` review，18 个已合并。数量只说明职责已被反复执行，能力判断仍看具体事件：
+
+- #396 追问 Dependabot schedule 与 grouping trade-off，作者解释后接受；
+- #420 在批准前用 Docker `FROM --platform` 合同确认多架构构建根因；
+- #431 对 API 扩展性、字段合同、状态写入规模和恢复窗口进行多轮审查；
+- #387 在冲突解决、最终修复和 exact head 收敛后完成 approval。
+
+这证明本次不是“用 authored commit 数申请新角色”，而是把已经执行的 review/approval 权限与 root OWNERS 责任对齐。此前要求先开 membership issue 的判断撤回。
+
+### 对当前草稿的最终判断
+
+- 不新建或强行关联 membership issue；`Which issue(s)` 写 `NONE`。
+- 23/19 只作为职责持续性的背景，四组 issue/review/outcome 事件继续承担质量证明，避免退化成计数提名。
+- 两行 reviewer+approver diff 可以保留；PR title 使用 `owners: add RainbowMango as reviewer and approver`，准确表达 formalization，而不是尚待资格审议的 nomination。
+- PR body 仍保持一屏，并明确无 runtime/API 行为变化。
 
 ## 干净提名分支
 
@@ -335,13 +346,13 @@ ruby -ryaml ...
 建议 PR title：
 
 ```text
-owners: nominate RainbowMango as reviewer and approver
+owners: add RainbowMango as reviewer and approver
 ```
 
-PR body evidence draft：[day48-rainbowmango-owners-pr-draft.md](day48-rainbowmango-owners-pr-draft.md)
+PR body canonical draft：[day48-rainbowmango-owners-pr-draft.md](day48-rainbowmango-owners-pr-draft.md)
 
-- reviewer-visible words：220；历史流程校准后不再视为可直接发布的 final body
-- nonblank lines：18
+- reviewer-visible words：234
+- nonblank lines：17
 - ordinary PR 软门槛：100-300 words / ≤35 nonblank lines
 - 官方模板、`/kind cleanup`、`NONE` release note、AI disclosure 均已包含
 
@@ -371,10 +382,10 @@ cleanup PR body canonical draft：[day48-pod-informer-cleanup-pr-draft.md](day48
 | --- | --- | --- |
 | #387 post-merge 两项审计 | DONE | polling 不改；Pod fallback cleanup 作为独立低中优先级候选 |
 | RainbowMango 维护事件账本 | DONE | 后续若 maintainer 要求，只补直接相关证据，不追加 approval 计数 |
-| OWNERS 两行分支与 DCO commit | DONE / HOLD_GOVERNANCE | 用户可检查 fork branch；不得直接据此创建 upstream PR |
+| OWNERS 两行分支与 DCO commit | DONE | formalize existing responsibilities；等待 exact payload 确认 |
 | push `origin owners/add-rainbowmango` | DONE | remote exact SHA `63bea7a`；未 push upstream |
-| 创建 `volcano-sh/agentcube` PR | HOLD | 先取得候选人 membership/sponsor 确认，或 maintainer 对 AgentCube 独立例外的明确意见；之后重新生成 exact title/body |
-| Volcano membership 流程 | OPEN QUESTION | 由 existing root approver 确认；不替候选人声明私有前置条件 |
+| 创建 `volcano-sh/agentcube` PR | PENDING_CONFIRMATION | 不关联新 issue；等待用户确认更新后的 exact title/body 后执行 |
+| Volcano membership issue | NOT_REQUIRED | 本次 formalize 已实际执行的 AgentCube collaborator duties；不另造 promotion issue |
 | Pod informer/RBAC cleanup PR | READY_FORK / SEPARATE | fork branch `cleanup/remove-sandbox-pod-fallback@eefce59` 已 push，通过 unit/race/repeat/lint/qualified-Helm 验证；upstream PR 等用户另行确认，不与 nomination PR 混合 |
 
 ## 今日复用经验
