@@ -1684,3 +1684,22 @@ replacement Sandbox/Pod；原运行对象不会回到池中。这个“控制身
 > 分析：旧 watcher 不是一般意义上的错误，它依赖 v0.1.1 的同名合同；依赖升级到 v0.4.6 后，
 > 同一等待方式才会指向不存在的同名 Sandbox。#387 的关键不是简单替换 API 版本，而是让
 > readiness、Pod 查找、Store、response 和删除路径都遵守新的双身份模型。
+
+## PR changes 信息图（2026-07-16）
+
+[gpt-image-2 提示词](day30-pr387-changes-infographic-prompt.md) |
+[16:9 PNG](day30-pr387-changes-infographic.png)
+
+![PR #387 changes 信息图](day30-pr387-changes-infographic.png)
+
+这张信息图面向快速汇报，把 PR 的 change surface 收敛为五组：依赖合同、池化单位、
+adoption/身份、readiness/Pod/Store、生命周期/验证。底部单独列出保持不变的外部流程和
+明确范围外的 #433 auth/RBAC、agent-sandbox v0.5.x，避免把相邻工作错误归入 #387。
+
+> 注释：图中的 `live GET Claim -> Sandbox -> Pod` 表示完整读取链；`2m context 覆盖两次
+> GET` 精确指 readiness 阶段的 Claim GET 和 Sandbox GET。Ready 之后的 Pod live GET 使用
+> create request context，不属于这两个 readiness GET。
+
+> 分析：该 PNG 是视觉摘要，适合报告和 review 导读；对象 ownerReference、状态来源和
+> 同步/异步边界仍以本节前面的 Mermaid、源码和 E2E 证据为准。尤其是删除后会级联清理
+> `Claim -> adopted Sandbox -> Pod`，随后新建 replacement，而不是把旧 runtime 归还池中。
