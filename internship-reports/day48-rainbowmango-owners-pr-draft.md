@@ -19,7 +19,7 @@ NONE
 
 - Scope/validation: the two entries are case-insensitively sorted; YAML parsing, ordering, and uniqueness checks pass.
 - Governance: this nominates both roles together; existing root approvers should confirm the applicable [Volcano membership, sponsorship, and role-tenure requirements](https://github.com/volcano-sh/community/blob/master/community-membership.md).
-- AI assistance: Codex helped audit the public contribution history and draft this PR; I reviewed the two-line change and this text.
+- AI assistance: Codex helped audit the public contribution history; I reviewed the two-line change and this text.
 
 **Does this PR introduce a user-facing change?**:
 
