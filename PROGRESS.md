@@ -18,6 +18,7 @@
 - Generic development skills：`/home/Onefly-Dev-Skills` / `ranxi2001/Onefly-Dev-Skills@95e1f72` 已新增通用 `github-code-review`，并升级 issue/proposal/writing-history 与 PR concise/behavior workflow；根 `AGENTS.md` 规定通用仓库只保存跨项目稳定方法，AgentCube 组件/分支/环境规则继续留在本仓库 overlay。
 - Upstream writing gates：2026-07-14 已增强 `agentcube-issue-discussion` 与 `agentcube-pr-management`，新增 concise references 和 `draft_metrics.py`。规则把 upstream body/comment 定位为证据索引：普通 PR 目标 100-300 visible words，API/CRD/兼容/安全/benchmark/多组件 PR 目标 200-450；超 450 必须说明 long-form exception。近期样本和前向测试记录在 `internship-reports/open-source-contribution-format-standard.md`；没有发布任何 upstream 文本。
 - Branch/workflow：当前本地在 `intern`，该分支保存实习报告、TODO、本地 skills 和中文记录；fork `main` 必须保持 upstream clean mirror。记录类 commit 完成后默认 push `origin intern:intern`；任何 upstream issue/PR/comment/review request/maintainer mention 必须先让用户确认 exact target/body。
+- Community freshness loop：用户要求主动发现新 issue/PR 进展，不再等待人工转述。最近一次只读扫描为 `2026-07-16 19:39 CST`；Day45 后新建的 #438 已由 `@safiya2610` 认领并等待 v0.5.2，#434 虽无 assignee 但同一作者已有 open PR #435，因此当前仍无可无冲突认领的新 issue。
 - Day45 community screening：2026-07-10 已按 assignee、`/assign`、active PR、scope、环境和当前源码筛选最新 open issues；没有可直接认领的 A 级任务。#432 已由 `avinxshKD` 认领并有 #433；#430 已有 #431 proposal；#365 依赖 #366/#379 和 Kuasar/KVM；#348 已由 merged PR #378 修复但 issue 未关闭。旧 #272 与 open PR #249/release policy 有交叉，需先协调，不能直接接手。详见 `internship-reports/day45-latest-community-issue-task-screening.md`。
 - Latest upstream baseline：最新观测 `upstream/main 146b75f`，即 #387 merge commit；PR 的 18-file `+1189/-312` patch 和 exact head `95fae1f` 已进入 main。`origin/main` 当前落后 upstream 7 commits，本轮只读观察，未自动重置或推送 fork mirror。
 - Day44 / PR #431：2026-07-15 latest head `49576e8`（2 commits，`7 behind / 2 ahead`），1 个 proposal 文件；11 个普通 checks + DCO 成功，Tide pending 等 `lgtm`/`approved`。`f380208..49576e8` 为 `+60/-50`：采用 event-driven status + Lease heartbeat、`corev1.ResourceList`，删除冗余 `NodeSelector`，扩展 selector/字段合同与 shim/bootstrap 说明；新文本仍误称 Lease cluster-scoped，proposal 尚未 ready。
@@ -39,6 +40,7 @@
 
 - #439 RainbowMango OWNERS：open、`MERGEABLE`，exact head `63bea7a`，labels `kind/cleanup` / `size/XS`，DCO 已通过；Prow 要求先有 `lgtm`，之后再 assign `hzxuzhonghu` approval。不要提前 mention 或重复命令。
 - #438 agent-sandbox v0.5.2+：`@safiya2610` 已于 2026-07-16 `/assign` 并成为正式 assignee；`@acsoto` 要求等待 v0.5.2 release，当前 latest stable 仍是 v0.5.1，且没有 linked PR。不重复实现；作者 PR 出现后只做 migration/lifecycle/E2E review feedback。
+- #435 / #434 CLI cloud build：issue 表面无 assignee，但 issue 作者已提交 open PR #435；当前 DCO fail、5 条 current active AI review threads、尚无真人 review。不能把 #434 当未认领任务；如后续选择参与，只做源码验证型 review 并先取得用户确认。
 - #431 SandboxPool proposal：latest head `49576e8` 已吸收一批 maintainer API/Lease/runtime 建议；当前 5 条 current active、6 条 unresolved outdated，仍无 review decision。先等待作者继续收敛，不自动追评。
 - #429 Go toolchain update workflow：已创建 upstream PR，普通 CI 绿，`tide` pending 等 review/labels；不要自动 push/comment。
 - #400 PicoD Prometheus metrics：current head `b8c4ed5`，`MERGEABLE`，12 checks/DCO 绿。我们的 review 已公开完成：https://github.com/volcano-sh/agentcube/pull/400#issuecomment-4977532327；Prow 因 collaborator-only 权限拒绝 `/lgtm`，label 仍需 maintainer/collaborator 添加。不重复命令、不自动追评。
@@ -51,6 +53,7 @@
 - Before upstream-facing actions, follow `internship-reports/open-source-contribution-format-standard.md`; upstream text is English, Chinese analysis stays in reports.
 - Before presenting an upstream draft, run the relevant concise-first gate and report visible words/nonblank lines. Word budgets trigger review; they never justify removing API/CRD upgrade contracts, security boundaries, benchmark comparability, or material residual risk.
 - For issue/PR context, prefer `.agents/skills/agentcube-issue-discussion/scripts/thread_brief.py <number>` first; for PR status use the local PR scripts when useful.
+- At the start of each substantive AgentCube work loop, refresh issues created or materially updated since the last recorded scan and cross-check assignees, `/assign`, related PRs, and maintainer blockers before selecting work. Record the timestamp and high-signal changes without posting upstream.
 - Keep fork `main` as clean mirror of `upstream/main`; do not commit internship reports, local benchmark data, Chinese notes, or local skills there.
 - Use `--force-with-lease`, not plain `--force`, after rebases or mirror resets.
 - For official upstream PR branches: clean topic branch from latest `upstream/main`, small scope, DCO signoff, no internship/local artifacts.
@@ -78,7 +81,7 @@
 - For #387：已合并，不再请求 review/approval 或修改该 PR。stable v0.4.6 compatibility 前置已解除；v0.5 adapter 必须作为独立 scope 基于新 main 重新验证。#433 已关闭，auth/RBAC 等新合同，不混入 #387 follow-up。
 - For RainbowMango OWNERS：upstream PR #439 已创建，exact head `63bea7a`，按 formalize existing review/approval responsibilities 处理且不关联新 issue。等待 CI 和真人 `lgtm`；只有 Prow 进入下一阶段后才按指引 assign `hzxuzhonghu` approval，不自动 mention、comment 或更新分支。
 - For Pod informer cleanup：fork branch `cleanup/remove-sandbox-pod-fallback@eefce59` 已 push。等待用户单独确认 title、208-word body、6-file `+45/-231` diff、unit/race/repeat/lint/qualified-Helm evidence 后再创建独立 PR；默认 PATH 无 Helm，必须准确写已有 `v3.18.4` binary 的 PATH-qualified 验证。
-- Community tasks：本轮不 `/assign`。#438 已由 `@safiya2610` 认领且等待 v0.5.2，不竞争实现；作者 PR 出现后可复用 #387 的 direct/warm-pool、Claim adoption、delete/GC/pool-refill 与 upgrade E2E 经验做 review。下一次只考虑新的 focused unowned issue，或 maintainer 从 #386/#272 拆出的 dedicated sub-issue。
+- Community tasks：每个 substantive work loop 开始先按 `PROGRESS.md` 的 last-scan timestamp 刷新新建/更新 issue，并交叉 assignee、`/assign`、same-topic PR 和 maintainer blocker。当前 #438 已认领，#434 已有 #435；不竞争实现。下一次只考虑新的 focused unowned issue，或 maintainer 从 #386/#272 拆出的 dedicated sub-issue。
 - For #431: 当前固定 head `49576e8`；不新增评论。等待 5 个 current active 和 6 个 outdated thread 收敛；新 push 后先复核 Lease namespace/RBAC、required ResourceList serialization、字段 comments/RuntimeClass bootstrap，再重验 `SP-28` status caller-to-field matrix、`SP-29` name/label/path budget 和 `SP-30` generation freshness。任何 upstream 回复仍需用户确认 exact body。
 - For #400: 我们的 review 已结束。保留 Python SDK `120s`、LangChain `1800s`、server 无 max 的 residual scope 供后续设计使用，但不继续扩张本 PR；等待 collaborator `lgtm` / approver，不重复 `/lgtm` 或自动 mention。
 - For future reviews: 先填 `Claimed problem / Observable caller / Expected contract / PR scope` problem card；shared helper 先画 kind/scope/destination/owner matrix；大型 PR 明确 Round 1 architecture 与 Round 2 semantic-preservation。评论发布前做 standalone teach-back；关系达到 3+ nodes、竞争原因或时序时优先 inline Mermaid，不以评论已回复代替 ready。
