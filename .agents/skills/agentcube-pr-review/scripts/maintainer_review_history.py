@@ -9,6 +9,10 @@ import os
 import sys
 import urllib.request
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+
+DEFAULT_PAGE_SIZE = 100
 
 
 def request_json(url: str) -> Any:
@@ -23,6 +27,34 @@ def request_json(url: str) -> Any:
     request = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(request, timeout=30) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def request_json_pages(url: str, per_page: int = DEFAULT_PAGE_SIZE) -> list[Any]:
+    """Fetch every page from a GitHub REST endpoint that returns a JSON list."""
+    if per_page <= 0:
+        raise ValueError("per_page must be positive")
+
+    parts = urlsplit(url)
+    base_query = [
+        (key, value)
+        for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        if key not in {"page", "per_page"}
+    ]
+    items: list[Any] = []
+    page = 1
+
+    while True:
+        query = [*base_query, ("per_page", str(per_page)), ("page", str(page))]
+        page_url = urlunsplit(
+            (parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)
+        )
+        batch = request_json(page_url)
+        if not isinstance(batch, list):
+            raise TypeError(f"expected a JSON list from paginated endpoint: {page_url}")
+        items.extend(batch)
+        if len(batch) < per_page:
+            return items
+        page += 1
 
 
 def normalize_login(value: str | None) -> str:
@@ -80,10 +112,10 @@ def collect_reviewer_comments(
 def fetch_pr_review(repo: str, number: int, reviewer: str) -> dict[str, Any]:
     base = f"https://api.github.com/repos/{repo}"
     pr = request_json(f"{base}/pulls/{number}")
-    files = request_json(f"{base}/pulls/{number}/files?per_page=100")
-    reviews = request_json(f"{base}/pulls/{number}/reviews?per_page=100")
-    review_comments = request_json(f"{base}/pulls/{number}/comments?per_page=100")
-    issue_comments = request_json(f"{base}/issues/{number}/comments?per_page=100")
+    files = request_json_pages(f"{base}/pulls/{number}/files")
+    reviews = request_json_pages(f"{base}/pulls/{number}/reviews")
+    review_comments = request_json_pages(f"{base}/pulls/{number}/comments")
+    issue_comments = request_json_pages(f"{base}/issues/{number}/comments")
     reviewer_key = normalize_login(reviewer)
 
     author = pr.get("user", {}).get("login")

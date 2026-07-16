@@ -206,6 +206,29 @@ Claim 与 Sandbox 是两个资源阶段。每请求 watch 需要额外处理：
 
 纯 `/lgtm`、`/approve` 只能证明 gate outcome，不能反推出 review 方法；author 自己提交的代码也不是 root OWNERS 的充分依据。
 
+### 可复核数量快照
+
+截至 2026-07-16，使用 GitHub 当前 API 可见记录并对 reviews、review comments 和 issue comments 完整分页后，得到以下 AgentCube 仓库内快照：
+
+| 指标 | 数量 | 口径 |
+| --- | ---: | --- |
+| 提交过正式 review 的非本人 PR | 23 | 19 个真人作者 PR、4 个 Dependabot PR |
+| Submitted review events | 34 | 19 次 `APPROVED`、15 次 `COMMENTED`；同一 PR 可有多轮 review |
+| 含 GitHub `APPROVED` review 的 PR | 19 | 其中 18 个已合并，#357 仍 open |
+| 已合并的 reviewed PR | 19 | 与上一行交集为 18，不能把 merge 直接归因为 reviewer |
+| 非本人 PR inline review comments | 28 | 分布在 4 个 PR，包含 20 个 reviewer-root threads 和 8 条跟进回复；#431 单独占 22 条、17 个 root threads |
+| 非本人 PR 普通会话评论 | 9 | 分布在 6 个 PR；不属于 inline review comment |
+| 任一 review 参与覆盖的非本人 PR | 26 | 23 个 submitted-review PR，加上只留普通会话评论的 #250、#390、#403 |
+| 本人创建的 PR | 2 | #326、#363，均已合并 |
+| 本人创建的 Issue | 2 | #386 release/proposal umbrella、#430 architecture discussion |
+| 真实 Issue 评论 | 6 | 分布在 #263、#381、#386、#419；排除 PR 普通会话评论后统计，其中非本人 Issue 为 4 条、覆盖 3 个 Issue |
+
+> 注释：`34 reviews`、`28 inline comments` 和 `9 PR conversation comments` 不能相加成“71 次 review”。Inline comment 依附于 submitted review，同一 PR 也可能经过多轮 review；这些列分别描述 review 轮次、行级讨论量和普通会话参与。
+
+> 分析：数量证明职责被持续执行，但不能单独证明技术深度。正文仍以 #386、#430/#431、#396、#419/#420 和 #387 的“维护动作 -> 合同 -> 响应 -> 结果”链条作为提名依据；19/4 的真人作者与 Dependabot 拆分用于防止自动依赖 PR 放大技术 review 印象。
+
+> 调试记录：旧 `maintainer_review_history.py` 对每个 REST endpoint 只读取前 100 条，导致 #431 中 RainbowMango 的 inline comment 从真实 22 条少算为 11 条。本轮为 files、reviews、inline comments 和 conversation comments 增加全量分页并补测试。首次用 `python3 -m unittest .agents/...` 调用因目录名以 `.` 开头被解析为空模块而失败；改用 test discovery 后 8/8 通过，真实 #431 回归也读回 22 条。
+
 ### 高信号事件
 
 | 质量职责 | 公开事件 | 维护动作 | 结果 / 边界 |
@@ -284,7 +307,7 @@ AgentCube 历史上只有 [#137 Add reviewers and approvers](https://github.com/
 
 ### 用户澄清后的证据复核
 
-GitHub Search 当前返回 23 个 `repo:volcano-sh/agentcube reviewed-by:RainbowMango -author:RainbowMango` PR；逐 PR GraphQL review state 复核，其中 19 个 PR 包含 `APPROVED` review，18 个已合并。数量只说明职责已被反复执行，能力判断仍看具体事件：
+GitHub Search 当前返回 23 个 `repo:volcano-sh/agentcube reviewed-by:RainbowMango -author:RainbowMango` PR；逐 PR GraphQL review state 复核，其中 19 个 PR 包含 `APPROVED` review，19 个 reviewed PR 已合并，18 个同时满足 `APPROVED` 与 merged。数量只说明职责已被反复执行，能力判断仍看具体事件：
 
 - #386 把 v0.2.0 社区 proposal 收集、triage、负责人和合并结果组织成持续维护的 umbrella checklist；
 - #430 明确 pool/session 的长期架构边界，并通过 #431 多轮 review 推进其中 Kubernetes resource-pool 一侧；
@@ -353,7 +376,7 @@ owners: add RainbowMango as reviewer and approver
 
 PR body canonical draft：[day48-rainbowmango-owners-pr-draft.md](day48-rainbowmango-owners-pr-draft.md)
 
-- reviewer-visible words：230
+- reviewer-visible words：285
 - nonblank lines：17
 - ordinary PR 软门槛：100-300 words / ≤35 nonblank lines
 - 官方模板、`/kind cleanup`、`NONE` release note、AI disclosure 均已包含
