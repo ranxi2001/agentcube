@@ -28,8 +28,8 @@ AgentCube relies on the [kubernetes-sigs/agent-sandbox](https://github.com/kuber
 
 ```bash
 # Install agent-sandbox CRDs and controller
-AGENT_SANDBOX_VERSION=v0.1.1
-kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/manifest.yaml
+AGENT_SANDBOX_VERSION=v0.5.2
+kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/sandbox.yaml
 kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/extensions.yaml
 ```
 
@@ -38,6 +38,17 @@ Verify the installation:
 ```bash
 kubectl get pods -n agent-sandbox-system
 ```
+
+### Upgrading from agent-sandbox v0.4.x
+
+Do not apply the fresh-install commands above directly to a cluster that already stores v1alpha1 agent-sandbox resources. AgentCube now uses the v1beta1 APIs, and existing resources need the two-phase procedure in the [agent-sandbox API migration guide](https://github.com/kubernetes-sigs/agent-sandbox/blob/v0.5.2/docs/api-migration-guide.md):
+
+1. Back up all Sandbox, SandboxClaim, SandboxTemplate, and SandboxWarmPool resources.
+2. While v0.4.x is still running, execute the v0.5.2 migration script with `--phase=bootstrap`. This is required when cold-start v1alpha1 claims exist.
+3. Apply `sandbox.yaml` and `extensions.yaml` from v0.5.2, then wait for the controller and conversion webhook to become ready.
+4. Execute the migration script with `--phase=migrate` to rewrite stored objects as v1beta1 before a future release removes v1alpha1 support.
+
+Upgrade directly from v0.4.x to v0.5.2 or later. Earlier v0.5.x releases do not contain the warm-claim upgrade fix included in v0.5.2.
 
 ## Step 2: Deploy Redis
 
@@ -241,7 +252,7 @@ To remove AgentCube from your cluster:
 ```bash
 helm uninstall agentcube -n agentcube
 kubectl delete namespace agentcube
-AGENT_SANDBOX_VERSION=v0.1.1
+AGENT_SANDBOX_VERSION=v0.5.2
 kubectl delete -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/extensions.yaml
-kubectl delete -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/manifest.yaml
+kubectl delete -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/sandbox.yaml
 ```
