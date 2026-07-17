@@ -31,7 +31,6 @@ import (
 	"github.com/volcano-sh/agentcube/pkg/mtls"
 	"github.com/volcano-sh/agentcube/pkg/store"
 	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 )
 
 // Server is the main structure for workload manager
@@ -176,9 +175,7 @@ func (s *Server) Start(ctx context.Context) error {
 		}
 		err = s.httpServer.ListenAndServeTLS(s.config.TLSCert, s.config.TLSKey)
 	} else {
-		// Plain HTTP with h2c (HTTP/2 cleartext) support
-		h2s := &http2.Server{}
-		s.httpServer.Handler = h2c.NewHandler(s.router, h2s)
+		s.httpServer.Protocols = h2cProtocols()
 		err = s.httpServer.ListenAndServe()
 	}
 
@@ -186,6 +183,14 @@ func (s *Server) Start(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func h2cProtocols() *http.Protocols {
+	// Native h2c uses prior knowledge, which is the mode supported by Go clients.
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
+	return protocols
 }
 
 // startMTLSServer configures and starts the server with mutual TLS.

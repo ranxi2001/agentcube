@@ -18,6 +18,8 @@ package router
 
 import (
 	"context"
+	"net"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -221,6 +223,74 @@ func TestServer_StartContext(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Error("Server did not shutdown within timeout")
+	}
+}
+
+func TestH2CProtocols(t *testing.T) {
+	protocols := h2cProtocols()
+	if !protocols.HTTP1() {
+		t.Error("HTTP/1 should be enabled")
+	}
+	if !protocols.UnencryptedHTTP2() {
+		t.Error("unencrypted HTTP/2 should be enabled")
+	}
+	if protocols.HTTP2() {
+		t.Error("HTTP/2 over TLS should use the server defaults")
+	}
+}
+
+func TestH2CProtocolNegotiation(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.Listen() error = %v", err)
+	}
+
+	server := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		}),
+		Protocols:         h2cProtocols(),
+		ReadHeaderTimeout: time.Second,
+	}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.Serve(listener)
+	}()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			t.Errorf("server.Shutdown() error = %v", err)
+		}
+		if err := <-errCh; err != nil && err != http.ErrServerClosed {
+			t.Errorf("server.Serve() error = %v", err)
+		}
+	})
+
+	h2c := new(http.Protocols)
+	h2c.SetUnencryptedHTTP2(true)
+	tests := []struct {
+		name      string
+		protocols *http.Protocols
+		wantMajor int
+	}{
+		{name: "HTTP/1", wantMajor: 1},
+		{name: "HTTP/2 prior knowledge", protocols: h2c, wantMajor: 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			transport := &http.Transport{Protocols: tt.protocols}
+			t.Cleanup(transport.CloseIdleConnections)
+			client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
+			response, err := client.Get("http://" + listener.Addr().String())
+			if err != nil {
+				t.Fatalf("client.Get() error = %v", err)
+			}
+			defer response.Body.Close()
+			if response.ProtoMajor != tt.wantMajor {
+				t.Fatalf("response protocol = %s, want major version %d", response.Proto, tt.wantMajor)
+			}
+		})
 	}
 }
 
