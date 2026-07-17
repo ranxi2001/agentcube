@@ -1,0 +1,54 @@
+[
+  {
+    "name": "sandboxes.agents.x-k8s.io",
+    "storage": [
+      "v1beta1"
+    ],
+    "served": [
+      "v1beta1",
+      "v1alpha1"
+    ],
+    "storedVersions": [
+      "v1beta1"
+    ]
+  },
+  {
+    "name": "sandboxclaims.extensions.agents.x-k8s.io",
+    "storage": [
+      "v1beta1"
+    ],
+    "served": [
+      "v1beta1",
+      "v1alpha1"
+    ],
+    "storedVersions": [
+      "v1beta1"
+    ]
+  },
+  {
+    "name": "sandboxtemplates.extensions.agents.x-k8s.io",
+    "storage": [
+      "v1beta1"
+    ],
+    "served": [
+      "v1beta1",
+      "v1alpha1"
+    ],
+    "storedVersions": [
+      "v1beta1"
+    ]
+  },
+  {
+    "name": "sandboxwarmpools.extensions.agents.x-k8s.io",
+    "storage": [
+      "v1beta1"
+    ],
+    "served": [
+      "v1beta1",
+      "v1alpha1"
+    ],
+    "storedVersions": [
+      "v1beta1"
+    ]
+  }
+]

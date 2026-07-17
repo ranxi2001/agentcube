@@ -1,0 +1,769 @@
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /health                   --> github.com/volcano-sh/agentcube/pkg/workloadmanager.(*Server).handleHealth-fm (1 handlers)
+[GIN-debug] POST   /v1/agent-runtime         --> github.com/volcano-sh/agentcube/pkg/workloadmanager.(*Server).handleAgentRuntimeCreate-fm (3 handlers)
+[GIN-debug] DELETE /v1/agent-runtime/sessions/:sessionId --> github.com/volcano-sh/agentcube/pkg/workloadmanager.(*Server).handleDeleteSandbox-fm (3 handlers)
+[GIN-debug] POST   /v1/code-interpreter      --> github.com/volcano-sh/agentcube/pkg/workloadmanager.(*Server).handleCodeInterpreterCreate-fm (3 handlers)
+[GIN-debug] DELETE /v1/code-interpreter/sessions/:sessionId --> github.com/volcano-sh/agentcube/pkg/workloadmanager.(*Server).handleDeleteSandbox-fm (3 handlers)
+I0717 02:49:16.351857       1 singleton.go:74] init redis store successfully
+I0717 02:49:16.353921       1 main.go:150] Starting workloadmanager on port 8080
+I0717 02:49:16.356856       1 main.go:141] Starting controller manager...
+2026-07-17T02:49:16Z	INFO	Starting EventSource	{"controller": "sandbox", "controllerGroup": "agents.x-k8s.io", "controllerKind": "Sandbox", "source": "kind source: *v1beta1.Sandbox"}
+2026-07-17T02:49:16Z	INFO	Starting EventSource	{"controller": "codeinterpreter", "controllerGroup": "runtime.agentcube.volcano.sh", "controllerKind": "CodeInterpreter", "source": "kind source: *v1alpha1.CodeInterpreter"}
+2026-07-17T02:49:16Z	INFO	Starting Controller	{"controller": "sandbox", "controllerGroup": "agents.x-k8s.io", "controllerKind": "Sandbox"}
+2026-07-17T02:49:16Z	INFO	Starting workers	{"controller": "sandbox", "controllerGroup": "agents.x-k8s.io", "controllerKind": "Sandbox", "worker count": 1}
+2026-07-17T02:49:17Z	INFO	Starting Controller	{"controller": "codeinterpreter", "controllerGroup": "runtime.agentcube.volcano.sh", "controllerKind": "CodeInterpreter"}
+2026-07-17T02:49:17Z	INFO	Starting workers	{"controller": "codeinterpreter", "controllerGroup": "runtime.agentcube.volcano.sh", "controllerKind": "CodeInterpreter", "worker count": 1}
+I0717 02:49:17.237864       1 workload_builder.go:91] loaded public key from secret agentcube/picod-router-identity
+I0717 02:49:17.914560       1 server.go:147] kv store Ping check successfully
+I0717 02:49:17.914590       1 server.go:158] Server listening on :8080
+I0717 02:50:47.855937       1 server.go:273] POST /v1/agent-runtime 10.244.0.9
+I0717 02:51:50.626429       1 server.go:273] POST /v1/agent-runtime 10.244.0.9
+I0717 02:52:46.307445       1 server.go:275] POST /v1/agent-runtime - completed in 1m58.441752025s
+I0717 02:52:48.802793       1 server.go:273] POST /v1/agent-runtime 10.244.0.9
+I0717 02:53:00.166164       1 server.go:275] POST /v1/agent-runtime - completed in 1m9.61273918s
+I0717 02:53:01.145766       1 server.go:275] POST /v1/agent-runtime - completed in 12.343134032s
+I0717 02:53:01.167566       1 server.go:273] POST /v1/agent-runtime 10.244.0.9
+E0717 02:53:01.172220       1 handlers.go:180] build sandbox failed agentcube/non-existent-runtime: agent runtime not found
+I0717 02:53:01.172775       1 server.go:275] POST /v1/agent-runtime - completed in 5.218105ms
+I0717 02:53:01.176918       1 server.go:273] POST /v1/agent-runtime 10.244.0.9
+I0717 02:53:08.465905       1 server.go:275] POST /v1/agent-runtime - completed in 7.288983927s
+I0717 02:54:15.552850       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:16.724651       1 server.go:275] POST /v1/code-interpreter - completed in 1.171812689s
+I0717 02:54:17.439696       1 server.go:273] DELETE /v1/code-interpreter/sessions/0d92c7ad-9731-4dd6-ba7a-47138c59c244 127.0.0.1
+I0717 02:54:17.473681       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-poxp7rmc successfully, sessionID: 0d92c7ad-9731-4dd6-ba7a-47138c59c244
+I0717 02:54:17.473803       1 server.go:275] DELETE /v1/code-interpreter/sessions/0d92c7ad-9731-4dd6-ba7a-47138c59c244 - completed in 34.150752ms
+I0717 02:54:21.102042       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:24.504464       1 server.go:275] POST /v1/code-interpreter - completed in 3.402421638s
+I0717 02:54:24.689778       1 server.go:273] DELETE /v1/code-interpreter/sessions/666c6ad7-7744-453b-9e69-34e3ca6f474e 127.0.0.1
+I0717 02:54:24.707002       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-y7zvsvwh successfully, sessionID: 666c6ad7-7744-453b-9e69-34e3ca6f474e
+I0717 02:54:24.707044       1 server.go:275] DELETE /v1/code-interpreter/sessions/666c6ad7-7744-453b-9e69-34e3ca6f474e - completed in 17.277559ms
+I0717 02:54:24.739520       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:26.753384       1 server.go:275] POST /v1/code-interpreter - completed in 2.012864757s
+I0717 02:54:26.966466       1 server.go:273] DELETE /v1/code-interpreter/sessions/3cdd792f-eff2-418e-b692-52374622c410 127.0.0.1
+I0717 02:54:27.007860       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-0k6eogtb successfully, sessionID: 3cdd792f-eff2-418e-b692-52374622c410
+I0717 02:54:27.007921       1 server.go:275] DELETE /v1/code-interpreter/sessions/3cdd792f-eff2-418e-b692-52374622c410 - completed in 41.471537ms
+I0717 02:54:27.082983       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:30.635603       1 server.go:275] POST /v1/code-interpreter - completed in 3.552623348s
+I0717 02:54:31.599946       1 server.go:273] DELETE /v1/code-interpreter/sessions/f9e7597e-c623-4043-b95f-7cbd7484462a 127.0.0.1
+I0717 02:54:31.623560       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-t9w6o5mu successfully, sessionID: f9e7597e-c623-4043-b95f-7cbd7484462a
+I0717 02:54:31.623604       1 server.go:275] DELETE /v1/code-interpreter/sessions/f9e7597e-c623-4043-b95f-7cbd7484462a - completed in 23.668591ms
+I0717 02:54:42.907942       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:42.921074       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:42.931972       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:42.943538       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:42.988661       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:43.088491       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:43.258986       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:43.277648       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:43.402044       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:43.526015       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:43.561439       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:43.815992       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:43.899750       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:43.949927       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:44.006956       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:44.072581       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:44.215196       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:44.338599       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:44.487390       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:44.492026       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:44.585776       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:45.031774       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:45.086235       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:45.115166       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:45.125513       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:45.159176       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:45.167197       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:45.271872       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:45.376221       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:45.545379       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:46.921178       1 server.go:275] POST /v1/code-interpreter - completed in 3.662199166s
+I0717 02:54:46.955873       1 server.go:275] POST /v1/code-interpreter - completed in 3.553829338s
+I0717 02:54:47.476692       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:47.995704       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:47.995929       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.087711       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.088629       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.088829       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.089233       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.089387       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.089543       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.610831       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.611090       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.611233       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.665237       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.838669       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.838966       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.839065       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.839229       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.850164       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.928899       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.951241       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.920729       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.965018       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:48.981459       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.085762       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.161999       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.186098       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.187198       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.317824       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.432146       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.452004       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.452024       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.466046       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.507633       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.522651       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.541646       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.556579       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.682498       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.691106       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.692800       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.699891       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:49.714614       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:50.046802       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:50.046890       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:50.047595       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:50.081757       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:50.176138       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:50.271644       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:50.278022       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:50.671248       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.329436       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.338045       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.341416       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.341474       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.418081       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.432190       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.445858       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.448590       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.449347       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.531035       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.663331       1 server.go:273] DELETE /v1/code-interpreter/sessions/06d46551-3f9b-4429-8f9b-f5798981d1bb 127.0.0.1
+I0717 02:54:51.685461       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.687566       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.688853       1 server.go:273] DELETE /v1/code-interpreter/sessions/06a651f4-c607-448c-be04-52d44ba1d98d 127.0.0.1
+I0717 02:54:51.789396       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.852984       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:51.893664       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:52.786879       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:53.561447       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:53.563378       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:53.592409       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:53.592736       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:53.592779       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:54:54.304225       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-1p8aajg8 successfully, sessionID: 06a651f4-c607-448c-be04-52d44ba1d98d
+I0717 02:54:54.304981       1 server.go:275] DELETE /v1/code-interpreter/sessions/06a651f4-c607-448c-be04-52d44ba1d98d - completed in 2.616130023s
+I0717 02:54:54.350638       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-r2695wze successfully, sessionID: 06d46551-3f9b-4429-8f9b-f5798981d1bb
+I0717 02:54:54.350687       1 server.go:275] DELETE /v1/code-interpreter/sessions/06d46551-3f9b-4429-8f9b-f5798981d1bb - completed in 2.687407786s
+I0717 02:54:57.571714       1 request.go:752] "Waited before sending request" delay="1.014279178s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://10.96.0.1:443/apis/agents.x-k8s.io/v1beta1/namespaces/agentcube/sandboxes/e2e-code-interpreter-warmpool-5wefzihl"
+I0717 02:55:07.571484       1 request.go:752] "Waited before sending request" delay="1.429706011s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://10.96.0.1:443/apis/agents.x-k8s.io/v1beta1/namespaces/agentcube/sandboxes/e2e-code-interpreter-warmpool-0mhdpt0a"
+I0717 02:55:09.563710       1 server.go:275] POST /v1/code-interpreter - completed in 26.455557102s
+I0717 02:55:10.528126       1 server.go:273] DELETE /v1/code-interpreter/sessions/c250208d-acef-4168-b2fb-94bc54b53a3d 127.0.0.1
+I0717 02:55:12.677957       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-7qh6vk1j successfully, sessionID: c250208d-acef-4168-b2fb-94bc54b53a3d
+I0717 02:55:12.678029       1 server.go:275] DELETE /v1/code-interpreter/sessions/c250208d-acef-4168-b2fb-94bc54b53a3d - completed in 2.149916047s
+I0717 02:55:17.576837       1 request.go:752] "Waited before sending request" delay="1.591475732s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://10.96.0.1:443/apis/agents.x-k8s.io/v1beta1/namespaces/agentcube/sandboxes/e2e-code-interpreter-warmpool-zmh383gg"
+I0717 02:55:21.080695       1 garbage_collection.go:117] garbage collector found 1 sandboxes to be deleted
+I0717 02:55:24.274598       1 garbage_collection.go:132] garbage collector Sandbox agentcube/echo-agent-short-ttl-phrmgmkk session d2e64912-769d-478b-ad5a-fb9cfeff5974 deleted
+I0717 02:55:30.670187       1 request.go:752] "Waited before sending request" delay="1.011475769s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://10.96.0.1:443/apis/agents.x-k8s.io/v1beta1/namespaces/agentcube/sandboxes/e2e-code-interpreter-warmpool-0mhdpt0a"
+I0717 02:55:41.604833       1 request.go:752] "Waited before sending request" delay="1.005168896s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://10.96.0.1:443/apis/extensions.agents.x-k8s.io/v1beta1/namespaces/agentcube/sandboxclaims/e2e-code-interpreter-warmpool-r5yqkcgk"
+I0717 02:55:48.430340       1 server.go:275] POST /v1/code-interpreter - completed in 1m5.509265545s
+I0717 02:55:51.624230       1 request.go:752] "Waited before sending request" delay="1.583866179s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://10.96.0.1:443/apis/extensions.agents.x-k8s.io/v1beta1/namespaces/agentcube/sandboxclaims/e2e-code-interpreter-warmpool-kihmmzaf"
+I0717 02:55:52.143197       1 server.go:273] DELETE /v1/code-interpreter/sessions/dbf19f65-f9ad-4847-a687-25e59b7400d2 127.0.0.1
+I0717 02:55:54.455987       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-hyfnv3ox successfully, sessionID: dbf19f65-f9ad-4847-a687-25e59b7400d2
+I0717 02:55:54.462735       1 server.go:275] DELETE /v1/code-interpreter/sessions/dbf19f65-f9ad-4847-a687-25e59b7400d2 - completed in 2.334455078s
+I0717 02:56:01.640723       1 request.go:752] "Waited before sending request" delay="1.400146178s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://10.96.0.1:443/apis/agents.x-k8s.io/v1beta1/namespaces/agentcube/sandboxes/e2e-code-interpreter-warmpool-sll75"
+I0717 02:56:11.689095       1 request.go:752] "Waited before sending request" delay="1.769355697s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://10.96.0.1:443/apis/extensions.agents.x-k8s.io/v1beta1/namespaces/agentcube/sandboxclaims/e2e-code-interpreter-warmpool-v1y6z8ao"
+I0717 02:56:21.698387       1 request.go:752] "Waited before sending request" delay="1.862118617s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://10.96.0.1:443/apis/extensions.agents.x-k8s.io/v1beta1/namespaces/agentcube/sandboxclaims/e2e-code-interpreter-warmpool-r6b0bp0d"
+I0717 02:56:22.628378       1 server.go:275] POST /v1/code-interpreter - completed in 1m39.066940499s
+I0717 02:56:23.500147       1 server.go:273] DELETE /v1/code-interpreter/sessions/470a8ec6-0dbf-4def-9b63-bf26c58880d4 127.0.0.1
+I0717 02:56:25.496716       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-098b0p19 successfully, sessionID: 470a8ec6-0dbf-4def-9b63-bf26c58880d4
+I0717 02:56:25.496768       1 server.go:275] DELETE /v1/code-interpreter/sessions/470a8ec6-0dbf-4def-9b63-bf26c58880d4 - completed in 1.996632444s
+I0717 02:56:29.032352       1 server.go:275] POST /v1/code-interpreter - completed in 1m46.088819577s
+I0717 02:56:29.129127       1 server.go:273] DELETE /v1/code-interpreter/sessions/e7ba7b55-d1ee-484b-aa77-d2a30a369316 127.0.0.1
+I0717 02:56:29.163057       1 server.go:275] POST /v1/code-interpreter - completed in 1m45.885412609s
+I0717 02:56:29.951543       1 server.go:273] DELETE /v1/code-interpreter/sessions/fe0e5a71-5c0d-4269-91dd-93c29d6ab163 127.0.0.1
+I0717 02:56:31.018387       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.068463621s
+I0717 02:56:31.019065       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-qdirwmxh successfully, sessionID: e7ba7b55-d1ee-484b-aa77-d2a30a369316
+I0717 02:56:31.019099       1 server.go:275] DELETE /v1/code-interpreter/sessions/e7ba7b55-d1ee-484b-aa77-d2a30a369316 - completed in 1.889981736s
+I0717 02:56:31.131468       1 server.go:273] DELETE /v1/code-interpreter/sessions/e55c1f64-af64-41af-89cd-084d84243aac 127.0.0.1
+I0717 02:56:31.154273       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.628263858s
+I0717 02:56:31.217090       1 server.go:273] DELETE /v1/code-interpreter/sessions/ed0706a8-81cc-43d2-9afc-c41ffbd47010 127.0.0.1
+I0717 02:56:31.263032       1 server.go:275] POST /v1/code-interpreter - completed in 1m46.924432824s
+I0717 02:56:31.263221       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.363488536s
+I0717 02:56:31.572830       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.085260764s
+I0717 02:56:31.578163       1 server.go:273] DELETE /v1/code-interpreter/sessions/5ec5af48-513b-4c88-8ace-d470336c1602 127.0.0.1
+I0717 02:56:31.662927       1 server.go:275] POST /v1/code-interpreter - completed in 1m48.674264917s
+I0717 02:56:31.710626       1 request.go:752] "Waited before sending request" delay="1.762399763s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://10.96.0.1:443/apis/extensions.agents.x-k8s.io/v1beta1/namespaces/agentcube/sandboxclaims/e2e-code-interpreter-warmpool-az59ytse"
+I0717 02:56:31.729580       1 server.go:273] DELETE /v1/code-interpreter/sessions/9e9e5f1c-2948-4776-9480-c52fa1d5609e 127.0.0.1
+I0717 02:56:31.772737       1 server.go:275] POST /v1/code-interpreter - completed in 1m46.223319668s
+I0717 02:56:31.778102       1 server.go:273] DELETE /v1/code-interpreter/sessions/95437f76-d9f0-4d56-8bfb-f7e2e687b263 127.0.0.1
+I0717 02:56:31.783582       1 server.go:275] POST /v1/code-interpreter - completed in 1m46.668419875s
+I0717 02:56:31.800973       1 server.go:275] POST /v1/code-interpreter - completed in 1m42.961903024s
+I0717 02:56:31.823032       1 server.go:275] POST /v1/code-interpreter - completed in 1m48.937412309s
+I0717 02:56:31.837053       1 server.go:275] POST /v1/code-interpreter - completed in 1m48.960487792s
+I0717 02:56:31.987112       1 server.go:273] DELETE /v1/code-interpreter/sessions/a8a4c1a1-7f60-4180-b407-eeba7e2e79f9 127.0.0.1
+I0717 02:56:32.017281       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.802087352s
+I0717 02:56:32.060998       1 server.go:273] DELETE /v1/code-interpreter/sessions/f8bb5d71-e62a-404b-a28c-53a3d8aa054f 127.0.0.1
+I0717 02:56:32.061098       1 server.go:273] DELETE /v1/code-interpreter/sessions/d2b10db8-073e-4cde-8daf-bad7c7778478 127.0.0.1
+I0717 02:56:32.091591       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-saayhqn3 successfully, sessionID: fe0e5a71-5c0d-4269-91dd-93c29d6ab163
+I0717 02:56:32.091643       1 server.go:275] DELETE /v1/code-interpreter/sessions/fe0e5a71-5c0d-4269-91dd-93c29d6ab163 - completed in 2.140118343s
+I0717 02:56:32.092000       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.005771092s
+I0717 02:56:32.168076       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.58229952s
+I0717 02:56:32.172987       1 server.go:273] DELETE /v1/code-interpreter/sessions/41149122-e336-42ba-9db6-050d55009fb6 127.0.0.1
+I0717 02:56:32.173220       1 server.go:273] DELETE /v1/code-interpreter/sessions/1d636ef4-9487-4522-b400-c62459d077fa 127.0.0.1
+I0717 02:56:32.173560       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.048047294s
+I0717 02:56:32.203738       1 server.go:273] DELETE /v1/code-interpreter/sessions/9100826c-bfc0-4cf8-be06-56928836d758 127.0.0.1
+I0717 02:56:32.316697       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.157522342s
+I0717 02:56:32.399607       1 server.go:273] DELETE /v1/code-interpreter/sessions/f6ecda19-6d41-417d-9a2f-ac04e61ab54c 127.0.0.1
+I0717 02:56:32.530695       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.15447895s
+I0717 02:56:32.530786       1 server.go:275] POST /v1/code-interpreter - completed in 1m48.714808992s
+I0717 02:56:32.560917       1 server.go:275] POST /v1/code-interpreter - completed in 1m43.7222521s
+I0717 02:56:32.562357       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.530591362s
+I0717 02:56:32.562478       1 server.go:275] POST /v1/code-interpreter - completed in 1m47.290615011s
+I0717 02:56:32.581072       1 server.go:273] DELETE /v1/code-interpreter/sessions/042b3c55-a897-45b2-9903-6072cb3477fe 127.0.0.1
+I0717 02:56:32.601086       1 server.go:275] POST /v1/code-interpreter - completed in 1m48.109065289s
+I0717 02:56:32.602109       1 server.go:275] POST /v1/code-interpreter - completed in 1m48.529536352s
+I0717 02:56:33.263597       1 server.go:275] POST /v1/code-interpreter - completed in 1m48.096157311s
+I0717 02:56:33.298583       1 server.go:273] DELETE /v1/code-interpreter/sessions/fffc6b3c-80c3-4222-8212-b2e99466eb02 127.0.0.1
+I0717 02:56:33.298695       1 server.go:273] DELETE /v1/code-interpreter/sessions/adc35862-049e-4d80-a084-b05e75e2c645 127.0.0.1
+I0717 02:56:33.304486       1 server.go:275] POST /v1/code-interpreter - completed in 1m49.297525278s
+I0717 02:56:33.306623       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-edl8ozoa successfully, sessionID: e55c1f64-af64-41af-89cd-084d84243aac
+I0717 02:56:33.306667       1 server.go:275] DELETE /v1/code-interpreter/sessions/e55c1f64-af64-41af-89cd-084d84243aac - completed in 2.175211134s
+I0717 02:56:33.378756       1 server.go:273] DELETE /v1/code-interpreter/sessions/f38dcdea-19c1-4351-8827-af2c4937a473 127.0.0.1
+I0717 02:56:33.474029       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-6dkouvmt successfully, sessionID: ed0706a8-81cc-43d2-9afc-c41ffbd47010
+I0717 02:56:33.474853       1 server.go:275] DELETE /v1/code-interpreter/sessions/ed0706a8-81cc-43d2-9afc-c41ffbd47010 - completed in 2.257266592s
+I0717 02:56:33.630800       1 server.go:273] DELETE /v1/code-interpreter/sessions/e97c02d4-b5f1-4593-964d-d82e5291dd65 127.0.0.1
+I0717 02:56:33.855875       1 server.go:273] DELETE /v1/code-interpreter/sessions/ca334fad-30af-4085-a82c-f1dd2f36871e 127.0.0.1
+I0717 02:56:33.894878       1 server.go:273] DELETE /v1/code-interpreter/sessions/940d55d6-56c8-4555-ae12-2c9d0685efef 127.0.0.1
+I0717 02:56:33.895090       1 server.go:273] DELETE /v1/code-interpreter/sessions/cad9be1b-4ed2-40e7-8cbb-678eaa5bee68 127.0.0.1
+I0717 02:56:34.136588       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-6e5jdeid successfully, sessionID: 9e9e5f1c-2948-4776-9480-c52fa1d5609e
+I0717 02:56:34.136634       1 server.go:275] DELETE /v1/code-interpreter/sessions/9e9e5f1c-2948-4776-9480-c52fa1d5609e - completed in 2.407063735s
+I0717 02:56:34.136770       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-nubcu808 successfully, sessionID: 5ec5af48-513b-4c88-8ace-d470336c1602
+I0717 02:56:34.136800       1 server.go:275] DELETE /v1/code-interpreter/sessions/5ec5af48-513b-4c88-8ace-d470336c1602 - completed in 2.558647514s
+I0717 02:56:34.138650       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-jtlbbf2i successfully, sessionID: 95437f76-d9f0-4d56-8bfb-f7e2e687b263
+I0717 02:56:34.138704       1 server.go:275] DELETE /v1/code-interpreter/sessions/95437f76-d9f0-4d56-8bfb-f7e2e687b263 - completed in 2.360613472s
+I0717 02:56:34.138797       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-sbpazudq successfully, sessionID: f8bb5d71-e62a-404b-a28c-53a3d8aa054f
+I0717 02:56:34.138812       1 server.go:275] DELETE /v1/code-interpreter/sessions/f8bb5d71-e62a-404b-a28c-53a3d8aa054f - completed in 2.077825024s
+I0717 02:56:34.172335       1 server.go:273] DELETE /v1/code-interpreter/sessions/b6f00010-935a-420d-a72e-7a12a76170e6 127.0.0.1
+I0717 02:56:34.254519       1 server.go:273] DELETE /v1/code-interpreter/sessions/508e48e7-7310-4620-b975-838401063ad6 127.0.0.1
+I0717 02:56:34.254835       1 server.go:273] DELETE /v1/code-interpreter/sessions/3a4b7d48-63e0-4ce3-a681-08109f5a17d1 127.0.0.1
+I0717 02:56:34.254955       1 server.go:273] DELETE /v1/code-interpreter/sessions/f39cdab7-0835-408b-90a9-adab7614c775 127.0.0.1
+I0717 02:56:34.295477       1 server.go:273] DELETE /v1/code-interpreter/sessions/548e4fd1-1ef0-4018-bc59-3af5ce41cd45 127.0.0.1
+I0717 02:56:34.329169       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-s8tgaqq8 successfully, sessionID: d2b10db8-073e-4cde-8daf-bad7c7778478
+I0717 02:56:34.329208       1 server.go:275] DELETE /v1/code-interpreter/sessions/d2b10db8-073e-4cde-8daf-bad7c7778478 - completed in 2.268109957s
+I0717 02:56:34.329272       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-niz41f86 successfully, sessionID: a8a4c1a1-7f60-4180-b407-eeba7e2e79f9
+I0717 02:56:34.329367       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-zmh383gg successfully, sessionID: 9100826c-bfc0-4cf8-be06-56928836d758
+I0717 02:56:34.329381       1 server.go:275] DELETE /v1/code-interpreter/sessions/9100826c-bfc0-4cf8-be06-56928836d758 - completed in 2.125809915s
+I0717 02:56:34.329431       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-g6rte3jq successfully, sessionID: 1d636ef4-9487-4522-b400-c62459d077fa
+I0717 02:56:34.329442       1 server.go:275] DELETE /v1/code-interpreter/sessions/1d636ef4-9487-4522-b400-c62459d077fa - completed in 2.156280159s
+I0717 02:56:34.329485       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-1iqvoc13 successfully, sessionID: 41149122-e336-42ba-9db6-050d55009fb6
+I0717 02:56:34.329496       1 server.go:275] DELETE /v1/code-interpreter/sessions/41149122-e336-42ba-9db6-050d55009fb6 - completed in 2.156520781s
+I0717 02:56:34.329529       1 server.go:275] DELETE /v1/code-interpreter/sessions/a8a4c1a1-7f60-4180-b407-eeba7e2e79f9 - completed in 2.34218611s
+I0717 02:56:34.381052       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-j5og9sb1 successfully, sessionID: 042b3c55-a897-45b2-9903-6072cb3477fe
+I0717 02:56:34.381089       1 server.go:275] DELETE /v1/code-interpreter/sessions/042b3c55-a897-45b2-9903-6072cb3477fe - completed in 1.800034069s
+I0717 02:56:34.382145       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-xfulc8ub successfully, sessionID: f6ecda19-6d41-417d-9a2f-ac04e61ab54c
+I0717 02:56:34.382396       1 server.go:275] DELETE /v1/code-interpreter/sessions/f6ecda19-6d41-417d-9a2f-ac04e61ab54c - completed in 1.982920129s
+I0717 02:56:35.146769       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-5wefzihl successfully, sessionID: fffc6b3c-80c3-4222-8212-b2e99466eb02
+I0717 02:56:35.146823       1 server.go:275] DELETE /v1/code-interpreter/sessions/fffc6b3c-80c3-4222-8212-b2e99466eb02 - completed in 1.848258343s
+I0717 02:56:35.147003       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-tlidmpne successfully, sessionID: f38dcdea-19c1-4351-8827-af2c4937a473
+I0717 02:56:35.147021       1 server.go:275] DELETE /v1/code-interpreter/sessions/f38dcdea-19c1-4351-8827-af2c4937a473 - completed in 1.787083756s
+I0717 02:56:35.452143       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-rm4k6d7p successfully, sessionID: adc35862-049e-4d80-a084-b05e75e2c645
+I0717 02:56:35.452262       1 server.go:275] POST /v1/code-interpreter - completed in 1m46.613032455s
+I0717 02:56:35.453005       1 server.go:275] DELETE /v1/code-interpreter/sessions/adc35862-049e-4d80-a084-b05e75e2c645 - completed in 2.154304852s
+I0717 02:56:35.750063       1 server.go:273] DELETE /v1/code-interpreter/sessions/c721049a-c365-4eb0-b9ee-45c8d71f37db 127.0.0.1
+I0717 02:56:35.940093       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-szx35660 successfully, sessionID: 940d55d6-56c8-4555-ae12-2c9d0685efef
+I0717 02:56:35.940128       1 server.go:275] DELETE /v1/code-interpreter/sessions/940d55d6-56c8-4555-ae12-2c9d0685efef - completed in 2.045260416s
+I0717 02:56:35.940663       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-d1azllg4 successfully, sessionID: ca334fad-30af-4085-a82c-f1dd2f36871e
+I0717 02:56:35.940691       1 server.go:275] DELETE /v1/code-interpreter/sessions/ca334fad-30af-4085-a82c-f1dd2f36871e - completed in 2.084824667s
+I0717 02:56:35.940907       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-yvlao4r3 successfully, sessionID: e97c02d4-b5f1-4593-964d-d82e5291dd65
+I0717 02:56:35.941086       1 server.go:275] DELETE /v1/code-interpreter/sessions/e97c02d4-b5f1-4593-964d-d82e5291dd65 - completed in 2.310295351s
+I0717 02:56:35.941511       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-ikwvhb71 successfully, sessionID: b6f00010-935a-420d-a72e-7a12a76170e6
+I0717 02:56:35.941532       1 server.go:275] DELETE /v1/code-interpreter/sessions/b6f00010-935a-420d-a72e-7a12a76170e6 - completed in 1.769212159s
+I0717 02:56:35.941955       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-wc3udqmb successfully, sessionID: cad9be1b-4ed2-40e7-8cbb-678eaa5bee68
+I0717 02:56:35.941973       1 server.go:275] DELETE /v1/code-interpreter/sessions/cad9be1b-4ed2-40e7-8cbb-678eaa5bee68 - completed in 2.046886942s
+I0717 02:56:35.942104       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-iqnbagix successfully, sessionID: 508e48e7-7310-4620-b975-838401063ad6
+I0717 02:56:35.942120       1 server.go:275] DELETE /v1/code-interpreter/sessions/508e48e7-7310-4620-b975-838401063ad6 - completed in 1.687617555s
+I0717 02:56:36.480114       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-mcu1u0d1 successfully, sessionID: f39cdab7-0835-408b-90a9-adab7614c775
+I0717 02:56:36.483869       1 server.go:275] DELETE /v1/code-interpreter/sessions/f39cdab7-0835-408b-90a9-adab7614c775 - completed in 2.228907836s
+I0717 02:56:36.541037       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-yah4lory successfully, sessionID: 548e4fd1-1ef0-4018-bc59-3af5ce41cd45
+I0717 02:56:36.541147       1 server.go:275] DELETE /v1/code-interpreter/sessions/548e4fd1-1ef0-4018-bc59-3af5ce41cd45 - completed in 2.245680847s
+I0717 02:56:36.541491       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-tz261p85 successfully, sessionID: 3a4b7d48-63e0-4ce3-a681-08109f5a17d1
+I0717 02:56:36.541512       1 server.go:275] DELETE /v1/code-interpreter/sessions/3a4b7d48-63e0-4ce3-a681-08109f5a17d1 - completed in 2.286681748s
+I0717 02:56:39.037901       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-j3s41v4y successfully, sessionID: c721049a-c365-4eb0-b9ee-45c8d71f37db
+I0717 02:56:39.037992       1 server.go:275] DELETE /v1/code-interpreter/sessions/c721049a-c365-4eb0-b9ee-45c8d71f37db - completed in 3.287940635s
+I0717 02:56:42.061436       1 request.go:752] "Waited before sending request" delay="1.017229358s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://10.96.0.1:443/apis/extensions.agents.x-k8s.io/v1beta1/namespaces/agentcube/sandboxclaims/e2e-code-interpreter-warmpool-cobgbc5s"
+I0717 02:56:51.565339       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-ods8dfc8 rollback succeeded
+I0717 02:56:51.624522       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-9i8xlkvr rollback succeeded
+E0717 02:56:51.624894       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-ods8dfc8: Internal error occurred: failed to get sandbox agentcube/e2e-code-interpreter-warmpool-ods8dfc8: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:51.624934       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.536310629s
+I0717 02:56:51.627655       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-lsdn6o9a rollback succeeded
+I0717 02:56:51.627758       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-4687jq58 rollback succeeded
+E0717 02:56:51.641505       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-9i8xlkvr: Internal error occurred: failed to get sandbox agentcube/e2e-code-interpreter-warmpool-9i8xlkvr: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:51.641572       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.55217024s
+E0717 02:56:51.641672       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-lsdn6o9a: Internal error occurred: failed to get sandbox agentcube/e2e-code-interpreter-warmpool-lsdn6o9a: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:51.641694       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.645768536s
+E0717 02:56:51.641739       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-4687jq58: Internal error occurred: failed to get sandbox agentcube/e2e-code-interpreter-warmpool-4687jq58: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:51.641748       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.552209437s
+I0717 02:56:51.655272       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-nzg3u7wo rollback succeeded
+I0717 02:56:51.660784       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-oz2ngomm rollback succeeded
+I0717 02:56:51.661359       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-v1y6z8ao rollback succeeded
+E0717 02:56:51.672527       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-v1y6z8ao: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-v1y6z8ao: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:51.672575       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.584870244s
+E0717 02:56:51.682153       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-oz2ngomm: Internal error occurred: failed to get sandbox agentcube/e2e-code-interpreter-warmpool-oz2ngomm: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:51.682201       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.68650503s
+E0717 02:56:51.682586       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-nzg3u7wo: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-nzg3u7wo: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:51.682616       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.071798697s
+I0717 02:56:52.282516       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-mb3lwgk8 rollback succeeded
+I0717 02:56:52.282653       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-7n7kcvvy rollback succeeded
+E0717 02:56:52.313360       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-7n7kcvvy: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-7n7kcvvy: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:52.313938       1 server.go:275] POST /v1/code-interpreter - completed in 2m4.22470301s
+I0717 02:56:52.315678       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-0mhdpt0a rollback succeeded
+E0717 02:56:52.315995       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-mb3lwgk8: Internal error occurred: failed to get sandbox agentcube/e2e-code-interpreter-warmpool-mb3lwgk8: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:52.316068       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.704967302s
+E0717 02:56:52.330450       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-0mhdpt0a: Internal error occurred: failed to get sandbox agentcube/e2e-code-interpreter-warmpool-0mhdpt0a: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:52.330572       1 server.go:275] POST /v1/code-interpreter - completed in 2m4.853886314s
+I0717 02:56:52.346817       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-ypj9qyd3 rollback succeeded
+I0717 02:56:52.346915       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-a9l91zp8 rollback succeeded
+W0717 02:56:52.363644       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-ypj9qyd3: sandbox did not become ready within deadline
+I0717 02:56:52.368691       1 server.go:275] POST /v1/code-interpreter - completed in 2m2.913181885s
+I0717 02:56:52.431389       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-kw3z9394 rollback succeeded
+I0717 02:56:52.443254       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-r5yqkcgk rollback succeeded
+I0717 02:56:52.450571       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-9z4062vq rollback succeeded
+I0717 02:56:52.458526       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-w6kxvf2o rollback succeeded
+I0717 02:56:52.458649       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-eo7swogk rollback succeeded
+I0717 02:56:52.460676       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-a3uvopih rollback succeeded
+I0717 02:56:52.462344       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-nh8ync4w rollback succeeded
+I0717 02:56:52.462358       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-ub2aywz2 rollback succeeded
+I0717 02:56:52.462369       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-h66kq7n0 rollback succeeded
+I0717 02:56:52.462895       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-yke1j089 rollback succeeded
+I0717 02:56:52.463595       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-vk08uc5y rollback succeeded
+E0717 02:56:52.537872       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-a9l91zp8: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-a9l91zp8: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:52.543371       1 server.go:275] POST /v1/code-interpreter - completed in 2m2.496475359s
+E0717 02:56:52.552442       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-vk08uc5y: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-vk08uc5y: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:52.552480       1 server.go:275] POST /v1/code-interpreter - completed in 2m2.470734084s
+E0717 02:56:52.554584       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-w6kxvf2o: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-w6kxvf2o: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:52.554632       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.943399003s
+W0717 02:56:52.554706       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-nh8ync4w: sandbox did not become ready within deadline
+I0717 02:56:52.554718       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.634002282s
+W0717 02:56:52.554766       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-ub2aywz2: sandbox did not become ready within deadline
+I0717 02:56:52.554775       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.088742947s
+W0717 02:56:52.554833       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-h66kq7n0: sandbox did not become ready within deadline
+I0717 02:56:52.554842       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.657695158s
+W0717 02:56:52.554885       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-yke1j089: sandbox did not become ready within deadline
+I0717 02:56:52.554896       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.122942457s
+W0717 02:56:52.558198       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-kw3z9394: sandbox did not become ready within deadline
+I0717 02:56:52.558362       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.719398067s
+W0717 02:56:52.558817       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-r5yqkcgk: sandbox did not become ready within deadline
+I0717 02:56:52.558867       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.242095481s
+E0717 02:56:52.560119       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-9z4062vq: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-9z4062vq: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+W0717 02:56:52.560326       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-a3uvopih: sandbox did not become ready within deadline
+I0717 02:56:52.562429       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.03979264s
+I0717 02:56:52.560483       1 server.go:275] POST /v1/code-interpreter - completed in 2m4.471418026s
+W0717 02:56:52.560511       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-eo7swogk: sandbox did not become ready within deadline
+I0717 02:56:52.566908       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.110517424s
+I0717 02:56:52.568416       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-afpxhz3g rollback succeeded
+E0717 02:56:52.576672       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-afpxhz3g: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-afpxhz3g: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:52.576707       1 server.go:275] POST /v1/code-interpreter - completed in 2m2.30894866s
+I0717 02:56:52.602132       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-wvlz4iwb rollback succeeded
+I0717 02:56:52.612726       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-kg3mbkdm rollback succeeded
+I0717 02:56:52.613862       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-shuly327 rollback succeeded
+I0717 02:56:52.613924       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-r6b0bp0d rollback succeeded
+I0717 02:56:52.613972       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-ef4r7hjt rollback succeeded
+I0717 02:56:52.639240       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-r15nvsgu rollback succeeded
+I0717 02:56:52.643529       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-z3ydy2s8 rollback succeeded
+I0717 02:56:52.716648       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:52.721781       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+W0717 02:56:52.942735       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-wvlz4iwb: sandbox did not become ready within deadline
+I0717 02:56:52.986405       1 server.go:275] POST /v1/code-interpreter - completed in 2m2.315165647s
+W0717 02:56:52.948617       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-r6b0bp0d: sandbox did not become ready within deadline
+I0717 02:56:52.986546       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.29544804s
+W0717 02:56:52.950359       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-ef4r7hjt: sandbox did not become ready within deadline
+I0717 02:56:52.986601       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.272001363s
+W0717 02:56:52.950377       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-r15nvsgu: sandbox did not become ready within deadline
+I0717 02:56:52.986651       1 server.go:275] POST /v1/code-interpreter - completed in 2m2.939863158s
+W0717 02:56:52.950392       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-z3ydy2s8: sandbox did not become ready within deadline
+I0717 02:56:52.987068       1 server.go:275] POST /v1/code-interpreter - completed in 2m2.9394734s
+E0717 02:56:52.965050       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-kg3mbkdm: Internal error occurred: failed to get sandbox agentcube/e2e-code-interpreter-warmpool-kg3mbkdm: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:52.987144       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.287261251s
+E0717 02:56:52.965077       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-shuly327: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-shuly327: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:52.987206       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.294413735s
+I0717 02:56:52.973084       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-axyqz58b rollback succeeded
+I0717 02:56:52.973521       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-kihmmzaf rollback succeeded
+I0717 02:56:53.185573       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.205805       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.218771       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.216511       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.257437       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+E0717 02:56:53.261460       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-axyqz58b: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-axyqz58b: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:53.261491       1 server.go:275] POST /v1/code-interpreter - completed in 2m2.98347858s
+W0717 02:56:53.261567       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-kihmmzaf: sandbox did not become ready within deadline
+I0717 02:56:53.261580       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.085456786s
+I0717 02:56:53.495603       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.497495       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.506785       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.702676       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.704691       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.757042       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.767364       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.778495       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:53.835608       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-i5mjco68 rollback succeeded
+I0717 02:56:54.156877       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:54.157933       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+W0717 02:56:54.304329       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-i5mjco68: sandbox did not become ready within deadline
+I0717 02:56:54.304852       1 server.go:275] POST /v1/code-interpreter - completed in 2m4.689891229s
+I0717 02:56:54.516694       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+E0717 02:56:55.462342       1 request.go:1196] "Unexpected error when reading response body" err="context deadline exceeded"
+I0717 02:56:55.509394       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-fxv556o1 rollback succeeded
+W0717 02:56:55.544321       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-fxv556o1: sandbox did not become ready within deadline
+I0717 02:56:55.546390       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.652729934s
+I0717 02:56:55.833512       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-xilvl4v6 rollback succeeded
+I0717 02:56:55.848892       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-az59ytse rollback succeeded
+I0717 02:56:55.865112       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-kbztkd6v rollback succeeded
+I0717 02:56:55.875881       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-v9vopdq0 rollback succeeded
+W0717 02:56:55.876246       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-az59ytse: sandbox did not become ready within deadline
+I0717 02:56:55.876328       1 server.go:275] POST /v1/code-interpreter - completed in 2m4.444141195s
+W0717 02:56:55.877131       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-xilvl4v6: sandbox did not become ready within deadline
+I0717 02:56:55.877328       1 server.go:275] POST /v1/code-interpreter - completed in 2m2.284922845s
+I0717 02:56:55.877852       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-jaz7dx7y rollback succeeded
+E0717 02:56:55.958970       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-jaz7dx7y: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-jaz7dx7y: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:55.959129       1 server.go:275] POST /v1/code-interpreter - completed in 2m7.293790935s
+W0717 02:56:55.959757       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-v9vopdq0: sandbox did not become ready within deadline
+I0717 02:56:55.959783       1 server.go:275] POST /v1/code-interpreter - completed in 2m6.772590133s
+W0717 02:56:55.960217       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-kbztkd6v: sandbox did not become ready within deadline
+I0717 02:56:55.960272       1 server.go:275] POST /v1/code-interpreter - completed in 2m4.51522792s
+I0717 02:56:56.064922       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-dldk0moz rollback succeeded
+I0717 02:56:56.066181       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-ld4kyz7l rollback succeeded
+I0717 02:56:56.067338       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-0ao9id4r rollback succeeded
+I0717 02:56:56.067690       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-gcu8fxx8 rollback succeeded
+I0717 02:56:56.067711       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-4mcnl5im rollback succeeded
+I0717 02:56:56.067728       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-h0m2t7mw rollback succeeded
+I0717 02:56:56.067746       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-7w1auk0e rollback succeeded
+I0717 02:56:56.067764       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-cfr051rs rollback succeeded
+I0717 02:56:56.070721       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-76xp5aik rollback succeeded
+I0717 02:56:56.087595       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-uh2eypdr rollback succeeded
+I0717 02:56:56.090944       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-jm716p9g rollback succeeded
+I0717 02:56:56.100248       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-49mael5i rollback succeeded
+I0717 02:56:56.104187       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-yhujk4yo rollback succeeded
+I0717 02:56:56.104457       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-zfcnz5x1 rollback succeeded
+I0717 02:56:56.148080       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-whn4vlvb rollback succeeded
+I0717 02:56:56.148915       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-mgjhth0t rollback succeeded
+I0717 02:56:56.165332       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-kanarcgh rollback succeeded
+I0717 02:56:56.449657       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-frhbfzm7 rollback succeeded
+W0717 02:56:56.477054       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-dldk0moz: sandbox did not become ready within deadline
+I0717 02:56:56.477092       1 server.go:275] POST /v1/code-interpreter - completed in 2m7.627955429s
+W0717 02:56:56.478178       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-7w1auk0e: sandbox did not become ready within deadline
+I0717 02:56:56.478523       1 server.go:275] POST /v1/code-interpreter - completed in 2m7.550122678s
+W0717 02:56:56.479135       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-49mael5i: sandbox did not become ready within deadline
+I0717 02:56:56.479152       1 server.go:275] POST /v1/code-interpreter - completed in 2m7.393401469s
+W0717 02:56:56.479427       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-cfr051rs: sandbox did not become ready within deadline
+I0717 02:56:56.479450       1 server.go:275] POST /v1/code-interpreter - completed in 2m5.141419139s
+W0717 02:56:56.480054       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-yhujk4yo: sandbox did not become ready within deadline
+W0717 02:56:56.480106       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-76xp5aik: sandbox did not become ready within deadline
+I0717 02:56:56.480117       1 server.go:275] POST /v1/code-interpreter - completed in 2m4.794332635s
+I0717 02:56:56.480192       1 server.go:275] POST /v1/code-interpreter - completed in 2m4.627222329s
+W0717 02:56:56.480279       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-uh2eypdr: sandbox did not become ready within deadline
+I0717 02:56:56.480438       1 server.go:275] POST /v1/code-interpreter - completed in 2m4.691057504s
+W0717 02:56:56.480399       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-zfcnz5x1: sandbox did not become ready within deadline
+I0717 02:56:56.480482       1 server.go:275] POST /v1/code-interpreter - completed in 2m7.294396192s
+W0717 02:56:56.480608       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-whn4vlvb: sandbox did not become ready within deadline
+I0717 02:56:56.480618       1 server.go:275] POST /v1/code-interpreter - completed in 2m2.887840598s
+W0717 02:56:56.478003       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-jm716p9g: sandbox did not become ready within deadline
+I0717 02:56:56.480820       1 server.go:275] POST /v1/code-interpreter - completed in 2m7.529593161s
+W0717 02:56:56.480966       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-mgjhth0t: sandbox did not become ready within deadline
+I0717 02:56:56.480993       1 server.go:275] POST /v1/code-interpreter - completed in 2m6.924425832s
+W0717 02:56:56.478124       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-0ao9id4r: sandbox did not become ready within deadline
+I0717 02:56:56.481158       1 server.go:275] POST /v1/code-interpreter - completed in 2m5.139762544s
+W0717 02:56:56.481682       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-kanarcgh: sandbox did not become ready within deadline
+I0717 02:56:56.481835       1 server.go:275] POST /v1/code-interpreter - completed in 2m6.97420205s
+W0717 02:56:56.478138       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-gcu8fxx8: sandbox did not become ready within deadline
+I0717 02:56:56.482119       1 server.go:275] POST /v1/code-interpreter - completed in 2m2.889386028s
+W0717 02:56:56.478150       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-4mcnl5im: sandbox did not become ready within deadline
+I0717 02:56:56.482539       1 server.go:275] POST /v1/code-interpreter - completed in 2m5.153117274s
+E0717 02:56:56.482694       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-frhbfzm7: Internal error occurred: failed to get sandbox claim agentcube/e2e-code-interpreter-warmpool-frhbfzm7: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:56.482712       1 server.go:275] POST /v1/code-interpreter - completed in 2m5.064643806s
+W0717 02:56:56.478162       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-h0m2t7mw: sandbox did not become ready within deadline
+I0717 02:56:56.483255       1 server.go:275] POST /v1/code-interpreter - completed in 2m7.518250962s
+W0717 02:56:56.477983       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-ld4kyz7l: sandbox did not become ready within deadline
+I0717 02:56:56.483656       1 server.go:275] POST /v1/code-interpreter - completed in 2m6.942019412s
+I0717 02:56:56.776169       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-2id0dssx rollback succeeded
+I0717 02:56:56.777892       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-sktuw6ze rollback succeeded
+I0717 02:56:56.780915       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-xq9hl4gq rollback succeeded
+I0717 02:56:56.781099       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-3jnbpw18 rollback succeeded
+I0717 02:56:56.789392       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-k97htbs0 rollback succeeded
+I0717 02:56:56.789487       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-ijvzzexs rollback succeeded
+I0717 02:56:56.805363       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-y7b0r5oq rollback succeeded
+I0717 02:56:57.035814       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:57.039947       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-cobgbc5s rollback succeeded
+I0717 02:56:57.040442       1 handlers.go:482] sandbox claim agentcube/e2e-code-interpreter-warmpool-0pz9km65 rollback succeeded
+W0717 02:56:57.172366       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-y7b0r5oq: sandbox did not become ready within deadline
+I0717 02:56:57.172408       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.61098158s
+W0717 02:56:57.173465       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-sktuw6ze: sandbox did not become ready within deadline
+I0717 02:56:57.173494       1 server.go:275] POST /v1/code-interpreter - completed in 2m5.642470165s
+W0717 02:56:57.190654       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-cobgbc5s: sandbox did not become ready within deadline
+I0717 02:56:57.190708       1 server.go:275] POST /v1/code-interpreter - completed in 2m5.742330182s
+E0717 02:56:57.190807       1 handlers.go:260] create sandbox failed agentcube/e2e-code-interpreter-warmpool-0pz9km65: Internal error occurred: failed to get sandbox agentcube/e2e-code-interpreter-warmpool-0pz9km65: client rate limiter Wait returned an error: rate: Wait(n=1) would exceed context deadline
+I0717 02:56:57.190824       1 server.go:275] POST /v1/code-interpreter - completed in 2m5.741482268s
+W0717 02:56:57.190888       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-2id0dssx: sandbox did not become ready within deadline
+I0717 02:56:57.190899       1 server.go:275] POST /v1/code-interpreter - completed in 2m5.84942703s
+W0717 02:56:57.192445       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-xq9hl4gq: sandbox did not become ready within deadline
+I0717 02:56:57.192477       1 server.go:275] POST /v1/code-interpreter - completed in 2m4.405612458s
+W0717 02:56:57.195965       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-3jnbpw18: sandbox did not become ready within deadline
+I0717 02:56:57.196108       1 server.go:275] POST /v1/code-interpreter - completed in 2m3.632736806s
+W0717 02:56:57.196202       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-ijvzzexs: sandbox did not become ready within deadline
+I0717 02:56:57.196215       1 server.go:275] POST /v1/code-interpreter - completed in 2m5.510766715s
+W0717 02:56:57.196325       1 handlers.go:255] create sandbox timed out agentcube/e2e-code-interpreter-warmpool-k97htbs0: sandbox did not become ready within deadline
+I0717 02:56:57.196367       1 server.go:275] POST /v1/code-interpreter - completed in 2m8.036656295s
+I0717 02:56:57.553926       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:56:58.466002       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:15.564861       1 server.go:275] POST /v1/code-interpreter - completed in 22.058082325s
+I0717 02:57:16.030662       1 server.go:273] DELETE /v1/code-interpreter/sessions/7818cf39-1503-4588-952f-14533c7cd53c 127.0.0.1
+I0717 02:57:16.846341       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-ls3qzc4r successfully, sessionID: 7818cf39-1503-4588-952f-14533c7cd53c
+I0717 02:57:16.846398       1 server.go:275] DELETE /v1/code-interpreter/sessions/7818cf39-1503-4588-952f-14533c7cd53c - completed in 815.74569ms
+I0717 02:57:23.232603       1 server.go:275] POST /v1/code-interpreter - completed in 29.735109907s
+I0717 02:57:23.599457       1 server.go:273] DELETE /v1/code-interpreter/sessions/6f55e3d9-43b0-43cc-93b4-3d4003180e95 127.0.0.1
+I0717 02:57:23.892446       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-gy5p8eg8 successfully, sessionID: 6f55e3d9-43b0-43cc-93b4-3d4003180e95
+I0717 02:57:23.892490       1 server.go:275] DELETE /v1/code-interpreter/sessions/6f55e3d9-43b0-43cc-93b4-3d4003180e95 - completed in 293.043892ms
+I0717 02:57:24.422063       1 server.go:275] POST /v1/code-interpreter - completed in 31.205552834s
+I0717 02:57:24.506784       1 server.go:275] POST /v1/code-interpreter - completed in 31.79014056s
+I0717 02:57:25.038861       1 server.go:273] DELETE /v1/code-interpreter/sessions/af7b2bff-3062-4552-ad2d-aed844b2b613 127.0.0.1
+I0717 02:57:25.038987       1 server.go:273] DELETE /v1/code-interpreter/sessions/8dc1bc0e-4c87-4d31-b38b-7e05f286b509 127.0.0.1
+I0717 02:57:25.163002       1 server.go:275] POST /v1/code-interpreter - completed in 30.646314644s
+I0717 02:57:25.168755       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-iui4i36r successfully, sessionID: 8dc1bc0e-4c87-4d31-b38b-7e05f286b509
+I0717 02:57:25.168796       1 server.go:275] DELETE /v1/code-interpreter/sessions/8dc1bc0e-4c87-4d31-b38b-7e05f286b509 - completed in 129.809968ms
+I0717 02:57:25.243037       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-vwmev50a successfully, sessionID: af7b2bff-3062-4552-ad2d-aed844b2b613
+I0717 02:57:25.243089       1 server.go:275] DELETE /v1/code-interpreter/sessions/af7b2bff-3062-4552-ad2d-aed844b2b613 - completed in 204.239331ms
+I0717 02:57:25.243798       1 server.go:275] POST /v1/code-interpreter - completed in 32.058172437s
+I0717 02:57:25.331098       1 server.go:273] DELETE /v1/code-interpreter/sessions/85cceb69-8c40-4671-b028-ba318e003a32 127.0.0.1
+I0717 02:57:25.367358       1 server.go:275] POST /v1/code-interpreter - completed in 32.161568716s
+I0717 02:57:25.573841       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-sf1hxhgm successfully, sessionID: 85cceb69-8c40-4671-b028-ba318e003a32
+I0717 02:57:25.573891       1 server.go:275] DELETE /v1/code-interpreter/sessions/85cceb69-8c40-4671-b028-ba318e003a32 - completed in 242.803017ms
+I0717 02:57:25.600568       1 server.go:273] DELETE /v1/code-interpreter/sessions/33344166-23c4-4430-8b8c-8d5b927c24c5 127.0.0.1
+I0717 02:57:25.601254       1 server.go:273] DELETE /v1/code-interpreter/sessions/be37d312-509f-405b-889e-6127da2ae6e7 127.0.0.1
+I0717 02:57:25.775564       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-ktjak82q successfully, sessionID: be37d312-509f-405b-889e-6127da2ae6e7
+I0717 02:57:25.776122       1 server.go:275] DELETE /v1/code-interpreter/sessions/be37d312-509f-405b-889e-6127da2ae6e7 - completed in 174.671643ms
+I0717 02:57:25.868233       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-xx6yqeh0 successfully, sessionID: 33344166-23c4-4430-8b8c-8d5b927c24c5
+I0717 02:57:25.868279       1 server.go:275] DELETE /v1/code-interpreter/sessions/33344166-23c4-4430-8b8c-8d5b927c24c5 - completed in 267.720793ms
+I0717 02:57:26.177254       1 server.go:275] POST /v1/code-interpreter - completed in 32.019320777s
+I0717 02:57:26.232590       1 server.go:275] POST /v1/code-interpreter - completed in 32.475438537s
+I0717 02:57:26.298911       1 server.go:275] POST /v1/code-interpreter - completed in 32.80330804s
+I0717 02:57:26.335946       1 server.go:273] DELETE /v1/code-interpreter/sessions/120ea0d0-f8e8-4606-98eb-9114f31ff463 127.0.0.1
+I0717 02:57:26.472492       1 server.go:275] POST /v1/code-interpreter - completed in 33.253716847s
+I0717 02:57:26.485568       1 server.go:273] DELETE /v1/code-interpreter/sessions/ee0d6ba7-4145-434d-91cf-9e1ba5973681 127.0.0.1
+I0717 02:57:26.500473       1 server.go:273] DELETE /v1/code-interpreter/sessions/d82c635b-d5bf-44c1-b1eb-257794f9c25f 127.0.0.1
+I0717 02:57:26.537622       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-g9ohid1y successfully, sessionID: 120ea0d0-f8e8-4606-98eb-9114f31ff463
+I0717 02:57:26.537687       1 server.go:275] DELETE /v1/code-interpreter/sessions/120ea0d0-f8e8-4606-98eb-9114f31ff463 - completed in 201.749871ms
+I0717 02:57:26.565328       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-tc22zmdb successfully, sessionID: ee0d6ba7-4145-434d-91cf-9e1ba5973681
+I0717 02:57:26.566093       1 server.go:275] DELETE /v1/code-interpreter/sessions/ee0d6ba7-4145-434d-91cf-9e1ba5973681 - completed in 80.570584ms
+I0717 02:57:26.645857       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-arwf64v6 successfully, sessionID: d82c635b-d5bf-44c1-b1eb-257794f9c25f
+I0717 02:57:26.646019       1 server.go:275] DELETE /v1/code-interpreter/sessions/d82c635b-d5bf-44c1-b1eb-257794f9c25f - completed in 145.553741ms
+I0717 02:57:26.671125       1 server.go:273] DELETE /v1/code-interpreter/sessions/f6f23777-df6a-4257-ae4f-4daf480b63b0 127.0.0.1
+I0717 02:57:26.859430       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-81gws15q successfully, sessionID: f6f23777-df6a-4257-ae4f-4daf480b63b0
+I0717 02:57:26.859464       1 server.go:275] DELETE /v1/code-interpreter/sessions/f6f23777-df6a-4257-ae4f-4daf480b63b0 - completed in 188.351159ms
+I0717 02:57:26.952916       1 server.go:275] POST /v1/code-interpreter - completed in 34.231109697s
+I0717 02:57:27.085508       1 server.go:273] DELETE /v1/code-interpreter/sessions/435af361-122e-46c6-9702-6ca6290942ea 127.0.0.1
+I0717 02:57:27.311974       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-ufejp8q0 successfully, sessionID: 435af361-122e-46c6-9702-6ca6290942ea
+I0717 02:57:27.312015       1 server.go:275] DELETE /v1/code-interpreter/sessions/435af361-122e-46c6-9702-6ca6290942ea - completed in 227.729576ms
+I0717 02:57:27.659628       1 server.go:275] POST /v1/code-interpreter - completed in 33.956955588s
+I0717 02:57:27.659743       1 server.go:275] POST /v1/code-interpreter - completed in 33.955657624s
+I0717 02:57:28.019758       1 server.go:273] DELETE /v1/code-interpreter/sessions/e295593f-7455-4019-9aac-84c69c70aafd 127.0.0.1
+I0717 02:57:28.345642       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-l04tls51 successfully, sessionID: e295593f-7455-4019-9aac-84c69c70aafd
+I0717 02:57:28.345732       1 server.go:275] DELETE /v1/code-interpreter/sessions/e295593f-7455-4019-9aac-84c69c70aafd - completed in 325.983245ms
+I0717 02:57:28.374064       1 server.go:273] DELETE /v1/code-interpreter/sessions/408b21c3-10b3-434c-b1b1-20c3fc6704a0 127.0.0.1
+I0717 02:57:28.417727       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-j7skhjl6 successfully, sessionID: 408b21c3-10b3-434c-b1b1-20c3fc6704a0
+I0717 02:57:28.417776       1 server.go:275] DELETE /v1/code-interpreter/sessions/408b21c3-10b3-434c-b1b1-20c3fc6704a0 - completed in 43.717716ms
+I0717 02:57:28.798082       1 server.go:275] POST /v1/code-interpreter - completed in 30.332086906s
+I0717 02:57:28.874984       1 server.go:273] DELETE /v1/code-interpreter/sessions/bdaf2f78-c357-4984-921c-4a057de59cf3 127.0.0.1
+I0717 02:57:29.032207       1 server.go:275] POST /v1/code-interpreter - completed in 34.875323779s
+I0717 02:57:29.071243       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-gfvfp7u2 successfully, sessionID: bdaf2f78-c357-4984-921c-4a057de59cf3
+I0717 02:57:29.072647       1 server.go:275] DELETE /v1/code-interpreter/sessions/bdaf2f78-c357-4984-921c-4a057de59cf3 - completed in 197.668678ms
+I0717 02:57:29.214182       1 server.go:273] DELETE /v1/code-interpreter/sessions/2b93d236-863c-409f-9aa1-6569ae598bc5 127.0.0.1
+I0717 02:57:29.442133       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-hldcwzo5 successfully, sessionID: 2b93d236-863c-409f-9aa1-6569ae598bc5
+I0717 02:57:29.442182       1 server.go:275] DELETE /v1/code-interpreter/sessions/2b93d236-863c-409f-9aa1-6569ae598bc5 - completed in 228.007772ms
+I0717 02:57:30.204779       1 server.go:275] POST /v1/code-interpreter - completed in 36.426285488s
+I0717 02:57:30.255490       1 server.go:275] POST /v1/code-interpreter - completed in 36.488127189s
+I0717 02:57:30.383202       1 server.go:275] POST /v1/code-interpreter - completed in 37.125768293s
+I0717 02:57:30.398853       1 server.go:273] DELETE /v1/code-interpreter/sessions/085c92ca-04c0-4f63-a768-4c44150e5a2b 127.0.0.1
+I0717 02:57:30.429057       1 server.go:273] DELETE /v1/code-interpreter/sessions/777394ee-b2a2-430b-8d8f-034fde15a71c 127.0.0.1
+I0717 02:57:30.511224       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-6qdrt3i9 successfully, sessionID: 085c92ca-04c0-4f63-a768-4c44150e5a2b
+I0717 02:57:30.511975       1 server.go:275] DELETE /v1/code-interpreter/sessions/085c92ca-04c0-4f63-a768-4c44150e5a2b - completed in 113.129193ms
+I0717 02:57:30.576885       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-mtmbk9h1 successfully, sessionID: 777394ee-b2a2-430b-8d8f-034fde15a71c
+I0717 02:57:30.576928       1 server.go:275] DELETE /v1/code-interpreter/sessions/777394ee-b2a2-430b-8d8f-034fde15a71c - completed in 148.094167ms
+I0717 02:57:30.587278       1 server.go:273] DELETE /v1/code-interpreter/sessions/b9167d1a-0a51-4042-831f-1276b53f9380 127.0.0.1
+I0717 02:57:30.680395       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-7wpuwgm2 successfully, sessionID: b9167d1a-0a51-4042-831f-1276b53f9380
+I0717 02:57:30.680540       1 server.go:275] DELETE /v1/code-interpreter/sessions/b9167d1a-0a51-4042-831f-1276b53f9380 - completed in 93.27782ms
+I0717 02:57:30.908709       1 server.go:275] POST /v1/code-interpreter - completed in 33.872898602s
+I0717 02:57:31.049302       1 server.go:273] DELETE /v1/code-interpreter/sessions/aff8b1f5-44e1-453c-87ef-915814c48721 127.0.0.1
+I0717 02:57:31.373677       1 server.go:275] POST /v1/code-interpreter - completed in 33.819754798s
+I0717 02:57:31.431293       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-qkrza6xg successfully, sessionID: aff8b1f5-44e1-453c-87ef-915814c48721
+I0717 02:57:31.440022       1 server.go:275] DELETE /v1/code-interpreter/sessions/aff8b1f5-44e1-453c-87ef-915814c48721 - completed in 390.73604ms
+I0717 02:57:31.718710       1 server.go:273] DELETE /v1/code-interpreter/sessions/29209268-9c7b-4851-9d15-bb41bb824b76 127.0.0.1
+I0717 02:57:31.845675       1 handlers.go:560] delete SandboxClaim agentcube/e2e-code-interpreter-warmpool-5gespvqp successfully, sessionID: 29209268-9c7b-4851-9d15-bb41bb824b76
+I0717 02:57:31.845720       1 server.go:275] DELETE /v1/code-interpreter/sessions/29209268-9c7b-4851-9d15-bb41bb824b76 - completed in 127.021619ms
+I0717 02:57:33.509308       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:33.977816       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:34.515542       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:35.011940       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:35.487695       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:35.991528       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:36.475882       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:36.998023       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:37.472357       1 server.go:275] POST /v1/code-interpreter - completed in 3.963066489s
+I0717 02:57:37.485504       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:37.629736       1 server.go:275] POST /v1/code-interpreter - completed in 3.651918178s
+I0717 02:57:37.862345       1 server.go:275] POST /v1/code-interpreter - completed in 3.346806766s
+I0717 02:57:37.995052       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:38.015057       1 server.go:273] DELETE /v1/code-interpreter/sessions/18a44646-4478-487b-881d-011848afb31c 127.0.0.1
+I0717 02:57:38.102320       1 server.go:273] DELETE /v1/code-interpreter/sessions/0114e76d-929d-4bbd-b79d-4c7e657de11f 127.0.0.1
+I0717 02:57:38.138599       1 server.go:273] DELETE /v1/code-interpreter/sessions/24079d0a-95f3-466d-9aee-478b11cf1191 127.0.0.1
+I0717 02:57:38.407626       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-wfcpatg2 successfully, sessionID: 18a44646-4478-487b-881d-011848afb31c
+I0717 02:57:38.408488       1 server.go:275] DELETE /v1/code-interpreter/sessions/18a44646-4478-487b-881d-011848afb31c - completed in 393.443572ms
+I0717 02:57:38.498745       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-wibgetem successfully, sessionID: 0114e76d-929d-4bbd-b79d-4c7e657de11f
+I0717 02:57:38.498786       1 server.go:275] DELETE /v1/code-interpreter/sessions/0114e76d-929d-4bbd-b79d-4c7e657de11f - completed in 396.505581ms
+I0717 02:57:38.498974       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-qj4gii29 successfully, sessionID: 24079d0a-95f3-466d-9aee-478b11cf1191
+I0717 02:57:38.500160       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:38.508922       1 server.go:275] DELETE /v1/code-interpreter/sessions/24079d0a-95f3-466d-9aee-478b11cf1191 - completed in 370.325511ms
+I0717 02:57:38.985003       1 server.go:275] POST /v1/code-interpreter - completed in 3.973066731s
+I0717 02:57:38.990217       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:39.173547       1 server.go:273] DELETE /v1/code-interpreter/sessions/3b87d9dd-425b-45d2-b8a6-cacf3b3faf81 127.0.0.1
+I0717 02:57:39.530794       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:39.730099       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-2vf4svvg successfully, sessionID: 3b87d9dd-425b-45d2-b8a6-cacf3b3faf81
+I0717 02:57:39.730173       1 server.go:275] DELETE /v1/code-interpreter/sessions/3b87d9dd-425b-45d2-b8a6-cacf3b3faf81 - completed in 556.636322ms
+I0717 02:57:40.193026       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:40.523128       1 server.go:275] POST /v1/code-interpreter - completed in 5.038497502s
+I0717 02:57:40.545894       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:40.623676       1 server.go:273] DELETE /v1/code-interpreter/sessions/4c61448a-273c-41d0-a909-7c715a0ef49b 127.0.0.1
+I0717 02:57:40.842006       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-1p38i78z successfully, sessionID: 4c61448a-273c-41d0-a909-7c715a0ef49b
+I0717 02:57:40.842062       1 server.go:275] DELETE /v1/code-interpreter/sessions/4c61448a-273c-41d0-a909-7c715a0ef49b - completed in 218.398315ms
+I0717 02:57:41.065790       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:41.318221       1 server.go:275] POST /v1/code-interpreter - completed in 5.326697642s
+I0717 02:57:41.565383       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:41.649161       1 server.go:275] POST /v1/code-interpreter - completed in 5.173280742s
+I0717 02:57:42.012055       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:42.305398       1 server.go:273] DELETE /v1/code-interpreter/sessions/a8b9cf0e-0c46-4f34-aced-a71fec8f94e1 127.0.0.1
+I0717 02:57:42.357302       1 server.go:273] DELETE /v1/code-interpreter/sessions/74e33078-1a76-47c0-b0ea-1171ceba202a 127.0.0.1
+I0717 02:57:42.516521       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:42.556110       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-ejzg863g successfully, sessionID: a8b9cf0e-0c46-4f34-aced-a71fec8f94e1
+I0717 02:57:42.556167       1 server.go:275] DELETE /v1/code-interpreter/sessions/a8b9cf0e-0c46-4f34-aced-a71fec8f94e1 - completed in 250.956428ms
+I0717 02:57:42.656182       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-u7rthigl successfully, sessionID: 74e33078-1a76-47c0-b0ea-1171ceba202a
+I0717 02:57:42.676485       1 server.go:275] DELETE /v1/code-interpreter/sessions/74e33078-1a76-47c0-b0ea-1171ceba202a - completed in 318.751489ms
+I0717 02:57:43.036740       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:43.954435       1 server.go:275] POST /v1/code-interpreter - completed in 6.956416948s
+I0717 02:57:44.118601       1 server.go:273] DELETE /v1/code-interpreter/sessions/2601b68d-02d3-4569-8c90-4987b394400f 127.0.0.1
+I0717 02:57:44.418916       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-lr2dnugx successfully, sessionID: 2601b68d-02d3-4569-8c90-4987b394400f
+I0717 02:57:44.419134       1 server.go:275] DELETE /v1/code-interpreter/sessions/2601b68d-02d3-4569-8c90-4987b394400f - completed in 300.542259ms
+I0717 02:57:46.305983       1 server.go:275] POST /v1/code-interpreter - completed in 7.80617581s
+I0717 02:57:46.661688       1 server.go:273] DELETE /v1/code-interpreter/sessions/f4ee2de1-99c1-4ce2-8782-86c1b3cf3986 127.0.0.1
+I0717 02:57:46.794347       1 server.go:275] POST /v1/code-interpreter - completed in 9.308544753s
+I0717 02:57:46.819639       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-inue4zmv successfully, sessionID: f4ee2de1-99c1-4ce2-8782-86c1b3cf3986
+I0717 02:57:46.819974       1 server.go:275] DELETE /v1/code-interpreter/sessions/f4ee2de1-99c1-4ce2-8782-86c1b3cf3986 - completed in 158.301361ms
+I0717 02:57:46.987732       1 server.go:275] POST /v1/code-interpreter - completed in 8.992683013s
+I0717 02:57:47.016681       1 server.go:273] DELETE /v1/code-interpreter/sessions/46c5072f-615a-44e0-a511-261b2ab3caf3 127.0.0.1
+I0717 02:57:47.174700       1 server.go:273] DELETE /v1/code-interpreter/sessions/e483845e-b4af-4c8c-b908-fc294eb824cb 127.0.0.1
+I0717 02:57:47.202666       1 server.go:275] POST /v1/code-interpreter - completed in 8.212452636s
+I0717 02:57:47.203158       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-wydcuw3a successfully, sessionID: 46c5072f-615a-44e0-a511-261b2ab3caf3
+I0717 02:57:47.203247       1 server.go:275] DELETE /v1/code-interpreter/sessions/46c5072f-615a-44e0-a511-261b2ab3caf3 - completed in 187.035216ms
+I0717 02:57:47.417400       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-ejq5f32e successfully, sessionID: e483845e-b4af-4c8c-b908-fc294eb824cb
+I0717 02:57:47.417691       1 server.go:275] DELETE /v1/code-interpreter/sessions/e483845e-b4af-4c8c-b908-fc294eb824cb - completed in 242.998426ms
+I0717 02:57:47.434074       1 server.go:273] DELETE /v1/code-interpreter/sessions/737396f2-9e80-4f6f-a412-c388a7ae0555 127.0.0.1
+I0717 02:57:47.569949       1 server.go:275] POST /v1/code-interpreter - completed in 8.036564989s
+I0717 02:57:47.658689       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-2wpn26sv successfully, sessionID: 737396f2-9e80-4f6f-a412-c388a7ae0555
+I0717 02:57:47.659438       1 server.go:275] DELETE /v1/code-interpreter/sessions/737396f2-9e80-4f6f-a412-c388a7ae0555 - completed in 224.690223ms
+I0717 02:57:48.508670       1 server.go:273] DELETE /v1/code-interpreter/sessions/6d0c012c-3839-4a38-9651-6ac3405e516b 127.0.0.1
+I0717 02:57:48.626858       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-0q8ssk3k successfully, sessionID: 6d0c012c-3839-4a38-9651-6ac3405e516b
+I0717 02:57:48.626949       1 server.go:275] DELETE /v1/code-interpreter/sessions/6d0c012c-3839-4a38-9651-6ac3405e516b - completed in 118.293204ms
+I0717 02:57:48.846934       1 server.go:275] POST /v1/code-interpreter - completed in 8.653939815s
+I0717 02:57:49.147649       1 server.go:273] DELETE /v1/code-interpreter/sessions/ff4d346a-eeeb-465e-9369-ede309b9fcee 127.0.0.1
+I0717 02:57:49.220364       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-nfdtcsv8 successfully, sessionID: ff4d346a-eeeb-465e-9369-ede309b9fcee
+I0717 02:57:49.220581       1 server.go:275] DELETE /v1/code-interpreter/sessions/ff4d346a-eeeb-465e-9369-ede309b9fcee - completed in 72.942821ms
+I0717 02:57:49.238331       1 server.go:275] POST /v1/code-interpreter - completed in 8.692441697s
+I0717 02:57:49.541471       1 server.go:273] DELETE /v1/code-interpreter/sessions/3b16a885-f5a3-4ae2-a425-b9766ed9d70f 127.0.0.1
+I0717 02:57:49.663839       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-gox743xz successfully, sessionID: 3b16a885-f5a3-4ae2-a425-b9766ed9d70f
+I0717 02:57:49.663893       1 server.go:275] DELETE /v1/code-interpreter/sessions/3b16a885-f5a3-4ae2-a425-b9766ed9d70f - completed in 122.4317ms
+I0717 02:57:50.333879       1 server.go:275] POST /v1/code-interpreter - completed in 9.268088634s
+I0717 02:57:50.590555       1 server.go:275] POST /v1/code-interpreter - completed in 9.025180579s
+I0717 02:57:50.601571       1 server.go:273] DELETE /v1/code-interpreter/sessions/49efe044-3ed8-4402-a380-43358d2ecc88 127.0.0.1
+I0717 02:57:50.657726       1 server.go:273] DELETE /v1/code-interpreter/sessions/e0e5dda8-cccd-44b3-945a-622d6dff35c4 127.0.0.1
+I0717 02:57:50.775324       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-2eqxdupy successfully, sessionID: 49efe044-3ed8-4402-a380-43358d2ecc88
+I0717 02:57:50.775365       1 server.go:275] DELETE /v1/code-interpreter/sessions/49efe044-3ed8-4402-a380-43358d2ecc88 - completed in 173.80186ms
+I0717 02:57:50.826119       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-j72k0xbz successfully, sessionID: e0e5dda8-cccd-44b3-945a-622d6dff35c4
+I0717 02:57:50.826160       1 server.go:275] DELETE /v1/code-interpreter/sessions/e0e5dda8-cccd-44b3-945a-622d6dff35c4 - completed in 168.449735ms
+I0717 02:57:51.012335       1 server.go:275] POST /v1/code-interpreter - completed in 9.001300409s
+I0717 02:57:51.153421       1 server.go:273] DELETE /v1/code-interpreter/sessions/f22d5c2c-d533-434b-9c17-3672d36c4591 127.0.0.1
+I0717 02:57:51.201189       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-jc8j5pcf successfully, sessionID: f22d5c2c-d533-434b-9c17-3672d36c4591
+I0717 02:57:51.201235       1 server.go:275] DELETE /v1/code-interpreter/sessions/f22d5c2c-d533-434b-9c17-3672d36c4591 - completed in 47.823358ms
+I0717 02:57:52.010802       1 server.go:275] POST /v1/code-interpreter - completed in 9.494282028s
+I0717 02:57:52.137641       1 server.go:273] DELETE /v1/code-interpreter/sessions/dc8633d7-ea59-4c6d-95ff-f46e514fbc43 127.0.0.1
+I0717 02:57:52.206347       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-n2nj6xa2 successfully, sessionID: dc8633d7-ea59-4c6d-95ff-f46e514fbc43
+I0717 02:57:52.206387       1 server.go:275] DELETE /v1/code-interpreter/sessions/dc8633d7-ea59-4c6d-95ff-f46e514fbc43 - completed in 68.756577ms
+I0717 02:57:52.219844       1 server.go:275] POST /v1/code-interpreter - completed in 9.177644702s
+I0717 02:57:52.414098       1 server.go:273] DELETE /v1/code-interpreter/sessions/70f6615f-8783-41f1-8300-90473ef47926 127.0.0.1
+I0717 02:57:52.477269       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-eujy9u42 successfully, sessionID: 70f6615f-8783-41f1-8300-90473ef47926
+I0717 02:57:52.477328       1 server.go:275] DELETE /v1/code-interpreter/sessions/70f6615f-8783-41f1-8300-90473ef47926 - completed in 63.243752ms
+I0717 02:57:53.467316       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:56.206559       1 server.go:275] POST /v1/code-interpreter - completed in 2.73918776s
+I0717 02:57:56.350131       1 server.go:273] DELETE /v1/code-interpreter/sessions/237c7050-f56f-409f-8876-abd87abb40f2 127.0.0.1
+I0717 02:57:56.372884       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-r2749do6 successfully, sessionID: 237c7050-f56f-409f-8876-abd87abb40f2
+I0717 02:57:56.373005       1 server.go:275] DELETE /v1/code-interpreter/sessions/237c7050-f56f-409f-8876-abd87abb40f2 - completed in 22.885449ms
+I0717 02:57:56.393272       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:57:58.366785       1 server.go:275] POST /v1/code-interpreter - completed in 1.973515376s
+I0717 02:57:58.781724       1 server.go:273] DELETE /v1/code-interpreter/sessions/dc30fbd9-1e50-423c-a2b1-83258f0ff16d 127.0.0.1
+I0717 02:57:58.790820       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-lukj0d6m successfully, sessionID: dc30fbd9-1e50-423c-a2b1-83258f0ff16d
+I0717 02:57:58.790865       1 server.go:275] DELETE /v1/code-interpreter/sessions/dc30fbd9-1e50-423c-a2b1-83258f0ff16d - completed in 9.151336ms
+I0717 02:57:58.808577       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:58:00.262603       1 server.go:275] POST /v1/code-interpreter - completed in 1.454030002s
+I0717 02:58:00.492202       1 server.go:273] DELETE /v1/code-interpreter/sessions/e29d002a-566b-4ca0-a2ab-415884b982ba 127.0.0.1
+I0717 02:58:00.526457       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-l8j93ndr successfully, sessionID: e29d002a-566b-4ca0-a2ab-415884b982ba
+I0717 02:58:00.526678       1 server.go:275] DELETE /v1/code-interpreter/sessions/e29d002a-566b-4ca0-a2ab-415884b982ba - completed in 34.484295ms
+I0717 02:58:05.041978       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:58:06.330604       1 server.go:275] POST /v1/code-interpreter - completed in 1.288632017s
+I0717 02:58:06.405193       1 server.go:273] DELETE /v1/code-interpreter/sessions/9df252cf-1032-4895-839f-347de25cd73a 127.0.0.1
+I0717 02:58:06.420582       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-pyyo4sag successfully, sessionID: 9df252cf-1032-4895-839f-347de25cd73a
+I0717 02:58:06.420648       1 server.go:275] DELETE /v1/code-interpreter/sessions/9df252cf-1032-4895-839f-347de25cd73a - completed in 15.467685ms
+I0717 02:58:06.440641       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:58:08.421476       1 server.go:275] POST /v1/code-interpreter - completed in 1.980837214s
+I0717 02:58:08.524932       1 server.go:273] DELETE /v1/code-interpreter/sessions/348250b6-02cd-4eb0-9e03-6b8fa2ff6383 127.0.0.1
+I0717 02:58:08.541409       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-wmzx0bjm successfully, sessionID: 348250b6-02cd-4eb0-9e03-6b8fa2ff6383
+I0717 02:58:08.541804       1 server.go:275] DELETE /v1/code-interpreter/sessions/348250b6-02cd-4eb0-9e03-6b8fa2ff6383 - completed in 16.878261ms
+I0717 02:58:08.568502       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:58:10.426716       1 server.go:275] POST /v1/code-interpreter - completed in 1.858218426s
+I0717 02:58:10.481770       1 server.go:273] DELETE /v1/code-interpreter/sessions/6b1b6f59-9f7e-459e-ab7a-92cd493b3ab4 127.0.0.1
+I0717 02:58:10.495094       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-gk8tkhsu successfully, sessionID: 6b1b6f59-9f7e-459e-ab7a-92cd493b3ab4
+I0717 02:58:10.495135       1 server.go:275] DELETE /v1/code-interpreter/sessions/6b1b6f59-9f7e-459e-ab7a-92cd493b3ab4 - completed in 13.375524ms
+I0717 02:58:10.523176       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:58:12.509230       1 server.go:275] POST /v1/code-interpreter - completed in 1.986053764s
+I0717 02:58:12.596587       1 server.go:273] DELETE /v1/code-interpreter/sessions/54eb8abe-1cc5-4687-9f6e-6fdc5730914e 127.0.0.1
+I0717 02:58:12.622794       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-zcwe0gse successfully, sessionID: 54eb8abe-1cc5-4687-9f6e-6fdc5730914e
+I0717 02:58:12.622939       1 server.go:275] DELETE /v1/code-interpreter/sessions/54eb8abe-1cc5-4687-9f6e-6fdc5730914e - completed in 26.361706ms
+I0717 02:58:15.853531       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:58:17.477090       1 server.go:275] POST /v1/code-interpreter - completed in 1.623561181s
+I0717 02:58:17.534674       1 server.go:273] DELETE /v1/code-interpreter/sessions/b4bedce2-6602-4585-a89d-d97f8469e061 127.0.0.1
+I0717 02:58:17.545922       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-rwgtww6p successfully, sessionID: b4bedce2-6602-4585-a89d-d97f8469e061
+I0717 02:58:17.545965       1 server.go:275] DELETE /v1/code-interpreter/sessions/b4bedce2-6602-4585-a89d-d97f8469e061 - completed in 11.299434ms
+I0717 02:58:17.734560       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:58:19.596220       1 server.go:275] POST /v1/code-interpreter - completed in 1.861664909s
+I0717 02:58:19.881578       1 server.go:273] DELETE /v1/code-interpreter/sessions/303179dd-30e9-4d77-a4be-c6cd70593143 127.0.0.1
+I0717 02:58:19.924358       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-cstpsymg successfully, sessionID: 303179dd-30e9-4d77-a4be-c6cd70593143
+I0717 02:58:19.924413       1 server.go:275] DELETE /v1/code-interpreter/sessions/303179dd-30e9-4d77-a4be-c6cd70593143 - completed in 42.845257ms
+I0717 02:58:20.057081       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:58:21.747566       1 server.go:275] POST /v1/code-interpreter - completed in 1.690488503s
+I0717 02:58:21.998442       1 server.go:273] DELETE /v1/code-interpreter/sessions/495dc1e2-49df-48c0-8ea8-d7cea4cd493c 127.0.0.1
+I0717 02:58:22.108445       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-v5slzs46 successfully, sessionID: 495dc1e2-49df-48c0-8ea8-d7cea4cd493c
+I0717 02:58:22.108491       1 server.go:275] DELETE /v1/code-interpreter/sessions/495dc1e2-49df-48c0-8ea8-d7cea4cd493c - completed in 110.058085ms
+I0717 02:58:22.256931       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:58:24.941054       1 server.go:275] POST /v1/code-interpreter - completed in 2.684124788s
+I0717 02:58:25.276567       1 server.go:273] DELETE /v1/code-interpreter/sessions/0556d5e7-32a0-404e-acd7-aba3ca4f8a52 127.0.0.1
+I0717 02:58:25.293612       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-tq4vopke successfully, sessionID: 0556d5e7-32a0-404e-acd7-aba3ca4f8a52
+I0717 02:58:25.293671       1 server.go:275] DELETE /v1/code-interpreter/sessions/0556d5e7-32a0-404e-acd7-aba3ca4f8a52 - completed in 17.114536ms
+I0717 02:58:28.409160       1 server.go:273] POST /v1/code-interpreter 127.0.0.1
+I0717 02:58:29.909269       1 server.go:275] POST /v1/code-interpreter - completed in 1.500115992s
+I0717 02:58:29.976702       1 server.go:273] DELETE /v1/code-interpreter/sessions/5e63387c-12e2-4273-9ea3-238c274da53c 127.0.0.1
+I0717 02:58:29.994850       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-uxwm53pt successfully, sessionID: 5e63387c-12e2-4273-9ea3-238c274da53c
+I0717 02:58:29.994909       1 server.go:275] DELETE /v1/code-interpreter/sessions/5e63387c-12e2-4273-9ea3-238c274da53c - completed in 18.217845ms
+I0717 03:01:11.735599       1 server.go:273] POST /v1/code-interpreter 10.244.0.123
+I0717 03:01:13.507749       1 server.go:275] POST /v1/code-interpreter - completed in 1.773838327s
+I0717 03:01:13.806548       1 server.go:273] DELETE /v1/code-interpreter/sessions/e4d449ad-751e-403b-bd7b-5985b26ad0cb 10.244.0.123
+I0717 03:01:13.838379       1 handlers.go:560] delete Sandbox agentcube/e2e-code-interpreter-4rkpqehi successfully, sessionID: e4d449ad-751e-403b-bd7b-5985b26ad0cb
+I0717 03:01:13.838445       1 server.go:275] DELETE /v1/code-interpreter/sessions/e4d449ad-751e-403b-bd7b-5985b26ad0cb - completed in 31.907228ms

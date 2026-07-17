@@ -1,0 +1,71 @@
+Name:             agentcube-router-7646df575d-xkc5w
+Namespace:        agentcube
+Priority:         0
+Service Account:  agentcube-router
+Node:             agentcube-v052-clean-control-plane/172.18.0.12
+Start Time:       Fri, 17 Jul 2026 10:49:15 +0800
+Labels:           app=agentcube-router
+                  pod-template-hash=7646df575d
+Annotations:      <none>
+Status:           Running
+IP:               10.244.0.9
+IPs:
+  IP:           10.244.0.9
+Controlled By:  ReplicaSet/agentcube-router-7646df575d
+Containers:
+  agentcube-router:
+    Container ID:  containerd://45880889d41db859cf15caf6a1c38caa804549dc626430455aa2c802261753e0
+    Image:         agentcube-router:latest
+    Image ID:      sha256:0817c3c8bcfa8583302de48d0d03ef41d343e6011070061e9bfa93e264d42e51
+    Port:          8080/TCP (http)
+    Host Port:     0/TCP (http)
+    Args:
+      --port=8080
+      --debug
+    State:          Running
+      Started:      Fri, 17 Jul 2026 10:49:16 +0800
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:     500m
+      memory:  512Mi
+    Requests:
+      cpu:      100m
+      memory:   128Mi
+    Liveness:   http-get http://:8080/health/live delay=1s timeout=1s period=2s #success=1 #failure=3
+    Readiness:  http-get http://:8080/health/ready delay=1s timeout=1s period=2s #success=1 #failure=3
+    Environment:
+      AGENTCUBE_NAMESPACE:      agentcube (v1:metadata.namespace)
+      REDIS_ADDR:               redis.agentcube.svc.cluster.local:6379
+      WORKLOAD_MANAGER_URL:     http://workloadmanager.agentcube.svc.cluster.local:8080
+      REDIS_PASSWORD_REQUIRED:  false
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-6vdtr (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
+Volumes:
+  kube-api-access-6vdtr:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age    From               Message
+  ----     ------     ----   ----               -------
+  Normal   Scheduled  12m    default-scheduler  Successfully assigned agentcube/agentcube-router-7646df575d-xkc5w to agentcube-v052-clean-control-plane
+  Normal   Pulled     12m    kubelet            spec.containers{agentcube-router}: Container image "agentcube-router:latest" already present on machine
+  Normal   Created    12m    kubelet            spec.containers{agentcube-router}: Created container: agentcube-router
+  Normal   Started    11m    kubelet            spec.containers{agentcube-router}: Started container agentcube-router
+  Warning  Unhealthy  11m    kubelet            spec.containers{agentcube-router}: Readiness probe failed: Get "http://10.244.0.9:8080/health/ready": dial tcp 10.244.0.9:8080: connect: connection refused
+  Warning  Unhealthy  9m45s  kubelet            spec.containers{agentcube-router}: Readiness probe failed: Get "http://10.244.0.9:8080/health/ready": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+  Warning  Unhealthy  9m45s  kubelet            spec.containers{agentcube-router}: Liveness probe failed: Get "http://10.244.0.9:8080/health/live": context deadline exceeded (Client.Timeout exceeded while awaiting headers)

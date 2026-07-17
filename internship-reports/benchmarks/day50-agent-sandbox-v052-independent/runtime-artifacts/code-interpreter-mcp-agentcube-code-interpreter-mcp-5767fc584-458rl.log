@@ -1,0 +1,21 @@
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+StreamableHTTP session manager started
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:46520 - "POST /mcp HTTP/1.1" 200 OK
+Terminating session: None
+INFO:     127.0.0.1:46520 - "POST /mcp HTTP/1.1" 202 Accepted
+Terminating session: None
+Processing request of type ListToolsRequest
+INFO:     127.0.0.1:46522 - "POST /mcp HTTP/1.1" 200 OK
+Terminating session: None
+Processing request of type CallToolRequest
+2026-07-17 03:01:11,626 | INFO | agentcube.code_interpreter | Creating new session...
+Creating new session...
+2026-07-17 03:01:13,508 | INFO | agentcube.code_interpreter | Session created: e4d449ad-751e-403b-bd7b-5985b26ad0cb
+Session created: e4d449ad-751e-403b-bd7b-5985b26ad0cb
+2026-07-17 03:01:13,802 | INFO | agentcube.code_interpreter | Deleting session e4d449ad-751e-403b-bd7b-5985b26ad0cb...
+Deleting session e4d449ad-751e-403b-bd7b-5985b26ad0cb...
+Terminating session: None
+INFO:     127.0.0.1:46522 - "POST /mcp HTTP/1.1" 200 OK

@@ -1,0 +1,17 @@
+NAMESPACE              NAME                                                         READY   STATUS    RESTARTS      AGE     IP            NODE                                 NOMINATED NODE   READINESS GATES
+agent-sandbox-system   agent-sandbox-controller-7dc4bf6578-p75z8                    1/1     Running   1             20m     10.244.0.6    agentcube-v052-clean-control-plane   <none>           <none>
+agentcube              agentcube-router-7646df575d-xkc5w                            1/1     Running   0             12m     10.244.0.9    agentcube-v052-clean-control-plane   <none>           <none>
+agentcube              echo-agent-24t9zgme                                          1/1     Running   0             9m6s    10.244.0.12   agentcube-v052-clean-control-plane   <none>           <none>
+agentcube              echo-agent-gc3f8xaf                                          1/1     Running   0             11m     10.244.0.10   agentcube-v052-clean-control-plane   <none>           <none>
+agentcube              echo-agent-u4uk1vwu                                          1/1     Running   0             9m10s   10.244.0.11   agentcube-v052-clean-control-plane   <none>           <none>
+agentcube              redis-6c6fcd64b8-j28wd                                       1/1     Running   0             13m     10.244.0.7    agentcube-v052-clean-control-plane   <none>           <none>
+agentcube              workloadmanager-78c7f6644b-m4zbd                             1/1     Running   0             12m     10.244.0.8    agentcube-v052-clean-control-plane   <none>           <none>
+kube-system            coredns-66bc5c9577-82m4w                                     1/1     Running   0             21m     10.244.0.4    agentcube-v052-clean-control-plane   <none>           <none>
+kube-system            coredns-66bc5c9577-chlkj                                     1/1     Running   0             21m     10.244.0.2    agentcube-v052-clean-control-plane   <none>           <none>
+kube-system            etcd-agentcube-v052-clean-control-plane                      1/1     Running   0             21m     172.18.0.12   agentcube-v052-clean-control-plane   <none>           <none>
+kube-system            kindnet-4tn4v                                                1/1     Running   0             21m     172.18.0.12   agentcube-v052-clean-control-plane   <none>           <none>
+kube-system            kube-apiserver-agentcube-v052-clean-control-plane            1/1     Running   0             21m     172.18.0.12   agentcube-v052-clean-control-plane   <none>           <none>
+kube-system            kube-controller-manager-agentcube-v052-clean-control-plane   1/1     Running   1 (10m ago)   21m     172.18.0.12   agentcube-v052-clean-control-plane   <none>           <none>
+kube-system            kube-proxy-h2lxm                                             1/1     Running   0             21m     172.18.0.12   agentcube-v052-clean-control-plane   <none>           <none>
+kube-system            kube-scheduler-agentcube-v052-clean-control-plane            1/1     Running   1             21m     172.18.0.12   agentcube-v052-clean-control-plane   <none>           <none>
+local-path-storage     local-path-provisioner-7b8c8ddbd6-cj9rf                      1/1     Running   0             21m     10.244.0.3    agentcube-v052-clean-control-plane   <none>           <none>

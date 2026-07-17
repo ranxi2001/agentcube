@@ -1,0 +1,121 @@
+Name:             echo-agent-gc3f8xaf
+Namespace:        agentcube
+Priority:         0
+Service Account:  default
+Node:             agentcube-v052-clean-control-plane/172.18.0.12
+Start Time:       Fri, 17 Jul 2026 10:50:48 +0800
+Labels:           agents.x-k8s.io/sandbox-name-hash=9a571e4f
+                  app=echo-agent
+                  runtime.agentcube.io/sandbox-name=echo-agent-gc3f8xaf
+                  runtime.agentcube.io/session-id=45813d99-cc39-403c-a969-0d0b7406dc23
+                  test=e2e
+Annotations:      agents.x-k8s.io/propagated-labels: app,runtime.agentcube.io/sandbox-name,runtime.agentcube.io/session-id,test
+Status:           Running
+IP:               10.244.0.10
+IPs:
+  IP:           10.244.0.10
+Controlled By:  Sandbox/echo-agent-gc3f8xaf
+Containers:
+  echo-server:
+    Container ID:  containerd://01a0b518012faea0eeb22476198113cbf5b7f95473893c95c852fa1215648af9
+    Image:         python:3.9-slim
+    Image ID:      docker.io/library/python@sha256:2d97f6910b16bd338d3060f261f53f144965f755599aab1acda1e13cf1731b1b
+    Port:          8080/TCP
+    Host Port:     0/TCP
+    Command:
+      python3
+      -c
+    Args:
+      import http.server
+      import socketserver
+      import json
+      import sys
+
+      class EchoHandler(http.server.BaseHTTPRequestHandler):
+          def do_POST(self):
+              if self.path.startswith('/echo'):
+                  try:
+                      content_length = int(self.headers['Content-Length'])
+                      post_data = self.rfile.read(content_length)
+                      request_data = json.loads(post_data.decode('utf-8'))
+                      input_text = request_data.get('input', '')
+
+                      response = {
+                          'output': f'echo: {input_text}',
+                          'metadata': {
+                              'echoed': True,
+                              'original_input': input_text
+                          }
+                      }
+
+                      self.send_response(200)
+                      self.send_header('Content-Type', 'application/json')
+                      self.end_headers()
+                      self.wfile.write(json.dumps(response).encode('utf-8'))
+                  except Exception as e:
+                      self.send_response(400)
+                      self.send_header('Content-Type', 'application/json')
+                      self.end_headers()
+                      self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+              else:
+                  self.send_response(404)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(b'{"error": "Not found"}')
+
+          def do_GET(self):
+              if self.path == '/echo':
+                  # Health check for livenessProbe and readinessProbe
+                  self.send_response(200)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(b'{"status": "healthy"}')
+              else:
+                  self.send_response(404)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(b'{"error": "Not found"}')
+
+          def log_message(self, format, *args):
+              # Suppress server logs
+              pass
+
+      with socketserver.TCPServer(("0.0.0.0", 8080), EchoHandler) as httpd:
+          print("Echo server started on port 8080")
+          httpd.serve_forever()
+
+    State:          Running
+      Started:      Fri, 17 Jul 2026 10:52:21 +0800
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:8080/echo delay=10s timeout=5s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:8080/echo delay=5s timeout=3s period=5s #success=1 #failure=3
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-xm9fq (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
+Volumes:
+  kube-api-access-xm9fq:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age    From               Message
+  ----    ------     ----   ----               -------
+  Normal  Scheduled  10m    default-scheduler  Successfully assigned agentcube/echo-agent-gc3f8xaf to agentcube-v052-clean-control-plane
+  Normal  Pulling    10m    kubelet            spec.containers{echo-server}: Pulling image "python:3.9-slim"
+  Normal  Pulled     8m59s  kubelet            spec.containers{echo-server}: Successfully pulled image "python:3.9-slim" in 1m29.932s (1m29.932s including waiting). Image size: 44973445 bytes.
+  Normal  Created    8m58s  kubelet            spec.containers{echo-server}: Created container: echo-server
+  Normal  Started    8m56s  kubelet            spec.containers{echo-server}: Started container echo-server

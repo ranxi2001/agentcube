@@ -1,0 +1,70 @@
+Name:             workloadmanager-78c7f6644b-m4zbd
+Namespace:        agentcube
+Priority:         0
+Service Account:  workloadmanager
+Node:             agentcube-v052-clean-control-plane/172.18.0.12
+Start Time:       Fri, 17 Jul 2026 10:49:15 +0800
+Labels:           app=workloadmanager
+                  pod-template-hash=78c7f6644b
+Annotations:      <none>
+Status:           Running
+IP:               10.244.0.8
+IPs:
+  IP:           10.244.0.8
+Controlled By:  ReplicaSet/workloadmanager-78c7f6644b
+Containers:
+  workloadmanager:
+    Container ID:  containerd://dc8ce2394da1ddf4709ca0d4b4fcd304182c0836abac1bfa4779ef8518279a23
+    Image:         workloadmanager:latest
+    Image ID:      sha256:eb8696ed7c192a189237f2533542d7a88b4c452bca5099a28da2dd0f7963b9aa
+    Port:          8080/TCP (http)
+    Host Port:     0/TCP (http)
+    Args:
+      --port=8080
+      --runtime-class-name=
+    State:          Running
+      Started:      Fri, 17 Jul 2026 10:49:16 +0800
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:     500m
+      memory:  512Mi
+    Requests:
+      cpu:      100m
+      memory:   128Mi
+    Liveness:   http-get http://:8080/health delay=10s timeout=1s period=10s #success=1 #failure=3
+    Readiness:  http-get http://:8080/health delay=5s timeout=1s period=5s #success=1 #failure=3
+    Environment:
+      AGENTCUBE_NAMESPACE:       agentcube (v1:metadata.namespace)
+      REDIS_ADDR:                redis.agentcube.svc.cluster.local:6379
+      REDIS_PASSWORD_REQUIRED:   false
+      JWT_KEY_SECRET_NAMESPACE:  agentcube
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-hd4gg (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
+Volumes:
+  kube-api-access-hd4gg:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age    From               Message
+  ----     ------     ----   ----               -------
+  Normal   Scheduled  12m    default-scheduler  Successfully assigned agentcube/workloadmanager-78c7f6644b-m4zbd to agentcube-v052-clean-control-plane
+  Normal   Pulled     11m    kubelet            spec.containers{workloadmanager}: Container image "workloadmanager:latest" already present on machine
+  Normal   Created    11m    kubelet            spec.containers{workloadmanager}: Created container: workloadmanager
+  Normal   Started    11m    kubelet            spec.containers{workloadmanager}: Started container workloadmanager
+  Warning  Unhealthy  9m44s  kubelet            spec.containers{workloadmanager}: Readiness probe failed: Get "http://10.244.0.8:8080/health": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+  Warning  Unhealthy  9m44s  kubelet            spec.containers{workloadmanager}: Liveness probe failed: Get "http://10.244.0.8:8080/health": context deadline exceeded (Client.Timeout exceeded while awaiting headers)

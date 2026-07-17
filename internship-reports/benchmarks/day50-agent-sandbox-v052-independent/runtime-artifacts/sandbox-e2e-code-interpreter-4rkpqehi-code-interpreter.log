@@ -1,0 +1,1 @@
+error: error from server (NotFound): pods "e2e-code-interpreter-4rkpqehi" not found in namespace "agentcube"

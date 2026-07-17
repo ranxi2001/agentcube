@@ -1,0 +1,43 @@
+82:Verified sandboxes.agents.x-k8s.io storage version: v1beta1
+83:Verified sandboxclaims.extensions.agents.x-k8s.io storage version: v1beta1
+84:Verified sandboxtemplates.extensions.agents.x-k8s.io storage version: v1beta1
+85:Verified sandboxwarmpools.extensions.agents.x-k8s.io storage version: v1beta1
+957:=== RUN   TestCodeInterpreterWarmPool
+964:--- PASS: TestCodeInterpreterWarmPool (11.25s)
+965:=== RUN   TestCodeInterpreterBasicInvocation
+966:=== RUN   TestCodeInterpreterBasicInvocation/basic_echo
+967:=== RUN   TestCodeInterpreterBasicInvocation/exit_code_check
+968:--- PASS: TestCodeInterpreterBasicInvocation (5.94s)
+969:    --- PASS: TestCodeInterpreterBasicInvocation/basic_echo (3.64s)
+970:    --- PASS: TestCodeInterpreterBasicInvocation/exit_code_check (2.30s)
+971:=== RUN   TestCodeInterpreterFileOperations
+972:=== RUN   TestCodeInterpreterFileOperations/upload_and_verify_file
+973:=== RUN   TestCodeInterpreterFileOperations/download_file
+974:=== RUN   TestCodeInterpreterFileOperations/list_files
+975:--- PASS: TestCodeInterpreterFileOperations (4.62s)
+976:    --- PASS: TestCodeInterpreterFileOperations/upload_and_verify_file (0.46s)
+977:    --- PASS: TestCodeInterpreterFileOperations/download_file (0.48s)
+978:    --- PASS: TestCodeInterpreterFileOperations/list_files (0.01s)
+979:=== RUN   TestCodeInterpreterWarmPoolLoad
+1029:    e2e_test.go:1589: Load test results:
+1031:    e2e_test.go:1591:   Successful: 54
+1032:    e2e_test.go:1592:   Failed: 46
+1033:    e2e_test.go:1593:   Success rate: 54.00%
+1043:        	Test:       	TestCodeInterpreterWarmPoolLoad
+1046:--- FAIL: TestCodeInterpreterWarmPoolLoad (181.34s)
+1047:=== RUN   TestCodeInterpreterBasicInvocationLoad
+1049:    e2e_test.go:1589: Load test results:
+1051:    e2e_test.go:1591:   Successful: 20
+1052:    e2e_test.go:1592:   Failed: 0
+1053:    e2e_test.go:1593:   Success rate: 100.00%
+1059:--- PASS: TestCodeInterpreterBasicInvocationLoad (19.44s)
+1106:Ran 3 tests in 7.080s
+1108:OK
+1175:Ran 4 tests in 7.604s
+1177:OK
+1199:Ran 5 tests in 12.146s
+1201:OK
+1239:OK
+1491:OK
+1493:[MCP K8s E2E] run_code via in-cluster pod ok output='5\n'
+1494:Tests failed, collecting component logs...

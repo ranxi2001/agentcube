@@ -1,0 +1,78 @@
+Name:             e2e-code-interpreter-4rkpqehi
+Namespace:        agentcube
+Priority:         0
+Service Account:  default
+Node:             agentcube-v052-clean-control-plane/172.18.0.12
+Start Time:       Fri, 17 Jul 2026 11:01:11 +0800
+Labels:           agents.x-k8s.io/sandbox-name-hash=8c1451ad
+                  app=e2e-code-interpreter
+                  runtime.agentcube.io/sandbox-name=e2e-code-interpreter-4rkpqehi
+                  runtime.agentcube.io/session-id=e4d449ad-751e-403b-bd7b-5985b26ad0cb
+                  test=e2e
+Annotations:      agents.x-k8s.io/propagated-labels: app,runtime.agentcube.io/sandbox-name,runtime.agentcube.io/session-id,test
+Status:           Succeeded
+IP:               10.244.0.124
+IPs:
+  IP:           10.244.0.124
+Controlled By:  Sandbox/e2e-code-interpreter-4rkpqehi
+Containers:
+  code-interpreter:
+    Container ID:  containerd://81fc765e4ac4bf19c38d0cd93ddb2c42fed80b1b708f33ed4918cafb24944f5a
+    Image:         picod:latest
+    Image ID:      sha256:e1d7321f7476f65044f1979c1b23cd9ddc0b4caa125ff17cde3a8c1ee8801135
+    Port:          <none>
+    Host Port:     <none>
+    Args:
+      --workspace=/root
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Fri, 17 Jul 2026 11:01:12 +0800
+      Finished:     Fri, 17 Jul 2026 11:01:15 +0800
+    Ready:          False
+    Restart Count:  0
+    Limits:
+      cpu:     500m
+      memory:  512Mi
+    Requests:
+      cpu:     100m
+      memory:  128Mi
+    Environment:
+      PICOD_AUTH_PUBLIC_KEY:  -----BEGIN PUBLIC KEY-----
+                              MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA61JKWY6sW7xQIEdqgfB+
+                              9AtPQoUaxU9xjgB2BSG2e4IbZuHItBP/m2l2rsroK2UDcPiGzoo6eEJF5kcgPAfY
+                              s2eow4n6Uc/LqBAFIz3PaKO+Z5Um0DC1e1si7kE4ZqCC29MSgHgzrVZrMnGpkOTo
+                              M2/OYgbvvid3cXc8YKctQZgpihb0T8wuQCfseNuNK9DLT5uF4/CZOxTURWRGl5On
+                              fgu1CV+wSSKAHbcVhl6KyZbeQtrObi4qopU/D0xAYfAyTlXIEmwsAfYkJeiDlJ83
+                              eYnovvUPi3CiVJujjzaAxPKtlw+f41nFd8GXcDLpgDnmz8FgzoW4rxhXEJq57cRQ
+                              RwIDAQAB
+                              -----END PUBLIC KEY-----
+
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-rq9rl (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
+Volumes:
+  kube-api-access-rq9rl:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  4s    default-scheduler  Successfully assigned agentcube/e2e-code-interpreter-4rkpqehi to agentcube-v052-clean-control-plane
+  Normal  Pulled     4s    kubelet            spec.containers{code-interpreter}: Container image "picod:latest" already present on machine
+  Normal  Created    4s    kubelet            spec.containers{code-interpreter}: Created container: code-interpreter
+  Normal  Started    4s    kubelet            spec.containers{code-interpreter}: Started container code-interpreter
+  Normal  Killing    1s    kubelet            spec.containers{code-interpreter}: Stopping container code-interpreter

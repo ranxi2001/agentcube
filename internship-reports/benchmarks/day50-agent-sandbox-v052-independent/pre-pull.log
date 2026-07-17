@@ -1,0 +1,47 @@
+v0.5.2: Pulling from agent-sandbox/agent-sandbox-controller
+3be467de0353: Pulling fs layer
+7c12895b777b: Pulling fs layer
+c172f21841df: Pulling fs layer
+99515e7b4d35: Pulling fs layer
+dd64bf2dd177: Pulling fs layer
+3214acf345c0: Pulling fs layer
+ebddc55facdc: Pulling fs layer
+bdfd7f7e5bf6: Pulling fs layer
+b839dfae01f6: Pulling fs layer
+1eed391ea893: Pulling fs layer
+d6b1b89eccac: Pulling fs layer
+99ba982a9142: Pulling fs layer
+2780920e5dbf: Pulling fs layer
+52630fc75a18: Pulling fs layer
+7c12895b777b: Already exists
+99515e7b4d35: Already exists
+3214acf345c0: Already exists
+ebddc55facdc: Already exists
+bdfd7f7e5bf6: Already exists
+99ba982a9142: Already exists
+2780920e5dbf: Already exists
+c172f21841df: Already exists
+b839dfae01f6: Already exists
+d6b1b89eccac: Already exists
+52630fc75a18: Already exists
+dd64bf2dd177: Already exists
+6c4dac0ca02a: Download complete
+1eed391ea893: Download complete
+c172f21841df: Pull complete
+1eed391ea893: Pull complete
+99515e7b4d35: Pull complete
+99ba982a9142: Pull complete
+2780920e5dbf: Pull complete
+d6b1b89eccac: Pull complete
+7c12895b777b: Pull complete
+3214acf345c0: Pull complete
+b839dfae01f6: Pull complete
+52630fc75a18: Pull complete
+dd64bf2dd177: Pull complete
+ebddc55facdc: Pull complete
+bdfd7f7e5bf6: Pull complete
+3be467de0353: Download complete
+3be467de0353: Pull complete
+Digest: sha256:dbbad861e6c2cc0df1f7ec37dd0e2827b3d2bc051eb45855e01f94e697440403
+Status: Downloaded newer image for registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.5.2
+registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.5.2

@@ -1,0 +1,261 @@
+I0717 02:49:17.147081       1 jwt.go:201] Created identity secret agentcube/picod-router-identity
+I0717 02:49:17.149096       1 server.go:70] JWT manager initialized successfully
+I0717 02:49:17.151182       1 singleton.go:74] init redis store successfully
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /health/live              --> github.com/volcano-sh/agentcube/pkg/router.(*Server).handleHealthLive-fm (1 handlers)
+[GIN-debug] GET    /health/ready             --> github.com/volcano-sh/agentcube/pkg/router.(*Server).handleHealthReady-fm (1 handlers)
+[GIN-debug] GET    /v1/namespaces/:namespace/agent-runtimes/:name/invocations/*path --> github.com/volcano-sh/agentcube/pkg/router.(*Server).handleAgentInvoke-fm (5 handlers)
+[GIN-debug] POST   /v1/namespaces/:namespace/agent-runtimes/:name/invocations/*path --> github.com/volcano-sh/agentcube/pkg/router.(*Server).handleAgentInvoke-fm (5 handlers)
+[GIN-debug] GET    /v1/namespaces/:namespace/code-interpreters/:name/invocations/*path --> github.com/volcano-sh/agentcube/pkg/router.(*Server).handleCodeInterpreterInvoke-fm (5 handlers)
+[GIN-debug] POST   /v1/namespaces/:namespace/code-interpreters/:name/invocations/*path --> github.com/volcano-sh/agentcube/pkg/router.(*Server).handleCodeInterpreterInvoke-fm (5 handlers)
+I0717 02:49:17.159251       1 main.go:105] Starting agentcube Router server on port 8080
+I0717 02:49:17.164086       1 server.go:206] Router server listening on :8080
+I0717 02:52:47.526979       1 handlers.go:342] Forwarding request to: http://10.244.0.10:8080/echo (session: 45813d99-cc39-403c-a969-0d0b7406dc23)
+E0717 02:52:47.618055       1 handlers.go:348] Proxy error (session: 45813d99-cc39-403c-a969-0d0b7406dc23): context canceled
+[GIN] 2026/07/17 - 02:52:47 | 503 |         1m59s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/agent-runtimes/echo-agent/invocations/echo"
+W0717 02:52:47.618194       1 handlers.go:88] Failed to update sandbox with session-id 45813d99-cc39-403c-a969-0d0b7406dc23 last activity for request: UpdateSessionLastActivity: script execution failed for sessionID 45813d99-cc39-403c-a969-0d0b7406dc23: context canceled
+I0717 02:53:00.188154       1 handlers.go:342] Forwarding request to: http://10.244.0.11:8080/echo (session: 1df398c3-c43e-439e-a61f-99353aa998c5)
+E0717 02:53:00.193593       1 handlers.go:348] Proxy error (session: 1df398c3-c43e-439e-a61f-99353aa998c5): context canceled
+W0717 02:53:00.193715       1 handlers.go:88] Failed to update sandbox with session-id 1df398c3-c43e-439e-a61f-99353aa998c5 last activity for request: UpdateSessionLastActivity: script execution failed for sessionID 1df398c3-c43e-439e-a61f-99353aa998c5: context canceled
+[GIN] 2026/07/17 - 02:53:00 | 503 |         1m11s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/agent-runtimes/echo-agent/invocations/echo"
+I0717 02:53:01.153407       1 handlers.go:342] Forwarding request to: http://10.244.0.12:8080/echo (session: 32f4a901-8b14-462e-9222-1271e4a6cdc9)
+[GIN] 2026/07/17 - 02:53:01 | 200 | 12.388184455s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/agent-runtimes/echo-agent/invocations/echo"
+E0717 02:53:01.173226       1 handlers.go:68] Failed to get or create sandbox info: agentruntimes.agentcube.volcano.sh "agentcube/non-existent-runtime" not found, session id
+[GIN] 2026/07/17 - 02:53:01 | 404 |    7.221796ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/agent-runtimes/non-existent-runtime/invocations/echo"
+I0717 02:53:08.507979       1 handlers.go:342] Forwarding request to: http://10.244.0.13:8080/echo (session: d2e64912-769d-478b-ad5a-fb9cfeff5974)
+[GIN] 2026/07/17 - 02:53:08 | 200 |  7.395190987s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/agent-runtimes/echo-agent-short-ttl/invocations/echo"
+I0717 02:53:18.788559       1 handlers.go:342] Forwarding request to: http://10.244.0.13:8080/echo (session: d2e64912-769d-478b-ad5a-fb9cfeff5974)
+[GIN] 2026/07/17 - 02:53:18 | 200 |    99.21334ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/agent-runtimes/echo-agent-short-ttl/invocations/echo"
+I0717 02:54:09.669459       1 handlers.go:342] Forwarding request to: http://10.244.0.13:8080/echo (session: d2e64912-769d-478b-ad5a-fb9cfeff5974)
+[GIN] 2026/07/17 - 02:54:09 | 200 |  338.374158ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/agent-runtimes/echo-agent-short-ttl/invocations/echo"
+I0717 02:54:16.834636       1 handlers.go:342] Forwarding request to: http://10.244.0.15:8080/api/execute (session: 0d92c7ad-9731-4dd6-ba7a-47138c59c244)
+[GIN] 2026/07/17 - 02:54:17 | 200 |  438.859381ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:54:24.531923       1 handlers.go:342] Forwarding request to: http://10.244.0.17:8080/api/execute (session: 666c6ad7-7744-453b-9e69-34e3ca6f474e)
+[GIN] 2026/07/17 - 02:54:24 | 200 |  174.123827ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:54:26.780234       1 handlers.go:342] Forwarding request to: http://10.244.0.18:8080/api/execute (session: 3cdd792f-eff2-418e-b692-52374622c410)
+[GIN] 2026/07/17 - 02:54:26 | 200 |  185.926471ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:54:30.665465       1 handlers.go:342] Forwarding request to: http://10.244.0.19:8080/api/files (session: f9e7597e-c623-4043-b95f-7cbd7484462a)
+[GIN] 2026/07/17 - 02:54:30 | 200 |   13.965107ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:54:30.730768       1 handlers.go:342] Forwarding request to: http://10.244.0.19:8080/api/execute (session: f9e7597e-c623-4043-b95f-7cbd7484462a)
+[GIN] 2026/07/17 - 02:54:31 | 200 |  409.970976ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:54:31.121830       1 handlers.go:342] Forwarding request to: http://10.244.0.19:8080/api/files (session: f9e7597e-c623-4043-b95f-7cbd7484462a)
+[GIN] 2026/07/17 - 02:54:31 | 200 |    18.49371ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:54:31.159453       1 handlers.go:342] Forwarding request to: http://10.244.0.19:8080/api/execute (session: f9e7597e-c623-4043-b95f-7cbd7484462a)
+[GIN] 2026/07/17 - 02:54:31 | 200 |  400.398338ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:54:31.557471       1 handlers.go:342] Forwarding request to: http://10.244.0.19:8080/api/files/fibonacci.json (session: f9e7597e-c623-4043-b95f-7cbd7484462a)
+[GIN] 2026/07/17 - 02:54:31 | 200 |   22.794043ms |       127.0.0.1 | GET      "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files/fibonacci.json"
+I0717 02:54:31.594855       1 handlers.go:342] Forwarding request to: http://10.244.0.19:8080/api/files (session: f9e7597e-c623-4043-b95f-7cbd7484462a)
+[GIN] 2026/07/17 - 02:54:31 | 200 |   10.198772ms |       127.0.0.1 | GET      "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files?path=."
+I0717 02:54:50.237273       1 handlers.go:342] Forwarding request to: http://10.244.0.21:8080/api/execute (session: 06a651f4-c607-448c-be04-52d44ba1d98d)
+I0717 02:54:50.564447       1 handlers.go:342] Forwarding request to: http://10.244.0.20:8080/api/execute (session: 06d46551-3f9b-4429-8f9b-f5798981d1bb)
+[GIN] 2026/07/17 - 02:54:51 | 200 |  2.880888634s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:54:51 | 200 |  3.474451976s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:55:09.867436       1 handlers.go:342] Forwarding request to: http://10.244.0.22:8080/api/execute (session: c250208d-acef-4168-b2fb-94bc54b53a3d)
+[GIN] 2026/07/17 - 02:55:10 | 200 |  479.605795ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:55:50.227802       1 handlers.go:342] Forwarding request to: http://10.244.0.23:8080/api/execute (session: dbf19f65-f9ad-4847-a687-25e59b7400d2)
+[GIN] 2026/07/17 - 02:55:52 | 200 |  3.357060288s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:22.990409       1 handlers.go:342] Forwarding request to: http://10.244.0.24:8080/api/execute (session: 470a8ec6-0dbf-4def-9b63-bf26c58880d4)
+[GIN] 2026/07/17 - 02:56:23 | 200 |  786.297041ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:29.070888       1 handlers.go:342] Forwarding request to: http://10.244.0.28:8080/api/execute (session: e7ba7b55-d1ee-484b-aa77-d2a30a369316)
+[GIN] 2026/07/17 - 02:56:29 | 200 |   73.917456ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:29.531540       1 handlers.go:342] Forwarding request to: http://10.244.0.26:8080/api/execute (session: fe0e5a71-5c0d-4269-91dd-93c29d6ab163)
+[GIN] 2026/07/17 - 02:56:29 | 200 |   739.78819ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:31.084416       1 handlers.go:342] Forwarding request to: http://10.244.0.33:8080/api/execute (session: e55c1f64-af64-41af-89cd-084d84243aac)
+[GIN] 2026/07/17 - 02:56:31 | 200 |   84.924158ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:31.167210       1 handlers.go:342] Forwarding request to: http://10.244.0.25:8080/api/execute (session: ed0706a8-81cc-43d2-9afc-c41ffbd47010)
+[GIN] 2026/07/17 - 02:56:31 | 200 |   36.890362ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:31.360162       1 handlers.go:342] Forwarding request to: http://10.244.0.37:8080/api/execute (session: 5ec5af48-513b-4c88-8ace-d470336c1602)
+[GIN] 2026/07/17 - 02:56:31 | 200 |  305.995589ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:31.584187       1 handlers.go:342] Forwarding request to: http://10.244.0.32:8080/api/execute (session: 9e9e5f1c-2948-4776-9480-c52fa1d5609e)
+[GIN] 2026/07/17 - 02:56:31 | 200 |  121.384421ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:31.662298       1 handlers.go:342] Forwarding request to: http://10.244.0.39:8080/api/execute (session: 95437f76-d9f0-4d56-8bfb-f7e2e687b263)
+[GIN] 2026/07/17 - 02:56:31 | 200 |  180.475185ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:31.805864       1 handlers.go:342] Forwarding request to: http://10.244.0.41:8080/api/execute (session: 9100826c-bfc0-4cf8-be06-56928836d758)
+I0717 02:56:31.933976       1 handlers.go:342] Forwarding request to: http://10.244.0.30:8080/api/execute (session: f8bb5d71-e62a-404b-a28c-53a3d8aa054f)
+I0717 02:56:31.938263       1 handlers.go:342] Forwarding request to: http://10.244.0.42:8080/api/execute (session: a8a4c1a1-7f60-4180-b407-eeba7e2e79f9)
+I0717 02:56:31.944028       1 handlers.go:342] Forwarding request to: http://10.244.0.27:8080/api/execute (session: 1d636ef4-9487-4522-b400-c62459d077fa)
+I0717 02:56:31.963043       1 handlers.go:342] Forwarding request to: http://10.244.0.51:8080/api/execute (session: d2b10db8-073e-4cde-8daf-bad7c7778478)
+[GIN] 2026/07/17 - 02:56:31 | 200 |  182.794712ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:32 | 200 |  294.525591ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:32 | 200 |  123.108697ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:32 | 200 |  203.437868ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:32.093309       1 handlers.go:342] Forwarding request to: http://10.244.0.38:8080/api/execute (session: 41149122-e336-42ba-9db6-050d55009fb6)
+[GIN] 2026/07/17 - 02:56:32 | 200 |  301.486093ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:32.100131       1 handlers.go:342] Forwarding request to: http://10.244.0.31:8080/api/execute (session: f6ecda19-6d41-417d-9a2f-ac04e61ab54c)
+[GIN] 2026/07/17 - 02:56:32 | 200 |   55.936759ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:32 | 200 |  376.463396ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:32.332238       1 handlers.go:342] Forwarding request to: http://10.244.0.49:8080/api/execute (session: 042b3c55-a897-45b2-9903-6072cb3477fe)
+I0717 02:56:32.392652       1 handlers.go:342] Forwarding request to: http://10.244.0.46:8080/api/execute (session: adc35862-049e-4d80-a084-b05e75e2c645)
+I0717 02:56:32.394585       1 handlers.go:342] Forwarding request to: http://10.244.0.45:8080/api/execute (session: fffc6b3c-80c3-4222-8212-b2e99466eb02)
+I0717 02:56:32.509965       1 handlers.go:342] Forwarding request to: http://10.244.0.43:8080/api/execute (session: f38dcdea-19c1-4351-8827-af2c4937a473)
+[GIN] 2026/07/17 - 02:56:32 | 200 |  378.034682ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:32.639389       1 handlers.go:342] Forwarding request to: http://10.244.0.50:8080/api/execute (session: ca334fad-30af-4085-a82c-f1dd2f36871e)
+I0717 02:56:32.651770       1 handlers.go:342] Forwarding request to: http://10.244.0.29:8080/api/execute (session: cad9be1b-4ed2-40e7-8cbb-678eaa5bee68)
+I0717 02:56:32.969061       1 handlers.go:342] Forwarding request to: http://10.244.0.36:8080/api/execute (session: e97c02d4-b5f1-4593-964d-d82e5291dd65)
+[GIN] 2026/07/17 - 02:56:33 | 200 |  1.032651797s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:33 | 200 |  1.034757822s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:33 | 200 |  867.379407ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:33.426832       1 handlers.go:342] Forwarding request to: http://10.244.0.47:8080/api/execute (session: 548e4fd1-1ef0-4018-bc59-3af5ce41cd45)
+I0717 02:56:33.429849       1 handlers.go:342] Forwarding request to: http://10.244.0.35:8080/api/execute (session: 3a4b7d48-63e0-4ce3-a681-08109f5a17d1)
+[GIN] 2026/07/17 - 02:56:33 | 200 |  789.183835ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:33 | 200 |  857.330172ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:33 | 200 |  866.628065ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:33.434846       1 handlers.go:342] Forwarding request to: http://10.244.0.34:8080/api/execute (session: 940d55d6-56c8-4555-ae12-2c9d0685efef)
+I0717 02:56:33.443945       1 handlers.go:342] Forwarding request to: http://10.244.0.40:8080/api/execute (session: b6f00010-935a-420d-a72e-7a12a76170e6)
+I0717 02:56:33.457211       1 handlers.go:342] Forwarding request to: http://10.244.0.44:8080/api/execute (session: f39cdab7-0835-408b-90a9-adab7614c775)
+I0717 02:56:33.475965       1 handlers.go:342] Forwarding request to: http://10.244.0.48:8080/api/execute (session: 508e48e7-7310-4620-b975-838401063ad6)
+[GIN] 2026/07/17 - 02:56:33 | 200 |   610.76111ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:34 | 200 |  1.214116613s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:34 | 200 |  836.680236ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:34 | 200 |  1.216061269s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:34 | 200 |  751.185937ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:56:34 | 200 |  1.259197097s |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:56:35.537760       1 handlers.go:342] Forwarding request to: http://10.244.0.52:8080/api/execute (session: c721049a-c365-4eb0-b9ee-45c8d71f37db)
+[GIN] 2026/07/17 - 02:56:35 | 200 |   83.747188ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:15.620059       1 handlers.go:342] Forwarding request to: http://10.244.0.68:8080/api/execute (session: 7818cf39-1503-4588-952f-14533c7cd53c)
+[GIN] 2026/07/17 - 02:57:15 | 200 |  393.250544ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:23.259652       1 handlers.go:342] Forwarding request to: http://10.244.0.64:8080/api/execute (session: 6f55e3d9-43b0-43cc-93b4-3d4003180e95)
+[GIN] 2026/07/17 - 02:57:23 | 200 |  325.115853ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:24.554518       1 handlers.go:342] Forwarding request to: http://10.244.0.74:8080/api/execute (session: 8dc1bc0e-4c87-4d31-b38b-7e05f286b509)
+I0717 02:57:24.565065       1 handlers.go:342] Forwarding request to: http://10.244.0.59:8080/api/execute (session: af7b2bff-3062-4552-ad2d-aed844b2b613)
+[GIN] 2026/07/17 - 02:57:25 | 200 |  491.604268ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:57:25 | 200 |   457.24813ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:25.257259       1 handlers.go:342] Forwarding request to: http://10.244.0.80:8080/api/execute (session: 85cceb69-8c40-4671-b028-ba318e003a32)
+I0717 02:57:25.290150       1 handlers.go:342] Forwarding request to: http://10.244.0.71:8080/api/execute (session: 33344166-23c4-4430-8b8c-8d5b927c24c5)
+[GIN] 2026/07/17 - 02:57:25 | 200 |   140.83006ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:25.399541       1 handlers.go:342] Forwarding request to: http://10.244.0.73:8080/api/execute (session: be37d312-509f-405b-889e-6127da2ae6e7)
+[GIN] 2026/07/17 - 02:57:25 | 200 |  190.642598ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:57:25 | 200 |  325.722134ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:26.244073       1 handlers.go:342] Forwarding request to: http://10.244.0.79:8080/api/execute (session: ee0d6ba7-4145-434d-91cf-9e1ba5973681)
+I0717 02:57:26.279421       1 handlers.go:342] Forwarding request to: http://10.244.0.76:8080/api/execute (session: 120ea0d0-f8e8-4606-98eb-9114f31ff463)
+[GIN] 2026/07/17 - 02:57:26 | 200 |     52.9331ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:57:26 | 200 |  232.580043ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:26.468503       1 handlers.go:342] Forwarding request to: http://10.244.0.77:8080/api/execute (session: d82c635b-d5bf-44c1-b1eb-257794f9c25f)
+[GIN] 2026/07/17 - 02:57:26 | 200 |  164.933275ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:26.497805       1 handlers.go:342] Forwarding request to: http://10.244.0.72:8080/api/execute (session: f6f23777-df6a-4257-ae4f-4daf480b63b0)
+[GIN] 2026/07/17 - 02:57:26 | 200 |  121.918524ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:26.977693       1 handlers.go:342] Forwarding request to: http://10.244.0.69:8080/api/execute (session: 435af361-122e-46c6-9702-6ca6290942ea)
+[GIN] 2026/07/17 - 02:57:27 | 200 |   79.440264ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:27.952110       1 handlers.go:342] Forwarding request to: http://10.244.0.75:8080/api/execute (session: 408b21c3-10b3-434c-b1b1-20c3fc6704a0)
+I0717 02:57:27.987819       1 handlers.go:342] Forwarding request to: http://10.244.0.78:8080/api/execute (session: e295593f-7455-4019-9aac-84c69c70aafd)
+[GIN] 2026/07/17 - 02:57:28 | 200 |  284.788501ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:57:28 | 200 |   617.16735ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:28.822516       1 handlers.go:342] Forwarding request to: http://10.244.0.81:8080/api/execute (session: bdaf2f78-c357-4984-921c-4a057de59cf3)
+[GIN] 2026/07/17 - 02:57:28 | 200 |    29.42016ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:29.120692       1 handlers.go:342] Forwarding request to: http://10.244.0.89:8080/api/execute (session: 2b93d236-863c-409f-9aa1-6569ae598bc5)
+[GIN] 2026/07/17 - 02:57:29 | 200 |   154.59865ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:30.288130       1 handlers.go:342] Forwarding request to: http://10.244.0.82:8080/api/execute (session: 085c92ca-04c0-4f63-a768-4c44150e5a2b)
+I0717 02:57:30.375024       1 handlers.go:342] Forwarding request to: http://10.244.0.88:8080/api/execute (session: 777394ee-b2a2-430b-8d8f-034fde15a71c)
+[GIN] 2026/07/17 - 02:57:30 | 200 |  166.757412ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+[GIN] 2026/07/17 - 02:57:30 | 200 |  112.764301ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:30.429970       1 handlers.go:342] Forwarding request to: http://10.244.0.87:8080/api/execute (session: b9167d1a-0a51-4042-831f-1276b53f9380)
+[GIN] 2026/07/17 - 02:57:30 | 200 |   99.514921ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:30.948438       1 handlers.go:342] Forwarding request to: http://10.244.0.83:8080/api/execute (session: aff8b1f5-44e1-453c-87ef-915814c48721)
+[GIN] 2026/07/17 - 02:57:31 | 200 |  119.387315ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:31.594403       1 handlers.go:342] Forwarding request to: http://10.244.0.84:8080/api/execute (session: 29209268-9c7b-4851-9d15-bb41bb824b76)
+[GIN] 2026/07/17 - 02:57:31 | 200 |  270.369624ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter-warmpool/invocations/api/execute"
+I0717 02:57:37.543972       1 handlers.go:342] Forwarding request to: http://10.244.0.90:8080/api/execute (session: 18a44646-4478-487b-881d-011848afb31c)
+[GIN] 2026/07/17 - 02:57:37 | 200 |  475.603411ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:37.966221       1 handlers.go:342] Forwarding request to: http://10.244.0.91:8080/api/execute (session: 24079d0a-95f3-466d-9aee-478b11cf1191)
+I0717 02:57:38.005833       1 handlers.go:342] Forwarding request to: http://10.244.0.92:8080/api/execute (session: 0114e76d-929d-4bbd-b79d-4c7e657de11f)
+[GIN] 2026/07/17 - 02:57:38 | 200 |   39.973239ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+[GIN] 2026/07/17 - 02:57:38 | 200 |  375.957549ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:39.133480       1 handlers.go:342] Forwarding request to: http://10.244.0.93:8080/api/execute (session: 3b87d9dd-425b-45d2-b8a6-cacf3b3faf81)
+[GIN] 2026/07/17 - 02:57:39 | 200 |  167.880021ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:40.558852       1 handlers.go:342] Forwarding request to: http://10.244.0.94:8080/api/execute (session: 4c61448a-273c-41d0-a909-7c715a0ef49b)
+[GIN] 2026/07/17 - 02:57:40 | 200 |   57.720005ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:41.571784       1 handlers.go:342] Forwarding request to: http://10.244.0.95:8080/api/execute (session: a8b9cf0e-0c46-4f34-aced-a71fec8f94e1)
+[GIN] 2026/07/17 - 02:57:41 | 200 |  596.775697ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:41.989478       1 handlers.go:342] Forwarding request to: http://10.244.0.96:8080/api/execute (session: 74e33078-1a76-47c0-b0ea-1171ceba202a)
+[GIN] 2026/07/17 - 02:57:42 | 200 |  651.813364ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:44.026479       1 handlers.go:342] Forwarding request to: http://10.244.0.97:8080/api/execute (session: 2601b68d-02d3-4569-8c90-4987b394400f)
+[GIN] 2026/07/17 - 02:57:44 | 200 |  115.384596ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:46.428074       1 handlers.go:342] Forwarding request to: http://10.244.0.100:8080/api/execute (session: f4ee2de1-99c1-4ce2-8782-86c1b3cf3986)
+[GIN] 2026/07/17 - 02:57:46 | 200 |  249.310414ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:46.868862       1 handlers.go:342] Forwarding request to: http://10.244.0.98:8080/api/execute (session: 46c5072f-615a-44e0-a511-261b2ab3caf3)
+[GIN] 2026/07/17 - 02:57:46 | 200 |  117.661563ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:47.058253       1 handlers.go:342] Forwarding request to: http://10.244.0.99:8080/api/execute (session: e483845e-b4af-4c8c-b908-fc294eb824cb)
+[GIN] 2026/07/17 - 02:57:47 | 200 |  132.593623ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:47.267030       1 handlers.go:342] Forwarding request to: http://10.244.0.101:8080/api/execute (session: 737396f2-9e80-4f6f-a412-c388a7ae0555)
+[GIN] 2026/07/17 - 02:57:47 | 200 |  160.753555ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:48.248583       1 handlers.go:342] Forwarding request to: http://10.244.0.102:8080/api/execute (session: 6d0c012c-3839-4a38-9651-6ac3405e516b)
+[GIN] 2026/07/17 - 02:57:48 | 200 |  852.076223ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:48.873296       1 handlers.go:342] Forwarding request to: http://10.244.0.103:8080/api/execute (session: ff4d346a-eeeb-465e-9369-ede309b9fcee)
+[GIN] 2026/07/17 - 02:57:49 | 200 |  259.491133ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:49.295731       1 handlers.go:342] Forwarding request to: http://10.244.0.104:8080/api/execute (session: 3b16a885-f5a3-4ae2-a425-b9766ed9d70f)
+[GIN] 2026/07/17 - 02:57:49 | 200 |  211.129074ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:50.378758       1 handlers.go:342] Forwarding request to: http://10.244.0.105:8080/api/execute (session: 49efe044-3ed8-4402-a380-43358d2ecc88)
+[GIN] 2026/07/17 - 02:57:50 | 200 |  237.504873ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:50.611187       1 handlers.go:342] Forwarding request to: http://10.244.0.106:8080/api/execute (session: e0e5dda8-cccd-44b3-945a-622d6dff35c4)
+[GIN] 2026/07/17 - 02:57:50 | 200 |   26.486818ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:51.036160       1 handlers.go:342] Forwarding request to: http://10.244.0.107:8080/api/execute (session: f22d5c2c-d533-434b-9c17-3672d36c4591)
+[GIN] 2026/07/17 - 02:57:51 | 200 |  115.172063ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:52.055265       1 handlers.go:342] Forwarding request to: http://10.244.0.108:8080/api/execute (session: dc8633d7-ea59-4c6d-95ff-f46e514fbc43)
+[GIN] 2026/07/17 - 02:57:52 | 200 |  106.310601ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:52.253099       1 handlers.go:342] Forwarding request to: http://10.244.0.109:8080/api/execute (session: 70f6615f-8783-41f1-8300-90473ef47926)
+[GIN] 2026/07/17 - 02:57:52 | 200 |  166.910349ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:56.222016       1 handlers.go:342] Forwarding request to: http://10.244.0.110:8080/api/files (session: 237c7050-f56f-409f-8876-abd87abb40f2)
+[GIN] 2026/07/17 - 02:57:56 | 200 |   10.103434ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:57:56.238213       1 handlers.go:342] Forwarding request to: http://10.244.0.110:8080/api/execute (session: 237c7050-f56f-409f-8876-abd87abb40f2)
+[GIN] 2026/07/17 - 02:57:56 | 200 |  111.600472ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:58.434890       1 handlers.go:342] Forwarding request to: http://10.244.0.111:8080/api/files (session: dc30fbd9-1e50-423c-a2b1-83258f0ff16d)
+[GIN] 2026/07/17 - 02:57:58 | 200 |    57.49838ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:57:58.469486       1 handlers.go:342] Forwarding request to: http://10.244.0.111:8080/api/execute (session: dc30fbd9-1e50-423c-a2b1-83258f0ff16d)
+[GIN] 2026/07/17 - 02:57:58 | 200 |   55.177422ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:57:58.532333       1 handlers.go:342] Forwarding request to: http://10.244.0.111:8080/api/files (session: dc30fbd9-1e50-423c-a2b1-83258f0ff16d)
+[GIN] 2026/07/17 - 02:57:58 | 200 |    5.837333ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:57:58.562742       1 handlers.go:342] Forwarding request to: http://10.244.0.111:8080/api/execute (session: dc30fbd9-1e50-423c-a2b1-83258f0ff16d)
+[GIN] 2026/07/17 - 02:57:58 | 200 |  227.591362ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:58:00.301475       1 handlers.go:342] Forwarding request to: http://10.244.0.112:8080/api/files (session: e29d002a-566b-4ca0-a2ab-415884b982ba)
+[GIN] 2026/07/17 - 02:58:00 | 200 |   12.473799ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:58:00.319390       1 handlers.go:342] Forwarding request to: http://10.244.0.112:8080/api/files (session: e29d002a-566b-4ca0-a2ab-415884b982ba)
+[GIN] 2026/07/17 - 02:58:00 | 200 |   14.544144ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:58:00.339626       1 handlers.go:342] Forwarding request to: http://10.244.0.112:8080/api/execute (session: e29d002a-566b-4ca0-a2ab-415884b982ba)
+[GIN] 2026/07/17 - 02:58:00 | 200 |   98.725093ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:58:00.464738       1 handlers.go:342] Forwarding request to: http://10.244.0.112:8080/api/files/output.json (session: e29d002a-566b-4ca0-a2ab-415884b982ba)
+[GIN] 2026/07/17 - 02:58:00 | 200 |   32.321557ms |       127.0.0.1 | GET      "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files/output.json"
+I0717 02:58:06.351551       1 handlers.go:342] Forwarding request to: http://10.244.0.113:8080/api/files (session: 9df252cf-1032-4895-839f-347de25cd73a)
+[GIN] 2026/07/17 - 02:58:06 | 200 |   15.453689ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:58:06.381860       1 handlers.go:342] Forwarding request to: http://10.244.0.113:8080/api/files/lc_abs_731410.txt (session: 9df252cf-1032-4895-839f-347de25cd73a)
+[GIN] 2026/07/17 - 02:58:06 | 200 |    22.48462ms |       127.0.0.1 | GET      "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files/lc_abs_731410.txt"
+I0717 02:58:08.492576       1 handlers.go:342] Forwarding request to: http://10.244.0.114:8080/api/execute (session: 348250b6-02cd-4eb0-9e03-6b8fa2ff6383)
+[GIN] 2026/07/17 - 02:58:08 | 200 |   36.402047ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:58:10.460970       1 handlers.go:342] Forwarding request to: http://10.244.0.115:8080/api/execute (session: 6b1b6f59-9f7e-459e-ab7a-92cd493b3ab4)
+[GIN] 2026/07/17 - 02:58:10 | 200 |   20.713837ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:58:12.547892       1 handlers.go:342] Forwarding request to: http://10.244.0.116:8080/api/files (session: 54eb8abe-1cc5-4687-9f6e-6fdc5730914e)
+[GIN] 2026/07/17 - 02:58:12 | 200 |   13.558436ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:58:12.565240       1 handlers.go:342] Forwarding request to: http://10.244.0.116:8080/api/files/lc_e2e_roundtrip_731410.txt (session: 54eb8abe-1cc5-4687-9f6e-6fdc5730914e)
+[GIN] 2026/07/17 - 02:58:12 | 200 |   20.556819ms |       127.0.0.1 | GET      "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files/lc_e2e_roundtrip_731410.txt"
+I0717 02:58:17.499488       1 handlers.go:342] Forwarding request to: http://10.244.0.117:8080/api/execute (session: b4bedce2-6602-4585-a89d-d97f8469e061)
+[GIN] 2026/07/17 - 02:58:17 | 200 |   33.081434ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:58:19.612416       1 handlers.go:342] Forwarding request to: http://10.244.0.118:8080/api/files (session: 303179dd-30e9-4d77-a4be-c6cd70593143)
+[GIN] 2026/07/17 - 02:58:19 | 200 |   11.464819ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:58:19.630797       1 handlers.go:342] Forwarding request to: http://10.244.0.118:8080/api/execute (session: 303179dd-30e9-4d77-a4be-c6cd70593143)
+[GIN] 2026/07/17 - 02:58:19 | 200 |   52.798322ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:58:19.701673       1 handlers.go:342] Forwarding request to: http://10.244.0.118:8080/api/files (session: 303179dd-30e9-4d77-a4be-c6cd70593143)
+[GIN] 2026/07/17 - 02:58:19 | 200 |    7.928126ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:58:19.718157       1 handlers.go:342] Forwarding request to: http://10.244.0.118:8080/api/execute (session: 303179dd-30e9-4d77-a4be-c6cd70593143)
+[GIN] 2026/07/17 - 02:58:19 | 200 |  159.916152ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:58:21.819715       1 handlers.go:342] Forwarding request to: http://10.244.0.119:8080/api/files (session: 495dc1e2-49df-48c0-8ea8-d7cea4cd493c)
+[GIN] 2026/07/17 - 02:58:21 | 200 |    52.76069ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:58:21.908360       1 handlers.go:342] Forwarding request to: http://10.244.0.119:8080/api/files/mcp_roundtrip_1784257099.txt (session: 495dc1e2-49df-48c0-8ea8-d7cea4cd493c)
+[GIN] 2026/07/17 - 02:58:21 | 200 |   62.648523ms |       127.0.0.1 | GET      "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files/mcp_roundtrip_1784257099.txt"
+I0717 02:58:24.972272       1 handlers.go:342] Forwarding request to: http://10.244.0.120:8080/api/files (session: 0556d5e7-32a0-404e-acd7-aba3ca4f8a52)
+[GIN] 2026/07/17 - 02:58:24 | 200 |   12.852874ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:58:25.059545       1 handlers.go:342] Forwarding request to: http://10.244.0.120:8080/api/files (session: 0556d5e7-32a0-404e-acd7-aba3ca4f8a52)
+[GIN] 2026/07/17 - 02:58:25 | 200 |   43.171065ms |       127.0.0.1 | GET      "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files?path=."
+I0717 02:58:25.158899       1 handlers.go:342] Forwarding request to: http://10.244.0.120:8080/api/files (session: 0556d5e7-32a0-404e-acd7-aba3ca4f8a52)
+[GIN] 2026/07/17 - 02:58:25 | 200 |   60.054676ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:58:25.193580       1 handlers.go:342] Forwarding request to: http://10.244.0.120:8080/api/execute (session: 0556d5e7-32a0-404e-acd7-aba3ca4f8a52)
+[GIN] 2026/07/17 - 02:58:25 | 200 |   58.058448ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 02:58:29.922786       1 handlers.go:342] Forwarding request to: http://10.244.0.121:8080/api/files (session: 5e63387c-12e2-4273-9ea3-238c274da53c)
+[GIN] 2026/07/17 - 02:58:29 | 200 |    7.428033ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 02:58:29.937399       1 handlers.go:342] Forwarding request to: http://10.244.0.121:8080/api/execute (session: 5e63387c-12e2-4273-9ea3-238c274da53c)
+[GIN] 2026/07/17 - 02:58:29 | 200 |   33.359259ms |       127.0.0.1 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
+I0717 03:01:13.608844       1 handlers.go:342] Forwarding request to: http://10.244.0.124:8080/api/files (session: e4d449ad-751e-403b-bd7b-5985b26ad0cb)
+[GIN] 2026/07/17 - 03:01:13 | 200 |   78.573439ms |    10.244.0.123 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/files"
+I0717 03:01:13.631578       1 handlers.go:342] Forwarding request to: http://10.244.0.124:8080/api/execute (session: e4d449ad-751e-403b-bd7b-5985b26ad0cb)
+[GIN] 2026/07/17 - 03:01:13 | 200 |  173.684353ms |    10.244.0.123 | POST     "/v1/namespaces/agentcube/code-interpreters/e2e-code-interpreter/invocations/api/execute"
