@@ -13,7 +13,7 @@ if [ -z "${MTLS_ENABLED+x}" ]; then
         MTLS_ENABLED=true
     fi
 fi
-AGENT_SANDBOX_VERSION=${AGENT_SANDBOX_VERSION:-v0.4.6}
+AGENT_SANDBOX_VERSION=${AGENT_SANDBOX_VERSION:-v0.5.2}
 E2E_REQUIRE_CODEINTERPRETER=${E2E_REQUIRE_CODEINTERPRETER:-false}
 WORKLOAD_MANAGER_IMAGE=${WORKLOAD_MANAGER_IMAGE:-workloadmanager:latest}
 ROUTER_IMAGE=${ROUTER_IMAGE:-agentcube-router:latest}
@@ -31,7 +31,7 @@ REPO_ROOT="$(cd "$_SCRIPT_DIR/../.." && pwd)"
 
 # Images that need to be pre-pulled and loaded into kind cluster
 # Based on agent-sandbox manifest analysis, only these images are needed:
-# - agent-sandbox-controller (used in both agentsandbox manifest.yaml and extensions.yaml)
+# - agent-sandbox-controller (used in both agent-sandbox sandbox.yaml and extensions.yaml)
 # - python:3.9-slim (used by echo-agent)
 PRE_PULL_IMAGES=(
     "registry.k8s.io/agent-sandbox/agent-sandbox-controller:${AGENT_SANDBOX_VERSION}"
@@ -291,6 +291,24 @@ verify_agent_sandbox_controller() {
     echo "Verified agent-sandbox controller image: ${actual_image}"
 }
 
+verify_agent_sandbox_api_versions() {
+    local crd
+    local storage_version
+
+    for crd in \
+        sandboxes.agents.x-k8s.io \
+        sandboxclaims.extensions.agents.x-k8s.io \
+        sandboxtemplates.extensions.agents.x-k8s.io \
+        sandboxwarmpools.extensions.agents.x-k8s.io; do
+        storage_version=$(kubectl get crd "${crd}" -o jsonpath='{.spec.versions[?(@.storage==true)].name}')
+        if [ "${storage_version}" != "v1beta1" ]; then
+            echo "agent-sandbox CRD ${crd} uses unexpected storage version: ${storage_version}" >&2
+            exit 1
+        fi
+        echo "Verified ${crd} storage version: ${storage_version}"
+    done
+}
+
 deploy_redis() {
     step "Deploying Redis (${REDIS_IMAGE})"
     ensure_namespace "${AGENTCUBE_NAMESPACE}"
@@ -334,9 +352,10 @@ run_setup() {
 
     step "Installing agent-sandbox (${AGENT_SANDBOX_VERSION})..."
     # Download then apply to avoid URL parsing issues / improve debuggability.
-    kubectl_apply_url "https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/manifest.yaml"
+    kubectl_apply_url "https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/sandbox.yaml"
     kubectl_apply_url "https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/extensions.yaml"
     verify_agent_sandbox_controller
+    verify_agent_sandbox_api_versions
 
     step "Building images..."
     # We assume we are in the project root

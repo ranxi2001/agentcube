@@ -31,7 +31,21 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	sandboxv1beta1 "sigs.k8s.io/agent-sandbox/api/v1beta1"
+	extensionsv1beta1 "sigs.k8s.io/agent-sandbox/extensions/api/v1beta1"
 )
+
+func TestBuildSandboxObjectV1Beta1Contract(t *testing.T) {
+	sandbox := buildSandboxObject(&buildSandboxParams{
+		namespace:   "default",
+		sandboxName: "sandbox-beta",
+		sessionID:   "session-beta",
+		ttl:         time.Hour,
+	})
+
+	assert.Equal(t, sandboxv1beta1.GroupVersion.String(), sandbox.APIVersion)
+	assert.Equal(t, sandboxv1beta1.SandboxOperatingModeRunning, sandbox.Spec.OperatingMode)
+}
 
 // TestBuildSandboxObject_DoesNotMutateCallerLabels verifies that buildSandboxObject
 // does not write session-specific labels back into the caller's map, which would
@@ -167,12 +181,12 @@ func TestBuildSandboxClaimObject(t *testing.T) {
 			UID:        "test-uid-123",
 		}
 		params := &buildSandboxClaimParams{
-			namespace:           "test-ns",
-			name:                "claim-abc",
-			sandboxTemplateName: "my-ci",
-			sessionID:           "session-claim-test",
-			idleTimeout:         10 * time.Minute,
-			ownerReference:      ownerRef,
+			namespace:      "test-ns",
+			name:           "claim-abc",
+			warmPoolName:   "my-ci",
+			sessionID:      "session-claim-test",
+			idleTimeout:    10 * time.Minute,
+			ownerReference: ownerRef,
 		}
 		claim := buildSandboxClaimObject(params)
 
@@ -182,9 +196,10 @@ func TestBuildSandboxClaimObject(t *testing.T) {
 		if claim.Name != "claim-abc" {
 			t.Errorf("expected name claim-abc, got %q", claim.Name)
 		}
-		if claim.Spec.TemplateRef.Name != "my-ci" {
-			t.Errorf("expected templateRef name my-ci, got %q", claim.Spec.TemplateRef.Name)
+		if claim.Spec.WarmPoolRef.Name != "my-ci" {
+			t.Errorf("expected warmPoolRef name my-ci, got %q", claim.Spec.WarmPoolRef.Name)
 		}
+		assert.Equal(t, extensionsv1beta1.GroupVersion.String(), claim.APIVersion)
 		if claim.Labels[SessionIdLabelKey] != "session-claim-test" {
 			t.Errorf("expected label %s=session-claim-test, got %q", SessionIdLabelKey, claim.Labels[SessionIdLabelKey])
 		}
@@ -201,11 +216,11 @@ func TestBuildSandboxClaimObject(t *testing.T) {
 
 	t.Run("without owner reference", func(t *testing.T) {
 		params := &buildSandboxClaimParams{
-			namespace:           "default",
-			name:                "claim-no-owner",
-			sandboxTemplateName: "template-1",
-			sessionID:           "session-no-owner",
-			idleTimeout:         0,
+			namespace:    "default",
+			name:         "claim-no-owner",
+			warmPoolName: "template-1",
+			sessionID:    "session-no-owner",
+			idleTimeout:  0,
 		}
 		claim := buildSandboxClaimObject(params)
 
@@ -677,8 +692,8 @@ func TestBuildSandboxByCodeInterpreter_SuccessWithWarmPool(t *testing.T) {
 	if entry.Kind != types.SandboxClaimsKind {
 		t.Errorf("expected entry.Kind to be %q, got %q", types.SandboxClaimsKind, entry.Kind)
 	}
-	if claim.Spec.TemplateRef.Name != testCodeInterpreterWarmPool {
-		t.Errorf("expected templateRef name %q, got %q", testCodeInterpreterWarmPool, claim.Spec.TemplateRef.Name)
+	if claim.Spec.WarmPoolRef.Name != testCodeInterpreterWarmPool {
+		t.Errorf("expected warmPoolRef name %q, got %q", testCodeInterpreterWarmPool, claim.Spec.WarmPoolRef.Name)
 	}
 	if len(claim.OwnerReferences) != 1 {
 		t.Fatalf("expected 1 owner reference, got %d", len(claim.OwnerReferences))
@@ -766,12 +781,12 @@ func TestBuildSandboxClaimObject_OwnershipLabels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			params := &buildSandboxClaimParams{
-				namespace:           "default",
-				name:                "claim-owner-test",
-				sandboxTemplateName: "my-ci",
-				sessionID:           "session-claim-owner",
-				ownerID:             tt.ownerID,
-				idleTimeout:         10 * time.Minute,
+				namespace:    "default",
+				name:         "claim-owner-test",
+				warmPoolName: "my-ci",
+				sessionID:    "session-claim-owner",
+				ownerID:      tt.ownerID,
+				idleTimeout:  10 * time.Minute,
 			}
 			claim := buildSandboxClaimObject(params)
 
