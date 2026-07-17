@@ -259,3 +259,102 @@ check your internet connection or https://githubstatus.com
 结论：本次没有可无冲突认领的新 issue。#434 证明“无 assignee”不是充分条件；社区扫描必须同时搜索 `Fixes #N`、issue URL、同主题 title/head branch 和 cross-reference。
 
 > 注释：freshness scan 是只读任务发现机制，不授权自动 `/assign`、评论或请求 reviewer。任何 upstream-facing 动作仍需用户确认 exact target/text。
+
+## 2026-07-17：最近 issue / PR 的问题发现来源复盘
+
+本轮问题不是“最近还有哪个 open issue 可以抢”，而是更基础的能力缺口：如果 mentor 没有直接给出特性，如何自己从仓库运行和工程合同里发现值得做的工作。
+
+先说明证据边界：公开记录能证明作者看到了什么代码、给了什么复现、issue 与 PR 相隔多久，以及 maintainer 后续怎样校准方案；通常不能证明作者私下到底运行了哪条搜索命令。因此下文把 issue 正文、PR、review 和源码称为**事实**，把“最可能的问题发现路径”明确称为**重建或推断**。
+
+> 分析：成熟贡献者通常也不是坐在那里“想一个功能”。他们站在一条具体表面上，例如失败的 CI、可运行示例、SDK 字段、缓存、两条平行创建路径或刚合并 PR 的遗留范围，然后寻找“承诺与真实行为不一致”的地方。
+
+### 案例总表
+
+| 案例 | 公开事实 | 最可信的问题来源重建 | 我们可复制的探针 |
+| --- | --- | --- | --- |
+| [#438](https://github.com/volcano-sh/agentcube/issues/438) agent-sandbox v0.5.2+ | #387 明确把 v0.5.x / v1beta1 migration 留作独立 follow-up；#387 合并约 25 分钟后 maintainer 创建 #438，并直接引用 migration guide 与 warm-claim upgrade fix | 合并 PR 的 scope boundary + 上游 release 监听 | 每次 PR 合并后提取 `follow-up`、版本 pin、non-goal、review 遗留和 migration 缺口；依赖正式发布时重新触发 |
+| [#434](https://github.com/volcano-sh/agentcube/issues/434) cloud build | `_build_cloud` 有显式 TODO，实际回退 local；设计文档也写 placeholder；同作者 7 分钟后开 #435 | TODO / placeholder + 文档和代码承诺不一致 | `rg 'TODO|FIXME|placeholder|not implemented|falling back'`，再证明路径真实可选、不是死代码 |
+| [#432](https://github.com/volcano-sh/agentcube/issues/432) chart auth | 二进制有 `--enable-auth`，Helm 没传，middleware 在 false 时跳过；同作者 22 分钟后开 #433 | flag/default -> Helm -> middleware -> RBAC 的跨层配置审计 | 给 auth、TLS、RBAC、timeout、feature gate 建 flag/values/template/runtime/permission 矩阵 |
+| [#430](https://github.com/volcano-sh/agentcube/issues/430) control-plane decoupling | issue 把一次 session 创建拆成 CR -> reconcile -> Pod -> scheduler -> kubelet -> pull -> microVM，并讨论短生命周期 burst 下的 etcd 写入、idle 浪费和容量耦合 | 对热路径做目标规模乘法，而非从某个小 bug 外推 | 数 API call、持久对象、controller hop、调度与 status write，再乘 burst/QPS/生命周期；先区分架构假设和实测瓶颈 |
+| [#419](https://github.com/volcano-sh/agentcube/issues/419) multi-arch build | #416 修通后继续观察到 image step `1487.1s`、arm64 Go build `1291.4s`；单变量 A/B 得到总时间 `1588s -> 308s` | 在“功能成功”之后继续看二阶指标，定位 CI 长尾 | 每次 workflow 记录 top-3 step duration；画 host/build/target platform 矩阵并做单变量 A/B |
+| [#417](https://github.com/volcano-sh/agentcube/issues/417) Helm `latest` | 主干 run 明确报 `chart.metadata.version "latest" is invalid`；同一 `TAG` 同时流向 Docker tag 与 Helm SemVer | 从主干红灯沿 workflow 变量扇出追到两个不兼容合同 | 对一个变量列出所有消费者，检查格式、唯一性、可变性；覆盖 branch/tag/PR event 矩阵 |
+| [#401](https://github.com/volcano-sh/agentcube/issues/401) Codegen false pass | #393 才暴露 #367 引入的多余 `go.sum`；#367 的绿色 job 只有 5 秒，关键步骤实际 skipped；path filter 漏了 `go.mod/go.sum` | 审计“绿色 CI 是否真的执行”，并追命令的依赖闭包 | 不只看 conclusion；检查 step execution、异常短耗时、path filters，以及 `make gen-check` 实际读写哪些文件 |
+| [#406](https://github.com/volcano-sh/agentcube/issues/406) token cache | cache key 只有 namespace + service account，但 cached client 固化首次 bearer token；同 key 换 token 仍复用旧 client | cache identity 没覆盖可变安全输入 | 对每个 cache 列 key、value 固化字段、expiry、invalidation；保持 key 不变轮换 token/config/permission |
+| [#397](https://github.com/volcano-sh/agentcube/issues/397) authMode default | CRD/default 为 `picod`；direct path 用 `== picod`，warm path 用 `!= none`；作者在 PR 讨论中说检查两条 auth path 时发现 | 平行路径行为不一致 + default/zero-value 边界 | 对 absent、zero、explicit default、non-default 做矩阵，并横向比较 direct/warm、SDK/controller |
+| [#395](https://github.com/volcano-sh/agentcube/issues/395) AgentRuntime delete | AgentRuntime SDK 能 create，但 `close()` 只关本地连接；CodeInterpreter 已有 server-side `stop()`；后端 delete route 已存在 | 同类组件的生命周期不对称 | 建 create/attach/invoke/close/stop/delete/context-exit 矩阵，区分 owned 与 attached resource |
+| [#394](https://github.com/volcano-sh/agentcube/issues/394) SDK TTL | SDK 发送 `ttl=60`，Go DTO 无此字段，Gin 丢弃；真实集群 Redis expiry 仍约 8h | 实际使用产品 + producer/consumer 字段链断裂 | SDK 参数 -> JSON -> DTO -> builder -> Store/status 全链追踪，用明显区别默认值的 sentinel 验证 |
+| [#388](https://github.com/volcano-sh/agentcube/issues/388) Router prefix | Router 遇到第一个 `HasPrefix` 就返回；`/`、`/api` 顺序影响 `/api/foo`，`/api2` 也误匹配 | 阅读选择算法时检查顺序、重叠和边界 | 测输入顺序置换、最长匹配、精确边界、相邻字符串、根/空值和 tie |
+| [#436](https://github.com/volcano-sh/agentcube/pull/436) macOS path test | maintainer 在 Darwin arm64 上运行 focused test；`/var` canonicalize 为 `/private/var`，生产代码不需修改 | 换一个受支持 OS 运行测试，发现测试假设而非产品 bug | 对 path、权限、shell、line ending、architecture 做跨平台 focused test；保留 before/after 真实输出 |
+| [#437](https://github.com/volcano-sh/agentcube/pull/437) runnable examples | maintainer 实际运行 AgentRuntime / PCAP examples，发现缺 echo server/health probe、Router service address 错；无独立 issue | 把自己当首次用户，严格执行仓库示例 | 从 clean environment 逐步执行 README；核对 manifest、Service DNS、probe、payload、response、404 和 cleanup |
+
+### 这些案例不是同一种“想到”
+
+可以把来源压成五组：
+
+1. **真实运行信号**：#394、#417、#436、#437 从集群、CI、跨平台测试或示例运行直接得到异常。
+2. **合同对照**：#397、#395、#406、#432 分别来自平行路径、生命周期、缓存和配置链的合同不一致。
+3. **边界输入**：#388 不需要线上事故，读到 first-match 算法后系统测试顺序和 prefix boundary 就能发现。
+4. **二阶观察**：#419 的 workflow 已经成功，但步骤耗时暴露了下一项高价值优化。
+5. **规划与版本演进**：#430 把当前热路径代入未来规模；#438 从已合并 PR 的明确 non-goal 和上游 release 形成自然 follow-up。
+
+这解释了为什么只刷新 issue 列表很难主动发现工作：issue 列表展示的是别人已经完成问题发现后的结果，不展示他们站在哪条代码/运行表面上观察。
+
+> 注释：所谓“合同”，不是只指 API 文档。默认值、缓存失效条件、Helm flag、SDK close 行为、CI path filter、artifact version 格式和 controller ownership 都是工程合同。
+
+### 两个必须学习的反例
+
+#### #432：发现 gap 正确，不代表直接修法正确
+
+#432 的静态观察成立：WorkloadManager 有 auth middleware，而 chart 没传 enable flag。但 maintainer 在 #433 指出，当前 `EnableAuth` 同时耦合 caller authentication 与 credential delegation；直接打开后会立即改变 Router 使用调用者 token 操作 Kubernetes 的权限模型。
+
+因此 #433 最终关闭，等待 auth/RBAC contract 先定义清楚。
+
+可复用结论：从配置缺口发现候选后，必须继续问“谁的身份、谁的权限、谁拥有下游对象”。安全开关不是简单 bool wiring。
+
+#### #397：源码差异正确，生产可达性仍要证明
+
+#397 发现 direct 与 warm path 对 empty `authMode` 行为不同，这是可信的源码不一致。但 Kubernetes API admission 正常可能已经应用 CRD default，因此 empty value 在真实生产路径是否可达，需要继续验证 unstructured/client/create/update 等 producer。
+
+可复用结论：单测构造 zero value 可以证明条件行为，却不能自动证明线上一定触发。issue 标题、严重度和 blocking 判断仍需通过 production reachability gate。
+
+### 我们今后的固定发现闭环
+
+以后不再以“有没有新的空闲 issue”为起点，而按以下顺序执行：
+
+1. 刷新最近创建/更新的 issue、PR 和 default-branch Actions，交叉 assignee、`/assign`、same-topic PR、cross-reference 和 maintainer blocker。
+2. 每轮只选择一个真实表面：失败/虚假绿色 CI、示例、公共字段、生命周期、cache、Helm 配置、算法、刚合并 PR 或依赖 release。
+3. 保存最初 observation：命令、输入、日志、耗时、response 或明确源码不变量。
+4. 贯穿 producer -> transport/type -> consumer -> state owner -> cleanup，并对照同类平行路径。
+5. 检查 admission/default、验证、锁、retry/resync/restart/self-heal，判断 observed、reachable latent 还是 hypothetical。
+6. 搜索 issue、PR、branch、commit、discussion 和 umbrella ownership；无 assignee 仍不等于无人做。
+7. 再决定产物：bug、enhancement、discussion，或给已有作者补 reproduction/test/review evidence。
+8. 将第一项改动压到可独立 review/test 的边界，并写出 compatibility、non-goal 与残余 follow-up。
+
+对应 discovery card 已固化到 `.agents/skills/agentcube-issue-discussion/references/issue-discovery.md`。今后每次推荐新任务前先填：
+
+```text
+surface / observable trigger / actual behavior / expected contract
+producer -> type -> consumer -> owner / reachability / recovery
+decisive evidence / duplicate and ownership search
+artifact class / smallest change / tests / compatibility / unknowns
+```
+
+### 对当前仓库的实际判断
+
+截至本轮扫描，最近显眼的实现点大多已经有 owner：#438 assigned，#434 已有 #435，#430 已有 #431，#395 已有 #426；#432/#433 还卡在权限模型，不适合复活旧解法。因此现在强行再找一个“空 issue”会降低质量。
+
+下一轮最合理的主动探索不是继续翻 issue 标题，而是执行以下三个互不冲突的本地 investigation：
+
+1. **剩余 runnable examples clean-run audit**：#437 已覆盖 AgentRuntime 与 PCAP，继续选择一个未覆盖示例，严格按 README 从 manifest 到 invoke/cleanup 跑通；只有得到具体 mismatch 才形成候选。
+2. **公共请求字段传播矩阵**：从 SDK/CLI 的 session create 参数出发，逐字段对照 Go DTO、builder、Store/status，优先检查 default 值和 direct/warm 两条路径。
+3. **default-branch CI truth audit**：查看最近绿色 job 的关键步骤是否执行、耗时是否异常短，以及 workflow command 的 path-filter 依赖闭包；不要先假设存在 bug。
+
+这三个方向的共同停止条件是：如果没有 decisive evidence、路径不可达、已有 owner，或需要 maintainer 先决定产品/安全合同，就不发 issue。没有新 issue 也是一次有效筛选结果。
+
+### 本轮工具阻塞与修正
+
+第一次批量读取 issue 时，给 `gh issue view --json` 传了不受支持的 `closedByPullRequestsReferences` 字段，命令返回 available fields 列表并全部失败。
+
+修正方式：改用受支持的 `number,title,body,author,createdAt,state,comments,assignees,url` 字段读取 issue，再单独查询 PR 与时间线关系。没有把第一次空结果误判为“issue 无关联 PR”。
+
+> 分析：工具查询失败与社区没有数据是两回事。任务发现流程也要保留查询完整性，不能用失败或不完整的搜索结果证明不存在 owner、PR 或历史修复。

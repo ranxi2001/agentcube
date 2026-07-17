@@ -2,10 +2,11 @@
 name: agentcube-issue-discussion
 description: >-
   Use when working with AgentCube GitHub issues, discussions, proposals, or
-  issue comments: fetch full issue/PR conversation context, summarize community
-  discussion in Chinese, draft concise English issues and replies, cross-link
-  related issues/PRs, and prepare benchmark/proposal comments that follow
-  AgentCube community format.
+  issue comments, or scouting non-duplicate contribution opportunities: fetch
+  full issue/PR conversation context, reconstruct evidence-backed problem
+  discovery paths, summarize community discussion in Chinese, draft concise
+  English issues and replies, cross-link related issues/PRs, and prepare
+  benchmark/proposal comments that follow AgentCube community format.
 ---
 
 # AgentCube Issue Discussion Skill
@@ -21,20 +22,22 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
 - Search for related issues/PRs before proposing a new direction.
 - Do not invent maintainer consensus; distinguish explicit maintainer comments from inference.
 - For formal design/proposal PR review, read `references/proposal-review.md` before drafting comments.
+- When looking for new issue/PR work, read `references/issue-discovery.md` and run its evidence-first discovery loop before proposing or claiming a task.
 - Treat reviewer-facing text as an index to evidence, not a copy of the internship report. Read `references/concise-issue-writing.md` before drafting a new issue or non-trivial comment.
 - When learning from a contributor's public writing history, compare multiple artifact types and read `references/concise-issue-writing.md` for the evidence/limitation gate; do not turn one person's template usage into a repository rule.
 - Do not post an issue, comment, `/assign`, reviewer request, or maintainer mention without explicit user approval of the exact text and target.
 
 ## Workflow
 
-1. Identify target issue/PR numbers and related links.
-2. Fetch compact thread context first:
+1. If no target exists yet, use `references/issue-discovery.md` to produce a local discovery card and pass its evidence, reachability, ownership, and scope gates.
+2. Identify target issue/PR numbers and related links.
+3. Fetch compact thread context first:
    - issue/PR title, body, state, labels, assignees
    - `/assign` comments and current `PR 认领 @` owner
    - issue comments
    - if PR: review comments, changed files, commits
-3. Fetch full JSON only when the compact brief is insufficient for quoting, code review, or exact timeline checks.
-4. Extract:
+4. Fetch full JSON only when the compact brief is insufficient for quoting, code review, or exact timeline checks.
+5. Extract:
    - problem statement
    - proposed solutions
    - participant roles and comment weight
@@ -42,13 +45,13 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
    - open questions
    - blocked/duplicate/conflicting work
    - related issue/PR graph
-5. For every bug claim, classify production reachability before choosing a bug title, label, severity, or definitive wording.
-6. If an issue has an active assignee or linked open PR, recommend review/testing feedback instead of duplicate implementation.
-7. Produce Chinese internal summary first when the user is planning or discussing.
-8. Produce English upstream comment only when asked to draft or post.
-9. Run the concise-first publishing gate below before presenting exact text for approval.
-10. Include cross-links using GitHub `#123` references and short context.
-11. If the same issue/PR analysis requires repeated API calls, version matrices, log extraction, or manual filtering, add or improve a script under this skill before the next similar run.
+6. For every bug claim, classify production reachability before choosing a bug title, label, severity, or definitive wording.
+7. If an issue has an active assignee or linked open PR, recommend review/testing feedback instead of duplicate implementation.
+8. Produce Chinese internal summary first when the user is planning or discussing.
+9. Produce English upstream comment only when asked to draft or post.
+10. Run the concise-first publishing gate below before presenting exact text for approval.
+11. Include cross-links using GitHub `#123` references and short context.
+12. If the same issue/PR analysis requires repeated API calls, version matrices, log extraction, or manual filtering, add or improve a script under this skill before the next similar run.
 
 ## Bug Reachability Gate
 
