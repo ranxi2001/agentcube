@@ -513,3 +513,254 @@ Recorder injection -> event policy -> core events RBAC -> live persistence
 它解决的是一个真实而清晰的观测缺口：AgentCube 的用户资源可以显示 Ready，而为其提供低延迟能力的 warm pool 已经没有足够 ready sandbox。Condition、Event 和 owned-resource watch 能把这个缺口从多组件日志排查变成父资源状态。
 
 但后续版本不能只做 alpha -> beta import 替换。必须同时解决 Event RBAC、watch 的真实证据、`Ready` 与 `WarmPoolAvailable` 的关系、50% threshold 合同、依赖状态 freshness，以及 E2E 默认 skip。等 #438 的 v0.5.2 基线稳定后一次完成这些工作，比现在连续 rebase 两次更小、更清晰，也更容易获得有效 review。
+
+## 14. 当日晚间变化：#438 已出现实现 PR #442
+
+前一轮社区扫描冻结时，#438 只有 assignee，没有公开实现 PR。`2026-07-17 18:13 CST`，`@safiya2610` 创建了 [PR #442](https://github.com/volcano-sh/agentcube/pull/442)，开始升级 agent-sandbox v0.5.2 和 v1beta1 API。
+
+这改变了 #385 的执行策略：
+
+- 不能继续假设“等待中的 beta baseline 不存在”；
+- 也不能因为 #442 已出现，就直接把 #385 旧提交 rebase 到它的高速变化 head；
+- 应先冻结 exact head，在独立已验证 baseline 上完成 feature patch，再等待 #442 稳定或合并后只移植 feature commit。
+
+本轮先冻结了两个 #442 head：
+
+| 时间 | exact head | 状态 |
+| --- | --- | --- |
+| 开始实现时 | `f6487b25d45029fb134eef6cfaafb6b7a2e8613e` | 7 commits；DCO、build、codegen 和 E2E 仍有失败 |
+| 完成本地 E2E 后 | `396e0e9b3253975f1b1a78ef7c5d01221b84ee2a` | 10 commits；build/lint/coverage/两个 E2E job 已绿，DCO 与 Codegen Check 仍失败 |
+
+#442 的 3 个文件与 #385 全部重叠：
+
+- `cmd/workload-manager/main.go`；
+- `pkg/workloadmanager/codeinterpreter_controller.go`；
+- `pkg/workloadmanager/codeinterpreter_controller_test.go`。
+
+> 分析：这里的“重叠”不是说两个 PR 功能重复。#442 负责依赖/API baseline，#385 负责把 child WarmPool health 投影到 parent CodeInterpreter。它们的职责不同，但修改落点相同，因此 Git 冲突概率高。
+
+## 15. 本地修复策略与分支门禁
+
+没有直接修改旧 #385 branch，也没有读取 assignee 的私人分支。实现基于此前 blind adapter 的已验证 commit：
+
+```text
+upstream/main@146b75f
+  -> d70ab94  Go/Kubernetes prerequisite
+  -> 2d90b07  agent-sandbox v0.5.2/v1beta1 adapter
+  -> bc89af4  PR #385 feature repair
+```
+
+本地 worktree 和 branch：
+
+```text
+/tmp/agentcube-pr385-v052-validation
+fix/pr385-v052-validation
+```
+
+feature commit：
+
+```text
+bc89af44e3e8d8ca4cdc0f158a0d755fbdc451ff
+feat: expose codeinterpreter warm pool health
+Signed-off-by: ranxi2001 <ranxi169@163.com>
+```
+
+这个 commit 只包含 6 个 feature 文件，但整个 branch 相对 `upstream/main` 是 28 files、3 commits。因此当前 branch 只能作为验证载体，不能直接 force-push 到 #385。
+
+> 注释：feature commit 是可移植单元；branch 不是可发布单元。把两者混为一谈，会把 v0.5.2 adapter 的 27 个文件一起塞进原本只做 observability 的 #385。
+
+## 16. 六文件职责矩阵
+
+| 文件 | 修改原因 | 不属于它的职责 |
+| --- | --- | --- |
+| `cmd/workload-manager/main.go` | 注入 modern Event recorder | 不决定何时告警 |
+| `codeinterpreter_controller.go` | 计算 condition、去重 Event、监听 owned WarmPool | 不修复 warm pool 本身 |
+| `workloadmanager.yaml` | 给生产 ServiceAccount 增加 Event write 权限 | 不扩大 Pod 写权限 |
+| `codeinterpreter_controller_test.go` | 覆盖 threshold、错误、去重、恢复和 status-before-event | 不冒充真实 manager watch |
+| `test/e2e/e2e_test.go` | 在真实 child ready 后等待 parent condition | 不强行制造不稳定的 pool degradation |
+| `test/e2e/run_e2e.sh` | 部署后验证 Event create/patch 权限 | 不把 SAR 当作 Event persistence 证据 |
+
+实现继续保留 #387 的两个关键语义：
+
+1. 新建 `SandboxTemplate` 时设置 `NetworkPolicyManagementUnmanaged`；
+2. 已有 template 不是 Unmanaged 时进行纠偏更新。
+
+同时适配 v1beta1 的 `SandboxWarmPoolSpec.Replicas *int32`，没有把旧 v1alpha1 value field 写法搬回来。
+
+## 17. Event API 选择：不再搬弃用 recorder
+
+旧 #385 使用：
+
+```text
+mgr.GetEventRecorderFor
+k8s.io/client-go/tools/record.EventRecorder
+core/v1 events RBAC
+```
+
+v0.5.2 baseline 已使用 controller-runtime v0.24.1。当前实现改为：
+
+```text
+mgr.GetEventRecorder
+k8s.io/client-go/tools/events.EventRecorder
+events.k8s.io/v1 events RBAC
+```
+
+最小权限为：
+
+```yaml
+- apiGroups: ["events.k8s.io"]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+```
+
+没有把 Event verbs 合并进 Pod rule，也没有同时授权 core Events 和 events.k8s.io 两套 API。
+
+> 注释：modern recorder 的 singleton Event 首次走 Create；同一 series 后续更新走 Patch。因此只给 `create, patch`，不需要为了方便增加 list/watch/delete。
+
+## 18. 实现时额外发现的边界 bug
+
+旧 #385 用下面公式计算 50% low watermark：
+
+```go
+(desired + 1) / 2
+```
+
+当合法 int32 输入为 `math.MaxInt32` 时，`desired + 1` 溢出为负数，可能把只有 1 个 ready replica 的巨大 pool 误判为 healthy。
+
+修复后使用：
+
+```go
+desired/2 + desired%2
+```
+
+它仍表示 `ceil(desired / 2)`，但不会先做可能溢出的加法。单测明确断言最大 int32 的 watermark 为 `1073741824`。
+
+> 分析：这不是为了追求理论边界而扩大 CRD scope。当前 CRD 只有 int32 format，没有 Maximum；既然 API 接受该值，controller 的整数运算就不能静默溢出。
+
+## 19. 测试真实性调整
+
+原 #385 新增约 498 行 test，但 recovery test 在修改 child status 后手工第二次调用 `Reconcile`。它只能证明 reconcile logic，不能证明 `.Owns(&SandboxWarmPool{})` wiring。
+
+本轮保留 fake-client 层的职责：
+
+- disabled / not found / empty / below watermark / ready；
+- odd desired count 的 ceil threshold；
+- `math.MaxInt32` 无溢出；
+- child GET error 向上传递；
+- Empty 和 BelowWatermark 才发 Warning；
+- NotFound 不发 transient Warning；
+- status 写成功后才发 Event；
+- status 写失败不发 Event；
+- generation 变化但 degradation reason 不变时不重复告警；
+- pool recovery 后 condition 变 True 且不发 Warning；
+- unchanged status 确实没有调用 status writer。
+
+真实 manager 链路放进现有 `TestCodeInterpreterWarmPool`：
+
+```text
+SandboxWarmPool ReadyReplicas changes
+  -> Owns watch
+  -> CodeInterpreter enqueue
+  -> WarmPoolAvailable=True / WarmPoolReady
+  -> ObservedGeneration == parent Generation
+```
+
+独立非 mTLS matrix 已设置 `E2E_REQUIRE_CODEINTERPRETER=true`，所以目标用例不能因 mTLS 静默 skip。
+
+> 分析：这个 E2E 对 watch 有强证据，但不是形式化证明。它没有先强制观察 False 再手工制造一次 child status-only transition；理论上偶发 parent reconcile 也可能更新 condition。当前没有引入 envtest 基建，真实 Pod readiness 又不可能在首次 API reconcile 内同步完成，因此该证据对本 PR 已足够，但 PR 文案不能夸大成严格 causal proof。
+
+## 20. 验证结果
+
+### 20.1 静态与单元验证
+
+以下均通过：
+
+- `go test` 全部非 E2E Go packages；
+- focused workloadmanager tests，关键用例 `-count=100`；
+- focused race tests，关键用例 `-count=5`；
+- `go test -race ./pkg/workloadmanager`；
+- `go vet ./...`；
+- `make lint`；
+- `make build-all`；
+- `make fmt-check`；
+- `make helm-template`；
+- `make helm-lint`；
+- `bash -n test/e2e/run_e2e.sh`；
+- `git diff --check`；
+- commit 后 `make gen-check`。
+
+本地 workloadmanager package coverage 为 `61.1%`。新增 condition calculator 和 Event policy helper 均为 `100%` statement coverage；真实 `SetupWithManager` wiring 由 E2E 而不是 fake coverage 证明。
+
+### 20.2 完整 v0.5.2 runtime E2E
+
+环境：独立 kind cluster `agentcube-e2e-pr385`，`MTLS_ENABLED=false`，`E2E_REQUIRE_CODEINTERPRETER=true`。
+
+关键结果：
+
+| 验证 | 结果 |
+| --- | --- |
+| 4 个 agent-sandbox CRD storage version | 全部 `v1beta1` |
+| WorkloadManager Event RBAC SAR | events.k8s.io `create=yes`, `patch=yes` |
+| `TestCodeInterpreterWarmPool` | PASS，包含新 parent condition 断言 |
+| WarmPool load | 100/100 success |
+| Basic invocation load | 20/20 success |
+| Go E2E suite | PASS，`280.939s` |
+| Python CodeInterpreter | 3/3 PASS |
+| LangChain sandbox | 4/4 PASS |
+| MCP local HTTP | 5/5 PASS |
+| MCP stdio | 1/1 PASS |
+| MCP in-cluster Pod | 1/1 PASS |
+
+测试结束后删除专用 kind cluster，8080、8081、19446 均无残留 listener。
+
+## 21. 失败过程与根因
+
+### 21.1 多架构镜像导入失败
+
+`kind load docker-image` 对 agent-sandbox controller、Python 和 Redis 镜像出现：
+
+```text
+ctr: content digest ... not found
+```
+
+这是当前 Docker containerd image store 导出 multi-platform image 的已知环境限制。E2E script 已明确允许该步骤失败，kind node 随后从 registry 拉取镜像；controller、Redis 和所有测试正常运行。
+
+处理方式不是修改产品代码，而是保留 warning、观察实际 Pod rollout，并以最终 runtime 结果校准。
+
+### 21.2 第一次 `make gen-check` 返回 2
+
+第一次在未提交 feature diff 上运行 `make gen-check`，生成命令完成后执行：
+
+```text
+git diff --exit-code
+```
+
+它把本轮 6 个预期修改也当成 dirty diff，因此返回 2。检查 `git status` 后确认没有新增 CRD、client-go、go.mod 或 go.sum diff。
+
+feature commit 完成后，在 clean worktree 再跑同一命令，`git diff --exit-code` 通过。
+
+> 注释：第一次失败不是 codegen 回归，但也不能直接忽略退出码。必须先比较生成前后文件集合，再在 clean commit 上复验。
+
+## 22. 仍然没有宣称的证据
+
+本轮没有在 live E2E 中查询并断言某一条 Warning Event 已持久化。现有证据拆成两层：
+
+1. FakeRecorder 证明 Empty/BelowWatermark policy、去重和 status-before-event 顺序；
+2. live SAR 证明部署身份拥有 events.k8s.io create/patch。
+
+这比旧 PR 完全漏 RBAC 更完整，但仍不等于直接观察 Event object。为了制造 deterministic degradation 而引入坏镜像、状态写竞争或额外 envtest 基建，会明显扩大 scope 和 flake 风险，因此当前不做。
+
+同样，v0.5.2 `SandboxWarmPoolStatus` 仍没有 child `ObservedGeneration`。父 condition 的 ObservedGeneration 只表示“controller 按当前 CodeInterpreter generation 重算”，不能证明 `ReadyReplicas` 一定对应最新 child spec。
+
+## 23. 当前最终判断
+
+功能修复已经在已知绿色 v0.5.2 baseline 上完成，代码和测试没有发现阻塞问题；但 #385 仍不能现在更新。
+
+唯一阻塞是 scope / base gate，而不是功能不完整：
+
+- #442 是 active assignee 的 v0.5.2 实现；
+- #442 仍在变化，当前 DCO 和 Codegen Check 未绿；
+- 本地 validation branch 包含 27 个额外 adapter 文件；
+- 直接 push 会重复 #442 并扩大 #385。
+
+下一步停止条件明确为：等待 #442 稳定并进入 upstream main，然后从最新 `upstream/main` 创建 clean topic branch，只移植 `bc89af4` 的 6-file feature semantics，重新做 range-diff 和目标 E2E，再让用户确认 exact force-with-lease update 与 PR body。
