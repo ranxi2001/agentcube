@@ -4,6 +4,8 @@
 
 状态：#387 两项 follow-up 已完成源码审计；Claim polling 暂不改 watch；Pod label fallback cleanup 已在独立分支实现并通过验证，但不是 correctness hotfix。RainbowMango OWNERS 变更已按用户确认创建 upstream [PR #439](https://github.com/volcano-sh/agentcube/pull/439)；cleanup PR 仍未创建。公开记录验证后，OWNERS 变更按 formalize existing responsibilities 处理，不再要求新建 membership issue。
 
+> 后续处理结论（2026-07-17）：#387 不再追加独立 correctness fix，主线直接进入 agent-sandbox v0.5.2 / v1beta1 升级，在该升级任务中完成 API compatibility、存量迁移、direct / warm-pool lifecycle 与 E2E 验证。这里的“在后续升级处理”不表示 v0.5.2 会自动删除 Pod label fallback 或把 Claim polling 改成 watch：前者仍是独立低优先级 cleanup，后者在没有规模证据前继续保留。
+
 ## 今日目标
 
 1. 复核 #387 合并后的两个次要观察，区分 correctness bug、可维护性 cleanup 与没有规模证据的架构优化。
@@ -15,6 +17,7 @@
 
 ## 一句话结论
 
+- #387 后续不再单独开 correctness hotfix；升级相关问题统一在 agent-sandbox v0.5.2 / v1beta1 适配中解决和验证，两个次要观察按各自边界处理。
 - #387 当前没有需要立即修复的生产 bug。
 - Claim 路径的 1 秒 polling 在并发慢创建时约产生 `1N-2N GET/s`，但现有实现有完整 timeout、取消和错误分类；没有实际 QPS / throttling 证据前，不值得直接换成双资源 watch。
 - `GetSandboxPodIP` 的 label-selector fallback 在受支持 Ready producer 中不会被使用；清理它还能移除全集群 Pod informer 与 `list/watch` RBAC，因此有独立 cleanup 价值，但不应包装成 #387 bugfix。
