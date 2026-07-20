@@ -38,7 +38,7 @@
 - PR #387 visuals：Day30 canonical Mermaid 精确比较 `3de1272d` / v0.1.1 与 `95fae1f8` / v0.4.6，按 7 组同编号节点横向标明差异；另用 gpt-image-2 生成 `1672x941` changes 信息图，覆盖依赖、池化、身份、readiness/Store、生命周期/验证与 scope boundary。两张 PNG 均完成原图视觉检查，Mermaid/源码仍是精确真源。
 - Day47 OpenSandbox refresh：基于官方 159 个 component releases、2026-06-16 至 07-15 的 116 个 merged PR 和最近 50 个非机器人语义样本完成报告。主线是 execd isolated session/bwrap、client pool 生命周期、安全/Credential Vault/multi-tenancy、K8s 运维、OTel 与 release governance；server/controller 正式版明显落后 main，必须区分 shipped 与 merged。详见 `internship-reports/day47-opensandbox-releases-and-merged-pr-trends.md`。
 - Day49 career benchmark：以 FAUST-BENCHOU 最后一笔 AgentCube authored PR 于 2026-06-01 合并为公开代理切点，排除个人 fork 与 Actordock 自合并后，后续 31 个成熟第三方 PR 中 24 merged；高信号不是总量，而是 vLLM Rust protocol、OpenSandbox multi-SDK telemetry、Semantic Router committer/directory owner、Kthena controller follow-through 和被上游采用的 simulator。报告已把本人的 #387、#420、#400 review、CI/release 与 #431 judgment 压成 5 张秋招 story card，并新增经原图检查通过的 `941x1672` 分区海报与 prompt；跨项目活跃不证明其放弃 #386 ownership。
-- Weekly report workflow：`internship-reports/week6-summary.md` 已按 2026-07-13 至 07-17 汇总 AgentCube/Karmada/通用工具结果；“收获与分享”已改为“CI 绿不等于测到目标、2 分钟 timer 不等于停止请求、偶发失败不能只重跑”三条可读结论，既保留关键技术对象也解释实际含义。private repo 已重渲染并通过内容/布局/隐私/skill 校验和 44 tests；未授权发送。
+- Weekly report workflow：private repo 的 `write-weekly-report-email` 已明确五板块合同：本月目标=项目结果，本周进展=状态/证据/价值，收获=事件/关键对象/白话含义/后续规则，问题=待决策选项，计划=可验收结果。validator 新增悬空时长、底层术语堆叠、伪问题和无验收计划门禁；`2 分钟计时` 失败、`2 分钟 timer` 通过，Week5/6 strict validation 与 50 tests 全绿。邮件未授权发送。
 
 ## Active Upstream Threads
 
