@@ -42,6 +42,8 @@ For community work in weekly reports, `已完成/进行中` reflects the reporte
 
 In manager-facing weekly reports, PR and Issue numbers are locators, not task names. Every `#number` must appear with the repository and a concrete feature, component, bug, or proposal topic in the same row; never require the reader to open a bare ID to understand the plan.
 
+Manager-facing technical learnings must identify where the behavior lives and which operation it affects. Name the project, component/resource path, and operation instead of starting with ownerless phrases such as `代码里`, `逻辑里`, or `系统中`.
+
 Do not be stingy with explanatory notes in internship reports, design notes, architecture studies, and review-prep documents. When a report introduces abstract concepts, cross-project terms, protocols, Kubernetes resources, state machines, control-plane/data-plane boundaries, security terms, or engineering inferences, add short Markdown blockquotes such as `> 注释：...` and `> 分析：...` near the relevant paragraph or table. These notes should make the document readable to a future reviewer who has not held the whole conversation in context. This rule is for learning/report documents; code comments should still remain precise and necessary.
 
 For daily reports and review retrospectives, do not create a new day file for the same topic too early. If the topic is still the same investigation or review thread, continue the existing report until it has at least 600 lines before considering a new file. Prefer one substantial, coherent report over many thin fragments.

@@ -31,7 +31,7 @@
 
 #387 原 CI 使用旧版 agent-sandbox 并跳过关键 E2E 用例，CI 通过不代表新版适配已验证。修正后，新版沙箱的创建、调用和回收流程才得到实际验证。以后检查 CI，还要确认测试版本、关键用例和实际结果。
 
-代码里设置了 2 分钟 timer，并不代表卡住的网络请求会自动停止。本周复现到 #387 的创建请求在 2 分 2 秒后仍返回成功；修复后，timer 到期会真正取消请求。以后检查 timer 逻辑，不能只看它是否触发，还要验证网络请求是否真的停下。
+AgentCube WorkloadManager 创建基于 SandboxClaim 的 CodeInterpreter session 时，用 2 分钟 timer 等待 Sandbox ready。旧实现没有让 timer 取消读取 SandboxClaim/Sandbox 的 Kubernetes API GET，本周复现到 agent-sandbox 适配 PR #387 的创建请求在 2 分 2 秒后仍成功；修复后，timeout 会取消 GET 并拒绝迟到结果。以后检查 timeout，既要看计时是否到期，也要确认阻塞请求已经停止。
 
 Karmada 的偶发 E2E 失败来自状态变化没有触发控制器重新处理任务，不能只靠重跑或延长等待时间。本周提交了触发条件修复；以后先检查状态变化是否触发控制器重新处理。
 
