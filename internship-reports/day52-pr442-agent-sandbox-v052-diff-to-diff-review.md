@@ -337,3 +337,69 @@ GitHub exact head `a53441f` 的 12 个 checks 也全部 success，包括：
 3. `resolved` thread 不是修复证据；必须重新读 current head。
 4. 官方 migration guide 是 upgrade contract 的权威来源，项目文档只能摘要，不能删掉有顺序依赖的 phase。
 5. 独立实现对照的目标不是胜负，而是发现双方的非重叠优点：本例中 #442 更重视 toolchain alignment，我们更重视 scope 分层、focused contract tests 和 evidence boundary。
+
+## 12. Inline review 准备与独立反证
+
+2026-07-20 在用户要求开始准备 inline review 后，先重新冻结 current head：`a53441f23b0df0fdd01bccfc0a1c5d43cd921ed1` 未变化，12/12 checks 仍为 success，账号 `ranxi2001` 对 upstream repository 的 `viewerPermission` 为 `READ`。因此建议提交一个 `COMMENT` review，而不是把外部 contributor 的意见包装成有效 merge gate。
+
+### 12.1 migration finding 的收窄
+
+独立反证发现，原先“cold-start Claim 升级后都会卡在 `WarmPoolNotFound`”的表达过宽：
+
+- v0.5.2 controller 会先按 Claim status、legacy assigned name 和 Claim 同名 Sandbox 查找已有对象；
+- 已经存在且仍由 Claim 控制的同名 cold-start Sandbox 可以绕过缺失 WarmPool 的创建路径；
+- AgentCube 当前 Claim 没有 additional pod metadata 时，fast path 上模板查找失败还是 non-fatal。
+- 名为 `shadow-pool-<template>` 的 pool 也可能被用户预先创建，所以只能说本 PR 流程不会创建它，不能断言每个集群里都不存在。
+
+真正可证明且可达的失败窗口是：
+
+1. AgentCube v0.4.6 创建 `spec.warmpool` 为空的 v1alpha1 SandboxClaim；
+2. v0.4.6 在 warm pool 耗尽时允许 fall back to cold start；
+3. 在 Claim 尚未绑定 Sandbox 的 create/reconcile 窗口执行升级；
+4. v0.5.2 conversion 把该 Claim 映射到 `shadow-pool-<template>`；
+5. 如果升级前没执行 bootstrap，shadow pool 不存在；
+6. v0.5.2 controller 的 cold path 返回 `ErrWarmPoolNotFound` 并按一分钟 requeue；
+7. AgentCube 等待 Claim status 的 create 请求可以超时，随后 rollback Claim。
+
+> 分析：这是 source-proven reachable latent path，不是已观测事故，也不是“每个 cold-start Claim 都会失败”。inline comment 必须保留这个限定，否则会把官方 migration guide 的保守要求错误放大成无条件 runtime 结论。
+
+官方 guide 使用的 `dev/tools/migrate.sh` 是 agent-sandbox v0.5.2 source checkout 中的 wrapper；AgentCube repo 与 release manifest 都不携带可直接执行的 helper。面向 AgentCube operator 的升级文档必须说明如何获得 pinned helper，不能只贴一个在当前工作目录必然找不到的命令。
+
+### 12.2 GVR finding 的生成根因
+
+current head 的 AgentRuntime / CodeInterpreter informer 都生成了 `Group: "runtime"`。实际 group 是 `runtime.agentcube.volcano.sh`。仓库内目前没有调用 `WithInformerName`，所以默认 AgentCube binary 的 List/Watch 路由不受影响；但 PR 新增了 public `WithInformerName`，外部 client-go caller 可以真实进入错误 identity / metrics registration 路径。
+
+根因不在 generated Go file 本身：
+
+- informer-gen 从 package `Comments` 读取 `+groupName`；
+- gengo 只把 `doc.go` 的 comments 放进这个字段；
+- 本包没有 `doc.go`，marker 位于 `groupversion_info.go`；
+- 所以 `make gen-check` 会稳定重生 `runtime/v1alpha1`，不能靠手改 generated file 修复。
+
+已有 6 条 Copilot GVR root threads 都是 `resolved=true`、`outdated=true`，作者曾回复 `already solved`，但 current head 仍保留错误。新 human inline 应锚到 `hack/update-codegen.sh` 的 compatibility block，说明 generator source、公开 API reachability 和修复位置，避免在两个 generated file 上再复制 bot 文案。
+
+### 12.3 Exact upstream draft
+
+建议一次性创建 `COMMENT` review，summary 为：
+
+> The upgrade documentation omits the pre-upgrade bootstrap needed for reachable existing-Claim states, the E2E covers only a clean install, and the regenerated client has an informer identity issue; details are inline.
+
+Inline 1 target：`docs/getting-started.md:247`，`RIGHT`：
+
+> Applying v0.5.2 cannot be the first upgrade step for every existing v0.4.6 installation. For CodeInterpreters with `warmPoolSize > 0`, AgentCube v0.4.6 creates SandboxClaims with the upstream default warm-pool policy. If the pool is empty, v0.4.6 falls back to cold start; during the window before it has created or adopted a Sandbox, conversion maps the claim to `warmPoolRef.name=shadow-pool-<template>`. This procedure does not create that pool. When it is absent, v0.5.2 reports `WarmPoolNotFound` and requeues, so AgentCube's two-minute create wait can expire and enter the rollback path. This is source-proven reachability, not an observed outage or a failure of every cold-start claim.
+>
+> Could this section document the [official v0.5.2 flow](https://github.com/kubernetes-sigs/agent-sandbox/blob/v0.5.2/docs/api-migration-guide.md#phase-1---phasebootstrap-conditionally-mandatory-pre-upgrade), including the backup, how an AgentCube operator obtains the pinned migration helper, and `--phase=bootstrap` before this apply? It should then wait for controller/webhook readiness and describe the optional post-upgrade `--phase=migrate`.
+
+Inline 2 target：`test/e2e/run_e2e.sh:336`，`RIGHT`：
+
+> This setup installs only v0.5.2, so the green CodeInterpreter E2E does not exercise stored v1alpha1 objects or Issue #438's upgrade contract. Could we add a dedicated migration scenario using the v0.4.6 resource shape produced by AgentCube: install v0.4.6, create one default-policy claim and wait for warm adoption, capture its Sandbox/Pod UIDs, stop the old controller and create a second default-policy claim so it remains unbound, then run the pinned v0.5.2 helper through `bootstrap -> install -> webhook readiness -> migrate`? The test should verify that the UIDs are preserved, the unbound claim becomes Ready through the shadow pool, deleting the migrated warm claim garbage-collects its Sandbox/Pod, and the pool returns to its configured size after adoption. This fixture proves CRD/controller migration; retaining the stronger active-CodeInterpreter-session claim also requires old AgentCube plus persisted Redis and invoking/deleting the same session after upgrade, otherwise that claim should be narrowed.
+
+Inline 3 target：`hack/update-codegen.sh:80`，`RIGHT`：
+
+> The regenerated informers still identify both resources under `runtime/v1alpha1`, although their API group is `runtime.agentcube.volcano.sh`. No in-tree caller currently enables informer naming, but the newly exported `WithInformerName` makes this a reachable client-go contract: client-go passes the GVR to metrics providers and uses it for in-process informer identity registration. Regeneration preserves the error because gengo reads package-level `+groupName` metadata from `doc.go`, while this package keeps it in `groupversion_info.go`. Could we move the marker to `pkg/apis/runtime/v1alpha1/doc.go` and regenerate instead of patching generated files?
+
+`draft_metrics.py` 结果：summary 31 words / 1 nonblank line；Inline 1 为 138 / 2；Inline 2 为 146 / 1；Inline 3 为 81 / 1。reviewer-visible 总计 396 words / 5 nonblank lines，落在 compatibility/API review 的 200-450 words 软目标内。
+
+这三条都采用 observation -> concrete path -> impact -> requested action，并显式区分 observed 与 source-proven reachable。没有加入 Mermaid：每条只解释一个线性 prerequisite 或一个 metadata-to-generated-identity 因果链，短 prose 比 3-6 节点图更快理解。
+
+发布门禁：必须再次确认 PR head 仍为 `a53441f`，然后把上述 target、summary 和三条全文原样展示给用户；只有用户逐字批准后，才能调用 GitHub review API。当前未发布任何 upstream review/comment。
