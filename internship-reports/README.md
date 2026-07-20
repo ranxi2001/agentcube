@@ -67,3 +67,4 @@
 - [Day 49：跨项目贡献追踪与秋招成果对标](day49-faust-benchou-cross-project-contribution-tracking-and-career-benchmark.md)
 - [Day 50：agent-sandbox v0.5.2 独立适配](day50-agent-sandbox-v052-independent-adaptation.md)
 - [Day 51：社区动向与 PR #385 Warm Pool 健康状态回溯](day51-community-movement-and-pr385-warm-pool-health-retrospective.md)
+- [Day 52：PR #442 agent-sandbox v0.5.2 Diff-to-Diff Review](day52-pr442-agent-sandbox-v052-diff-to-diff-review.md)
