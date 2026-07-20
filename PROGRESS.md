@@ -39,7 +39,7 @@
 - PR #387 visuals：Day30 canonical Mermaid 精确比较 `3de1272d` / v0.1.1 与 `95fae1f8` / v0.4.6，按 7 组同编号节点横向标明差异；另用 gpt-image-2 生成 `1672x941` changes 信息图，覆盖依赖、池化、身份、readiness/Store、生命周期/验证与 scope boundary。两张 PNG 均完成原图视觉检查，Mermaid/源码仍是精确真源。
 - Day47 OpenSandbox refresh：基于官方 159 个 component releases、2026-06-16 至 07-15 的 116 个 merged PR 和最近 50 个非机器人语义样本完成报告。主线是 execd isolated session/bwrap、client pool 生命周期、安全/Credential Vault/multi-tenancy、K8s 运维、OTel 与 release governance；server/controller 正式版明显落后 main，必须区分 shipped 与 merged。详见 `internship-reports/day47-opensandbox-releases-and-merged-pr-trends.md`。
 - Day49 career benchmark：以 FAUST-BENCHOU 最后一笔 AgentCube authored PR 于 2026-06-01 合并为公开代理切点，排除个人 fork 与 Actordock 自合并后，后续 31 个成熟第三方 PR 中 24 merged；高信号不是总量，而是 vLLM Rust protocol、OpenSandbox multi-SDK telemetry、Semantic Router committer/directory owner、Kthena controller follow-through 和被上游采用的 simulator。报告已把本人的 #387、#420、#400 review、CI/release 与 #431 judgment 压成 5 张秋招 story card，并新增经原图检查通过的 `941x1672` 分区海报与 prompt；跨项目活跃不证明其放弃 #386 ownership。
-- Weekly report workflow：`write-weekly-report-email` 已接入独立 `review-weekly-report`，最终放行必须逐句通读五个板块并返回 `READY`，静态 validator 只能作为回归证据。规则要求按维护者/作者/审查者等社区角色表述，保留 `E2E`、`CI`、`PR` 等项目通用术语，并把内部标签改写为具体影响；validator 已覆盖角色误称和模糊影响。Week5/6 strict validation、55 tests 和两个 skill 校验通过。`/home/intern-week-mail` 当前被 GitHub 标记为 `PUBLIC`，renderer 已拒绝向仓库写入带身份 HTML；不得覆盖或 push 该输出，需用户决定恢复私有或清理公开历史。邮件未授权发送。
+- Weekly report workflow：`write-weekly-report-email` 已接入独立 `review-weekly-report`，最终放行必须逐句通读五个板块并返回 `READY`，静态 validator 只能作为回归证据。规则要求按维护者/作者/审查者等社区角色表述，保留 `E2E`、`CI`、`PR` 等项目通用术语，并把内部标签改写为具体影响；validator 已覆盖角色误称和模糊影响。Week5/6 strict validation、55 tests 和两个 skill 校验通过。`/home/intern-week-mail` 当前为 `PUBLIC`；用户在知晓身份字段会公开后明确批准为领导审查推送，skill commit `b2bd96f` 与 Week6 HTML commit `4cc4538` 已进入 `origin/main`。邮件未授权发送。
 
 ## Active Upstream Threads
 
@@ -98,7 +98,7 @@
 - For agent-sandbox v0.5.x: keep separate from #387. Distinguish clean-install beta storage from the official two-phase v0.4.x in-place migration contract; do not claim upgrade coverage without bootstrap/webhook/migrate lifecycle evidence.
 - For benchmark work: only run tests current environment supports; record OS/kernel/glibc/CPU/K8s/runtime and distinguish local measured data from inference.
 - For diagrams/reports: 数据流、时序、重试和小型生命周期图使用 `$project-mermaid`，保留 canonical `.mmd` 与生成 PNG；复杂架构/泳道/精确布局使用 draw.io，presentation visuals 使用 GPT image draw，并按 day prefix 保存资产。
-- For the Week 6 email：已审查的最新预览在 `/tmp/intern-week-mail-preview/week6-weekly-report-email.html`；仓库内 `output/week6/` 是公开历史中的旧版，不得覆盖或推送。未逐项确认 recipients、CC、subject、final body 和 attachments 前不得发送。
+- For the Week 6 email：已审查的最新 HTML 在 `/home/intern-week-mail/output/week6/week6-weekly-report-email.html`，并已按用户明确授权推送到公开周报仓库供领导审查。未逐项确认 recipients、CC、subject、final body 和 attachments 前不得发送。
 
 ## Stop Conditions
 
