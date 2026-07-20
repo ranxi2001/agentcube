@@ -422,3 +422,57 @@ Inline 3 target：`hack/update-codegen.sh:80`，`RIGHT`：
 - PR head 仍未变化。
 
 后续不自动催促、mention 或追加评论。等待作者回复或 push 新 head 后，优先复核 migration phase 顺序、真实 upgrade fixture、CodeInterpreter/Redis claim boundary，以及 `doc.go` marker 重生后的两个 informer GVR。
+
+## 13. 作者回应与第二轮状态核验
+
+2026-07-20 11:20:29 CST，作者在 PR conversation 中回复：
+
+> [@ranxi2001 Thankyou for review, I will work on your suggestions given above.](https://github.com/volcano-sh/agentcube/pull/442#issuecomment-5018460089)
+
+这是一条明确的接单信号，但没有逐条技术回应，也没有说明接受、反驳或如何实现 migration test。按 review workflow，不能把 acknowledgement 当成 finding resolved。
+
+### 13.1 新 head 的真实内容
+
+作者随后在 11:29:16 CST push merge commit `c9e0498a7eb1e861c9cee796eed12d9668782a00`：
+
+```text
+c9e0498 Merge branch 'volcano-sh:main' into upgrade-agent-sandbox-v0.5.2
+parents: a53441f 58422c0
+```
+
+核验结果：
+
+- `git range-diff 146b75f..a53441f 58422c0..c9e0498` 显示原 feature commit `a53441f = a53441f`，语义 patch 未改；
+- `a53441f..c9e0498` 只带入 upstream main 的 7 个 workflow runner-label 变化；
+- `docs/getting-started.md`、`test/e2e/run_e2e.sh`、`hack/update-codegen.sh`、`pkg/apis/runtime/v1alpha1` 与两个 generated informer 相对 `a53441f` 均无 diff；
+- docs 仍直接 apply v0.5.2，E2E 仍只安装 target release，API package 仍无 `doc.go`，generated GVR 仍是 `Group: "runtime"`。
+
+因此新 head 没有处理三条 review finding。
+
+### 13.2 Thread 与 merge gate
+
+GraphQL 回读三条 human review threads：
+
+| Thread | Current | Resolved | Reply |
+| --- | --- | --- | --- |
+| migration docs `3611817313` | yes | no | none |
+| upgrade E2E `3611817315` | yes | no | none |
+| informer generator `3611817317` | yes | no | none |
+
+GitHub 把它们映射到 current commit `c9e0498`，同时保留 `originalCommit=a53441f`；这说明 merge main 没让评论 outdated，也没有代码修复使线程失效。
+
+新 head 的 12 个技术 checks 全部 success，DCO 也通过；但 Prow 添加了 `do-not-merge/contains-merge-commits`，因为社区不允许这种 merge commit。PR 现在还缺 `lgtm` / `approved`，`tide` pending。作者后续除了修三条 finding，还需要 rebase/squash 清除 merge commit；绿色 CI 不解除这两个独立门禁。
+
+Copilot 在新 head 另外提出两条 string-replace fail-fast 评论；它们是 AI reviewer 信号，不是作者回应或维护者结论，后续可在 generator 修复时一并核验，但当前不自动扩张我们的公开 review。
+
+### 13.3 当前判断
+
+状态：`ACKNOWLEDGED / UNRESOLVED`。
+
+现在不需要公开回复“谢谢”或催促。等作者 push 真正修改后的 head，再按以下顺序复审：
+
+1. range-diff 区分 feature fix 与 rebase/base movement；
+2. 逐条检查三个 current threads 对应的 artifact；
+3. 运行 focused docs/codegen/test validation；
+4. 检查 merge-commit label 是否通过 rebase 消失；
+5. 只有证据闭环后才考虑 resolve/acknowledge，任何第二轮 upstream 回复仍需用户确认 exact text。
