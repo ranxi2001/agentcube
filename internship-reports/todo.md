@@ -1,6 +1,6 @@
 # 实习任务 TODO
 
-更新时间：2026-07-17
+更新时间：2026-07-20
 
 这个文档用于管理实习期间的后续任务。日报记录每天做了什么，TODO 记录“现在还要做什么、优先级是什么、做到哪里、卡在哪里”。
 
@@ -150,6 +150,7 @@
 | 完成 Day50 agent-sandbox v0.5.2 独立适配 | [Day 50](day50-agent-sandbox-v052-independent-adaptation.md) 已在不读取 #438 作者实现的前提下，从 `upstream/main@146b75f` 完成 fork-only beta adapter；`d70ab94` / `2d90b07` 分开表达 Go/Kubernetes 前置与 v0.5.2 业务适配。静态/单元/race/build/codegen 通过；clean kind 实测 beta storage/storedVersions、WarmPoolRef adoption、Pod UID、delete/refill 和 SDK/LangChain/MCP；fork push checks 10/10 success。共享主机 cold-image 与 10 QPS 单节点容量失败仍按事实保留，原地 migration 未宣称完成 |
 | 完成 Day51 社区动向、PR #385 回溯与 v0.5.2 修复验证 | [Day 51](day51-community-movement-and-pr385-warm-pool-health-retrospective.md) 从 `18:06` 扫描追到 #442 `396e0e9`；重新证明 #385 是父资源 observability，并在独立 beta baseline 形成 signed `bc89af4`。补 modern Event RBAC、无溢出 threshold、真实 watch condition E2E 和完整 SDK/LangChain/MCP evidence，同时明确当前 28-file branch 不得直接更新旧 PR |
 | 完成实习周报邮件私有工作流与 Week 5 验收 | `/home/intern-week-mail` 已成为唯一 skill/template/report-source 仓库；skill validation、author-date Git filtering、HTML escaping、隐私扫描和五段表格结构检查均通过；Week 5 HTML 仅版本化到 private repo 的 `output/week5/`，未发送 |
+| 完成 Week 6 双层总结与邮件周报草稿 | [Week 6](week6-summary.md) 已按 2026-07-13 至 07-17 汇总 AgentCube、Karmada 与通用工具贡献；`/home/intern-week-mail/reports/week6/` 保存去身份数据、三仓 Git 证据和 claim matrix，HTML 内容/布局/隐私校验与 44 个 workflow tests 通过；邮件未发送 |
 | 完成 PR #387 warm pool adoption 数据流 review | [Day 30](day30-pr387-warm-pool-dataflow-review.md) 已从运行时对象流、claim status 观测、Pod 查找、Store/Router 语义和 delete/GC identity 拆解 #387，不再停留在 API import / interface 适配层面 |
 | 完成 PR #400 PicoD Prometheus metrics 本地 review | [Day 31](day31-picod-prometheus-metrics-review.md) 已验证 PicoD metrics PR 的测试状态、middleware 顺序缺口、指标语义问题和可选 upstream review 草稿 |
 | 完成独立 AgentCube PR Review skill 与 #387 前向验证 | [Day 30](day30-pr387-warm-pool-dataflow-review.md) 已建立 point-line-surface/组件职责/类型指针/冲突语义/测试真实性 review workflow；fork run `29304884501` 证明 v0.4.6 安装但目标用例被 mTLS skip，run `29306285285` 在 focused non-mTLS 模式实际跑通 WarmPool claim-adoption、SDK、LangChain 和 MCP |
