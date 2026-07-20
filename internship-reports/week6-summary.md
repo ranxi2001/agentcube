@@ -1,4 +1,4 @@
-# Week 6 总结：兼容性 PR 合并、v0.5.2 分层验证与跨项目 Review
+# Week 6 总结：版本兼容合并、升级验证与跨项目代码审查
 
 日期：2026-07-13 至 2026-07-17
 
@@ -15,53 +15,53 @@
 | 目标 | 状态 |
 | --- | --- |
 | 完成 AgentCube 的 agent-sandbox v0.5.2 升级验证 | 进行中 |
-| 完成 Karmada 证书轮换与 CI flake 修复 | 进行中 |
-| 参与 AgentCube 和 Karmada 代码及 Feature Proposal Review | 进行中 |
+| 修复 Karmada 证书轮换与偶发 E2E 失败 | 进行中 |
+| 参与 AgentCube 与 Karmada 的代码和功能提案审查 | 进行中 |
 
 ### 2. 本周进展
 
 | 工作项 | 结果、价值或剩余风险 | 完成时间 | 状态 |
 | --- | --- | --- | --- |
-| AgentCube sandbox 兼容与升级 | PR #387 于 7 月 16 日合并，exact head 的 12/12 checks 通过；随后完成 agent-sandbox v0.5.2 clean-install adapter 和 #385 WarmPool 健康投影修复验证，旧 CRD 原地迁移与正式 upstream 集成仍待完成 | 7/17 | 进行中 |
-| Karmada 证书轮换 #7697 | 修复轮换时丢失已保存 SAN、共享 CA 下误认集群、external-etcd 凭据替换边界和部分写入重试问题；current head 17/17 checks 通过，等待真人 review | 7/17 | 进行中 |
-| Karmada E2E flake | PR #7732 合并并关闭 #7719；对 Remedy cleanup 跨窗口样本完成日志到源码的因果分析，创建 issue #7776 和两文件修复 PR #7777 | 7/17 | 进行中 |
-| 跨项目 Review 与治理 | 实质 review 6 个 PR，发布 18 条 inline comment；#400 作者修复 method label 高基数问题，#431 周内 9 条建议均获得处理；另提交 AgentCube #439 OWNERS 提名 | 7/17 | 已完成（本周 review 轮次） |
+| AgentCube 版本兼容与升级 | PR #387 于 7 月 16 日合并，12 项自动检查全部通过；agent-sandbox v0.5.2 已在全新集群完成沙箱创建、调用和删除验证，旧集群升级仍待验证 | 7/17 | 进行中 |
+| Karmada 证书轮换 #7697 | 已提交修复，覆盖证书轮换时可能丢失访问地址、误用其他集群凭据及更新中断后无法继续的问题；17 项自动检查全部通过，等待维护者审核 | 7/17 | 进行中 |
+| Karmada 偶发 E2E 失败 | PR #7732 合并并关闭 Issue #7719；另找到一个偶发失败的原因：状态变化没有触发控制器重新处理任务，并创建 Issue #7776 和修复 PR #7777 | 7/17 | 进行中 |
+| 跨项目代码审查与维护者提名 | 审查 6 个 PR，发布 18 条行级意见；#400 作者按意见修复监控数据项持续增加的问题，#431 作者处理 9 条设计问题，另通过 #439 提名 RainbowMango 为维护者 | 待社区审核 | 进行中 |
 
 ### 3. 收获与分享
 
-CI 显示通过，不一定代表目标功能真的测到了。本周检查 #387 时发现，测试环境仍在使用旧版 agent-sandbox，关键用例还会被自动跳过。修正后，测试才真正覆盖新版兼容路径。以后看 CI，除了看绿灯，还要确认使用了哪个版本、关键用例是否执行。
+#387 原 CI 使用旧版环境并跳过关键用例，绿灯不代表新版功能已验证。修正后，新版沙箱的创建、调用和回收流程才得到实际验证。以后看 CI，除了看绿灯，还要确认测试版本、关键用例和实际结果。
 
-代码里设置了 2 分钟 timer，并不代表卡住的网络请求会自动停止。本周复现到 #387 在 2 分 2 秒后仍返回成功；修复后，timer 到期会真正取消请求。以后检查 timer 逻辑，不能只看它是否触发，还要验证网络请求是否真的停下。
+代码里设置了 2 分钟 timer，并不代表卡住的网络请求会自动停止。本周复现到 #387 的创建请求在 2 分 2 秒后仍返回成功；修复后，timer 到期会真正取消请求。以后检查 timer 逻辑，不能只看它是否触发，还要验证网络请求是否真的停下。
 
-偶发测试失败不能只靠重跑或延长等待时间。本周处理 Karmada 失败时，先找到是哪一步状态没有继续更新，再只修这一处。这样既能解决真正的问题，也不会用更长的等待时间把问题藏起来。
+Karmada 的偶发 E2E 失败来自状态变化没有触发控制器重新处理任务，不能只靠重跑或延长等待时间。本周提交了触发条件修复；以后先检查状态变化是否触发控制器重新处理。
 
 ### 4. 疑惑与问题
 
-AgentCube 的 agent-sandbox v0.5.2 正式升级应把 v0.4.6 存量 CRD migration 与 clean-install adapter 放在同一个 PR，还是先合入兼容代码、再用独立 PR 交付迁移验证？
+AgentCube 升级到 agent-sandbox v0.5.2 时，应在同一个 PR 中完成旧版本集群升级验证，还是先支持全新安装，再单独处理旧集群升级？
 
 ### 5. 下周计划
 
 | 任务 | 可验收结果 |
 | --- | --- |
-| Review AgentCube #442 | 冻结稳定 head，与独立 adapter 按 API、migration、identity、lifecycle 和 E2E 五个维度比较，给出可合并性与剩余风险结论 |
-| 处理 #385 后续 | #442 进入 main 后只移植六文件功能语义，重跑 range-diff 和目标 E2E，避免把 27 个 adapter 文件带入 observability PR |
-| 跟进 Karmada #7697 与 #7777 | 处理 reviewer feedback，区分产品回归与 CI 环境故障，使两个 PR 都达到可由 maintainer 决策的状态 |
-| 继续 Proposal Review | 只在 #431 或 #7662 出现新 head 后复核既有 thread，输出 implementation-ready 与仍不可冻结的合同清单 |
+| 审查 AgentCube #442 | 在 #442 代码稳定后，检查 API 兼容性、旧集群升级、资源关联、创建删除流程和 E2E，给出是否可合并及剩余风险 |
+| 更新 AgentCube #385 | #442 合并后，基于最新主线提交仅包含 #385 六个功能文件的更新并重新验证，避免将版本升级代码混入监控功能 PR |
+| 处理 Karmada #7697 与 #7777 | 处理维护者意见，区分代码问题与 CI 环境故障，确认两个 PR 是否具备合并条件 |
+| 复查功能提案 #431 与 #7662 | 等待提案更新后逐项检查已有设计问题，输出可开始实现的范围和仍需确认的设计边界 |
 
 ### 活动指标
 
-| 指标 | 数量 | 去重对象 |
+| 指标 | 数量 | 对应对象 |
 | --- | ---: | --- |
 | 周内创建的 PR | 3 | AgentCube #439、Karmada #7777、Agents365 drawio-skill #94 |
 | 周内合并的本人 PR | 3 | AgentCube #387、Karmada #7732、Agents365 drawio-skill #94 |
-| 实质 Review 的 PR | 6 | AgentCube #400、#431；Karmada #7692、#7662、#7764、#7623 |
-| 分析并形成实施边界的 Issue | 2 | AgentCube #438、Karmada #7776 |
-| 可执行 Proposal review 点 | 10 条提出 / 9 条 thread resolved | AgentCube #431 的 9 条；Karmada #7662 的 target-first invariant |
-| Inline review comment | 18 | AgentCube 11 条；Karmada 7 条，其中 17 条初始 finding、1 条证据澄清 |
+| 给出技术审查意见的 PR | 6 | AgentCube #400、#431；Karmada #7692、#7662、#7764、#7623 |
+| 完成深入分析的问题 | 2 | AgentCube #438、Karmada #7776 |
+| 提出的功能提案问题 | 10 条提出 / 9 条讨论已关闭 | AgentCube #431 的 9 条；Karmada #7662 的迁移顺序问题 |
+| 行级审查意见 | 18 | AgentCube 11 条；Karmada 7 条，其中 17 条初始问题、1 条补充说明 |
 
-> 注释：PR 和 review 按 repository + number 去重。#387 的自审 inline、机器人评论、提醒、LGTM-only review、本地 fork commit 和报告 commit 不计入实质 review 数量。
+> 注释：PR 和审查按仓库及编号去重。#387 的自审行级评论、自动化评论、提醒、仅表示同意的评论、个人仓库提交和报告提交不计入技术审查数量。
 
-> 分析：drawio-skill #94 在本周创建并合并，因此同时计入 opened 和 merged；#387、#7732 在更早时间创建，只计入本周 merged。
+> 分析：drawio-skill #94 在本周创建并合并，所以同时计入“创建”和“合并”；#387、#7732 在此前创建，只计入本周合并。
 
 ## 第二层：学习与工程记录
 
@@ -141,7 +141,7 @@ current head `bf24e47` 已改为：
 - `--cert-mode=rotate` 保持 CLI-only operation；
 - 真实 API timeout 造成 11 个 Secret 部分写入后，重跑能够继续收敛。
 
-完整 CLI 相关 tests、lint、flags/import verifier 和 exact-head 17/17 checks 通过。截止本周仍等待真人 review，不能写成已合并。
+完整 CLI 相关 tests、lint、flags/import verifier 和 exact-head 17/17 checks 通过。截止本周仍等待维护者审核，不能写成已合并。
 
 #### 4. 将 Karmada flake 从统计推进到因果修复
 
