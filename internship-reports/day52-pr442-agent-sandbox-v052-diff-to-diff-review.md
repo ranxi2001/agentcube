@@ -402,4 +402,23 @@ Inline 3 target：`hack/update-codegen.sh:80`，`RIGHT`：
 
 这三条都采用 observation -> concrete path -> impact -> requested action，并显式区分 observed 与 source-proven reachable。没有加入 Mermaid：每条只解释一个线性 prerequisite 或一个 metadata-to-generated-identity 因果链，短 prose 比 3-6 节点图更快理解。
 
-发布门禁：必须再次确认 PR head 仍为 `a53441f`，然后把上述 target、summary 和三条全文原样展示给用户；只有用户逐字批准后，才能调用 GitHub review API。当前未发布任何 upstream review/comment。
+发布门禁已执行：用户在看到通俗解释与上述全文后明确回复“确认发布”；发布前再次确认 PR 仍 open、head 仍为 `a53441f`、三个 target 仍是 current diff 的 `RIGHT` 行，并确认 2026-07-20 当天没有新增重复评论。
+
+### 12.4 发布结果与回读验证
+
+2026-07-20 10:59:40 CST，通过 GitHub review API 一次性提交 `COMMENT` review：
+
+- review：[4731928343](https://github.com/volcano-sh/agentcube/pull/442#pullrequestreview-4731928343)，state `COMMENTED`；
+- migration docs：[3611817313](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3611817313)，`docs/getting-started.md:247`，`RIGHT`；
+- upgrade E2E：[3611817315](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3611817315)，`test/e2e/run_e2e.sh:336`，`RIGHT`；
+- informer generator：[3611817317](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3611817317)，`hack/update-codegen.sh:80`，`RIGHT`。
+
+发布后重新读取 review 与 pull review comments，确认：
+
+- summary 和三条 comment body 均完整，没有截断；
+- 三条 comment 的 `commit_id` 都是 `a53441f23b0df0fdd01bccfc0a1c5d43cd921ed1`；
+- path、line、side 与批准 payload 完全一致；
+- PR review comment count 从 71 增至 74；
+- PR head 仍未变化。
+
+后续不自动催促、mention 或追加评论。等待作者回复或 push 新 head 后，优先复核 migration phase 顺序、真实 upgrade fixture、CodeInterpreter/Redis claim boundary，以及 `doc.go` marker 重生后的两个 informer GVR。
