@@ -200,3 +200,11 @@ Gate result:
 - 未在 live SPIRE cluster 运行 Router -> PicoD mTLS；因此没有宣称 handshake latency、rotation/revocation SLA 或完整攻击链已经观测。
 - #402 没有人类 review 且落后 main，记录它只为证明方向冲突，不把它当维护者共识。
 - #352 dirty/stale 但仍 open；记录它为相邻 owner/security contract，不宣称其实现已被接受。
+
+## 9. Upstream comment publication
+
+用户确认 exact English text 后，于 `2026-07-21 17:02 CST` 发布 [Issue #444 design comment](https://github.com/volcano-sh/agentcube/issues/444#issuecomment-5032085711)。发布前回读确认 issue 仍为 open、无 assignee、无既有评论，讨论前提没有变化。
+
+评论以 `main@58422c` 为证据锚点，用 234 visible words / 6 nonblank lines 压缩为四个 implementation contract：private-key isolation、peer/session binding、ServiceAccount attestation 和 transport-policy ownership；结尾建议先把工作定位为 #441 的 focused child，并对齐 #293 与 #352。GitHub API 回读确认发布账号为 `ranxi2001`、正文与确认稿一致；没有附加 `/assign`、Prow 命令、label、review request 或额外 mention。
+
+下一步只等待作者或 maintainer 回应这些合同。没有新回复或新设计证据时，不自动追评、认领或启动实现。
