@@ -150,9 +150,11 @@ Recommended review shape:
 3. no repeated inline for context-manager cleanup, request-body limit, working directory or bootstrap 404;
 4. no `/lgtm`, approval, reviewer request or maintainer mention from us.
 
-The finding is a linear termination path and fits in short prose; Mermaid would add more reconstruction than it removes. Before posting, the exact English inline still needs the user-facing explanation, word-count check, fresh head/line check and explicit confirmation.
+The finding is a linear termination path and fits in short prose; Mermaid would add more reconstruction than it removes. The user reviewed the plain-language explanation and exact English text, then explicitly approved publication. Immediately before posting, the PR was still open at `c18707fd468b26b0d94594657cc0c33ccfacd4e9`, line 81 was unchanged, and a fresh duplicate scan found no SIGTERM/PID-1 thread.
 
-### Candidate inline
+### Published inline
+
+Published at `2026-07-21 16:25 CST` as [discussion_r3620553817](https://github.com/volcano-sh/agentcube/pull/437#discussion_r3620553817). This was one standalone inline comment on the right side of the current diff; it did not submit `/lgtm`, `REQUEST_CHANGES`, an overall review summary, a reviewer request or a maintainer mention.
 
 Target: `example/agent-runtime/agent-runtime.yaml:81`, right side.
 
@@ -160,7 +162,7 @@ Target: `example/agent-runtime/agent-runtime.yaml:81`, right side.
 
 A fresh-context teach-back understood the exact observation, red/green evidence, Kubernetes consequence and requested change. It corrected two draft ambiguities: do not call a mutable image tag an exact configuration, and do not imply the session-delete HTTP response itself blocks for 30 seconds. No Mermaid is needed because the event chain is linear.
 
-`draft_metrics.py`: 106 visible words, 1 nonblank line, below the 300-word soft limit.
+`draft_metrics.py`: 106 visible words, 1 nonblank line, below the 300-word soft limit. GitHub returned comment ID `3620553817` on the intended path, line, side and exact head commit.
 
 ## 8. Community freshness
 
