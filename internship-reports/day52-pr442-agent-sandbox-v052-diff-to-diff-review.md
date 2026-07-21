@@ -532,3 +532,23 @@ GraphQL 回读结果：
 20:41 CST 的只读 community freshness scan 只发现 #398、#389 与 #442 在上次扫描后更新；前两项与本 upgrade scope 无关。#438 仍由 `@safiya2610` assignee，same-topic open implementation PR 仍只有 #442，没有 ownership 或 release prerequisite 变化。
 
 当前状态仍是：`ACKNOWLEDGED / UNRESOLVED`。不需要追加 upstream 回复，也不能替作者 resolve 任何线程。
+
+## 15. 2026-07-21 无变更快照
+
+2026-07-21 14:45 CST 再次读取 PR API、commit 列表、review threads 与 checks。PR 的 `updated_at` 仍停在 `2026-07-20T08:02:35Z`，说明昨晚作者回复 `Ok` 之后没有新的 push、review、inline reply 或 conversation comment。
+
+- exact head 仍为 `c9e0498a7eb1e861c9cee796eed12d9668782a00`；
+- 仍是 2 commits、27 files、`+641/-460`；
+- migration docs、upgrade E2E、GVR/codegen 三条 human threads 仍 current、unresolved、无 direct reply；
+- `@acsoto` 的 compatibility thread 也仍 current、unresolved，作者唯一回复仍是 `Ok`；
+- `pkg/apis/runtime/v1alpha1/doc.go` 仍不存在，两个 informer 仍生成 `Group: "runtime"`，Python compatibility rewrites 仍未删除；
+- docs 和 E2E 仍没有 bootstrap/migrate、v0.4.6 stored-object fixture 或 active-session continuity evidence；
+- merge commit 与 `do-not-merge/contains-merge-commits` label 仍在，`reviewDecision=null`。
+
+12 个技术 workflow checks 与 DCO 仍显示 success，但它们全部对应旧 head `c9e0498`。没有新 SHA，就没有“修复后 CI”这一层证据；本轮也不重复运行完全相同旧代码的本地测试。
+
+> 分析：检查结果是否绿色和检查对象是否包含修复，是两个问题。旧 SHA 的绿灯只能继续证明旧 patch 能通过现有 CI，不能证明尚未提交的 review 修复正确。
+
+同轮 community freshness scan 发现新 Issue [#444](https://github.com/volcano-sh/agentcube/issues/444)（Router -> PicoD mTLS）与 PR #400 有更新。#444 当前无 assignee、无 `/assign`、无评论，但属于独立 auth/transport 设计问题，与 #438/#442 的 agent-sandbox migration scope 无关；same-topic implementation PR 仍只有 #442。
+
+当前判断不变：`ACKNOWLEDGED / UNRESOLVED / WAITING FOR NEW HEAD`。下一次只有在 head 或 thread activity 变化后，才进入 range-diff、artifact verification、focused tests 与 codegen clean-run。
