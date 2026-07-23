@@ -629,3 +629,21 @@ Copilot 已在 [thread 3631523674](https://github.com/volcano-sh/agentcube/pull/
 GitHub final-SHA checks 当前均为 green，`MERGEABLE / UNSTABLE`，`tide` 仍等待 `lgtm` 与 `approved`。这些 checks 证明当前 v0.4.6 baseline 与生成物能过既有 CI，不证明 v0.5.2 integration 或 migration branch。
 
 本轮结论：`SECOND ROUND / NOT READY`。阻塞顺序是先恢复真实 target upgrade surface，再让 migration E2E 成为可执行、会失败 CI、覆盖 official cold-start fixture 的测试；exported `Resource()` compatibility 也需恢复。没有运行 live cluster migration，没有发布 review/comment、resolve thread、mention 或 merge command。
+
+## 17. 2026-07-23 scope / CI evidence review 已发布
+
+用户确认 exact text 后，于 15:52 CST 向 current head `73b451bfbf025478890bb5010dde94614013396d` 发布普通 [COMMENT review 4761941142](https://github.com/volcano-sh/agentcube/pull/442#pullrequestreview-4761941142)。GitHub API 回读确认：
+
+- reviewer 为 `@ranxi2001`；
+- state 为 `COMMENTED`，不是 `REQUEST_CHANGES`；
+- review 绑定 exact commit `73b451b`；
+- 没有 mention maintainer，也没有执行 `/lgtm`、`/approve` 或 resolve thread。
+
+评论先承认 final-SHA checks 全绿，再明确绿色信号的证据边界：current `go.mod` 仍是 v0.4.6，WorkloadManager/Router v1beta1 adapter 已不在 diff，workflow 没有启用 `E2E_RUN_AGENT_SANDBOX_UPGRADE_TEST`，而 opt-in migration failure 也不会让 job 失败。因此这些 checks 证明的是 v0.4.6 baseline，而不是 body 所称的 v0.4.6 -> v0.5.2 migration。
+
+发布前对 170 个 review threads 做了分页去重。Copilot 已分别指出 line 35 默认 v0.4.6 和旧 line 970 non-fatal，但前者已被作者 resolve，后者已 outdated；它们都没有把 current body、final tree 与 workflow coverage 放在一个 reviewer-facing contract 中。本次 root review 的新增价值是要求作者在两个可验证方向中选择一个：
+
+1. 恢复真实 v0.5.2 target tree，并把 migration 接入 required/fatal CI；
+2. 若当前只保留 migration-test scaffolding，则缩小 title/body，并把 `Fixes #438` 改成 `Refs #438`。
+
+当前停止条件：等待作者回复、更新 body 或 push 新 head；在 upstream 状态变化前不自动追评。
