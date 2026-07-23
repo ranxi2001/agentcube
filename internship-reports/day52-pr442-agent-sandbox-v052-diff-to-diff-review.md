@@ -552,3 +552,80 @@ GraphQL 回读结果：
 同轮 community freshness scan 发现新 Issue [#444](https://github.com/volcano-sh/agentcube/issues/444)（Router -> PicoD mTLS）与 PR #400 有更新。#444 当前无 assignee、无 `/assign`、无评论，但属于独立 auth/transport 设计问题，与 #438/#442 的 agent-sandbox migration scope 无关；same-topic implementation PR 仍只有 #442。
 
 当前判断不变：`ACKNOWLEDGED / UNRESOLVED / WAITING FOR NEW HEAD`。下一次只有在 head 或 thread activity 变化后，才进入 range-diff、artifact verification、focused tests 与 codegen clean-run。
+
+## 16. 2026-07-23 force-push 增量复审
+
+### 16.1 Review surface 已被整体替换
+
+本轮按用户要求只比较旧 head `c9e0498` 与最新 head `73b451bfbf025478890bb5010dde94614013396d`，没有重新展开已经审过且后来被删除的旧实现。最新 base 为 `upstream/main@c16e474`。
+
+这不是普通 tail commit：`c9e0498` 不是新 head 的 ancestor，merge base 为 `58422c`，左右独有 commit 数为 `2 / 5`。`git range-diff 146b75f..a53441f c16e474..73b451b` 显示旧 feature commit `a53441f` 被完整删除，替换为：
+
+1. `15682d5`：migration 文档、可选 E2E 与 codegen 重写；
+2. `7b14f4c`：把普通 E2E 默认 agent-sandbox 改到 v0.5.2；
+3. `73b451b`：立即把该默认值降回 v0.4.6。
+
+当前 PR surface 从旧版 27 files `+641/-460` 缩为 13 files `+476/-56`。它不再修改 `go.mod`、WorkloadManager、Router、agent-sandbox GVR、v1beta1 types、direct Sandbox 或 WarmPool/Claim production path。
+
+> 分析：force-push 后不能只看“线程 resolved”或 commit subject。这里 tree 级证据说明原升级实现不是被修补，而是被撤掉；旧 review 的部分行变成 outdated，不等于 Issue #438 已完成。
+
+### 16.2 [P1] 当前 head 已不再升级 AgentCube
+
+PR title/body 仍宣称升级 `sigs.k8s.io/agent-sandbox` 到 v0.5.2、切换 v1beta1 并完成 controller compatibility，但 [current `go.mod`](https://github.com/volcano-sh/agentcube/blob/73b451bfbf025478890bb5010dde94614013396d/go.mod#L23) 仍固定 `v0.4.6`，Kubernetes libraries 仍是 `v0.35.4`。WorkloadManager 也回到 v1alpha1 imports、old `TemplateRef` 和 old GVR。
+
+因此最新 head 只是一组 migration/docs/codegen 实验，不能 `Fixes #438`：
+
+- 没有把 AgentCube integration 移到 supported v1beta1 API；
+- 没有在 target dependency 上覆盖 direct/warm-pool create、adoption、delete、GC 与 refill；
+- PR body 中 `go.mod upgraded`、`imports across 8 files`、`all v1beta1 errors resolved` 均与 current tree 相反。
+
+最小收敛方向是恢复一个基于 current main 的 focused v0.5.2/v1beta1 adapter，再把 migration fixture 建在该 target binary 上；若作者只想保留 migration E2E，则应拆成独立测试工作并改 title/body/issue relation，不能把它表示为完整 dependency upgrade。
+
+### 16.3 [P1] 新 migration E2E 默认不运行，启用后也无法完成
+
+新增 block 从 [`run_e2e.sh:755`](https://github.com/volcano-sh/agentcube/blob/73b451bfbf025478890bb5010dde94614013396d/test/e2e/run_e2e.sh#L755) 开始，但当前 workflow 没有设置 `E2E_RUN_AGENT_SANDBOX_UPGRADE_TEST=true`；普通 E2E 又在 [line 35](https://github.com/volcano-sh/agentcube/blob/73b451bfbf025478890bb5010dde94614013396d/test/e2e/run_e2e.sh#L35) 默认安装 v0.4.6。因此 final SHA 的绿色 E2E 没有执行新增 migration scenario。
+
+即使手工 opt-in，脚本仍有四个决定性断点：
+
+1. [line 766](https://github.com/volcano-sh/agentcube/blob/73b451bfbf025478890bb5010dde94614013396d/test/e2e/run_e2e.sh#L766) 只下载 upstream `dev/tools/migrate.sh`。v0.5.2 该文件是 thin wrapper，会执行相对路径 `../../helm/files/migrate.sh`；保存到 `mktemp` 后实现文件不存在。本地按同一 pinned URL 复现为 exit `127`：`/tmp/../../helm/files/migrate.sh: No such file or directory`。
+2. [bootstrap 在 line 792](https://github.com/volcano-sh/agentcube/blob/73b451bfbf025478890bb5010dde94614013396d/test/e2e/run_e2e.sh#L792) 先运行，[旧 Claim 在 line 802](https://github.com/volcano-sh/agentcube/blob/73b451bfbf025478890bb5010dde94614013396d/test/e2e/run_e2e.sh#L802) 才创建。官方 phase 1 的作用正是扫描“已经存在”的 cold-start v1alpha1 Claims，因此该顺序不能建立 shadow pool fixture。
+3. [line 837](https://github.com/volcano-sh/agentcube/blob/73b451bfbf025478890bb5010dde94614013396d/test/e2e/run_e2e.sh#L837) 用 `kubectl get sandboxclaim | grep -w Bound` 等待。v0.4.6 CRD 没有 additional printer columns，默认只有 NAME/AGE；v0.5.2 columns 是 Ready/Sandbox/Reason/Age，也没有 `Bound`。两个等待循环都不能以目标方式成功。
+4. [line 853](https://github.com/volcano-sh/agentcube/blob/73b451bfbf025478890bb5010dde94614013396d/test/e2e/run_e2e.sh#L853) 读取不存在的 `.status.sandboxName`；v0.4.6 API 的真实 JSON path 是 `.status.sandbox.name`。结果 `SB_NAME` 为空，后面的 GC assertion 被条件判断静默跳过。
+
+最后，upgrade failure 在 [line 968](https://github.com/volcano-sh/agentcube/blob/73b451bfbf025478890bb5010dde94614013396d/test/e2e/run_e2e.sh#L968) 只打印 non-fatal warning，不设置 core `TEST_FAILED`。所以“当前 CI 绿”“手工打开该 block”“Issue #438 的 migration contract 被验证”是三件不同的事；目前后两项均不成立。
+
+> 注释：`bash -n` 只证明 shell 语法可解析，不证明 opt-in branch 能运行。这里 wrapper exit、CRD printer contract 和 JSON path 分别是运行、观测和断言层面的独立失败证据。
+
+### 16.4 [P2] Codegen 修复同时改变了公开 `Resource()` 类型
+
+新增 `doc.go` 把 `+groupName=runtime.agentcube.volcano.sh` 放到了 gengo 会读取的位置，这一部分正确；重新生成后的 group comment 也已修复。
+
+但 [`register.go:42`](https://github.com/volcano-sh/agentcube/blob/73b451bfbf025478890bb5010dde94614013396d/pkg/apis/runtime/v1alpha1/register.go#L42) 把 exported `Resource()` 的返回类型从 `schema.GroupVersionResource` 改成 `schema.GroupResource`，只是为了让新生成的 lister 不再调用 `.GroupResource()`。仓内 caller 能编译不代表 public compatibility 没变；任何下游把它赋给 GVR、读取 `.Version` 或传给 dynamic client 的代码都会 source-break。
+
+Copilot 已在 [thread 3631523674](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3631523674) 精确指出这一点，作者回复 `already resolved` 并 resolve thread，但 current artifact 仍保留该签名。无需再发重复评论；复审时必须把 resolved metadata 与 current code 分开。
+
+### 16.5 旧 review 的真实收敛状态
+
+四条 human threads 都被作者标为 resolved，force-push 后也都 outdated，但 artifact 结论不同：
+
+| Thread | Current artifact verdict |
+| --- | --- |
+| migration docs `3611817313` | partial：新增 backup/bootstrap/install/migrate，但 release assets 没有文档引用的 `migrate.sh`；backup 漏 Template/Pool，未等待 webhook，且把 optional migrate 写成 mandatory |
+| migration E2E `3611817315` | not fixed：新增 block 默认 skip、启用即失败、没有 unbound Claim/shadow pool、UID continuity 或 pool refill evidence |
+| informer GVR `3611817317` | addressed：`doc.go` marker 正确，`make gen-check` clean；旧 v0.36 `WithInformerName` surface 也随 production patch 删除 |
+| maintainer codegen `3612632638` | original request addressed：旧 Python compatibility rewrites 已删除；当前 Windows path generator patch 是另一项新增机制 |
+
+### 16.6 Focused validation 与当前判断
+
+在 detached exact-head worktree `/tmp/agentcube-pr442-tail-review@73b451b` 运行：
+
+- `go test ./pkg/apis/runtime/v1alpha1 ./client-go/informers/... ./client-go/listers/... -count=1`：pass；
+- `go test ./pkg/picod -count=1`：pass；
+- `bash -n test/e2e/run_e2e.sh`：pass；
+- `make gen-check`：pass，worktree clean；
+- pinned migration wrapper standalone reproduction：exit `127`；
+- `git diff --check upstream/main...73b451b`：fail，两份 getting-started 文档各有一处 trailing whitespace。
+
+GitHub final-SHA checks 当前均为 green，`MERGEABLE / UNSTABLE`，`tide` 仍等待 `lgtm` 与 `approved`。这些 checks 证明当前 v0.4.6 baseline 与生成物能过既有 CI，不证明 v0.5.2 integration 或 migration branch。
+
+本轮结论：`SECOND ROUND / NOT READY`。阻塞顺序是先恢复真实 target upgrade surface，再让 migration E2E 成为可执行、会失败 CI、覆盖 official cold-start fixture 的测试；exported `Resource()` compatibility 也需恢复。没有运行 live cluster migration，没有发布 review/comment、resolve thread、mention 或 merge command。

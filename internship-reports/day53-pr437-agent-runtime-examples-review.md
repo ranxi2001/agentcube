@@ -167,3 +167,11 @@ A fresh-context teach-back understood the exact observation, red/green evidence,
 ## 8. Community freshness
 
 The read-only freshness scan was advanced to `2026-07-21 16:05 CST`. No issue or PR was newly updated after the 14:45 scan during this review. PR #437 itself remains on its July 13 head; no competing human review or new author push appeared while the analysis ran.
+
+## 9. 2026-07-23 follow-up verification
+
+Freshness scan 发现作者已 force-push exact head `37792e4bfc32a2ae89536b06b7c98d722e87654a`。相对已审 head `c18707f` 的 tree diff 只有 `example/agent-runtime/agent-runtime.yaml` 三行：增加 `signal`、`sys` imports，并注册 `SIGTERM -> sys.exit(0)` handler；没有顺带修改其它 review surface。
+
+作者在 [reply 3628126679](https://github.com/volcano-sh/agentcube/pull/437#discussion_r3628126679) 回复 `good catch. fixed`。最新 12 checks 与 DCO 均为 success，Tide 仍等待 `lgtm` / approval。
+
+这满足 inline 的核心行为请求：PID 1 现在能在 Kubernetes TERM 阶段主动退出，不必默认等待 KILL。作者没有新增专门的 prompt/clean-exit smoke test，因此本轮只记为 code-path fix verified，不把现有 E2E 解释成 termination test；也不自动追评、resolve thread 或提交 `/lgtm`。
