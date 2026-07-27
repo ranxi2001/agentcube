@@ -49,6 +49,26 @@ Evidence labels:
 - Validation: Inspect workflow inputs, install logs, and the PASS/SKIP test list; compare them with dependency versions and the changed behavior.
 - False-positive guard: Version skew may be intentional for compatibility testing when explicitly named and paired with target-version coverage.
 
+### Lifecycle E2E fixtures must traverse the real producer
+
+- Trigger: An E2E test declares a parent CR, session, allocation, or controller input and then waits for a derived child resource or lifecycle state.
+- Hidden assumption: Creating the parent necessarily triggers the exact child that the test later polls, even when the child belongs to a request path, another controller, or a conditional policy branch.
+- Failure mode: The test waits for an object no production component was asked to create, or a setup failure is mistaken for migration/readiness behavior; later identity and cleanup assertions never exercise their claimed scenario.
+- Evidence source: `CODE`, AgentCube PR #442's migration block applied a `CodeInterpreter` and waited for a `SandboxClaim`. The `CodeInterpreterReconciler` only owns SandboxTemplate/SandboxWarmPool, while the WorkloadManager session-create handler produces SandboxClaims. The fixture also omitted the CRD-required `spec.template`.
+- Review question: Which concrete component and event create every asserted child, and does the test trigger that event with an admission-valid object before polling it?
+- Validation: Trace parent admission, controller/request ownership, conditional branches, and child creation. Prove the exact child name/UID exists before capturing identity, upgrading, deleting, or asserting absence.
+- False-positive guard: A parent-only fixture is sufficient when the reconciler contract explicitly and unconditionally creates the asserted child, and a focused test or live trace proves that ownership path.
+
+### Early liveness must not become false readiness
+
+- Trigger: A server listener or health endpoint is started before informer sync, Store/database ping, credential loading, leader election, or another business dependency.
+- Hidden assumption: Accepting a TCP/HTTP request means the component can safely serve its production routes, or a one-time startup error check supervises the listener for its full lifetime.
+- Failure mode: Kubernetes adds the Pod to Service endpoints while business handlers still see stale caches or unavailable dependencies; later fatal `Serve` errors are written to an error channel after its only reader has returned.
+- Evidence source: `CODE`, AgentCube PR #442 moved the WorkloadManager listener before informer cache sync and Store ping. `/health` always returned 200, the Helm chart reused it or TCP for readiness, and `Start` consumed the listener error channel only once before returning nil.
+- Review question: Which signal owns liveness, which state gates readiness and business traffic, and who continuously observes listener failure until shutdown?
+- Validation: Hold each dependency unready while the listener is live; assert liveness can pass, readiness stays false, business traffic is rejected or withheld, and a late listener error reaches the process supervisor. Then release dependencies and prove readiness transitions once.
+- False-positive guard: An early listener is correct when readiness is separately dependency-aware, routes are gated until initialization completes, and the serving goroutine remains supervised for the process lifetime.
+
 ### New reads can create hidden RBAC requirements
 
 - Trigger: A request path starts polling or fetching an additional Kubernetes kind through a user-scoped client.

@@ -4,11 +4,12 @@
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.request
 
 
-def request_json(url):
+def request_page(url):
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "agentcube-pr-management-skill",
@@ -18,7 +19,32 @@ def request_json(url):
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        return json.loads(resp.read().decode("utf-8")), resp.headers
+
+
+def request_json(url):
+    data, _ = request_page(url)
+    return data
+
+
+def next_link(link_header):
+    for part in link_header.split(","):
+        if 'rel="next"' in part:
+            match = re.search(r"<([^>]+)>", part)
+            if match:
+                return match.group(1)
+    return None
+
+
+def request_all_pages(url):
+    items = []
+    while url:
+        data, headers = request_page(url)
+        if not isinstance(data, list):
+            return data
+        items.extend(data)
+        url = next_link(headers.get("Link", ""))
+    return items
 
 
 def main():
@@ -29,10 +55,10 @@ def main():
 
     base = f"https://api.github.com/repos/{args.repo}"
     pr = request_json(f"{base}/pulls/{args.number}")
-    files = request_json(f"{base}/pulls/{args.number}/files?per_page=100")
-    commits = request_json(f"{base}/pulls/{args.number}/commits?per_page=100")
-    issue_comments = request_json(f"{base}/issues/{args.number}/comments?per_page=100")
-    review_comments = request_json(f"{base}/pulls/{args.number}/comments?per_page=100")
+    files = request_all_pages(f"{base}/pulls/{args.number}/files?per_page=100")
+    commits = request_all_pages(f"{base}/pulls/{args.number}/commits?per_page=100")
+    issue_comments = request_all_pages(f"{base}/issues/{args.number}/comments?per_page=100")
+    review_comments = request_all_pages(f"{base}/pulls/{args.number}/comments?per_page=100")
 
     result = {
         "number": args.number,

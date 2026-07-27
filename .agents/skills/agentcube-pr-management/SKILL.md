@@ -783,7 +783,7 @@ python3 .agents/skills/agentcube-pr-management/scripts/pr_status.py 379
 python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 379
 ```
 
-`pr_status.py` prints title, state, labels, files, commits, comments count, and review comments summary. `thread_brief.py` gives the broader discussion timeline, assignee signals, body snippet, and PR review surface. Use both before manual review when the question depends on conversation context.
+`pr_status.py` follows REST `Link` pagination for files, commits, issue comments, and review comments, then prints title, state, labels, files, commits, complete comment counts, and a bounded review-comment preview. `thread_brief.py` gives the broader discussion timeline, assignee signals, body snippet, and PR review surface. Use both before manual review when the question depends on conversation context.
 
 ## Guardrails
 

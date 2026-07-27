@@ -120,6 +120,8 @@ python3 .agents/skills/agentcube-issue-discussion/scripts/fetch_thread.py 365
 python3 .agents/skills/agentcube-issue-discussion/scripts/fetch_thread.py 366 --repo volcano-sh/agentcube
 ```
 
+`fetch_thread.py` follows GitHub REST `Link` pagination for conversation comments, PR files, commits, and inline review comments. Treat the returned arrays as the full REST surface rather than a first-page sample; GraphQL review-thread resolution/currentness still requires a separate query when that metadata matters.
+
 The script prints JSON with the issue/PR object, comments, PR files, PR commits, and PR review comments.
 
 For a sampled cross-repository study of one contributor's issue/PR writing, use:
