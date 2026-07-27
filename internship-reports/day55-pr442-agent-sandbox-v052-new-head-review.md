@@ -419,4 +419,16 @@ exact draft 保存在 [Day55 review drafts](day55-pr442-review-drafts.md)。任�
 5. 恢复被删除的 integration E2E；
 6. 处理已存在 thread 中的 `Resource()` compatibility。
 
-本轮没有发布 review/comment、resolve thread、mention maintainer、执行 `/lgtm` 或 `/approve`。停止条件是等待用户确认 exact draft；确认前只保留本地记录。
+### 9.1 Review comment 发布安排
+
+2026-07-27 用户明确决定：今天先把 findings、证据、影响和 exact draft 保存在 Day55 本地记录中，不向 PR #442 发布 review comment；计划在 2026-07-28 再继续处理 review comment。
+
+“明天再提”表示下一轮恢复 review 发布流程，不是无人值守或预授权发布。2026-07-28 发布前仍需：
+
+1. 重新读取 PR #442 current head、checks 和新增 conversation；
+2. 如果 head 不再是 `4f9d4f3`，停止使用当前行号和 draft，对新 diff 重做验证；
+3. 如果 head 未变，重新做 duplicate audit，并让用户确认 exact target、`COMMENT` event、review body 与 4 条 inline 全文后再提交。
+
+> 注释：PR 可以在两次工作循环之间 force-push 或新增 review thread。延期一天后重新检查不是重复劳动，而是保证评论仍绑定 current artifact、没有被新提交修复、也不重复他人刚发布的意见。
+
+本轮没有发布 review/comment、resolve thread、mention maintainer、执行 `/lgtm` 或 `/approve`。当前停止条件是保持本地草稿，等到 2026-07-28 完成 freshness 与 exact-text confirmation 后再决定发布。
