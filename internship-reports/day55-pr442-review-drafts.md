@@ -45,14 +45,14 @@ Action：one root PR comment; no GitHub review event, no inline comment, no main
 
 Why upstream-visible now：用户要求即使已有 maintainer review，也需要在 PR 下说明本轮复核结论。该 comment 不新增 blocking thread，而是公开记录当前 reviewer stance：maintainer review 已覆盖 blocking findings，本轮不重复打扰，但会在下一版复核 `spec.template`、真实 `SandboxClaim` producer、existing `Resource()` thread、v0.5.3 immutable PVC template coverage 和 worker-concurrency assessment。
 
-Metrics：`106 visible words / 2 nonblank lines`，below ordinary comment soft limit. Visualization gate：prose only；这是 review coverage/status explanation，不是新的多 actor lifecycle finding。
+Metrics：`81 visible words / 2 nonblank lines`，below ordinary comment soft limit. Visualization gate：prose only；这是 review coverage/status explanation，不是新的多 actor lifecycle finding。2026-07-28 用户指出上一版第一段过细、读起来生疏，已压缩为一句自然状态说明。
 
 Exact body, not posted:
 
 ```md
-Reviewed current head `4f9d4f3`. The new [maintainer review](https://github.com/volcano-sh/agentcube/pull/442#pullrequestreview-4793033983) covers the blocking areas I found, so I will not duplicate its inline threads: required two-phase migration CI, the broken migration-helper URL, real session cleanup/refill, WorkloadManager readiness and listener supervision, and restoration of the removed OIDC/LangChain/MCP suites.
+Reviewed current head `4f9d4f3`. The maintainer review already captures the main blockers I found on this head, so I won't add duplicate inline threads.
 
-For the next revision, two lower-level details are worth preserving in that rework: the pre-upgrade `CodeInterpreter` fixtures must be admission-valid (`spec.template` is required), and the test must trigger the real `SandboxClaim` producer through a WorkloadManager session request. I will recheck those details, the existing [`Resource()` compatibility thread](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3631523674), and the requested v0.5.3 immutable `volumeClaimTemplates` coverage and worker-concurrency assessment on the next head.
+For the next revision, I will still keep two migration-test details on my checklist: the pre-upgrade `CodeInterpreter` fixture needs to be admission-valid (`spec.template` is required), and the test should create the `SandboxClaim` through the real WorkloadManager session path. I will also recheck the existing [`Resource()` compatibility thread](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3631523674), plus the requested v0.5.3 immutable `volumeClaimTemplates` coverage and worker-concurrency assessment.
 ```
 
 ## Review Body
