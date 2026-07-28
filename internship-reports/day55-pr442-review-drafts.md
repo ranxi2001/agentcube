@@ -2,7 +2,7 @@
 
 日期：2026-07-27；发布前复核：2026-07-28
 
-状态：`LOCAL DRAFT / SUPERSEDED BY MAINTAINER REVIEW / DO NOT POST`
+状态：`LOCAL DRAFT / ROOT COMMENT AWAITING EXACT CONFIRMATION`
 
 ## Approval Package
 
@@ -11,8 +11,8 @@
 | Target | `volcano-sh/agentcube` PR #442 |
 | Base branch | upstream `main` |
 | Exact reviewed head | `4f9d4f3265c722b367dcf4e0430eb59aa0ff7d6e` |
-| Action | 不执行 upstream action；等待作者提交 v0.5.3 新 head 后重新 review |
-| Posting state | 未发布；`@acsoto` 已在同一 head 提交覆盖这些问题的 `CHANGES_REQUESTED`，下列 exact text 仅保留为历史草稿 |
+| Action | 待用户确认后，仅发布一条 root PR comment 说明 maintainer review 已覆盖 blocking findings；不发布 archived review body / inline comments |
+| Posting state | 未发布；`@acsoto` 已在同一 head 提交覆盖这些问题的 `CHANGES_REQUESTED`，原四条 exact text 仅保留为历史草稿；新增 root comment 需再次核对 head 后才能发布 |
 | Diff reviewed | 38 files，`+924/-710` |
 | Why now | 原计划在作者 force-push 恢复完整 v0.5.2 adapter 后补 current-head review；2026-07-28 09:53 CST 已被 maintainer current-head review 取代 |
 
@@ -35,7 +35,25 @@ Visualization gate：migration finding 同时包含版本分支、validator 提�
 | Inline 3：false readiness 与 late Serve error | [liveness/readiness 分离](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3662193177)、[listener lifetime supervision](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3662193180) | 不重复发布 |
 | Inline 4：删除 OIDC/LangChain/MCP coverage | [恢复被删除 suites](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3662193173) | 不重复发布 |
 
-现有 [`Resource()` compatibility thread](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3631523674) 仍可在新 head 复核，但不足以证明此时再发一份独立 root review 有净增益。当前动作是零评论、零 reply、零 Prow command，等待作者的新 commit。
+现有 [`Resource()` compatibility thread](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3631523674) 仍可在新 head 复核，但不足以证明此时再发一份独立 root review 有净增益。当前动作改为仅准备一条非重复 root explanation：说明不再重复 maintainer 已覆盖的技术线程，同时保留两个低层测试细节和下一版复核范围。
+
+## Proposed Non-Duplicate Root Comment
+
+Target：`volcano-sh/agentcube` PR #442
+
+Action：one root PR comment; no GitHub review event, no inline comment, no maintainer mention, no Prow command.
+
+Why upstream-visible now：用户要求即使已有 maintainer review，也需要在 PR 下说明本轮复核结论。该 comment 不新增 blocking thread，而是公开记录当前 reviewer stance：maintainer review 已覆盖 blocking findings，本轮不重复打扰，但会在下一版复核 `spec.template`、真实 `SandboxClaim` producer、existing `Resource()` thread、v0.5.3 immutable PVC template coverage 和 worker-concurrency assessment。
+
+Metrics：`106 visible words / 2 nonblank lines`，below ordinary comment soft limit. Visualization gate：prose only；这是 review coverage/status explanation，不是新的多 actor lifecycle finding。
+
+Exact body, not posted:
+
+```md
+Reviewed current head `4f9d4f3`. The new [maintainer review](https://github.com/volcano-sh/agentcube/pull/442#pullrequestreview-4793033983) covers the blocking areas I found, so I will not duplicate its inline threads: required two-phase migration CI, the broken migration-helper URL, real session cleanup/refill, WorkloadManager readiness and listener supervision, and restoration of the removed OIDC/LangChain/MCP suites.
+
+For the next revision, two lower-level details are worth preserving in that rework: the pre-upgrade `CodeInterpreter` fixtures must be admission-valid (`spec.template` is required), and the test must trigger the real `SandboxClaim` producer through a WorkloadManager session request. I will recheck those details, the existing [`Resource()` compatibility thread](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3631523674), and the requested v0.5.3 immutable `volumeClaimTemplates` coverage and worker-concurrency assessment on the next head.
+```
 
 ## Review Body
 
@@ -114,4 +132,4 @@ Could equivalent invocations be restored and the migration scenario moved to a d
 
 ## Posting Guard
 
-Do not submit the archived review body or four inline comments. Do not reply to, resolve, mention, or issue Prow commands on the maintainer review. After the author pushes a new v0.5.3 head, re-read the full diff and current threads before deciding whether any independent finding remains.
+Do not submit the archived review body or four inline comments. Do not reply to, resolve, mention, or issue Prow commands on the maintainer review. The proposed root comment above may be posted only after the user confirms the exact target/action/body and a fresh head check still shows `4f9d4f3265c722b367dcf4e0430eb59aa0ff7d6e`. After the author pushes a new v0.5.3 head, re-read the full diff and current threads before deciding whether any independent finding remains.
