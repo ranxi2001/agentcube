@@ -1,8 +1,8 @@
 # Day 55：PR #442 Review Drafts
 
-日期：2026-07-27
+日期：2026-07-27；发布前复核：2026-07-28
 
-状态：`LOCAL DRAFT / NOT POSTED`
+状态：`LOCAL DRAFT / SUPERSEDED BY MAINTAINER REVIEW / DO NOT POST`
 
 ## Approval Package
 
@@ -11,23 +11,38 @@
 | Target | `volcano-sh/agentcube` PR #442 |
 | Base branch | upstream `main` |
 | Exact reviewed head | `4f9d4f3265c722b367dcf4e0430eb59aa0ff7d6e` |
-| Action | upstream-facing GitHub `COMMENT` review with 4 inline comments |
-| Posting state | 未发布；等待用户确认 exact text |
+| Action | 不执行 upstream action；等待作者提交 v0.5.3 新 head 后重新 review |
+| Posting state | 未发布；`@acsoto` 已在同一 head 提交覆盖这些问题的 `CHANGES_REQUESTED`，下列 exact text 仅保留为历史草稿 |
 | Diff reviewed | 38 files，`+924/-710` |
-| Why now | 作者 force-push 恢复完整 v0.5.2 adapter 并重新请求 review；没有真人 review 绑定 current head |
+| Why now | 原计划在作者 force-push 恢复完整 v0.5.2 adapter 后补 current-head review；2026-07-28 09:53 CST 已被 maintainer current-head review 取代 |
 
-验证摘要：focused Go tests、WorkloadManager race、E2E compile、shell syntax、module verify、gen-check、lint、build 通过；exact-head 12 checks green；release `migrate.sh` URL 返回 404；diff check 有 6 处 whitespace；Docusaurus 本地 build 因依赖未安装而未执行。
+验证摘要：focused Go tests、WorkloadManager race、E2E compile、shell syntax、module verify、gen-check、lint、build 通过；2026-07-28 复查 exact head 仍为 `4f9d4f3`，12 checks green，只有 Tide 等待 `lgtm` / `approved`；release `migrate.sh` URL 返回 404；diff check 有 6 处 whitespace；Docusaurus 本地 build 因依赖未安装而未执行。09:49 CST 的扫描尚无变化，但 09:53 CST `@acsoto` 在同一 head 提交 7 条 inline 和 1 个 `CHANGES_REQUESTED`，PR review comments 从 181 增至 188。
 
-Visualization gate：保留 prose。Migration comment 只有两个互斥配置分支，readiness comment 只有一条线性启动顺序；短 prose 比 Mermaid 更易扫描。
+Visualization gate：migration finding 同时包含版本分支、validator 提前退出、无效 parent fixture、缺失真实 Claim producer 和所需四阶段升级路径；readiness finding 同时包含 probe/readiness 与 late Serve error 两条生命周期分支，均超过 3 个有意义节点。因此两条评论使用 10-node / 8-node inline Mermaid；已用官方 `@mermaid-js/mermaid-cli@11.16.0` 本地渲染并目视通过。404 与 coverage deletion 仍是单步因果，保留 prose。
 
-Reviewer-visible metrics：review body `116 words / 2 nonblank lines`；inline 1 `146 / 3`；inline 2 `107 / 2`；inline 3 `141 / 3`；inline 4 `89 / 2`。没有单条超过 450-word soft gate；aggregate 为 `599 words / 12 nonblank lines`，因为四个独立文件/责任边界需要分别锚定，不把它们压成一个难以定位的长 root comment。
+历史草稿 metrics：review body `106 words / 2 nonblank lines`；inline 1 `158 / 16`；inline 2 `96 / 2`；inline 3 `165 / 13`；inline 4 `86 / 2`。aggregate 为 `611 words / 35 nonblank lines`，其中 23 行是两个小型 Mermaid 源码。它们不再是待批准的 reviewer-visible 文本。
+
+## 2026-07-28 Maintainer Review Supersession
+
+`@acsoto` 在 exact head `4f9d4f3` 提交 [`CHANGES_REQUESTED`](https://github.com/volcano-sh/agentcube/pull/442#pullrequestreview-4793033983)，要求直接转向稳定的 v0.5.3，并补 `Sandbox.spec.volumeClaimTemplates` immutable coverage，同时评估或调整新的 `sandbox-concurrent-workers=100`，避免意外增加 API Server 压力。这改变了本轮 review 的前提：作者接下来应重做依赖版本和 migration contract，而不是继续修补 v0.5.2 草稿。
+
+重复映射：
+
+| 本地草稿 | Maintainer current-head review | 决策 |
+| --- | --- | --- |
+| Inline 1：migration 不可达、required CI、真实 Claim lifecycle | [两阶段 migration](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3662193160)、[required CI](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3662193164)、[session/claim cleanup 与 refill](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3662193171) | 不重复发布；`spec.template` 和真实 Claim producer 细节留作新 head 复核 |
+| Inline 2：404 与 helper procedure | [v0.5.2 release asset 404](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3662193167) | 不重复发布 |
+| Inline 3：false readiness 与 late Serve error | [liveness/readiness 分离](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3662193177)、[listener lifetime supervision](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3662193180) | 不重复发布 |
+| Inline 4：删除 OIDC/LangChain/MCP coverage | [恢复被删除 suites](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3662193173) | 不重复发布 |
+
+现有 [`Resource()` compatibility thread](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3631523674) 仍可在新 head 复核，但不足以证明此时再发一份独立 root review 有净增益。当前动作是零评论、零 reply、零 Prow command，等待作者的新 commit。
 
 ## Review Body
 
 <!-- DRAFT:REVIEW_BODY:START -->
-Reviewed `4f9d4f3`. The production v0.5.2 adapter and fresh-install checks are back, and the exact-head checks are green. However, those jobs explicitly disable the migration block, and the current opt-in path still cannot construct or execute a v0.4.6 to v0.5.2 migration. The inline comments below cover that test path, the operator guide, a WorkloadManager readiness regression, and removed integration coverage.
+Reviewed `4f9d4f3`. The production v0.5.2 adapter and fresh-install checks are restored, and all 12 exact-head checks are green. Those checks, however, explicitly disable the migration block, and the opt-in path still cannot construct or execute a v0.4.6-to-v0.5.2 migration. The inline comments cover the unreachable migration job, inaccurate operator procedure, WorkloadManager false readiness, and removed integration coverage.
 
-I did not duplicate the existing `Resource()` compatibility thread. Although that GitHub thread is marked resolved, the current exported helper still returns `GroupResource`, so the compatibility concern remains in the artifact. I think the PR remains not ready until the upgrade path is executable and required, startup readiness is dependency-aware, and the removed E2E suites are restored.
+I did not duplicate the existing [`Resource()` compatibility thread](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3631523674). The current helper still returns `GroupResource`, so please recheck that resolved thread against the current artifact. I do not think this is ready until the upgrade path is required and executable, readiness is dependency-aware, and the removed E2E suites are restored.
 <!-- DRAFT:REVIEW_BODY:END -->
 
 ## Inline 1: Migration Reachability And Fixture
@@ -35,11 +50,24 @@ I did not duplicate the existing `Resource()` compatibility thread. Although tha
 Target: `test/e2e/run_e2e.sh:537`
 
 <!-- DRAFT:INLINE_1:START -->
-The opt-in block still cannot produce a v0.4.6 to v0.5.2 migration. With the default and CI value (`AGENT_SANDBOX_VERSION=v0.5.2`), setup installs v0.5.2 before reaching this block, so step 5 only reapplies the same release. With `AGENT_SANDBOX_VERSION=v0.4.6`, setup exits at `validate_agent_sandbox_crd_version` because it unconditionally requires v1beta1.
+The upgrade block remains unreachable as a migration test. Normal CI installs v0.5.2 and sets the flag false, while opt-in v0.4.6 setup exits at the beta-only validator. Both CodeInterpreter fixtures omit required `spec.template`; even a valid CodeInterpreter creates only SandboxTemplate/WarmPool, while a WorkloadManager session request, which this block never sends, creates SandboxClaim.
 
-There is also no claim fixture yet: both `CodeInterpreter` manifests omit the required `spec.template`, and even a valid `CodeInterpreter` only makes its SandboxTemplate/WarmPool. A SandboxClaim is created after a session request, which this block never sends. The block also never invokes the official `bootstrap` or `migrate` phases.
+```mermaid
+flowchart TB
+    A["Current setup"] --> B{"Installed version"}
+    B -->|v0.5.2| C["Upgrade block disabled"]
+    B -->|v0.4.6| D["v1beta1 validation exits"]
+    A --> E["Invalid CodeInterpreter and no session"]
+    E --> F["No SandboxClaim"]
+    C -.-> G["Required job starts with v0.4.6 claims"]
+    D -.-> G
+    F -.-> G
+    G --> H["bootstrap and install v0.5.2"]
+    H --> I["webhook ready and migrate"]
+    I --> J["identity, readiness, GC, refill"]
+```
 
-Could this become a dedicated required migration job that starts from v0.4.6 and either uses a v1alpha1-compatible pre-upgrade WorkloadManager to create the claims or applies explicit v1alpha1 fixtures, then runs the pinned helper through bootstrap, install, webhook readiness, and migrate? It should fail CI if warm-adopted or cold/unbound claim identity, readiness, GC, or refill regresses.
+Could this become a dedicated required job that creates admitted v0.4.6 claims with a v1alpha1-compatible WorkloadManager or explicit alpha fixtures, runs bootstrap, install, webhook readiness, and migrate from the pinned upstream helper, and fails on warm-adopted or cold-unbound identity, readiness, GC, or refill regressions?
 <!-- DRAFT:INLINE_1:END -->
 
 ## Inline 2: Operator Guide
@@ -47,9 +75,9 @@ Could this become a dedicated required migration job that starts from v0.4.6 and
 Target: `docs/getting-started.md:48`
 
 <!-- DRAFT:INLINE_2:START -->
-The earlier helper/readiness concern remains on the current head: this command returns 404 because the v0.5.2 release does not publish a `migrate.sh` asset. The [tagged upstream guide](https://github.com/kubernetes-sigs/agent-sandbox/blob/v0.5.2/docs/api-migration-guide.md) runs `dev/tools/migrate.sh` from a source checkout (it wraps `helm/files/migrate.sh`), backs up all four agent-sandbox kinds, and probes the conversion webhook before the post-upgrade rewrite. This guide instead omits SandboxTemplate/SandboxWarmPool from the backup and waits only for the controller Deployment.
+This line still reproduces the earlier [migration-procedure thread](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3611817313) and [404 thread](https://github.com/volcano-sh/agentcube/pull/442#discussion_r3630869702): the v0.5.2 release has no `migrate.sh` asset. The [tagged upstream guide](https://github.com/kubernetes-sigs/agent-sandbox/blob/v0.5.2/docs/api-migration-guide.md) runs `dev/tools/migrate.sh` from a source checkout (wrapping `helm/files/migrate.sh`), backs up all four agent-sandbox kinds, and probes the conversion webhook before the storage rewrite. This guide omits SandboxTemplate/SandboxWarmPool from the backup and checks only the controller Deployment for readiness.
 
-Could this use the exact tagged guide as the authoritative procedure, retain the existing CodeInterpreter backup while adding Sandbox/SandboxClaim/SandboxTemplate/SandboxWarmPool, wait for the webhook to answer a beta list, and describe bootstrap as conditionally mandatory while the v0.5.2 storage rewrite remains optional?
+Could this follow the tagged guide exactly, retain the CodeInterpreter backup while adding Sandbox/SandboxClaim/SandboxTemplate/SandboxWarmPool, probe the webhook with a beta list, and state that bootstrap is conditionally mandatory while the v0.5.2 post-upgrade migrate phase remains optional?
 <!-- DRAFT:INLINE_2:END -->
 
 ## Inline 3: WorkloadManager Readiness
@@ -57,11 +85,21 @@ Could this use the exact tagged guide as the authoritative procedure, retain the
 Target: `pkg/workloadmanager/server.go:154`
 
 <!-- DRAFT:INLINE_3:START -->
-Starting the listener here creates a false-readiness window whenever cache sync or the Store ping outlasts the first readiness probe. `/health` always returns 200, and the chart uses that endpoint (or a TCP socket with SPIRE) for readiness, so Kubernetes can route requests before those dependencies are ready. Those requests can observe unsynced listers or an unavailable Store.
+Starting the listener here creates a source-proven false-readiness window when cache sync or the Store ping outlasts the first readiness probe. `/health` always returns 200, and the chart uses it, or TCP under SPIRE, for readiness, so service traffic can reach business routes while dependencies are unavailable. I did not observe a production outage; this is source-proven from the startup and probe wiring.
 
-There is a second lifecycle gap after initialization: `Start` performs one non-blocking read from `startupErr` and returns nil, so a later fatal listener error is queued with no remaining consumer. The process stays alive without surfacing the error to `main`, relying on probes to trigger an eventual restart.
+```mermaid
+flowchart TB
+    A["Listener starts"] --> B["health or TCP passes"]
+    A --> C["Cache sync and Store ping pending"]
+    B --> D["Pod becomes Ready"]
+    C --> E["Business dependencies unavailable"]
+    D --> F["Traffic reaches business routes"]
+    E --> F
+    A --> G["Later Serve error"]
+    G --> H["startupErr has no reader"]
+```
 
-Could we keep early liveness but expose a separate readiness signal gated by cache sync plus Store availability, prevent business traffic until that state is true, and supervise the listener error for the process lifetime?
+After initialization, `Start` reads `startupErr` once and returns; a later fatal Serve error has no consumer. Could we keep early liveness, add dependency-aware readiness plus route gating, and supervise the listener for the process lifetime? A focused test should hold each dependency unready and then release it, and inject a late listener failure.
 <!-- DRAFT:INLINE_3:END -->
 
 ## Inline 4: Removed Integration Coverage
@@ -69,11 +107,11 @@ Could we keep early liveness but expose a separate readiness signal gated by cac
 Target: `test/e2e/run_e2e.sh:534`
 
 <!-- DRAFT:INLINE_4:START -->
-This replacement removes the conditional OIDC block, the unconditional LangChain and local MCP HTTP/stdio runs, and the in-cluster MCP run used when setup is enabled. Their test files, dependencies, README contract, and some cleanup variables remain, but `run_e2e.sh` no longer invokes them. The green E2E jobs therefore provide materially less regression coverage for behavior unrelated to this dependency upgrade.
+This replacement removes the conditional OIDC run, the unconditional LangChain and local MCP HTTP/stdio runs, and the in-cluster MCP run when setup is enabled. Their test files, dependencies, README contract, and cleanup variables remain, but `run_e2e.sh` no longer invokes them. The green E2E jobs therefore provide less regression coverage for behavior unrelated to this dependency upgrade.
 
-Could equivalent invocations be restored and the migration scenario moved to its own script/job, so adding upgrade coverage does not trade away the integration coverage previously exercised by `make e2e`?
+Could equivalent invocations be restored and the migration scenario moved to a dedicated script/job, so adding upgrade coverage does not trade away the integration coverage previously exercised by `make e2e`?
 <!-- DRAFT:INLINE_4:END -->
 
 ## Posting Guard
 
-Do not submit this review, create inline threads, resolve existing threads, mention maintainers, or issue Prow commands until the user confirms the exact target, `COMMENT` event, review body, and four inline bodies above.
+Do not submit the archived review body or four inline comments. Do not reply to, resolve, mention, or issue Prow commands on the maintainer review. After the author pushes a new v0.5.3 head, re-read the full diff and current threads before deciding whether any independent finding remains.
