@@ -228,3 +228,11 @@ Could we also migrate the production manager wiring in `cmd/workload-manager/mai
 <!-- DRAFT:PR446_SCHEME_INLINE:END -->
 
 发布前 guard 已于 `2026-07-29 15:20 CST` 通过：#446 仍为 `822dc7b`，0 个 existing review comments/thread，line 46 anchor 未变化。用户确认 exact target/body/event 后，已发布 [review 4805118919](https://github.com/volcano-sh/agentcube/pull/446#pullrequestreview-4805118919) / [inline 3671892415](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3671892415)。这段正文现在是 posted evidence，不再是待批准草稿。
+
+## 2026-07-30 #446 MCP Reply Draft
+
+Target：`volcano-sh/agentcube` PR #446 的既有 [inline thread](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3671892415)。Artifact type：ordinary reply。Metrics：55 visible words / 1 nonblank line。当前仅为待确认草稿，未发布。
+
+<!-- DRAFT:PR446_MCP_REPLY:START -->
+Thanks, the v1beta1 manager wiring and binary-level scheme test now address my original comment. I also ran into the same MCP SDK v2 compatibility issue and opened #448 with the full v2 migration. Once it merges, #446 can rebase on `main` and drop the overlapping MCP changes, keeping this PR focused on the agent-sandbox upgrade.
+<!-- DRAFT:PR446_MCP_REPLY:END -->
