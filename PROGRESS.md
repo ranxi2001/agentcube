@@ -10,7 +10,7 @@
 
 - Branch/workflow：当前本地在 `intern`，该分支是本地记录专用分支，只跟踪 `.agents/`、`internship-reports/`、`PROGRESS.md`、`AGENTS.md`、`README-ZH.md`；不要在 `intern` 跟踪 AgentCube 源码、charts、client-go、workflow 或 `internship-reports/` 外的 benchmark/source 工具。代码工作切到 `main` 或 clean topic branch from `upstream/main`。记录类 commit 完成后默认 push `origin intern:intern`。
 - Intern branch cleanup：用户要求精简 `intern` 后，已在 `bceff94 chore: prune intern branch to local records [skip ci]` 删除上游源码/CI/SDK/docs 等 tracked 文件并保留 `.agents/`；该 commit 已 push 到 `origin/intern`。`.agents/.gitignore` 会忽略 `.agents/.env`、`__pycache__` 和 `*.pyc`。
-- Community freshness scan：最近一次全量只读扫描为 `2026-07-29 15:10 CST`；`upstream/main` 仍为 `87e6e37`（merged #445 GitHub Actions pins）。`16:52 CST` targeted CI scan 确认 #435、#429、#446 的新 E2E 均解析到 `mcp 2.0.0` 并出现同类 MCP 启动/rollout 失败。用户确认 exact title/body 后已创建 shared bug [#447](https://github.com/volcano-sh/agentcube/issues/447)；此外本轮还按确认发布 #446 inline review，并 force-with-lease 更新本人 #429 branch。未执行其它 upstream action。
+- Community freshness scan：最近一次全量只读扫描为 `2026-07-29 15:10 CST`；`upstream/main` 仍为 `87e6e37`（merged #445 GitHub Actions pins）。`16:52 CST` targeted CI scan 确认 #435、#429、#446 的新 E2E 均解析到 `mcp 2.0.0` 并出现同类 MCP 启动/rollout 失败。用户确认 exact title/body 后已创建 shared bug [#447](https://github.com/volcano-sh/agentcube/issues/447)，并再次确认 exact diff 后 edit 正文，明确 `FastMCP -> MCPServer` 是同一官方 `mcp` SDK 的 v1 -> v2 API migration，不是切换到独立 `fastmcp` library；#447 当前为 `kind/bug`、assignee `ranxi2001`。此外本轮还按确认发布 #446 inline review，并 force-with-lease 更新本人 #429 branch。未执行其它 upstream action。
 - Upstream comments rule：任何 upstream issue/PR/comment/review request/maintainer mention 都必须先让用户确认 exact target/body；不要自动 `/assign`、`/lgtm`、request review 或 mention maintainer。
 
 ## Active Upstream Threads

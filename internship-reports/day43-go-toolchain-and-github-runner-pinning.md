@@ -1060,10 +1060,12 @@ The command prints `2.0.0` and then raises the error above.
 
 The [official SDK README](https://github.com/modelcontextprotocol/python-sdk#readme) recommends keeping a `<2` upper bound until migration, and the [v2 migration guide](https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md) identifies this exact error as a breaking change.
 
+Terminology clarification: `FastMCP` here means the high-level server class bundled with the official `mcp` Python SDK v1 (`mcp.server.fastmcp.FastMCP`), not the separate `fastmcp` PyPI package. In the same official SDK, v2 renames and reworks this class as `mcp.server.mcpserver.MCPServer`. Therefore, the v2 option below is an API migration within the existing `mcp` dependency, not a switch to another library.
+
 Two scopes are possible:
 
 - Immediate compatibility: use `mcp>=1.8.0,<2` and add a clean resolution/import regression check. I verified this resolves `mcp==1.29.0` and the server import succeeds.
-- Full v2 migration: migrate `FastMCP` to `MCPServer`, update the streamable HTTP client context managers and snake_case Tool fields, then validate local HTTP, stdio, and in-cluster E2E paths.
+- Full v2 API migration within the official `mcp` package: port AgentCube from the v1 `FastMCP` API to the v2 `MCPServer` API, move transport options to `run()`, update the streamable HTTP clients and snake_case model fields, then validate local HTTP, stdio, and in-cluster E2E paths.
 
 Given that this currently blocks shared CI, I suggest restoring compatibility first and tracking the full v2 migration separately.
 
@@ -1077,6 +1079,7 @@ Given that this currently blocks shared CI, I suggest restoring compatibility fi
 ### Published Result
 
 - 用户确认 exact target/title/body 后，已创建 upstream bug issue [#447 Code Interpreter MCP integration fails with mcp 2.0](https://github.com/volcano-sh/agentcube/issues/447)。
-- GitHub 上的标题与 271-word / 27-nonblank-line body 已逐项核对，CI run links、复现命令、两种修复 scope 和 environment 均完整。
-- 创建命令请求了 `kind/bug`，但 fork contributor 权限下 GitHub 未应用该 label；当前 issue 无 labels、assignees 或 comments。没有擅自补发 `/kind bug` comment。
+- 初始 GitHub 标题与 271-word / 27-nonblank-line body 已逐项核对，CI run links、复现命令、两种修复 scope 和 environment 均完整。
+- 后续讨论发现 `migrate FastMCP to MCPServer` 容易被读成从一个 dependency library 换到另一个。用户确认 exact diff 后已 edit issue body：新增 terminology clarification，明确 AgentCube 使用的是官方 `mcp` package 内的 v1 `mcp.server.fastmcp.FastMCP`，v2 `mcp.server.mcpserver.MCPServer` 是同一 SDK 的后继 API，与独立 `fastmcp` PyPI package 无关；同时把 full option 改写为 `Full v2 API migration within the official mcp package`，并列明 transport options、HTTP clients 和 snake_case model fields 的适配范围。
+- edit 后 current body 为 345 visible words / 28 nonblank lines；远端正文与确认稿核对只有末尾换行差异。标题未变，current issue 为 `kind/bug`、assignee `ranxi2001`。
 - Issue 已把 shared MCP prerequisite 从 #429 的两文件 Go toolchain scope 中剥离。后续先等 maintainer/其他 contributor 响应；若准备修复，仍需从 latest `upstream/main` 新建独立 branch，并在任何 `/assign`、comment、PR 或 push 前重新取得用户确认。
