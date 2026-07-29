@@ -958,3 +958,45 @@ git diff --exit-code -- .github/workflows
 > 注释：`--require-latest` 只在模拟已经完成升级后执行；PR 自身仍允许主线暂时落后最新 Go，由定时 workflow 发现并创建 review-only PR。
 
 原远端分支 `ci/go-toolchain-update-workflow@b6a3156` 和 upstream PR #429 尚未修改。下一步是请求用户确认把 `cf4024b` 以 `--force-with-lease` 更新到原分支；push 后等待该 exact head 的 fork checks，再决定是否发布简短 reviewer follow-up。
+
+### Upstream Branch Update And Exact-Head CI
+
+用户确认 exact old/new head 和 force-with-lease 范围后，已于 2026-07-29 把 `origin/ci/go-toolchain-update-workflow` 从 `b6a3156` 更新到 `cf4024b`。GitHub PR #429 随后确认 `headRefOid=cf4024b7e1c23967da41840f06f17ec66262bdfc`，DCO 通过。
+
+Actions run：<https://github.com/volcano-sh/agentcube/actions/runs/30431293490>
+
+| Exact-head check | 结果 |
+| --- | --- |
+| DCO / Approve Workflows | 通过 |
+| Build / Codegen / Codespell / Copyright | 通过 |
+| golangci-lint / Python Lint / Python SDK | 通过 |
+| Test Coverage | 通过 |
+| `e2e-test` | 失败，12m39s |
+| `codeinterpreter-e2e-test` | 失败，13m46s |
+
+两个 E2E 不是 toolchain workflow/script 回归，而是同一个未封顶 Python dependency 漂移：
+
+```text
+integrations/code-interpreter-mcp/pyproject.toml:
+  mcp>=1.8.0
+
+CI resolver:
+  Downloading mcp-2.0.0
+
+local MCP path:
+  ModuleNotFoundError: No module named 'mcp.server.fastmcp'
+  RuntimeError: MCP server failed to bind 127.0.0.1:19245
+
+in-cluster MCP path:
+  deployment/agentcube-code-interpreter-mcp
+  0 of 1 updated replicas are available
+  error: timed out waiting for the condition
+```
+
+#429 的 exact diff 仍只有新增 `.github/workflows/go-toolchain-update.yml` 与 `hack/go-toolchain.py`，没有修改 MCP package、Python dependency、E2E 或 runtime path。current main 的最近一次 E2E success 是 `87e6e37` 的 2026-07-27 run `30229466129`；本次重新解析到 `mcp 2.0.0` 后暴露 API removal。因此当前分类是 **shared current-main dependency drift, unrelated to #429 scope**。
+
+> 分析：不能因为红 CI 就把 MCP pin/2.0 migration 塞进 Go toolchain PR。正确做法是把 shared prerequisite 拆成独立修复，从 current main 复现并验证；#429 保持两文件 scope。因为失败是确定性的 resolver/API mismatch，盲目 rerun 也没有价值。
+
+当前不催 reviewer：PR exact head 已更新、10 项 gate 通过，但两个 required E2E 仍红。先等 shared MCP compatibility 修复或 maintainer 对红 CI 的处理，再准备 reviewer follow-up。
+
+本地 cleanup：原 topic worktree `/tmp/agentcube-go-toolchain-update-pr` 的 `ci/go-toolchain-update-workflow` 已对齐 `cf4024b` 并改为 tracking `origin/ci/go-toolchain-update-workflow`；临时 `rebase/pr429-on-main-20260729` branch/worktree 已删除。后续不会误从旧 `b6a3156` 继续修改。

@@ -528,4 +528,18 @@ PASS
 3. **保留 Pod lookup cleanup，但不竞争 #413。** fork `cleanup/remove-sandbox-pod-fallback@eefce59` 已采用 maintainer 最新建议的 Sandbox-name live Pod GET，且不依赖将被移除的 pod-name annotation；但 #413 仍是 active same-topic PR，应先等原作者响应或只提供 review/test evidence。
 4. **暂不安排本机 benchmark。** 当前 `kubectl` 没有 current context，并回退访问 `localhost:8080` 失败；冷启动、p99 和并发 5/20 测试需要先恢复可用 cluster，不能把它当成本周立即可执行的 0.5 天任务。
 
-本轮没有发布 upstream comment/review、没有 `/assign`、没有 reviewer request，也没有修改 #446、#429 或 #413 的远端分支。
+截至 10.3 的只读分析阶段，没有发布 upstream comment/review、没有 `/assign`、没有 reviewer request，也没有修改 #446、#429 或 #413 的远端分支；后续经用户 exact confirmation 执行的动作记录如下。
+
+### 10.4 Focused review 已发布
+
+用户确认 exact target/body/event 后，于 `2026-07-29 15:20:11 CST` 在 #446 exact head `822dc7b` 提交 `COMMENT` review：
+
+- Review：<https://github.com/volcano-sh/agentcube/pull/446#pullrequestreview-4805118919>
+- Inline thread：<https://github.com/volcano-sh/agentcube/pull/446#discussion_r3671892415>
+- Anchor：`pkg/workloadmanager/sandbox_controller.go:46`，right side
+- Root body：empty
+- Inline metrics：103 visible words / 1 nonblank line / 798 characters
+
+发布后 API 回读确认 `state=COMMENTED`、`commit_id=822dc7bd5a088d4ccc283bbeca4368ee76a2d570`，正文与批准文本一致。未附带 `/lgtm`、`/approve`、maintainer mention 或额外 root comment。
+
+> 注释：作者已暂停并不等于 finding 无效；这条评论只提供 production binary wiring 的独立红绿测试证据，供作者恢复工作时处理，不要求立即响应。
