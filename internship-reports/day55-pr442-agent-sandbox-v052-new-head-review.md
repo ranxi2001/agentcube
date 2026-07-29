@@ -543,3 +543,45 @@ PASS
 发布后 API 回读确认 `state=COMMENTED`、`commit_id=822dc7bd5a088d4ccc283bbeca4368ee76a2d570`，正文与批准文本一致。未附带 `/lgtm`、`/approve`、maintainer mention 或额外 root comment。
 
 > 注释：作者已暂停并不等于 finding 无效；这条评论只提供 production binary wiring 的独立红绿测试证据，供作者恢复工作时处理，不要求立即响应。
+
+## 11. 2026-07-29：#446 `4ced4ea` second-round freshness
+
+### 11.1 社区增量
+
+`2026-07-29 19:30 CST` 从 `15:10 CST` 快照开始做增量扫描。`upstream/main` 仍为 `87e6e37`，这段时间没有新 issue、merge、close 或 default-branch push；实质变化集中在 #446。作者把 head 从 `83002f1` 推进到 `4ced4eabd12be667ca3509328ccbaaa8c29ea24d`，PR 现为 9 commits、38 files、`+894/-460`。
+
+原 inline finding 已被代码处理：commit `27517d0` 把 `cmd/workload-manager/main.go` 的 sandbox/extensions scheme、`AddToScheme` 和 Sandbox controller watch 全部迁移到 `v1beta1`，并新增 `cmd/workload-manager/main_test.go::TestSchemeRegistration`。这与本地 red/green counterfactual 的最小修正方向一致，因此 production alpha/beta scheme mismatch 不再是 current-head finding。GitHub thread 仍显示 active，作者最后回复仍是 `yes sure doing..`；本轮没有替作者 resolve，也没有追加确认评论。
+
+> 分析：review 是否被处理应按 current code 判断，不能只看 thread 是否 resolve。这里可以把原 finding 标为 code-addressed，但还不能据此给整个 38-file dependency upgrade `/lgtm`。
+
+### 11.2 新增 MCP workaround 与 #448 的关系
+
+`83002f1..4ced4ea` 又叠加三个 MCP commits：为 deployment 设置 `MCP_TRANSPORT=sse` / `MCP_HOST=0.0.0.0`，把 dependency pin 到 `mcp>=1.8.0,<2.0.0`，并把 E2E client 改为 v1 `sse_client`。这四个 MCP-related files 与独立 [#448](https://github.com/volcano-sh/agentcube/pull/448) 的 maintainer-approved v2 migration scope 重叠，但方向相反：#448 保持 Streamable HTTP `/mcp` 并采用 `mcp>=2,<3`，且 exact head `1286b3a` 的 upstream 13/13 checks 全绿。
+
+#446 run [`30446047184`](https://github.com/volcano-sh/agentcube/actions/runs/30446047184) 已直接证明当前 SSE workaround 未闭环：server 以 SSE transport 启动，测试仍把 `MCP_K8S_MCP_URL` 设置为 `/mcp`，`sse_client` 对 `http://127.0.0.1:19446/mcp` 得到 `404 Not Found`。Python Lint 同时因两个遗留 `httpx` imports 报 `F401`。因此这不是仅等待 #448 的动态冲突，current #446 head 自身也没有通过它引入的 transport path。
+
+> 注释：`mcp<2` pin 是同一官方 SDK 的 v1 compatibility workaround，不是 agent-sandbox v0.5.3 适配本身的依赖要求。等 #448 合入后，#446 更干净的集成方式是 rebase 并删除重复的 MCP pin/SSE/client 补丁，而不是继续维护第二套 transport migration。
+
+### 11.3 Upgrade fixture 的独立失败链
+
+同一 E2E run 的 `e2e-test` 在 upgrade scenario 第一步失败：脚本向 AgentCube `CodeInterpreter` CR 写入不存在的 `spec.minReplicas` / `spec.maxReplicas`，API server 返回 strict-decoding `BadRequest`；fixture 同时缺少 CRD 标记为 required 的 `spec.template`。
+
+即使只修 manifest，下一层 producer contract 仍不成立：`CodeInterpreterReconciler` 只管理 `SandboxTemplate` / `SandboxWarmPool`，`SandboxClaim` 由 WorkloadManager session-create handler 的 `buildSandboxByCodeInterpreter -> createK8sResources` 路径创建。当前脚本只 `kubectl apply CodeInterpreter`，随后轮询 owner 为该 CR 的 `SandboxClaim`，没有调用真实 session producer。因此它不能验证所声称的 warm-adoption upgrade lifecycle。
+
+> 分析：CI 的 strict-decoding error 是 observed failure；“修完字段后仍不会产生 claim”是由 current production ownership path 证明的 reachable test-design gap。下一版应使用 admission-valid `CodeInterpreter`，再通过真实 WorkloadManager create-session API 生成 claim，先证明 claim/Sandbox/Pod presence 与 identity，之后才进入 controller stop、migration、UID preservation 和 cleanup assertions。
+
+### 11.4 当前 gate 与动作
+
+exact `4ced4ea` 快照的 checks 为 8 success、3 failure、DCO `action_required`：两个 E2E 和 Python Lint 失败，最早四个 commits `dd6239e`、`26c8de8`、`1e5eb90`、`822dc7b` 缺 signoff。Tide 仍缺 `lgtm` / `approved`。
+
+本轮只做只读 second-round review，没有发布 comment、reply、resolve、review event、Prow command 或 reviewer request。作者仍在频繁补丁阶段；下一步等待 head 稳定，再复核是否已移除与 #448 重叠的 MCP workaround，并优先验证 upgrade fixture 是否真正经过 session producer。没有必要现在用 CI 可见事实追评。
+
+### 11.5 扫描期间的连续 push 与 force-push
+
+上述 `4ced4ea` 记录尚未提交时，作者又连续推送 `9928ed7` 与 `7f603c5`；随后在 `2026-07-29 19:37 CST` force-push 删除 `7f603c5`，current head 回到 `9928ed789df9cd3f3547250fa627c5212bc76fe5`，现为 10 commits、41 files、`+937/-498`。`9928ed7` 把 #448 的 v2 migration 内容重新落进 #446，但留下了互相矛盾的 transport wiring：CLI choices 只有 `stdio` / `sse`，实际仅在 `args.transport == "streamable-http"` 时启动 HTTP；deployment 传 `sse` 会进入 `else` 并运行 stdio，因此不会监听 readiness probe 和 E2E 所需的 8000 端口。
+
+更重要的是，`9928ed7` 不是具有两个 parents 的 Git merge，而是以 `4ced4ea` 为唯一 parent 的新 commit：author 显示 `ranxi2001`，committer 为 `safiya2610`，正文只有 `fix: migrate code interpreter MCP to SDK v2 (merge)` 且没有保留 source commit 的 signoff。DCO 因而把它连同原先四个 unsigned commits 一起列为 5 个 failure entries。该 commit 还意外删除了 `pkg/router/server.go` 的 `Start` 函数声明、`addr` / `h2cHandler` 初始化与 imports，却留下后半个函数体。被 force-push 丢弃的 `7f603c5` run `30447971445` 已在相同 tree 内容上观察到 `server.go:183:2: expected declaration, found s`；这不是 #448 原 7-file diff 的内容。
+
+current `9928ed7` 从 19:38 到 19:47 CST 连续约 9 分钟没有再次变化；8 checks success、Python Lint 与 DCO 失败，两个 E2E 尚在运行。Python Lint 仍因 local MCP test 的一个 unused `httpx` import 失败。即使暂不等待 E2E，impossible transport condition、malformed Router source、invalid upgrade fixture 和 DCO authorship/signoff state 已足以判定 current head 不可 review-ready。
+
+> 分析：此时最有价值的动作不是逐个指出作者已能从 CI 看到的 lint/compile error，而是等待作者停止叠加补丁。下一轮应先核对 commit topology、authorship/signoff、`upstream/main...head` scope 和 Router source 是否恢复，再审 agent-sandbox migration 本身；不要把 #448 的 clean commit evidence自动套用到这次手工重落后的树。
