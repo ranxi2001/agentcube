@@ -135,3 +135,74 @@ Could equivalent invocations be restored and the migration scenario moved to a d
 ## Posting Guard
 
 Do not submit the archived review body or four inline comments. Do not repost the root comment, reply to, resolve, mention, or issue Prow commands on the maintainer review. After the author pushes a new v0.5.3 head, re-read the full diff and current threads before deciding whether any independent finding remains.
+
+## 2026-07-29 Follow-up: PR #446 Supersedes #442
+
+只读跟进时间：2026-07-29 09:40 CST。
+
+PR #442 已在 2026-07-29T00:59:16Z 关闭且未合并。关闭前它还被 bot 标过 `do-not-merge/contains-merge-commits`，因此 #446 是作者重新开的 v0.5.3 分支，不是 #442 的继续 push。
+
+> 注释：这里的“supersedes”是工作流意义上的替代：#438 仍是同一个 agent-sandbox v0.5.x upgrade 需求，但可审查对象已经从 #442 转移到 #446。
+
+### #446 Current State
+
+- PR: https://github.com/volcano-sh/agentcube/pull/446
+- Title: `Upgrade agent sandbox v0.5.3`
+- Author: `@safiya2610`
+- State: open, non-draft, label `size/XXL`
+- Base/head: `main@87e6e3750da87b9552147f2e28cc492d5c4e7705` <- `safiya2610:upgrade-agent-sandbox-v0.5.3@822dc7bd5a088d4ccc283bbeca4368ee76a2d570`
+- Diff: 29 files, `+754/-361`, 4 commits
+- Requested reviewers: `YaoZengzeng`, `VanderChen`, `hzxuzhonghu`, `acsoto`, `LiZhenCheng9527`
+- Review state: no human reviews and no active review comments observed in the fetched thread.
+
+Head ancestry:
+
+- Merge base with current `upstream/main`: `146b75fc4b98f214988b5d0c5059a55a2bc1f9da`
+- `upstream/main...upstream/pr-446`: main has 6 commits not in the PR, PR has 4 commits not in main.
+- No merge commits in `upstream/main..upstream/pr-446`.
+- `git merge-tree --write-tree upstream/main upstream/pr-446` is structurally clean, but semantic preservation still needs recheck after rebase because base is not the current main.
+
+### Current Gate Failures
+
+- DCO: `action_required`; all 4 commits are missing `Signed-off-by`.
+- Codegen Check: failed. `make gen-check` regenerates CRD YAML changes under `manifests/charts/base/crds/runtime.agentcube.volcano.sh_agentruntimes.yaml`, so generated output is not clean.
+- E2E: failed. The workflow reached the Code Interpreter MCP in-cluster deployment and timed out waiting for `deployment/agentcube-code-interpreter-mcp` rollout.
+- `git diff --check upstream/main...upstream/pr-446`: two trailing whitespace hits in the two getting-started docs.
+- Tide: pending; needs `approved` and `lgtm`.
+
+> 分析：这些 are process/readiness blockers, not subtle review findings. Posting a comment that repeats DCO, Codegen, or E2E failure would be noise unless it adds a missing causal bridge.
+
+### Author Pause Comment
+
+The author already posted that work is paused because the upgrade scope is larger than a simple version bump:
+
+- v0.5.3 requires adopting `VolumeClaimTemplates`, which affects AgentCube `SandboxTemplate` / `CodeInterpreterSandboxTemplate` API structure and mapping/equality logic.
+- Code Interpreter MCP E2E still depends on old `streamable-http`; it needs migration to `sse`.
+- API structural changes require re-running informer/client generators and validating generated schema.
+
+### Useful Independent Review Candidate
+
+One non-duplicative issue remains worth checking after the next head, because it is not covered cleanly by the existing CI/DCO noise.
+
+Current #446 changes the runtime adapter to create/read agent-sandbox `v1beta1` resources:
+
+- `pkg/workloadmanager/workload_builder.go` builds `agents.x-k8s.io/v1beta1` `Sandbox`.
+- `pkg/workloadmanager/informers.go` switches `SandboxGVR` and `SandboxClaimGVR` to `v1beta1`.
+- `pkg/workloadmanager/sandbox_controller.go` now reads `sandboxv1beta1.Sandbox`.
+- `pkg/workloadmanager/codeinterpreter_controller.go` creates `extensionsv1beta1.SandboxTemplate` and `SandboxWarmPool`.
+
+But `cmd/workload-manager/main.go` still registers only `sandboxv1alpha1` and `extensionsv1alpha1` into the manager scheme, and still wires the sandbox controller with `For(&sandboxv1alpha1.Sandbox{})`.
+
+> 分析：v0.5.3 CRDs still serve `v1alpha1` and `v1beta1` with webhook conversion, so simply watching `v1alpha1` may not be fatal by itself. The stronger concern is manager scheme consistency: the real workload-manager binary's controller-runtime client/scheme must know the typed `v1beta1` objects that the reconcilers now create/read. The fake unit tests register `v1beta1`, but the production `cmd/workload-manager/main.go` path currently does not.
+
+Potential concise upstream comment, if user confirms exact posting:
+
+```markdown
+One migration gap I noticed is in the workload-manager binary setup. The PR now creates/reads agent-sandbox `v1beta1` objects (`SandboxGVR`, `SandboxClaimGVR`, `SandboxReconciler`, and the CodeInterpreter template/warm-pool reconciler all moved to v1beta1), but `cmd/workload-manager/main.go` still registers only the `v1alpha1` agent-sandbox schemes and wires the sandbox controller with `For(&sandboxv1alpha1.Sandbox{})`.
+
+Even though v0.5.3 still serves v1alpha1 through conversion, the production manager scheme should include the v1beta1 sandbox and extension schemes used by the reconcilers, and the direct Sandbox controller setup should be aligned with the version this adapter creates. Could you update the binary setup and add coverage for startup/controller setup or a direct Sandbox creation path?
+```
+
+### Posting Guard For #446
+
+Do not post anything on #446 yet. The PR is explicitly paused by the author, has DCO/codegen/E2E failures, and already requested several reviewers. If the user wants to comment anyway, use the exact concise comment above and confirm the target `https://github.com/volcano-sh/agentcube/pull/446` before publishing.
