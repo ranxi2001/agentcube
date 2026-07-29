@@ -97,7 +97,9 @@ This workspace uses two remotes:
 - `origin`: the personal fork, currently `https://github.com/ranxi2001/agentcube.git`.
 - `upstream`: the official project, `https://github.com/volcano-sh/agentcube.git`.
 
-Keep the fork `main` branch as a clean mirror of `upstream/main`. Do not commit internship reports, local benchmark data, Chinese notes, task tracking, or local-only skills to fork `main`. Keep that work on the fork `intern` branch instead. Before rebasing or resetting either branch, make sure the worktree is clean by committing or stashing local edits.
+Keep the fork `main` branch as a clean mirror of `upstream/main`. Do not commit internship reports, local benchmark data, Chinese notes, task tracking, or intern-only `.agents/` skills to fork `main`. Keep that work on the fork `intern` branch instead. Before rebasing or resetting either branch, make sure the worktree is clean by committing or stashing local edits.
+
+The fork `intern` branch is intentionally local-record-only. Its tracked content should stay limited to `.agents/`, `internship-reports/`, `PROGRESS.md`, `AGENTS.md`, and `README-ZH.md`; do not track AgentCube source code, generated clients, charts, benchmark tooling outside `internship-reports/`, or upstream workflow files on `intern`. Use `main` or a clean topic branch from `upstream/main` for code work.
 
 Use this sync flow for the fork `main` mirror:
 
@@ -109,17 +111,15 @@ git reset --hard upstream/main
 git push --force-with-lease origin main:main
 ```
 
-Use this sync flow for internship records:
+Use this flow for internship records:
 
 ```bash
 git status
-git fetch upstream main
 git switch intern
-git rebase upstream/main
-git push --force-with-lease origin intern:intern
+git push origin intern:intern
 ```
 
-For fork-only internship reports, TODO updates, local skills, and other `intern` branch record-keeping work, push to `origin intern:intern` in the same work loop after committing unless the user explicitly asks not to push. This automatic push preference applies only to the personal fork / `intern` branch workflow; upstream-facing PRs, issues, comments, review requests, maintainer mentions, and official topic branches still require explicit user confirmation.
+For fork-only internship reports, TODO updates, PROGRESS updates, AGENTS updates, README-ZH updates, and other allowed `intern` branch record-keeping work, push to `origin intern:intern` in the same work loop after committing unless the user explicitly asks not to push. This automatic push preference applies only to the personal fork / `intern` branch workflow; upstream-facing PRs, issues, comments, review requests, maintainer mentions, and official topic branches still require explicit user confirmation.
 
 Append `[skip ci]` to commit subjects for `intern`-only reports, TODO/PROGRESS updates, local skills, and other record-keeping changes. The fork's core workflows run on ordinary branch pushes, provide no useful validation for these local-only records, and can generate unnecessary failure email. Do not use `[skip ci]` on upstream PR branches, fork validation branches, workflow changes, or any commit whose build/test result is intentionally being validated.
 
