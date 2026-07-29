@@ -1073,3 +1073,10 @@ Given that this currently blocks shared CI, I suggest restoring compatibility fi
 - Kubernetes version: Kind environment used by GitHub Actions
 - Others: `mcp==2.0.0`; Python 3.12 locally and Python 3.11 in the failing E2E jobs
 <!-- ISSUE_DRAFT_END -->
+
+### Published Result
+
+- 用户确认 exact target/title/body 后，已创建 upstream bug issue [#447 Code Interpreter MCP integration fails with mcp 2.0](https://github.com/volcano-sh/agentcube/issues/447)。
+- GitHub 上的标题与 271-word / 27-nonblank-line body 已逐项核对，CI run links、复现命令、两种修复 scope 和 environment 均完整。
+- 创建命令请求了 `kind/bug`，但 fork contributor 权限下 GitHub 未应用该 label；当前 issue 无 labels、assignees 或 comments。没有擅自补发 `/kind bug` comment。
+- Issue 已把 shared MCP prerequisite 从 #429 的两文件 Go toolchain scope 中剥离。后续先等 maintainer/其他 contributor 响应；若准备修复，仍需从 latest `upstream/main` 新建独立 branch，并在任何 `/assign`、comment、PR 或 push 前重新取得用户确认。
