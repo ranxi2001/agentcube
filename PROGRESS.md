@@ -10,17 +10,18 @@
 
 - Branch/workflow：当前本地在 `intern`，该分支是本地记录专用分支，只跟踪 `.agents/`、`internship-reports/`、`PROGRESS.md`、`AGENTS.md`、`README-ZH.md`；不要在 `intern` 跟踪 AgentCube 源码、charts、client-go、workflow 或 `internship-reports/` 外的 benchmark/source 工具。代码工作切到 `main` 或 clean topic branch from `upstream/main`。记录类 commit 完成后默认 push `origin intern:intern`。
 - Intern branch cleanup：用户要求精简 `intern` 后，已在 `bceff94 chore: prune intern branch to local records [skip ci]` 删除上游源码/CI/SDK/docs 等 tracked 文件并保留 `.agents/`；该 commit 已 push 到 `origin/intern`。`.agents/.gitignore` 会忽略 `.agents/.env`、`__pycache__` 和 `*.pyc`。
-- Community freshness scan：最近一次只读扫描为 `2026-07-29 11:04 CST`；自 `2026-07-29 09:40 CST` 后无 upstream issue/PR 更新。`upstream/main` 仍为 `87e6e37`（merged #445 GitHub Actions pins）。未发布任何 upstream 新评论。
+- Community freshness scan：最近一次只读扫描为 `2026-07-29 14:35 CST`；自 `2026-07-29 11:04 CST` 后无 upstream issue/PR 更新。`upstream/main` 仍为 `87e6e37`（merged #445 GitHub Actions pins），该 head 的核心 push checks 全部通过。未发布任何 upstream 新评论。
 - Upstream comments rule：任何 upstream issue/PR/comment/review request/maintainer mention 都必须先让用户确认 exact target/body；不要自动 `/assign`、`/lgtm`、request review 或 mention maintainer。
 
 ## Active Upstream Threads
 
-- #446 `Upgrade agent sandbox v0.5.3`：open、non-draft、head `822dc7b`、29 files `+754/-361`、label `size/XXL`；作者 2026-07-29T01:05:27Z 明确暂停，原因是 `VolumeClaimTemplates` API 重构、MCP `streamable-http` -> `sse`、generated schema cascade。checks：DCO、Codegen、E2E、codeinterpreter-e2e 失败；Tide pending needs `approved`/`lgtm`。暂不评论；若用户要求评论，优先核对 `cmd/workload-manager/main.go` 是否仍只注册/监听 agent-sandbox v1alpha1，而 reconcilers/builders 已用 v1beta1。
+- #446 `Upgrade agent sandbox v0.5.3`：open、non-draft、head `822dc7b`、29 files `+754/-361`、label `size/XXL`；作者 2026-07-29T01:05:27Z 明确暂停，原因是 `VolumeClaimTemplates` API 重构、MCP `streamable-http` -> `sse`、generated schema cascade。checks：DCO、Codegen、E2E、codeinterpreter-e2e 失败。已确认 production `main.go` 只注册/watch alpha，而 reconcilers/builders 使用 beta；detached binary-scheme regression 对 `v1beta1.Sandbox` / `SandboxTemplate` 均失败 `no kind is registered`。这是当前首选 focused review finding；未获 exact-text 确认前不发布。
 - #438 `Upgrade agent-sandbox to v0.5.2 or a later stable release`：open，assignee `safiya2610`；已有 replacement PR #446。不要重复认领或开替代 PR。
 - #444 `Implement mTLS between Router and PicoD`：open、无 assignee/PR；我们已发布设计评论，要求先明确 key isolation、identity granularity、JWT/TLS authorization boundary、global/per-workload mode。无新回复；等待作者/maintainer，不追评、不认领、不写实现。
 - #435 / #434 CLI cloud build：#434 open；#435 open、head `e45837c`、4 files `+537/-48`、DCO/Codegen/lint/build 通过，但 E2E 与 codeinterpreter-e2e 失败，Tide needs `approved`/`lgtm`。`@acsoto` 已做 scope/review，作者已更新并且 current review threads 为 0。不要把 #434 当未认领任务；如参与，只做源码验证型 review，并先让用户确认 exact comment。
 - #431 SandboxPool proposal：open、head `49576e8`，自 2026-07-15 无更新；checks 通过，Tide pending needs `approved`/`lgtm`。此前 5 个 current active / 6 个 outdated thread 结论保留在 Day44；新 push 后再复核 Lease namespace/RBAC、required `ResourceList` serialization、RuntimeClass bootstrap、generation freshness、name/label/path budget 和 real node shim contract。
-- #429 Go toolchain update workflow：open、head `b6a3156`；checks 通过，Tide pending needs review/labels。不要自动 push/comment；若要继续推进，先重新验证 fork branch 是否仍 clean against `upstream/main`。
+- #429 Go toolchain update workflow：open、head `b6a3156`；exact head 11 checks success。相对 `upstream/main@87e6e37` 为 13 behind / 1 ahead，结构合并无冲突；本周可 rebase 后重跑 workflow/script validation，再准备 reviewer follow-up。不要自动 push/comment。
+- #413 Sandbox Pod lookup：open、head `65d38f5`、merge state dirty；maintainer 明确拒绝依赖即将被 upstream 移除的 pod-name annotation，建议按 Sandbox name 直接查 Pod。fork `cleanup/remove-sandbox-pod-fallback@eefce59` 与该方向一致，但 #413 仍有 active author/PR；不提交竞争 PR，先等作者响应或只做 review/test evidence。
 - #400 PicoD Prometheus metrics：open、head `b8c4ed5`、assignee `acsoto`、label `lgtm`；checks 通过，Tide pending only needs `approved` label。我们的 review 已公开完成，不重复 `/lgtm` 或追评。
 - #437 AgentRuntime/PCAP examples：open、head `37792e4`；作者已修复我们指出的 SIGTERM/PID 1 cleanup 问题，current review threads 为 0，checks 通过。不要追评；除非新 push 或用户要求再审。
 - #385 WarmPoolAvailable：open、assignee `RainbowMango`、merge state dirty；旧 head `d885b4e` 不再适合直接推进。已知可移植语义在本地 `fix/pr385-v052-validation@bc89af4`，但该 branch 混有 v0.5.2 validation 前置，不能直接推 upstream；等 agent-sandbox v0.5.x baseline 明确后再拆 feature commit、range-diff、重跑 E2E，并让用户确认。
@@ -42,6 +43,7 @@
 - Full `go test ./...` can fail in `test/e2e` when Router/WorkloadManager/kubeconfig are not running. For ordinary code changes prefer targeted packages or non-e2e all-Go tests; document exclusions.
 - Go 1.26.4 下 `pkg/store/TestInitStore/return_error_when_initRedisStore_fails` 的 gomonkey patch 未生效，会落到真实 Redis 初始化并报 `missing env var REDIS_ADDR`；已在纯 `upstream/main@3de1272` 同样复现。
 - OpenSandbox / Agent Substrate runtime smoke tests are not yet deployed locally; use `.agents/skills/sandbox-runtime-smoke/SKILL.md` if resuming that work.
+- `2026-07-29` 本机 `kubectl` 没有 current context，并回退访问 `localhost:8080` 失败；恢复 cluster 前不安排冷启动/p99/并发 benchmark。
 
 ## Ruled Out / Do Not Repeat
 
@@ -53,8 +55,9 @@
 ## Next
 
 - 每个 substantive AgentCube work loop 开始先做只读 community freshness scan；更新 scan timestamp 和 decision-relevant changes，不发布 upstream 内容。
-- 若用户继续 #446 review：先基于 clean code branch 复核 v1alpha1/v1beta1 scheme/controller setup mismatch，再给 exact comment draft。
-- 若用户要下一项贡献：优先选择可验证 review/testing feedback；不要接已有 assignee/active PR 覆盖的实现任务。
+- 若用户继续 #446 review：把已验证的 alpha/beta scheme/controller mismatch 压成 standalone exact comment draft，刷新 duplicate/head 后请求用户确认。
+- 若用户要推进本人 PR：优先在临时分支 rebase #429 到 `upstream/main@87e6e37` 并重跑 workflow/script validation；任何 push 或 reviewer follow-up 先确认。
+- 若用户要下一项贡献：优先选择可验证 review/testing feedback；#413 cleanup 即使技术方向匹配也不要与 active PR 重复。
 - 若用户要代码工作：切到 `main` 或 clean topic branch from `upstream/main`，不要在 `intern` 写 AgentCube 源码。
 
 ## Stop Conditions

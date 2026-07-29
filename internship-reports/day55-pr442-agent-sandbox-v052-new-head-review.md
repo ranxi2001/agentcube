@@ -432,3 +432,82 @@ exact draft 保存在 [Day55 review drafts](day55-pr442-review-drafts.md)。任�
 > 注释：PR 可以在两次工作循环之间 force-push 或新增 review thread。延期一天后重新检查不是重复劳动，而是保证评论仍绑定 current artifact、没有被新提交修复、也不重复他人刚发布的意见。
 
 本轮没有发布 review/comment、resolve thread、mention maintainer、执行 `/lgtm` 或 `/approve`。当前停止条件是保持本地草稿，等到 2026-07-28 完成 freshness 与 exact-text confirmation 后再决定发布。
+
+## 10. 2026-07-29：#442 关闭后的 #446 replacement 复核
+
+### 10.1 社区与 review surface
+
+PR #442 已于 `2026-07-29T00:59:16Z` 关闭。原作者随后以 [PR #446](https://github.com/volcano-sh/agentcube/pull/446) replacement 形式升级到 agent-sandbox v0.5.3；本轮检查的 exact head 是 `822dc7bd5a088d4ccc283bbeca4368ee76a2d570`。
+
+| 项目 | 当前事实 |
+| --- | --- |
+| PR 状态 | open、non-draft、29 files、`+754/-361`、`size/XXL` |
+| Base / head | current base ref `upstream/main@87e6e37`；merge base `146b75f`；head `822dc7b`；分叉后 base 侧 6 commits、PR 侧 4 commits |
+| 结构合并 | `git merge-tree` 无 conflict，但 current `upstream/main` 不是 head ancestor |
+| Checks | exact head 的 check history 为 16 success、6 failure、1 action-required；当前主要失败面为 Codegen、E2E、CodeInterpreter E2E 与 DCO |
+| 作者状态 | 作者明确暂停，原因包括 `VolumeClaimTemplates` API 重构、MCP transport 变化和 generated schema cascade |
+| Review threads | 0 个 current active thread；本轮 finding 不重复现有 review comment |
+
+社区 freshness scan 冻结于 `2026-07-29 14:35 CST`。相对 `11:04 CST` 没有新的 upstream issue/PR 更新，`upstream/main` 仍为 `87e6e37`，默认分支该 head 的核心 push checks 全部通过。
+
+> 注释：CI failure 说明当前 head 尚未通过验证，但不自动证明下面的 scheme finding。该 finding 使用 production binary wiring、reconciler 类型和独立定向测试闭合因果。
+
+### 10.2 [P1] Production scheme 与 reconciler API version 不一致
+
+位置：`cmd/workload-manager/main.go:32-33,47-51,187-191`、`pkg/workloadmanager/sandbox_controller.go:29,41-47`、`pkg/workloadmanager/codeinterpreter_controller.go:146-172`
+
+PR 将 `SandboxReconciler`、`SandboxTemplate` builder 和 request handlers 切到 `v1beta1`，但 production `schemeBuilder` 仍只调用：
+
+```text
+sandbox v1alpha1 AddToScheme
+extensions v1alpha1 AddToScheme
+```
+
+同时，Sandbox controller 仍以 `v1alpha1.Sandbox` 建立 watch，reconciler 收到 key 后却用同一个 manager client 读取 `v1beta1.Sandbox`。CodeInterpreter reconcile 也会用该 client 读取和创建 `v1beta1.SandboxTemplate`。
+
+因此 production path 是：
+
+```text
+WorkloadManager manager
+  -> alpha-only scheme / alpha Sandbox watch
+  -> beta Sandbox GET or beta SandboxTemplate GET/Create
+  -> scheme cannot resolve beta GVK
+  -> reconcile returns an error before normal readiness/lifecycle handling
+```
+
+在 detached worktree `/tmp/agentcube-pr446-review-20260729` 增加未提交的 binary-wiring regression，并执行：
+
+```bash
+go test ./cmd/workload-manager \
+  -run TestProductionSchemeRegistersAgentSandboxV1beta1 -count=1
+```
+
+结果为 FAIL：
+
+```text
+production scheme cannot resolve Sandbox:
+no kind is registered for the type v1beta1.Sandbox
+
+production scheme cannot resolve SandboxTemplate:
+no kind is registered for the type v1beta1.SandboxTemplate
+```
+
+这是 **source-proven reachable defect**：触发者是正常的 CodeInterpreter reconcile 或 Sandbox readiness event，不依赖 mock-only 异常状态；当前没有把它描述为已观察到的线上事故。
+
+最小修正方向：
+
+1. 在 production scheme 注册 reconcilers/builders 使用的 agent-sandbox 与 extensions `v1beta1` types；
+2. 让 Sandbox controller watch 与 reconciler GET 使用同一个 intended API version；
+3. 在 `cmd/workload-manager` 增加 production scheme regression，避免 package-level fake scheme 同时注册 alpha/beta 后掩盖 binary wiring 漏项；
+4. 若仍需 alpha compatibility，明确双版本注册/监听合同，而不是由不同层隐式混用。
+
+> 分析：package unit tests 可以自行构造同时包含 alpha/beta 的 scheme，因此即使 controller/builder tests 通过，也不能证明 `cmd/workload-manager/main.go` 的真实装配完整。dependency upgrade review 需要把 binary scheme、controller watch、typed object 和安装 CRD 当作一个兼容面检查。
+
+### 10.3 本周推进判断
+
+1. **优先完成 #446 focused review。** 先把上面的 finding 压成一条 standalone inline/comment draft，再复核 current head 和 duplicate audit；任何发布仍需用户确认 exact target/body/event。
+2. **维护本人 PR #429。** `ci/go-toolchain-update-workflow@b6a3156` 相对 current main 为 13 commits behind / 1 ahead，结构合并无冲突，exact head 11 checks success；本周可 rebase 到 `87e6e37`，重跑 workflow/script validation，再准备简短 reviewer follow-up。
+3. **保留 Pod lookup cleanup，但不竞争 #413。** fork `cleanup/remove-sandbox-pod-fallback@eefce59` 已采用 maintainer 最新建议的 Sandbox-name live Pod GET，且不依赖将被移除的 pod-name annotation；但 #413 仍是 active same-topic PR，应先等原作者响应或只提供 review/test evidence。
+4. **暂不安排本机 benchmark。** 当前 `kubectl` 没有 current context，并回退访问 `localhost:8080` 失败；冷启动、p99 和并发 5/20 测试需要先恢复可用 cluster，不能把它当成本周立即可执行的 0.5 天任务。
+
+本轮没有发布 upstream comment/review、没有 `/assign`、没有 reviewer request，也没有修改 #446、#429 或 #413 的远端分支。
