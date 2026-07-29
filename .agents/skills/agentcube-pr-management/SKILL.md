@@ -6,12 +6,17 @@ description: >-
   reviewer-facing bodies, fill the official PR template, map files to OWNERS,
   run appropriate tests, disclose AI assistance, track review state, read other
   contributors' PR code/proposals before commenting, and avoid mixing
-  internship reports with upstream PR branches.
+  internship reports with upstream PR branches. Do not use for posting an
+  already-approved ordinary issue/PR reply that has no branch, PR-body, CI,
+  reviewer-request, substantive-review, or lifecycle decision; route that to
+  agentcube-issue-discussion's confirmed-reply fast path.
 ---
 
 # AgentCube PR Management Skill
 
 Use this skill for AgentCube upstream PR work: branch prep, template filling, issue linking, test selection, OWNERS mapping, review tracking, and update strategy.
+
+For an already-approved ordinary issue/PR reply with no branch, PR-body, CI, reviewer-request, substantive-review, or lifecycle decision, do not use this skill. Use `agentcube-issue-discussion` and its Confirmed Reply Fast Path only.
 
 ## Required Context
 

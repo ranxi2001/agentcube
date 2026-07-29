@@ -70,6 +70,17 @@ At the start of each new Agent work loop, read root `PROGRESS.md` before diving 
 
 When AgentCube upstream participation is active, proactively run a read-only community freshness scan at the start of each substantive work loop and before selecting the next contribution. Do not wait for the user to relay new issues or PR updates. Check issues created or materially updated since the last recorded scan, then cross-check assignees, `/assign` comments, related or same-topic open PRs, maintainer blockers, and current release prerequisites. Record the scan timestamp and only decision-relevant changes in `PROGRESS.md`; keep the evidence and candidate analysis in the existing community-screening report or `internship-reports/todo.md`. This scan never authorizes `/assign`, comments, reviewer requests, or other upstream-facing actions without the user's exact-text confirmation.
 
+### Restrained Micro-Actions
+
+Treat a small continuation action as part of the existing task, not as a new substantive work loop. Examples include posting exact text the user just approved, reading back that post, or performing one target-local status check. For these actions:
+
+- Still read root `PROGRESS.md`, but do not run a repository-wide community freshness scan unless the target-local guard reveals a material change.
+- Use the smallest relevant skill set. An ordinary issue/PR reply belongs to `agentcube-issue-discussion`; do not also load `agentcube-pr-management` unless the action involves a PR branch/body, CI plan, reviewer request, substantive review finding, or lifecycle decision.
+- Check only the facts the approved text depends on: authenticated account, target identity/state, newer replies, and directly referenced PR/issue state. Do not re-read the full diff, enumerate unrelated checks, rerun unchanged draft metrics, or spawn subagents without a concrete new uncertainty.
+- Draft-only micro-actions do not update local records. After posting, read back the author, parent/target, body, and URL. Record the result only when the next loop needs it, and then use one canonical location, normally one concise `PROGRESS.md` line.
+- Do not mirror the same micro-state into `PROGRESS.md`, `internship-reports/todo.md`, a daily report, and a draft file. Batch detailed report/TODO maintenance into the next substantive review loop.
+- Do not create cleanup churn solely to reconcile previously duplicated records.
+
 ## Knowledge Capture Guidelines
 
 For internship weekly reports and engineering activity summaries, use a local-first evidence policy. Development tasks have corresponding repositories, worktrees, reports, logs, and Git history on this machine; inspect those local sources before querying remote services. Use GitHub data only for information whose authoritative form is the GitHub conversation or current upstream state, such as PR/issue metadata, review comments, checks, labels, and merge status. Do not use remote profile data to infer internal identity fields such as reporter name, mentor, or manager. Keep weekly-report identity values in ignored local environment configuration, and keep rendered emails containing personal names outside the Git repository unless the user explicitly approves committing them.

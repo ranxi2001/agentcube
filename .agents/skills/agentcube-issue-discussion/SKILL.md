@@ -27,7 +27,20 @@ Use this skill for AgentCube upstream issue/discussion work: reading full thread
 - When learning from a contributor's public writing history, compare multiple artifact types and read `references/concise-issue-writing.md` for the evidence/limitation gate; do not turn one person's template usage into a repository rule.
 - Do not post an issue, comment, `/assign`, reviewer request, or maintainer mention without explicit user approval of the exact text and target.
 
+## Confirmed Reply Fast Path
+
+Use this path when the user has just approved an exact issue/PR reply and target already drafted in the same task. This confirmation turn is a continuation micro-action, not a new substantive community-analysis loop.
+
+1. Read root `PROGRESS.md` as required by the repository.
+2. Run a target-local guard only: confirm the authenticated account, target comment/thread and parent, absence of a newer human reply that invalidates the text, and only the directly referenced issue/PR state needed by the approved wording.
+3. If the guard is unchanged, post the exact approved body once, then read back and compare author, parent/target, body, and URL.
+4. If a material target or claim changed, do not post stale text; return to drafting and exact-text approval.
+5. Do not run a repository-wide freshness scan, fetch the full PR diff/check matrix, rerun unchanged draft metrics, spawn a subagent, or load `agentcube-pr-management` for this ordinary reply.
+6. Do not write local records while drafting. After posting, record the result only if it changes future work, in at most one canonical location, normally one concise `PROGRESS.md` line. Do not mirror it into TODO, daily report, and draft files.
+
 ## Workflow
+
+Use the full workflow below only when the confirmed-reply fast path does not apply.
 
 1. If no target exists yet, use `references/issue-discovery.md` to produce a local discovery card and pass its evidence, reachability, ownership, and scope gates.
 2. Identify target issue/PR numbers and related links.
