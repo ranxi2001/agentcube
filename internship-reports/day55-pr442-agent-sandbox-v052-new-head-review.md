@@ -600,4 +600,4 @@ current `9928ed7` 从 19:38 到 19:47 CST 连续约 9 分钟没有再次变化�
 Thanks, the v1beta1 manager wiring and binary-level scheme test now address my original comment. I also ran into the same MCP SDK v2 compatibility issue and opened #448 with the full v2 migration. Once it merges, #446 can rebase on `main` and drop the overlapping MCP changes, keeping this PR focused on the agent-sandbox upgrade.
 ```
 
-本轮只起草，没有发布 reply、resolve thread、review event、Prow command 或 maintainer mention。
+用户随后确认 exact target/body。`2026-07-30 01:28:33 CST` 在既有 inline thread 发布 [reply 3676642917](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3676642917)；API 回读确认 author 为 `ranxi2001`、`in_reply_to_id=3671892415`，正文与 55-word 确认稿逐字一致。发布前 #446 / #448 head、目标评论与 checks 未变化，自 01:19 CST 也没有新的 issue、merge、close 或 main push。本轮没有 resolve thread、提交 review event、Prow command 或 maintainer mention。
