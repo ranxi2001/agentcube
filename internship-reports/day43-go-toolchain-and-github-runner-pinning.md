@@ -995,8 +995,81 @@ in-cluster MCP path:
 
 #429 的 exact diff 仍只有新增 `.github/workflows/go-toolchain-update.yml` 与 `hack/go-toolchain.py`，没有修改 MCP package、Python dependency、E2E 或 runtime path。current main 的最近一次 E2E success 是 `87e6e37` 的 2026-07-27 run `30229466129`；本次重新解析到 `mcp 2.0.0` 后暴露 API removal。因此当前分类是 **shared current-main dependency drift, unrelated to #429 scope**。
 
+`2026-07-29 16:52 CST` 横向核对进一步确认这不是 #429 独有：CLI cloud build PR #435 的 run `30387869568` 和 agent-sandbox PR #446 的 run `30434433579` 都解析到同一个 `mcp 2.0.0`。#435 随后同时出现 `ModuleNotFoundError: mcp.server.fastmcp`、local MCP bind failure 和 in-cluster rollout timeout；#446 也出现 MCP deployment rollout timeout。也就是说，任何当前重新触发完整 E2E、且没有锁定或迁移 MCP 依赖的 PR 都可能被同一 shared drift 阻塞；旧的 green run 不会自动变红，未触发这套 E2E 的 PR 也不会显示该错误。
+
 > 分析：不能因为红 CI 就把 MCP pin/2.0 migration 塞进 Go toolchain PR。正确做法是把 shared prerequisite 拆成独立修复，从 current main 复现并验证；#429 保持两文件 scope。因为失败是确定性的 resolver/API mismatch，盲目 rerun 也没有价值。
 
 当前不催 reviewer：PR exact head 已更新、10 项 gate 通过，但两个 required E2E 仍红。先等 shared MCP compatibility 修复或 maintainer 对红 CI 的处理，再准备 reviewer follow-up。
 
 本地 cleanup：原 topic worktree `/tmp/agentcube-go-toolchain-update-pr` 的 `ci/go-toolchain-update-workflow` 已对齐 `cf4024b` 并改为 tracking `origin/ci/go-toolchain-update-workflow`；临时 `rebase/pr429-on-main-20260729` branch/worktree 已删除。后续不会误从旧 `b6a3156` 继续修改。
+
+## MCP 2.0 Shared CI Failure Issue Preparation
+
+### Discovery Card
+
+- Surface：CI truth / dependency evolution。
+- Observable trigger：`mcp==2.0.0` 成为默认解析结果后，任何重新运行完整 AgentCube E2E 的分支都会安装该 major version。
+- Actual behavior：Code Interpreter MCP server 在导入 `mcp.server.fastmcp.FastMCP` 时退出；local MCP 无法 bind，in-cluster MCP Deployment 无法 ready，两个 E2E job 失败。
+- Expected contract and source：干净安装只能解析到 integration 支持的 MCP SDK；MCP Python SDK 官方 README 建议未迁移项目保留 `<2` upper bound，v2 migration guide 明确把当前异常列为 `FastMCP` 改名导致的 v1 -> v2 breaking change。
+- Producer -> transport/type -> consumer -> state owner：`pyproject.toml` 的 `mcp>=1.8.0` -> pip resolver -> `mcp==2.0.0` -> AgentCube MCP server import / E2E clients -> Code Interpreter MCP integration。
+- Supported production path：README 的 `pip install -e ./integrations/code-interpreter-mcp` 默认安装路径即可触发；不是 mock-only path。
+- Recovery / retry / cleanup behavior：重跑仍会解析同一不兼容版本，不能自愈；只有 dependency cap 或完成 v2 migration 才能恢复。
+- Decisive evidence：本地 `upstream/main@87e6e37` clean venv 解析到 `mcp=2.0.0`，import 稳定报 `ModuleNotFoundError`；#435 run `30387869568`、#429 run `30431293490` 和 #446 run `30434433579` 都出现同类解析与启动/rollout 失败。
+- Related issue / PR / commit search：搜索 open/closed issue/PR 的 `mcp 2.0`、`fastmcp` 和 MCP compatibility 未发现重复项；原能力来自 closed issue #284 / merged PR #289。
+- Current owner / assignee / active branch：没有 same-topic issue、assignee 或 active PR。
+- Artifact class：observed bug。
+- Smallest change：先把 dependency 改为 `mcp>=1.8.0,<2` 并增加 clean resolution/import regression check；完整 v2 migration 独立跟踪。
+- Focused validation：同样的 clean install 加 `<2` 后解析到 `mcp=1.29.0`，server import 通过；修复 PR 仍需运行 local HTTP、stdio 和 in-cluster MCP E2E。
+- Compatibility and non-goals：临时 cap 不声称支持 MCP 2.0；v2 migration 至少还要处理 `MCPServer` rename、streamable HTTP client 2-tuple 和 snake_case Tool fields。
+- Unknowns requiring maintainer decision：先合入 cap 恢复 CI，还是直接承担完整 v2 migration；当前证据支持前者作为最小 blocker fix。
+
+### Exact Upstream Issue Draft
+
+Target: `volcano-sh/agentcube`
+
+Title: `Code Interpreter MCP integration fails with mcp 2.0`
+
+<!-- ISSUE_DRAFT_START -->
+**What happened**:
+
+`integrations/code-interpreter-mcp/pyproject.toml` declares `mcp>=1.8.0`. Fresh installs now resolve `mcp==2.0.0`, while the server still imports the v1 path `mcp.server.fastmcp.FastMCP`. Importing the server fails with:
+
+```text
+ModuleNotFoundError: No module named 'mcp.server.fastmcp'
+```
+
+This currently breaks both `e2e-test` and `codeinterpreter-e2e-test` on PRs unrelated to MCP. For example, runs [30387869568](https://github.com/volcano-sh/agentcube/actions/runs/30387869568) (#435) and [30431293490](https://github.com/volcano-sh/agentcube/actions/runs/30431293490) (#429) download MCP 2.0, then the local server cannot bind and the in-cluster MCP deployment times out.
+
+**What you expected to happen**:
+
+A clean install should select a supported MCP SDK version, and unrelated PRs should not be blocked by the Code Interpreter MCP integration.
+
+**How to reproduce it (as minimally and precisely as possible)**:
+
+```bash
+git checkout 87e6e3750da87b9552147f2e28cc492d5c4e7705
+python3 -m venv /tmp/agentcube-mcp-repro
+source /tmp/agentcube-mcp-repro/bin/activate
+pip install -e ./integrations/code-interpreter-mcp
+python -c "import importlib.metadata as m; print(m.version('mcp')); import agentcube_code_interpreter_mcp.server"
+```
+
+The command prints `2.0.0` and then raises the error above.
+
+**Anything else we need to know?**:
+
+The [official SDK README](https://github.com/modelcontextprotocol/python-sdk#readme) recommends keeping a `<2` upper bound until migration, and the [v2 migration guide](https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md) identifies this exact error as a breaking change.
+
+Two scopes are possible:
+
+- Immediate compatibility: use `mcp>=1.8.0,<2` and add a clean resolution/import regression check. I verified this resolves `mcp==1.29.0` and the server import succeeds.
+- Full v2 migration: migrate `FastMCP` to `MCPServer`, update the streamable HTTP client context managers and snake_case Tool fields, then validate local HTTP, stdio, and in-cluster E2E paths.
+
+Given that this currently blocks shared CI, I suggest restoring compatibility first and tracking the full v2 migration separately.
+
+**Environment**:
+
+- agentcube version: `main@87e6e3750da87b9552147f2e28cc492d5c4e7705`
+- Kubernetes version: Kind environment used by GitHub Actions
+- Others: `mcp==2.0.0`; Python 3.12 locally and Python 3.11 in the failing E2E jobs
+<!-- ISSUE_DRAFT_END -->
