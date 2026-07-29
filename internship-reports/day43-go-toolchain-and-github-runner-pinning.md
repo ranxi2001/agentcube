@@ -1083,3 +1083,87 @@ Given that this currently blocks shared CI, I suggest restoring compatibility fi
 - 后续讨论发现 `migrate FastMCP to MCPServer` 容易被读成从一个 dependency library 换到另一个。用户确认 exact diff 后已 edit issue body：新增 terminology clarification，明确 AgentCube 使用的是官方 `mcp` package 内的 v1 `mcp.server.fastmcp.FastMCP`，v2 `mcp.server.mcpserver.MCPServer` 是同一 SDK 的后继 API，与独立 `fastmcp` PyPI package 无关；同时把 full option 改写为 `Full v2 API migration within the official mcp package`，并列明 transport options、HTTP clients 和 snake_case model fields 的适配范围。
 - edit 后 current body 为 345 visible words / 28 nonblank lines；远端正文与确认稿核对只有末尾换行差异。标题未变，current issue 为 `kind/bug`、assignee `ranxi2001`。
 - Issue 已把 shared MCP prerequisite 从 #429 的两文件 Go toolchain scope 中剥离。后续先等 maintainer/其他 contributor 响应；若准备修复，仍需从 latest `upstream/main` 新建独立 branch，并在任何 `/assign`、comment、PR 或 push 前重新取得用户确认。
+
+## MCP Python SDK v2 Maintainer Direction And PR Implementation
+
+### Maintainer Decision
+
+2026-07-29，maintainer `@RainbowMango` 在 [#447](https://github.com/volcano-sh/agentcube/issues/447#issuecomment-5115952888) 明确选择第二种方案：不以 `<2` dependency cap 临时停留在 v1，而是采用最新 MCP Python SDK v2。
+
+这条反馈把实现合同收窄为：
+
+1. 仍使用官方 `mcp` Python package，不切换到独立 `fastmcp` library。
+2. 把 high-level server 从 v1 `FastMCP` API 迁移到 v2 `MCPServer` API。
+3. 同步迁移 transport configuration、Streamable HTTP client 和 Pydantic protocol model attribute access。
+4. 保留 AgentCube MCP tool surface、stdio/HTTP CLI 参数和 session lifecycle 语义。
+
+> 注释：`FastMCP` 和 `MCPServer` 是同一个官方 `mcp` SDK 不同 major version 中的 high-level server class。这里的 `migrate` 是 API migration，不是 dependency replacement。
+
+官方 [v1 to v2 migration guide](https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md) 对当前代码命中的 breaking changes 给出了一一对应的说明：
+
+| v1 surface | v2 surface | AgentCube affected path |
+| --- | --- | --- |
+| `mcp.server.fastmcp.FastMCP` | `mcp.server.mcpserver.MCPServer` | MCP server import、return type、constructor |
+| constructor 中的 `host` / `port` / `stateless_http` / `json_response` | `run(transport="streamable-http", ...)` | CLI startup path |
+| `httpx.AsyncClient` passed to MCP transport | `httpx2.AsyncClient` | local HTTP 与 in-cluster E2E clients |
+| `(read_stream, write_stream, get_session_id)` | `(read_stream, write_stream)` | Streamable HTTP context manager |
+| `inputSchema` / `isError` / `protocolVersion` / `serverInfo` | `input_schema` / `is_error` / `protocol_version` / `server_info` | protocol assertions and tool result checks |
+
+### Clean Topic Branch And Scope
+
+- Baseline：`upstream/main@87e6e3750da87b9552147f2e28cc492d5c4e7705`。
+- Worktree：`/tmp/agentcube-mcp-v2`。
+- Topic branch：`fix/mcp-python-sdk-v2`。
+- Signed commit：`1286b3a23489036d38d62b021a1ac6f39eb5991a fix: migrate code interpreter MCP to SDK v2`。
+- Fork branch：`origin/fix/mcp-python-sdk-v2`，remote exact head 已核对为 `1286b3a`。
+- Diff：7 files，`+55/-45`；不含 internship report、workflow、generated code、browser-agent 或其它 source change。
+
+`example/browser-agent` 也有独立的 MCP dependency 和 client code，但它不参与 #447 指向的 Code Interpreter MCP package / E2E install path。把它纳入同一 PR 会扩张 owner、runtime 和 validation surface，因此本次保持 non-goal；若其 fresh install 在 v2 下需要迁移，应另开有独立复现与测试的任务。
+
+### Code Rationale Matrix
+
+| File | Why it must change | Contract preserved |
+| --- | --- | --- |
+| `integrations/code-interpreter-mcp/pyproject.toml` | 明确采用官方建议的 `mcp>=2,<3`，并对齐 v2 的 Pydantic `>=2.12` floor | fresh install 不再意外落入代码不支持的 major version |
+| `agentcube_code_interpreter_mcp/server.py` | 替换 removed v1 import/class，并从 constructor 移除 v2 不接受的 transport kwargs | 7 个 tool registration、instructions 和 AgentCube SDK calls 不变 |
+| `agentcube_code_interpreter_mcp/__main__.py` | v2 要求 HTTP-only 参数传给 `run()`；stdio overload 不接受这些参数 | `--transport`、`--host`、`--port` 与对应 env var 行为不变 |
+| `test_mcp_code_interpreter.py` | v2 transport 使用 `httpx2`、2-tuple 和 snake_case models | local subprocess HTTP lifecycle 与所有 tool workflow assertions 保留 |
+| `test_mcp_code_interpreter_k8s.py` | 同步 in-cluster HTTP client types、tuple 和 result field | Pod/Service/port-forward roundtrip test 语义不变 |
+| `test_mcp_code_interpreter_stdio.py` | initialize/result attributes 改为 v2 snake_case | stdio spawn、initialize、list_tools、run_code coverage 不变 |
+| `test/e2e/README.md` | 测试说明不再引用已移除的 Python attribute | 文档与实际 assertion 对齐 |
+
+> 分析：不能只把 import 改成 `MCPServer`。如果 transport kwargs 仍在 constructor，server 会以 `unexpected keyword argument` 失败；如果 E2E 仍传 `httpx.AsyncClient` 或解包 3-tuple，即使 server 能启动，shared CI 仍会在 client path 失败；如果 model field 不迁移，initialize/tools/call assertions 会继续报 `AttributeError`。
+
+### Validation Evidence
+
+| Validation | Result | Risk covered |
+| --- | --- | --- |
+| clean venv，仅 `pip install -e ./integrations/code-interpreter-mcp` 后 import | 通过，解析 `mcp==2.0.0` | 直接覆盖 #447 最小复现 |
+| editable install SDK + integration，`pip check` | 通过，`mcp 2.0.0` / `httpx2 2.9.1` / `pydantic 2.13.4` | dependency resolution and runtime imports |
+| wheel build | 通过，生成 `agentcube_code_interpreter_mcp-0.1.0-py3-none-any.whl` | package metadata/build backend |
+| direct `MCPServer.list_tools()` | 通过，exact 7 tools | server construction and registration |
+| local Streamable HTTP initialize + tools/list | 通过，server name 保持 `agentcube-code-interpreter`，7 tools | CLI HTTP `run()` parameters、httpx2、2-tuple、snake_case |
+| local stdio initialize + tools/list | 通过，server name 和 7 tools 正确 | stdio overload 没有收到 HTTP-only kwargs |
+| Docker build + container HTTP initialize/tools-list | 通过，image `agentcube-code-interpreter-mcp:mcp-v2-test` | Docker clean install、entrypoint、HTTP bind |
+| `ruff check . --config pyproject.toml` | 通过 | repository Python lint gate |
+| changed Python `py_compile` | 通过 | syntax/import compilation |
+| `go test ./client-go/... ./cmd/... ./pkg/...` | 通过 | ordinary non-E2E Go regression gate |
+| `make test` | 普通 packages 通过，`test/e2e` 因本机无 kubeconfig 且 8080/8081 services 未运行而失败 | 明确区分环境缺口与 MCP migration failure |
+| fork push Actions run [`30444105301`](https://github.com/ranxi2001/agentcube/actions/runs/30444105301) | 通过；`e2e-test` 8m49s，`codeinterpreter-e2e-test` 8m50s | GitHub-hosted Kind local HTTP/stdio/in-cluster E2E |
+
+本机没有 `kind` binary，`kubectl` 也没有 current context，因此没有把 in-cluster E2E 宣称为本地通过。fork topic branch exact commit `1286b3a` 的 9 个 workflow 全部通过；其中 codeinterpreter job 明确安装 `mcp==2.0.0`，local HTTP 覆盖 initialize/ping/7 tools 与 tool workflows，stdio 覆盖 initialize/list_tools/run_code，随后 Docker image 成功 rollout，in-cluster MCP 覆盖 initialize/run_code，最终输出 `All tests passed!`。这直接闭环了 #447 和 #429/#435 原先失败的三条 MCP 路径。
+
+> 注释：`make test` 当前会把 `test/e2e` 一并纳入 `go test ./...`，这套测试假设 Router、Workload Manager 和 kubeconfig 已存在。单独运行 non-E2E package tests 是为了得到可解释的 unit result，不是把红 E2E 隐藏掉。
+
+### Reviewer-Facing Draft Gate
+
+PR draft 使用官方 `.github/PULL_REQUEST_TEMPLATE.md`，target 为 `volcano-sh/agentcube:main`，head 为 `ranxi2001:fix/mcp-python-sdk-v2`：
+
+- Proposed title：`fix: migrate Code Interpreter MCP to SDK v2`。
+- Issue relation：`Fixes #447`。
+- Kind：`/kind bug`。
+- Release note：`The Code Interpreter MCP integration now supports MCP Python SDK v2.`
+- Reviewer-visible size：194 words / 15 nonblank lines，低于 compatibility PR 软预算。
+- AI disclosure：正文会说明 Codex 辅助 migration analysis/drafting，作者已 review diff 并执行列出的验证。
+
+当前已完成 clean branch、signed commit、fork 9/9 workflow validation 和 draft；尚未创建 upstream PR。根据 posting gate，下一步只剩让用户确认 exact target/title/body/diff/tests，然后才能执行 `gh pr create`。
