@@ -1166,4 +1166,6 @@ PR draft 使用官方 `.github/PULL_REQUEST_TEMPLATE.md`，target 为 `volcano-s
 - Reviewer-visible size：194 words / 15 nonblank lines，低于 compatibility PR 软预算。
 - AI disclosure：正文会说明 Codex 辅助 migration analysis/drafting，作者已 review diff 并执行列出的验证。
 
-当前已完成 clean branch、signed commit、fork 9/9 workflow validation 和 draft；尚未创建 upstream PR。根据 posting gate，下一步只剩让用户确认 exact target/title/body/diff/tests，然后才能执行 `gh pr create`。
+用户确认 exact target/title/body 后，已创建 upstream PR [#448 fix: migrate Code Interpreter MCP to SDK v2](https://github.com/volcano-sh/agentcube/pull/448)。远端 base/head 分别核对为 `main@87e6e37` 与 `ranxi2001:fix/mcp-python-sdk-v2@1286b3a`，正文与 194-word 确认稿一致，`Fixes #447` 已形成 cross-reference；PR 保持单 commit、7 files、`+55/-45`，自动标签为 `kind/bug`、`size/L`。
+
+upstream pull-request 事件触发的 13 个 check-run 已全部通过，包括 DCO、`e2e-test`、`codeinterpreter-e2e-test`、golangci-lint、Python Lint、Codegen Check、两个 build、coverage、codespell、Python SDK 和两个 contributor-workflow approval checks。Codecov 同时报告 modified coverable lines 全覆盖。当前没有 inline review comment 或 active review thread；Tide 仅因缺 `lgtm` / `approved` 保持 pending。GitHub 已显示 `RainbowMango`、`YaoZengzeng` 为 requested reviewers，这是仓库自动流程产生的状态，本轮没有额外 comment、maintainer mention 或手工 reviewer request。Approval bot 明确要求先取得 `lgtm`，再 assign approver `hzxuzhonghu`，因此下一步是等待 human review，不提前点名 approver。
