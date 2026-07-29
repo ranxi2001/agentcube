@@ -206,3 +206,25 @@ Even though v0.5.3 still serves v1alpha1 through conversion, the production mana
 ### Posting Guard For #446
 
 Do not post anything on #446 yet. The PR is explicitly paused by the author, has DCO/codegen/E2E failures, and already requested several reviewers. If the user wants to comment anyway, use the exact concise comment above and confirm the target `https://github.com/volcano-sh/agentcube/pull/446` before publishing.
+
+## 2026-07-29 #446 Focused Review Approval Package
+
+这份草稿替代上面的早期 root-comment 草稿。红绿测试已经把 production wiring 因果闭合，因此最终选择一条 inline review comment，不再重复 DCO、Codegen 或 E2E 的可见失败。
+
+| 项目 | 内容 |
+| --- | --- |
+| Target | `volcano-sh/agentcube` PR #446 |
+| Exact reviewed head | `822dc7bd5a088d4ccc283bbeca4368ee76a2d570` |
+| Review event | `COMMENT` |
+| Inline anchor | `pkg/workloadmanager/sandbox_controller.go:46`, right side |
+| Root review body | empty |
+| Metrics | `103 visible words / 1 nonblank line / 798 characters` |
+| Visualization gate | prose；这是单一 scheme/watch/type 装配链路，图不会比一段因果说明更清楚 |
+
+Exact inline body:
+
+<!-- DRAFT:PR446_SCHEME_INLINE:START -->
+Could we also migrate the production manager wiring in `cmd/workload-manager/main.go` to v1beta1 and cover it with a binary-level scheme test? This reconciler now GETs `v1beta1.Sandbox`, and the CodeInterpreter controller GETs/creates v1beta1 SandboxTemplate and SandboxWarmPool objects, but `main.go` still only adds the v1alpha1 schemes and registers `For(&v1alpha1.Sandbox{})`. On exact head `822dc7b`, `schemeBuilder.ObjectKinds` fails for all three beta types with `no kind is registered`; changing those imports, `AddToScheme` calls, and the watched Sandbox type to beta makes the focused test plus `go test ./cmd/workload-manager ./pkg/workloadmanager` pass. Without that wiring change, normal Sandbox or CodeInterpreter reconciles can fail before the beta GET/Create reaches the API server.
+<!-- DRAFT:PR446_SCHEME_INLINE:END -->
+
+发布前 guard：重新读取 #446 head 和全量 current review conversation；若 head 不再是 `822dc7b`，或已有同因果 thread，则停止使用这条 anchor/text。发布动作必须再次获得用户对 exact target/body/event 的确认。

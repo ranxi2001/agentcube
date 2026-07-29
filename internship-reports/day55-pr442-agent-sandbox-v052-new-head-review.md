@@ -448,7 +448,7 @@ PR #442 已于 `2026-07-29T00:59:16Z` 关闭。原作者随后以 [PR #446](http
 | 作者状态 | 作者明确暂停，原因包括 `VolumeClaimTemplates` API 重构、MCP transport 变化和 generated schema cascade |
 | Review threads | 0 个 current active thread；本轮 finding 不重复现有 review comment |
 
-社区 freshness scan 冻结于 `2026-07-29 14:35 CST`。相对 `11:04 CST` 没有新的 upstream issue/PR 更新，`upstream/main` 仍为 `87e6e37`，默认分支该 head 的核心 push checks 全部通过。
+社区 freshness scan 最后刷新于 `2026-07-29 15:10 CST`。#446 仍是 exact head `822dc7b`，0 条 review comments / current threads，inline anchor `pkg/workloadmanager/sandbox_controller.go:46` 未变化；#429 仍是 remote head `b6a3156`。相对 `11:04 CST` 没有新的 upstream issue/PR 更新，`upstream/main` 仍为 `87e6e37`，默认分支该 head 的核心 push checks 全部通过。
 
 > 注释：CI failure 说明当前 head 尚未通过验证，但不自动证明下面的 scheme finding。该 finding 使用 production binary wiring、reconciler 类型和独立定向测试闭合因果。
 
@@ -475,7 +475,7 @@ WorkloadManager manager
   -> reconcile returns an error before normal readiness/lifecycle handling
 ```
 
-在 detached worktree `/tmp/agentcube-pr446-review-20260729` 增加未提交的 binary-wiring regression，并执行：
+在 detached worktree `/tmp/agentcube-pr446-focused-review` 增加未提交的 binary-wiring regression，并执行：
 
 ```bash
 go test ./cmd/workload-manager \
@@ -490,9 +490,27 @@ no kind is registered for the type v1beta1.Sandbox
 
 production scheme cannot resolve SandboxTemplate:
 no kind is registered for the type v1beta1.SandboxTemplate
+
+production scheme cannot resolve SandboxWarmPool:
+no kind is registered for the type v1beta1.SandboxWarmPool
 ```
 
 这是 **source-proven reachable defect**：触发者是正常的 CodeInterpreter reconcile 或 Sandbox readiness event，不依赖 mock-only 异常状态；当前没有把它描述为已观察到的线上事故。
+
+为证明修复边界，在同一临时 worktree 只做了 counterfactual，不提交也不推送：把 `cmd/workload-manager/main.go` 的 sandbox/extensions imports、两个 `AddToScheme` 和 Sandbox controller `For(...)` 全部对齐到 `v1beta1`。随后结果为：
+
+```text
+go test ./cmd/workload-manager -run TestProductionSchemeRegistersAgentSandboxV1beta1 -count=1
+PASS
+
+go test ./cmd/workload-manager -count=1
+PASS
+
+go test ./pkg/workloadmanager -count=1
+PASS
+```
+
+> 分析：红测同时覆盖 `Sandbox`、`SandboxTemplate` 和 `SandboxWarmPool`，绿测只改变 production wiring。这样可以把失败归因到 binary scheme/watch 装配，而不是 v0.5.3 类型本身、fake client 或 controller 业务逻辑。
 
 最小修正方向：
 

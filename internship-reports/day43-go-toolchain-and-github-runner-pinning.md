@@ -887,3 +887,74 @@ NONE
 NONE
 ```
 ````
+
+## 2026-07-29：PR #429 Current-Main Rebase Validation
+
+本轮在不修改原 PR 分支的前提下，把 #429 唯一的功能提交移植到 `upstream/main@87e6e37`，并重新验证当前主线下的 workflow/script 行为。
+
+| 项目 | 结果 |
+| --- | --- |
+| 原 head / parent | `b6a3156` / `fdb862b` |
+| 验证 head / parent | `cf4024b` / `87e6e37` |
+| 临时分支 | `rebase/pr429-on-main-20260729` |
+| PR diff | 仍只有 `.github/workflows/go-toolchain-update.yml` 与 `hack/go-toolchain.py`，`+407` |
+| DCO | commit message 保留 `Signed-off-by: ranxi2001 <ranxi169@163.com>` |
+| Ancestry | `upstream/main` 是验证 head 的直接 parent |
+| Range-diff | 原功能保持不变；只同步 #445 已合入主线的两个 GitHub Action SHA |
+
+### 操作阻塞与纠正
+
+第一次把 `git worktree add` 和后续 `git rebase` 放在同一个 shell 调用里，但没有显式把第二条命令的工作目录切到新 worktree。结果 rebase 实际落在根 `intern` worktree，开始重放 489 个本地记录提交，并在 `AGENTS.md` 等文件冲突。
+
+处理方式：立即在根 worktree 执行 `git rebase --abort`，确认恢复到 `intern@1fa7008` 且工作区 clean；随后在 `/tmp/agentcube-pr429-rebase-validation` 显式执行：
+
+```bash
+git rebase --onto upstream/main \
+  fdb862b0e3f285b4a12550c85a315833f13141a4 \
+  rebase/pr429-on-main-20260729
+```
+
+> 分析：`git worktree add` 只创建 worktree，不改变当前 shell 的 cwd。涉及 rebase/reset/cherry-pick 的后续命令必须显式指定 worktree 并先打印 branch/status；否则即使目标 branch 设计正确，也可能在错误工作区修改历史。
+
+### Current-Main 漂移修正
+
+纯 rebase 后发现 #429 的新 workflow 仍使用：
+
+- `actions/checkout` v7.0.0；
+- `actions/setup-go` v6.5.0。
+
+但 current main 的 #445 已把仓库统一到 `actions/checkout` v7.0.1 与 `actions/setup-go` v7.0.0。验证分支因此同步为主线相同的固定 SHA，避免新 workflow 合入后重新引入旧 action pin。这是相对原 head 唯一的内容变化。
+
+### 验证证据
+
+```text
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 \
+  .github/workflows/go-toolchain-update.yml
+PASS
+
+python3 -m py_compile hack/go-toolchain.py
+PASS
+
+python3 hack/go-toolchain.py verify --check-latest
+Go toolchain alignment: OK
+NOTICE: project Go 1.26.4 differs from latest stable Go 1.26.5
+
+git diff --check upstream/main...HEAD
+PASS
+```
+
+另在 detached simulation worktree 从 `cf4024b` 运行真实更新路径：
+
+```text
+python3 hack/go-toolchain.py update --version 1.26.5
+go mod tidy
+python3 hack/go-toolchain.py verify --check-latest --require-latest
+git diff --check
+git diff --exit-code -- .github/workflows
+```
+
+结果全部通过。更新只把 `go.mod` 和三个 Dockerfile 从 `1.26.4` 改为 `1.26.5`，共 4 files / 4 insertions / 4 deletions；`go mod tidy` 没有产生 `go.sum` 变化，workflow 文件也保持不变。
+
+> 注释：`--require-latest` 只在模拟已经完成升级后执行；PR 自身仍允许主线暂时落后最新 Go，由定时 workflow 发现并创建 review-only PR。
+
+原远端分支 `ci/go-toolchain-update-workflow@b6a3156` 和 upstream PR #429 尚未修改。下一步是请求用户确认把 `cf4024b` 以 `--force-with-lease` 更新到原分支；push 后等待该 exact head 的 fork checks，再决定是否发布简短 reviewer follow-up。

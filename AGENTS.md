@@ -99,6 +99,8 @@ This workspace uses two remotes:
 
 Keep the fork `main` branch as a clean mirror of `upstream/main`. Do not commit internship reports, local benchmark data, Chinese notes, task tracking, or intern-only `.agents/` skills to fork `main`. Keep that work on the fork `intern` branch instead. Before rebasing or resetting either branch, make sure the worktree is clean by committing or stashing local edits.
 
+After `git worktree add`, do not assume the shell moved into the new worktree. Before any rebase, reset, cherry-pick, or commit, run the command with an explicit worktree path and verify `git status --short --branch` there first.
+
 The fork `intern` branch is intentionally local-record-only. Its tracked content should stay limited to `.agents/`, `internship-reports/`, `PROGRESS.md`, `AGENTS.md`, and `README-ZH.md`; do not track AgentCube source code, generated clients, charts, benchmark tooling outside `internship-reports/`, or upstream workflow files on `intern`. Use `main` or a clean topic branch from `upstream/main` for code work.
 
 Use this sync flow for the fork `main` mirror:
