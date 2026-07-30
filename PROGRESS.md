@@ -16,7 +16,7 @@
 ## Active Upstream Threads
 
 - #447 / #448 Code Interpreter MCP SDK v2：maintainer 选择 latest v2 SDK 后，upstream PR [#448](https://github.com/volcano-sh/agentcube/pull/448) exact head `1286b3a` 已于 `2026-07-30 09:53 CST` 通过 merge commit `0704bb9` 合入 `main`，关联 bug #447 已关闭。合入前 fork 9/9 与 upstream 13/13 checks 全绿，覆盖 local Streamable HTTP、stdio、Docker rollout 与 in-cluster MCP E2E；该前置不再是 #429/#446 的 blocker。
-- #446 `Upgrade agent sandbox v0.5.3`：open、non-draft、current head `83002f1`，6 commits、36 files `+858/-426`，相对新 `main` 为 `mergeable=false` / `dirty`。production alpha/beta scheme finding [inline 3671892415](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3671892415) 已由 `27517d0` code-addressed但 thread 未 resolve；用户此前确认并已发布 [55-word reply](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3676642917)，说明 #448 承载完整 v2 migration、合入后应 rebase 去重。latest commit `83002f1` 仍把 MCP 改到 SSE，并改动 4 个已由 #448 覆盖的 MCP integration/E2E 文件；current head 有 2 个 E2E failure 和 DCO action-required。待用户确认今天的新 merge notice 后，评论要求 rebase latest `main`、删除重叠 SSE workaround，并单独附 `/retest`。
+- #446 `Upgrade agent sandbox v0.5.3`：open、non-draft、current head `83002f1`，6 commits、36 files `+858/-426`，相对新 `main` 为 `mergeable=false` / `dirty`。production alpha/beta scheme finding [inline 3671892415](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3671892415) 已由 `27517d0` code-addressed但 thread 未 resolve；用户此前确认并已发布 [55-word reply](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3676642917)，说明 #448 承载完整 v2 migration、合入后应 rebase 去重。latest commit `83002f1` 仍把 MCP 改到 SSE，并改动 4 个已由 #448 覆盖的 MCP integration/E2E 文件；current head 有 2 个 E2E failure 和 DCO action-required。#448 合入后已发布并回读校验 [merge notice + `/retest`](https://github.com/volcano-sh/agentcube/pull/446#issuecomment-5125559024)；下一步等作者 rebase 后复核 overlap、conflict、DCO 和 E2E。
 - #438 `Upgrade agent-sandbox to v0.5.2 or a later stable release`：open，assignee `safiya2610`；已有 replacement PR #446。不要重复认领或开替代 PR。
 - #444 `Implement mTLS between Router and PicoD`：open、无 assignee/PR；我们已发布设计评论，要求先明确 key isolation、identity granularity、JWT/TLS authorization boundary、global/per-workload mode。无新回复；等待作者/maintainer，不追评、不认领、不写实现。
 - #435 / #434 CLI cloud build：#434 open；#435 open、head `e45837c`、4 files `+537/-48`，没有新 push，维护者 @acsoto 于 `2026-07-30 10:04 CST` 评论 `e2e breaks`。此前 DCO/Codegen/lint/build 通过但 E2E 与 codeinterpreter-e2e 失败；run `30387869568` 的 `mcp.server.fastmcp` failure 来自 #448 已修复的 shared drift，但仍需作者 rebase 后用 exact-head checks 验证，不能直接断言全部 E2E failure 已解决。不要把 #434 当未认领任务；如参与，只做源码验证型 review，并先让用户确认 exact comment。
@@ -56,7 +56,6 @@
 ## Next
 
 - 每个 substantive AgentCube work loop 开始先做只读 community freshness scan；更新 scan timestamp 和 decision-relevant changes，不发布 upstream 内容。
-- #446：待用户确认 exact comment 后发布 merge notice + rebase/drop-overlap request + `/retest`；作者 push 新 head 后复核 MCP 重叠是否消失、DCO/merge conflict 是否解除，以及 upgrade fixture 是否使用真实 WorkloadManager session producer。
 - #447 / #448：已完成并合入，不再追踪 review；仅在发现 merged regression 时重新打开调查。
 - #429：保持 `cf4024b` 两文件 scope；先在 fork-only validation branch rebase 到 `upstream/main@0704bb9` 并跑 exact-head checks，再让用户确认 open PR branch update。
 - 若用户要下一项贡献：优先选择可验证 review/testing feedback；#413 cleanup 即使技术方向匹配也不要与 active PR 重复。
