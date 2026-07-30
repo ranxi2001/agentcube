@@ -39,15 +39,15 @@ Evidence labels:
 
 ## Seeded patterns
 
-### Green CI must run the target runtime and target scenario
+### Green CI must run every changed test package and target scenario
 
-- Trigger: Dependency/API compatibility PR changes `go.mod`, CRD/client behavior, or runtime adapter semantics.
-- Hidden assumption: A green e2e job uses the imported dependency's controller/runtime version and actually executes the feature-specific tests.
-- Failure mode: Tests compile against the new library but install an old controller, or install the right controller while the target suite is skipped by auth/mTLS/feature gates.
-- Evidence source: `CODE` and `OBS`, AgentCube PR #387 used `agent-sandbox v0.4.6` in `go.mod` while the e2e installer defaulted to `v0.1.1`; after aligning the installer, the standard mTLS job was green but skipped every CodeInterpreter/WarmPool test. A focused non-mTLS fork run then executed and passed the claim-adoption path.
-- Review question: Which exact controller, CRD, and image versions did the live test install, and which target tests passed rather than skipped?
-- Validation: Inspect workflow inputs, install logs, and the PASS/SKIP test list; compare them with dependency versions and the changed behavior.
-- False-positive guard: Version skew may be intentional for compatibility testing when explicitly named and paired with target-version coverage.
+- Trigger: A PR changes `go.mod`, API/runtime semantics, or adds/modifies tests in packages not obviously covered by one CI command.
+- Hidden assumption: Green build/coverage/e2e checks execute every changed test package, use the imported dependency's controller/runtime version, and actually run the feature scenario.
+- Failure mode: A new `_test.go` is never executed, tests compile against a new library while live E2E installs an old controller, or the right runtime is installed but the target suite is skipped by auth/mTLS/feature gates.
+- Evidence source: `CODE` and `OBS`. AgentCube PR #387 used `agent-sandbox v0.4.6` in `go.mod` while E2E installed `v0.1.1`; after alignment, the mTLS job still skipped CodeInterpreter/WarmPool tests. AgentCube PR #446 had all checks green while `go test ./cmd/workload-manager -count=1` failed all five new scheme assertions: coverage ran only `./pkg/...`, Docker build did not execute tests, and E2E did not run that package.
+- Review question: For every changed `_test.go`, which exact workflow command executes its package; which controller, CRD, and image versions does live E2E install; and which target tests pass rather than skip?
+- Validation: Build a changed-test-package to workflow-command map, run uncovered packages directly, then inspect workflow inputs, install logs, and PASS/SKIP output against dependency versions and claimed behavior.
+- False-positive guard: A package need not run in multiple jobs when one named check executes it directly and the check is required. Intentional version skew is valid when explicitly named and paired with target-version coverage.
 
 ### Lifecycle E2E fixtures must traverse the real producer
 
@@ -188,6 +188,16 @@ Evidence labels:
 - Review question: What changed in the patch series beyond base-context movement?
 - Validation: Confirm base ancestry, clean structural merge, then inspect range-diff and hotspot behavior/tests.
 - False-positive guard: Patch IDs may legitimately change due to required adaptation; judge preserved intent, not textual identity.
+
+### Final-head review must restart from the acceptance contract
+
+- Trigger: A large PR is repeatedly patched, rebased, force-pushed, or squashed, then the author reports it ready for final review.
+- Hidden assumption: Rechecking previously discussed hotspots and green CI is equivalent to reviewing the final artifact.
+- Failure mode: Issue-required lifecycle coverage, newly introduced validation regressions, dead documentation assets, broken tests outside CI, or simple language-boundary errors remain because the reviewer stays anchored to old findings.
+- Evidence source: `CODE`, `OBS`, and `MAINTAINER`, AgentCube PR #446 final head `2eefda6`. A focused residual review caught an ineffective CEL immutability test and non-portable codegen, while a fresh review from parent issue #438 also found missing migration lifecycle E2E, a nonexistent release asset, five failing scheme assertions, an empty-name validation regression, and lexicographic version comparison.
+- Review question: Does the final head satisfy every parent-issue acceptance item, and can every hand-written changed file and changed test package be mapped to a necessary behavior and executed evidence?
+- Validation: Treat the ready/squashed head as a new review surface: rebuild the issue acceptance matrix, classify all changed files, run every changed test package not proven by workflow commands, validate external artifacts, and exercise boundary values before carrying forward old conclusions.
+- False-positive guard: A tiny follow-up that changes only the exact reviewed lines may use an incremental pass when head ancestry, diff, tests, and acceptance scope are unchanged. Do not force a full repository review for a genuinely local patch.
 
 ### Proposal front door must establish actor, outcome, and current vocabulary
 

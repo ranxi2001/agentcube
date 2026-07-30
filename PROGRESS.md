@@ -10,7 +10,8 @@
 
 - Branch/workflow：当前本地在 `intern`，该分支是本地记录专用分支，只跟踪 `.agents/`、`internship-reports/`、`PROGRESS.md`、`AGENTS.md`、`README-ZH.md`；不要在 `intern` 跟踪 AgentCube 源码、charts、client-go、workflow 或 `internship-reports/` 外的 benchmark/source 工具。代码工作切到 `main` 或 clean topic branch from `upstream/main`。记录类 commit 完成后默认 push `origin intern:intern`。
 - Intern branch cleanup：用户要求精简 `intern` 后，已在 `bceff94 chore: prune intern branch to local records [skip ci]` 删除上游源码/CI/SDK/docs 等 tracked 文件并保留 `.agents/`；该 commit 已 push 到 `origin/intern`。`.agents/.gitignore` 会忽略 `.agents/.env`、`__pycache__` 和 `*.pyc`。
-- Community freshness scan：最近一次增量复核到 `2026-07-30 17:36 CST`。`upstream/main` 仍为合入 #448 的 `0704bb9`；#446 current head 仍为 `2eefda6`，11 项实际 checks 全绿。`@acsoto` 新增 5 条 inline 和 1 条 root finding，覆盖 migration E2E/asset、GVK、empty-name validation、semver comparison 和个人 PATH；我们仅补充未重复的 immutability test validity inline。
+- Community freshness scan：最近一次增量复核到 `2026-07-30 17:42 CST`。自 17:36 起只有 #446 因我们的 immutability review 更新；head 仍为 `2eefda6`，没有新作者补丁。复盘确认 #438 明确要求 tested v0.4.6 migration lifecycle；exact head 的 `go test ./cmd/workload-manager -count=1` 稳定失败 5 个 scheme assertions，而 green coverage 只跑 `./pkg/...`。
+- Final-head review harness：已新增 `agentcube-pr-review/scripts/final_head_review.py`。对 #446 `2eefda6` 的 forward test 能追踪 workflow -> Makefile -> shell test scope，只运行 CI 未覆盖的 `./cmd/workload-manager`，并命中 5 个 assertion failures、dead migration URL、lexicographic semver、removed validation 和 personal PATH；skill 14 个单测及结构校验通过。
 - Upstream comments rule：任何 upstream issue/PR/comment/review request/maintainer mention 都必须先让用户确认 exact target/body；不要自动 `/assign`、`/lgtm`、request review 或 mention maintainer。
 
 ## Active Upstream Threads
@@ -59,7 +60,7 @@
 - 每个 substantive AgentCube work loop 开始先做只读 community freshness scan；更新 scan timestamp 和 decision-relevant changes，不发布 upstream 内容。
 - #447 / #448：已完成并合入，不再追踪 review；仅在发现 merged regression 时重新打开调查。
 - #429：保持 `cf4024b` 两文件 scope；先在 fork-only validation branch rebase 到 `upstream/main@0704bb9` 并跑 exact-head checks，再让用户确认 open PR branch update。
-- #446：immutability test validity inline 已发布；codegen 草稿因 `@acsoto` 同主题评论跳过。等待作者处理 current 7 个 active threads 和 migration root finding；新 push 后先 refresh/range-diff，再复核真实 API CEL test、migration lifecycle、validation 与 codegen，避免重复 maintainer feedback。不要把 fork adapter 直接开成竞争 PR。
+- #446：immutability test validity inline 已发布；codegen 草稿因 `@acsoto` 同主题评论跳过。等待作者处理 current 7 个 active threads 和 migration root finding；新 push 后先运行 `agentcube-pr-review/scripts/final_head_review.py`，再按其 ledger 关闭 #438 acceptance、hand-written files、changed test packages、workflow coverage、external asset/semver boundary、真实 API CEL 与 migration lifecycle。不要重复 maintainer feedback，也不要把 fork adapter 直接开成竞争 PR。
 - 若用户要下一项贡献：优先选择可验证 review/testing feedback；#413 cleanup 即使技术方向匹配也不要与 active PR 重复。
 - 若用户要代码工作：切到 `main` 或 clean topic branch from `upstream/main`，不要在 `intern` 写 AgentCube 源码。
 

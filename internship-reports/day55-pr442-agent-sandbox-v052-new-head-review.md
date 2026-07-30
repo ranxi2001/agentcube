@@ -704,3 +704,62 @@ E2E run `30511568062` 随后两个 jobs 都失败。local MCP 测试等待 `127.
 另有两项非阻断清理：`integrations/code-interpreter-mcp/pyproject.toml` 只删除末尾换行；两份 getting-started 文档各有一处 trailing whitespace。升级文档描述 mandatory migration，但 current E2E 只验证 fresh v0.5.3 install；v0.4.6 persisted objects / storedVersions 的原地 migration 仍应作为未验证限制，而不是冒充已覆盖。
 
 本节没有向 #446 发布 review/comment、resolve thread、Prow command、reviewer request 或 maintainer mention。若要公开反馈，优先把前两项拆成 focused inline comments，发布前必须再次核对 exact head/anchor/duplicate，并让用户确认 exact target/body/event。
+
+## 13. 为什么 `@acsoto` 在 final head 找到更多问题
+
+`2026-07-30 17:42 CST` 对 #438、#446 exact `2eefda6`、当前 workflows 和 `@acsoto` 的 6 条意见做了复盘。结论不是简单的“maintainer 更熟”，而是两轮 review 的入口和停止条件不同：我们最后做的是基于历史 head 与 fork adapter 差异的 focused residual review；`@acsoto` 作为 #438 作者，从 Issue 验收合同重新审了一遍完整 final diff。
+
+> 分析：maintainer 对需求背景更熟是客观优势，但 #438 的验收条件是公开文本。没有把它重新转成 final-head acceptance matrix，仍然是我们的流程缺口，不能用角色差异解释掉。
+
+### 13.1 Finding 对照
+
+| `@acsoto` finding | 他使用的 review 入口 | 我们为什么漏掉或降级 |
+| --- | --- | --- |
+| 必须测试 v0.4.6 active SandboxClaim 到 v0.5.x 的 migration、adoption、deletion、GC 和 pool refill | 直接逐句对照 #438 acceptance contract | 我们知道两个分支都没有验证 persisted objects / storedVersions，却把它写成 residual limitation；#438 原文明确要求 `documented and tested upgrade path`，因此这里应是 blocker，不是可接受限制 |
+| 文档引用的 `v0.5.3/migrate.sh` release asset 不存在 | 验证用户会执行的每一个外部 artifact | 我们检查了 fresh-install manifest 名称，却没有枚举 upgrade guide 的全部 URL；官方 release 实际只有 `extensions.yaml`、`sandbox.yaml` 和 `sandbox-with-extensions.yaml` |
+| `cmd/workload-manager/main_test.go` 的 5 个 hard-coded GVK 全错 | 直接运行新增测试所在 package | 我们确认“有 binary-level scheme test”后没有在 final `2eefda6` 重跑 `go test ./cmd/workload-manager -count=1`；本轮真实复现 5 个 assertion 全失败 |
+| `handleSandboxCreate` 绕过 `CreateSandboxRequest.Validate()`，空 name 不再返回 400 | 对比修改前后的 request validation boundary | 我们把注意力放在 v1beta1 types、readiness 和 migration，没有把原有 `Validate()` 的 kind/namespace/name 矩阵逐项映射到新代码；current tests 只补 namespace case，没有 empty-name regression |
+| `[[ v0.10.0 < v0.5.0 ]]` 是字典序而不是 semver | 检查新增 shell 分支的边界值 | 我们只确认旧 invalid migration fixture 被删除、fresh v0.5.3 能安装，没有对版本条件做 `v0.10.0` counterexample |
+| `hack/update-codegen.sh` 含个人 Windows PATH | 逐行检查共享工具脚本 | 这一项我们也发现，并且还有 GNU-only `sed -i` / source patch / global install 的更广证据；发布 guard 发现 maintainer 已先评论，因此主动去重 |
+
+我们额外找到而 `@acsoto` 当前评论未覆盖的是 immutability test causality：#446 的 test 只构造内存 struct，不执行 API Server CEL；fork `5957314` 的真实 CREATE/GET/UPDATE/Invalid E2E 提供了 counterexample 和修正方向。因此评论数量不是 review 质量的完整度量，但 final-head 覆盖面上，他这轮明显更完整。
+
+### 13.2 为什么 green CI 没保护住新增测试
+
+exact `2eefda6` 的 GitHub checks 全绿，但 workflow-to-command 映射是：
+
+- build job 执行 Docker build，不运行 Go unit tests；
+- coverage job 只执行 `go test ... ./pkg/...`，不包含 `cmd/workload-manager`；
+- E2E job 执行 `make e2e`，也不会发现 `cmd/workload-manager/main_test.go` 的错误 GVK。
+
+因此 `go test ./cmd/workload-manager -count=1` 在本机稳定失败，与 checks 全绿并不矛盾。我们的错误不是“不相信 CI”，而是没有先回答“哪个 check 实际执行了这个新增测试”。
+
+> 注释：编译生产 binary 时，Go 不会执行 `_test.go`。所以 Docker image 能 build 成功，只证明生产源码可编译，不能证明同目录新增 test 的断言正确。
+
+### 13.3 根因与修正规则
+
+1. **需求锚点漂移。** 多轮 force-push/MCP CI 处理占用了注意力，最后没有回到 #438 重建 acceptance matrix。
+2. **比较式 review 产生锚定。** fork adapter 证明了 minimal v0.5.3 路径，但我们只用它验证 immutability/codegen，没有反向追问 #446 每个额外 hand-written file 为什么存在、由哪个测试覆盖。
+3. **增量 review 没有 final-head reset。** 作者 squash 为单 commit 并说 `Everything is done` 后，我们仍主要验证已知旧问题是否消失，而不是把 `2eefda6` 当全新 PR 从 body/issue/files/tests 重新审。
+4. **把 checks 状态当成测试发现证据。** 没有建立 changed `*_test.go` package 到 workflow command 的映射。
+5. **边界清单不完整。** 文档 URL、request validation matrix、shell version comparison 这些普通但高收益的检查没有进入最后一轮。
+
+以后 dependency/API PR 在 final head 进入“ready for review”状态时，固定执行：父 Issue acceptance matrix -> hand-written file rationale -> 每个 changed test package 直接运行 -> workflow command coverage map -> external asset/version boundary audit -> focused runtime/lifecycle evidence。旧 head 的结论只能作为线索，不能替代这一轮 reset。
+
+本复盘没有新增 upstream comment、reply、resolve、Prow command、reviewer request 或 maintainer mention。
+
+### 13.4 从 checklist 固化为 executable harness
+
+本轮把上述规则落到 `.agents/skills/agentcube-pr-review/scripts/final_head_review.py`，避免下一次仍靠 reviewer 临时记忆。它在 exact base/head 上生成五块 evidence ledger：父 Issue/proposal acceptance candidates、全部 hand-written changed files、changed Go test package 到 workflow command 的覆盖映射、diff boundary leads，以及可选的 direct Go test / external URL 结果。
+
+> 分析：harness 不替 reviewer 判断 blocker，也不会因为正则命中就生成 upstream finding。它解决的是“有没有看、哪个 check 真跑了、外部 artifact 是否验证过”这类可机械证明的问题；组件责任、生命周期正确性和 finding 严重性仍由 review skill 的 point -> line -> surface 与 production reachability gates 判断。
+
+对 #446 exact `2eefda6` 的 forward validation 已完成，结果如下：
+
+- workflow command tracing 证明 `./pkg/...` 和 `./test/e2e/...` 有执行证据，但 `./cmd/workload-manager` 不在任何 CI Go test scope；
+- `--run-go-tests` 因此只直接运行 `go test ./cmd/workload-manager -count=1`，复现 5 个 scheme assertion failures，没有误触发需要 Kind 集群的 E2E；
+- URL checker 实测 `v0.5.3/migrate.sh` 为 `404`，同 release 的 `sandbox-with-extensions.yaml` 为 `200`；含 `${AGENT_SANDBOX_VERSION}` 的 URL 被标为 `unresolved-variable`，不会伪装成 404；
+- diff boundary checks 同时命中 lexicographic version comparison、personal absolute PATH 和 removed `Validate()` call；
+- skill 目录的 14 个 Python 单测、`py_compile`、`quick_validate.py` 和 `git diff --check` 通过。
+
+harness 在真实缺陷存在时以 exit 1 结束，同时保留完整 ledger；这证明此次复盘已经进入可重复工具链，而不只是一段事后解释。

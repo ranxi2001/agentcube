@@ -1,6 +1,6 @@
 ---
 name: agentcube-pr-review
-description: Review AgentCube pull requests and local diffs with repository-specific architectural depth. Use for substantive code, design, compatibility, conflict-resolution, or test reviews that must assess component ownership, duplicated behavior, control/data-plane boundaries, lifecycle and failure paths, Go type and pointer semantics, Kubernetes API consistency, clean code, test validity, and whether a change fits the project's overall direction. Also use to turn proven review misses into reusable AgentCube review patterns. Pair with agentcube-pr-management for branch hygiene, CI state, PR wording, and any upstream-facing action.
+description: Review AgentCube pull requests and local diffs with repository-specific architectural depth. Use for substantive code, design, compatibility, conflict-resolution, final-head, or test reviews that must assess component ownership, duplicated behavior, control/data-plane boundaries, lifecycle and failure paths, Go type and pointer semantics, Kubernetes API consistency, clean code, changed-test CI discovery, test validity, and whether a change fits the project's overall direction. Also use to turn proven review misses into reusable AgentCube review patterns and executable review harnesses. Pair with agentcube-pr-management for branch hygiene, CI state, PR wording, and any upstream-facing action.
 ---
 
 # AgentCube PR Review
@@ -33,14 +33,35 @@ Identify:
 - whether the head contains the latest base and whether conflict resolution changed PR intent;
 - issue, proposal, PR conversation, and maintainer constraints when they are authoritative.
 
-For local refs, run:
+For local refs, run the intern-owned skill script against the code worktree explicitly. Official topic worktrees do not contain the intern-only `.agents/` tree:
 
 ```bash
-python3 .agents/skills/agentcube-pr-review/scripts/review_surface.py \
-  --repo-root . --base upstream/main --head HEAD --format markdown
+python3 /home/agentcube/.agents/skills/agentcube-pr-review/scripts/review_surface.py \
+  --repo-root /path/to/pr-worktree \
+  --base upstream/main --head HEAD --format markdown
 ```
 
 Treat script output as leads. Verify every suspected defect in source, diff, tests, or runtime evidence.
+
+For a PR declared ready after repeated patching, rebasing, force-pushing, or squashing, also run the final-head evidence harness. Supply the parent Issue/proposal body or explicit acceptance notes; do not silently omit the contract. Run this from a worktree whose `HEAD` equals `--head` when using `--run-go-tests`:
+
+```bash
+python3 /home/agentcube/.agents/skills/agentcube-pr-review/scripts/final_head_review.py \
+  --repo-root /path/to/pr-worktree \
+  --base upstream/main --head HEAD \
+  --acceptance-file /path/to/issue-body.md \
+  --run-go-tests --check-urls --format markdown
+```
+
+Use repeatable `--acceptance-note` arguments when the authoritative contract is already available as concise text. The harness must expose, at minimum:
+
+- every acceptance candidate from the parent Issue/proposal;
+- every hand-written changed file requiring reviewer-owned rationale and evidence;
+- every changed Go test package and the exact workflow command, if any, that covers it;
+- direct results for changed Go test packages not proven by CI, without rerunning CI-proven or live E2E packages locally;
+- added external URLs, lexicographic version comparisons, personal absolute paths, and removed validation calls.
+
+Treat the output as an evidence ledger, not a finding generator. Close each row against code, runtime evidence, or an explicit out-of-scope rationale. A green check name does not close a changed test package unless the mapped command includes it.
 
 When studying a maintainer's repeated review method, fetch a bounded, diverse PR sample with:
 
