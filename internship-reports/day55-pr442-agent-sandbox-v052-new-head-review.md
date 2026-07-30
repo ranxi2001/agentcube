@@ -601,3 +601,91 @@ Thanks, the v1beta1 manager wiring and binary-level scheme test now address my o
 ```
 
 用户随后确认 exact target/body。`2026-07-30 01:28:33 CST` 在既有 inline thread 发布 [reply 3676642917](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3676642917)；API 回读确认 author 为 `ranxi2001`、`in_reply_to_id=3671892415`，正文与 55-word 确认稿逐字一致。发布前 #446 / #448 head、目标评论与 checks 未变化，自 01:19 CST 也没有新的 issue、merge、close 或 main push。本轮没有 resolve thread、提交 review event、Prow command 或 maintainer mention。
+
+## 12. 2026-07-30：独立 v0.5.3 adapter 与 #446 实现对照
+
+### 12.1 目标和分支边界
+
+为避免 review 只停留在 diff 观感，本轮把已验证的 fork-only v0.5.2 adapter 升级到 agent-sandbox v0.5.3。新分支 `compat/agent-sandbox-v053-independent` 从最新 `upstream/main@0704bb9` 重放原有两个 signed commits，再追加单独的 v0.5.3 commit；最终 exact head 为 `595731413424fc12b38e128c6f9456aa1bd0a78e`。
+
+`git range-diff` 证明前两个 patch 的语义没有在 rebase 中变化：
+
+```text
+d70ab94 = 428a40d refactor: use standard HTTP and scheme APIs
+2d90b07 = e5b6402 compat: adapt agent-sandbox v0.5.2
+f5a3b00 ! 5957314 compat: adapt agent-sandbox v0.5.3
+```
+
+第三个 patch 只涉及 5 个文件：`go.mod`、`go.sum`、`docs/getting-started.md`、`test/e2e/run_e2e.sh` 和 `test/e2e/e2e_test.go`。它没有修改 AgentCube production controller，因为 v0.5.2 adapter 已经完成 alpha -> beta 的 GVR、scheme、watch、OperatingMode、SandboxBlueprint、WarmPoolRef 和 pointer replicas 切换；v0.5.3 没有再次破坏这些 Go type contracts。
+
+> 分析：这说明“升级到 v0.5.3”和“完成 v0.5.x beta API migration”是两层工作。前者在已经正确适配 v0.5.2 的 baseline 上是很小的增量；不能因为 #446 总 diff 很大，就把所有 generated code、MCP 或跨平台脚本改动都解释成 v0.5.3 必需项。
+
+### 12.2 v0.5.3 的 AgentCube 可见增量
+
+模块升级将 `sigs.k8s.io/agent-sandbox` 从 `v0.5.2` 提到 `v0.5.3`，MVS 同步带入 `github.com/go-logr/logr v1.4.4`、Prometheus client/common/procfs 和 JWT `v5.3.1` 等 transitive 更新。安装、卸载、migration-guide link 和 E2E 默认 manifest version 均改为 `v0.5.3`；“从 v0.4.x 应直接升到 v0.5.2 或更高版本”仍保留，因为它描述的是 v0.5.2 已修复 warm claim migration 的历史下限，不应机械改成 v0.5.3。
+
+官方 v0.5.3 对 AgentCube 最直接的新 API contract 是 `Sandbox.spec.volumeClaimTemplates` 创建后不可修改。另一个 extension API marker 放宽了 `SandboxClaim` annotation 对 `cluster-autoscaler.kubernetes.io/safe-to-evict` 的限制，但 AgentCube 当前适配没有新增或改写该 annotation，因此不需要 production patch。
+
+> 注释：CEL 是 Kubernetes CRD 的 Common Expression Language 校验规则。它由 API Server 在写入对象时执行；只在 Go 内存里构造一个字段，无法证明发布清单真的包含并执行该规则。
+
+### 12.3 因果测试和真实失败链
+
+新增 `TestSandboxVolumeClaimTemplatesImmutable` 使用真实 controller-runtime client：先在 `agentcube` namespace 创建 Suspended Sandbox，再读取最新对象、尝试追加有效 PVC template，并要求 API Server 返回 `apierrors.IsInvalid` 且包含 `volumeClaimTemplates is immutable`。测试 cleanup 接受 `NotFound`，避免失败路径留下对象。
+
+第一次在隔离集群运行时，测试没有直接到达 CEL，而是失败为：
+
+```text
+Operation cannot be fulfilled on sandboxes.agents.x-k8s.io ...:
+the object has been modified; please apply your changes to the latest version and try again
+```
+
+根因是 agent-sandbox controller 在测试 `Get` 与 `Update` 之间更新了同一 Sandbox 的 resourceVersion，API Server 先返回 `409 Conflict`。修正采用 client-go `retry.RetryOnConflict`：每次冲突后重新读取对象，只有最终返回 `Invalid` 才算通过；不能把任意 update error 当作 immutability success。修正后 focused E2E 在 0.13 秒内通过。
+
+隔离环境为 k3d + k3s `v1.32.5+k3s1`，只安装官方 v0.5.3 `sandbox.yaml` / `extensions.yaml`。controller image 回读为 `registry.k8s.io/agent-sandbox/agent-sandbox-controller:v0.5.3`，rollout 成功；CRD 中实际回读到：
+
+```json
+{"message":"volumeClaimTemplates is immutable","rule":"has(self.volumeClaimTemplates) == has(oldSelf.volumeClaimTemplates) && (!has(self.volumeClaimTemplates) || self.volumeClaimTemplates == oldSelf.volumeClaimTemplates)"}
+```
+
+测试后确认 namespace 中没有残留 Sandbox，再删除 k3d cluster 和临时 kubeconfig。
+
+### 12.4 调试过程与验证证据
+
+本轮保留了以下过程问题，而不是只记录最终绿测：
+
+1. 第一轮 targeted compile 命令误写 `./cmd/agentd`，该目录在当前 baseline 不存在；改用实际的 `cmd/picod` / `cmd/router` 后通过。这是测试清单错误，不是 v0.5.3 incompatibility。
+2. 新增测试时一度漏掉 `SandboxBlueprint` literal 的 closing brace，`gofmt` 立即报语法错误；补齐后再进入编译和运行验证。
+3. 一次 `make gen-check` 在生成期间报 lister package 暂时不可见。单独 `go mod tidy` 正常，确认没有残留 generator 进程后严格串行重跑两次，均完成 client/lister/informer generation 且 `git diff --exit-code` 为零。该瞬时失败未稳定复现，因此不能把原因强行归到 code-generator 版本；最终也没有修改 `hack/update-codegen.sh`。
+4. 固定的旧 k3d binary 默认选择 k3s `v1.21.7`，不足以验证当前 CEL contract；立即中止并清理，显式使用 `rancher/k3s:v1.32.5-k3s1` 重建。
+5. 第一次真实 API 测试命中 controller 并发导致的 `409 Conflict`；采用 `RetryOnConflict` 后才稳定到达 CEL `Invalid` 结果。
+
+最终本地验证：
+
+```text
+make lint                                                    PASS
+make gen-check                                               PASS, zero diff
+make build-all                                               PASS
+all non-E2E Go packages, -count=1                            PASS
+go test -race ./pkg/workloadmanager -count=1                 PASS
+go test ./test/e2e -run '^$' -count=1                        PASS
+isolated v0.5.3 TestSandboxVolumeClaimTemplatesImmutable     PASS
+```
+
+fork branch `compat/agent-sandbox-v053-independent@5957314` 的 9 个 push workflows 全部通过：Agentcube CI、Agentcube E2E、Codegen、Coverage、Lint、Python Lint、Python SDK、Codespell 和 Copyright。该分支只用于独立实现与 review 证据，没有创建 self-PR 或 upstream PR。
+
+### 12.5 对 #446 current head 的新增 review 结论
+
+本轮开始时 #446 为 `83002f1`；实现和 fork CI 期间，作者又以 merge commit `c0fc500` 合入 `upstream/main@0704bb9`。current PR 仍是 7 commits / 36 files，merge state `UNSTABLE`。
+
+独立实现证明两项具体 review finding：
+
+1. #446 的 `TestSandboxVolumeClaimTemplatesImmutability` 只构造 Go `Sandbox` struct，然后断言 slice length 和 name。它没有创建对象、没有 update、没有 API Server，也没有读取 v0.5.3 CRD；即使删除 CEL marker，该测试仍会通过。我们的真实 API 测试则会因规则缺失而失败，因此覆盖的是 release behavior，而不是类型可构造性。
+2. #446 的 `hack/update-codegen.sh` 硬编码 `/c/Program Files/Go/bin:/c/Users/safiy/go/bin`，复制并 patch module cache source、删除整个 `client-go`，再手工逐个执行三个 generator。我们的 branch 在 Linux 上用 upstream 原脚本连续通过 `make gen-check` 且 zero diff，说明这套个人 Windows PATH 和 generator rewrite 不是 v0.5.3 的必要适配；它扩大 portability 和 maintenance risk。
+
+`c0fc500` 也没有按此前建议 rebase 后删除与 #448 的重叠，而是在 merge conflict resolution 中把已合入 main 的 MCP v2 client 再次破坏：两份测试正确保留了 v2 使用的 `httpx2`，却错误保留旧 `sse_client` import，并调用未 import 的 `streamable_http_client`。Python Lint run `30511568113` 观察到 2 个 F401 和 2 个 F821。
+
+E2E run `30511568062` 随后两个 jobs 都失败。local MCP 测试等待 `127.0.0.1:19245` 一分钟后连接仍被拒绝，server process exit code 为 0；in-cluster MCP Deployment rollout 等待五分钟后超时。current CLI 仍接受/传入 `sse`，但 merge 后的 server 分支只在值为 `streamable-http` 时启动 HTTP，否则进入 stdio；因此这两条失败与 current transport wiring 一致。DCO 仍为 action-required。
+
+> 分析：这里不能把 `c0fc500` 简单视为“已经吸收 #448”。Git topology 确实包含 #448，但 conflict resolution 后的工作树没有保留 #448 的有效行为。review 必须按 current tree 和 exact-head checks 判断，而不是按 merge parent 推断。
+
+截至本节写入，没有向 #446 发布新 review、comment、reply、resolve、Prow command 或 reviewer request。作者仍在连续补丁阶段；下一轮先刷新 exact head 和 E2E 终态，再决定是否把 immutability test validity 与 non-portable codegen 压成 focused review draft，发布前仍需用户确认 exact target/body/event。
