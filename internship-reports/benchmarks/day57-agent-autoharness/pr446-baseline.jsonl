@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "run_id": "pr446-focused-residual-review-reconstruction",
+  "task_id": "agentcube-pr-446-final-head-review",
+  "attempt": 1,
+  "metadata": {
+    "harness": "focused-residual-review",
+    "trace_provenance": "post-hoc reconstruction from Day55 evidence; not raw telemetry",
+    "head": "2eefda6"
+  },
+  "outcome": {
+    "status": "partial",
+    "checks": [
+      {"id": "reconstruct-parent-acceptance", "required": true, "passed": false},
+      {"id": "cover-all-known-findings", "required": true, "passed": false},
+      {"id": "causal-evidence-for-findings", "required": true, "passed": true},
+      {"id": "de-duplicate-upstream-review", "required": true, "passed": true}
+    ]
+  },
+  "reference": {
+    "search_targets": [
+      "issue:438#acceptance-contract",
+      "cmd/workload-manager/main_test.go#TestSchemeRegistration",
+      "docs/getting-started.md#upgrade-agent-sandbox",
+      "test/e2e/run_e2e.sh#migration",
+      "pkg/workloadmanager/handlers.go#handleSandboxCreate",
+      "hack/update-codegen.sh",
+      "pkg/workloadmanager/codeinterpreter_controller_test.go#TestSandboxVolumeClaimTemplatesImmutability"
+    ],
+    "read_targets": [
+      "issue:438#acceptance-contract",
+      "cmd/workload-manager/main_test.go#TestSchemeRegistration",
+      "docs/getting-started.md#upgrade-agent-sandbox",
+      "test/e2e/run_e2e.sh#migration",
+      "pkg/workloadmanager/handlers.go#handleSandboxCreate",
+      "hack/update-codegen.sh",
+      "pkg/workloadmanager/codeinterpreter_controller_test.go#TestSandboxVolumeClaimTemplatesImmutability"
+    ],
+    "finding_targets": [
+      "missing-migration-lifecycle",
+      "dead-migration-asset",
+      "broken-scheme-gvk",
+      "empty-name-validation",
+      "lexicographic-version-compare",
+      "personal-codegen-path",
+      "ineffective-immutability-test"
+    ],
+    "requirement_targets": [
+      "reconstruct-parent-acceptance",
+      "cover-all-known-findings",
+      "causal-evidence-for-findings",
+      "de-duplicate-upstream-review"
+    ]
+  },
+  "events": [
+    {"seq": 1, "phase": "search", "action": "localize", "target": "hack/update-codegen.sh", "status": "ok"},
+    {"seq": 2, "phase": "read", "action": "inspect", "target": "hack/update-codegen.sh", "status": "ok"},
+    {"seq": 3, "phase": "search", "action": "localize", "target": "pkg/workloadmanager/codeinterpreter_controller_test.go#TestSandboxVolumeClaimTemplatesImmutability", "status": "ok"},
+    {"seq": 4, "phase": "read", "action": "inspect", "target": "pkg/workloadmanager/codeinterpreter_controller_test.go#TestSandboxVolumeClaimTemplatesImmutability", "status": "ok"},
+    {"seq": 5, "phase": "finding", "action": "report", "target": "personal-codegen-path", "status": "ok"},
+    {"seq": 6, "phase": "finding", "action": "report", "target": "ineffective-immutability-test", "status": "ok"},
+    {"seq": 7, "phase": "verify", "action": "evidence-check", "covers": ["causal-evidence-for-findings", "de-duplicate-upstream-review"], "status": "ok"},
+    {"seq": 8, "phase": "final", "action": "respond", "status": "ok"}
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "run_id": "pr446-final-head-reset-review-reconstruction",
+  "task_id": "agentcube-pr-446-final-head-review",
+  "attempt": 1,
+  "metadata": {
+    "harness": "parent-contract-final-head-reset",
+    "trace_provenance": "post-hoc reconstruction from Day55 evidence; not raw telemetry",
+    "head": "2eefda6"
+  },
+  "outcome": {
+    "status": "passed",
+    "checks": [
+      {"id": "reconstruct-parent-acceptance", "required": true, "passed": true},
+      {"id": "cover-all-known-findings", "required": true, "passed": true},
+      {"id": "causal-evidence-for-findings", "required": true, "passed": true},
+      {"id": "de-duplicate-upstream-review", "required": true, "passed": true}
+    ]
+  },
+  "reference": {
+    "search_targets": [
+      "issue:438#acceptance-contract",
+      "cmd/workload-manager/main_test.go#TestSchemeRegistration",
+      "docs/getting-started.md#upgrade-agent-sandbox",
+      "test/e2e/run_e2e.sh#migration",
+      "pkg/workloadmanager/handlers.go#handleSandboxCreate",
+      "hack/update-codegen.sh",
+      "pkg/workloadmanager/codeinterpreter_controller_test.go#TestSandboxVolumeClaimTemplatesImmutability"
+    ],
+    "read_targets": [
+      "issue:438#acceptance-contract",
+      "cmd/workload-manager/main_test.go#TestSchemeRegistration",
+      "docs/getting-started.md#upgrade-agent-sandbox",
+      "test/e2e/run_e2e.sh#migration",
+      "pkg/workloadmanager/handlers.go#handleSandboxCreate",
+      "hack/update-codegen.sh",
+      "pkg/workloadmanager/codeinterpreter_controller_test.go#TestSandboxVolumeClaimTemplatesImmutability"
+    ],
+    "finding_targets": [
+      "missing-migration-lifecycle",
+      "dead-migration-asset",
+      "broken-scheme-gvk",
+      "empty-name-validation",
+      "lexicographic-version-compare",
+      "personal-codegen-path",
+      "ineffective-immutability-test"
+    ],
+    "requirement_targets": [
+      "reconstruct-parent-acceptance",
+      "cover-all-known-findings",
+      "causal-evidence-for-findings",
+      "de-duplicate-upstream-review"
+    ]
+  },
+  "events": [
+    {"seq": 1, "phase": "search", "action": "localize", "target": "issue:438#acceptance-contract", "status": "ok"},
+    {"seq": 2, "phase": "read", "action": "inspect", "target": "issue:438#acceptance-contract", "status": "ok"},
+    {"seq": 3, "phase": "search", "action": "localize", "target": "cmd/workload-manager/main_test.go#TestSchemeRegistration", "status": "ok"},
+    {"seq": 4, "phase": "read", "action": "inspect", "target": "cmd/workload-manager/main_test.go#TestSchemeRegistration", "status": "ok"},
+    {"seq": 5, "phase": "search", "action": "localize", "target": "docs/getting-started.md#upgrade-agent-sandbox", "status": "ok"},
+    {"seq": 6, "phase": "read", "action": "inspect", "target": "docs/getting-started.md#upgrade-agent-sandbox", "status": "ok"},
+    {"seq": 7, "phase": "search", "action": "localize", "target": "test/e2e/run_e2e.sh#migration", "status": "ok"},
+    {"seq": 8, "phase": "read", "action": "inspect", "target": "test/e2e/run_e2e.sh#migration", "status": "ok"},
+    {"seq": 9, "phase": "search", "action": "localize", "target": "pkg/workloadmanager/handlers.go#handleSandboxCreate", "status": "ok"},
+    {"seq": 10, "phase": "read", "action": "inspect", "target": "pkg/workloadmanager/handlers.go#handleSandboxCreate", "status": "ok"},
+    {"seq": 11, "phase": "search", "action": "localize", "target": "hack/update-codegen.sh", "status": "ok"},
+    {"seq": 12, "phase": "read", "action": "inspect", "target": "hack/update-codegen.sh", "status": "ok"},
+    {"seq": 13, "phase": "search", "action": "localize", "target": "pkg/workloadmanager/codeinterpreter_controller_test.go#TestSandboxVolumeClaimTemplatesImmutability", "status": "ok"},
+    {"seq": 14, "phase": "read", "action": "inspect", "target": "pkg/workloadmanager/codeinterpreter_controller_test.go#TestSandboxVolumeClaimTemplatesImmutability", "status": "ok"},
+    {"seq": 15, "phase": "finding", "action": "report", "target": "missing-migration-lifecycle", "status": "ok"},
+    {"seq": 16, "phase": "finding", "action": "report", "target": "dead-migration-asset", "status": "ok"},
+    {"seq": 17, "phase": "finding", "action": "report", "target": "broken-scheme-gvk", "status": "ok"},
+    {"seq": 18, "phase": "finding", "action": "report", "target": "empty-name-validation", "status": "ok"},
+    {"seq": 19, "phase": "finding", "action": "report", "target": "lexicographic-version-compare", "status": "ok"},
+    {"seq": 20, "phase": "finding", "action": "report", "target": "personal-codegen-path", "status": "ok"},
+    {"seq": 21, "phase": "finding", "action": "report", "target": "ineffective-immutability-test", "status": "ok"},
+    {"seq": 22, "phase": "verify", "action": "evidence-check", "covers": ["reconstruct-parent-acceptance", "cover-all-known-findings", "causal-evidence-for-findings", "de-duplicate-upstream-review"], "status": "ok"},
+    {"seq": 23, "phase": "final", "action": "respond", "status": "ok"}
+  ]
+}

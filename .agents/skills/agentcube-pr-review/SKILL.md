@@ -270,6 +270,8 @@ After a completed review, classify the outcome:
 - reusable five-step review workflow: update this skill or its script;
 - one-off uncertainty: leave it out.
 
+When comparing repeated review runs or changing this review harness, use `agent-autoharness` with a frozen labeled task set. Report outcome, finding recall, resource efficiency, and trajectory flags separately; do not infer improvement from one newly discovered finding or from a single post-hoc reconstruction.
+
 Promote a lesson only when supported by a real PR, test, incident, or maintainer decision. Record the trigger, hidden assumption, evidence, review question, and false-positive guard. Merge overlapping patterns instead of growing a pile of aliases.
 
 The goal is not self-modification after every review. The goal is evidence-driven improvement that makes future reviews faster, more architectural, and less repetitive.

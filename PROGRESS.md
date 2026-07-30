@@ -10,8 +10,9 @@
 
 - Branch/workflow：当前本地在 `intern`，该分支是本地记录专用分支，只跟踪 `.agents/`、`internship-reports/`、`PROGRESS.md`、`AGENTS.md`、`README-ZH.md`；不要在 `intern` 跟踪 AgentCube 源码、charts、client-go、workflow 或 `internship-reports/` 外的 benchmark/source 工具。代码工作切到 `main` 或 clean topic branch from `upstream/main`。记录类 commit 完成后默认 push `origin intern:intern`。
 - Intern branch cleanup：用户要求精简 `intern` 后，已在 `bceff94 chore: prune intern branch to local records [skip ci]` 删除上游源码/CI/SDK/docs 等 tracked 文件并保留 `.agents/`；该 commit 已 push 到 `origin/intern`。`.agents/.gitignore` 会忽略 `.agents/.env`、`__pycache__` 和 `*.pyc`。
-- Community freshness scan：最近一次增量复核到 `2026-07-30 17:42 CST`。自 17:36 起只有 #446 因我们的 immutability review 更新；head 仍为 `2eefda6`，没有新作者补丁。复盘确认 #438 明确要求 tested v0.4.6 migration lifecycle；exact head 的 `go test ./cmd/workload-manager -count=1` 稳定失败 5 个 scheme assertions，而 green coverage 只跑 `./pkg/...`。
+- Community freshness scan：最近一次增量复核到 `2026-07-30 18:00 CST`。自 17:42 起没有 decision-relevant issue/PR 更新；#446 head 仍为 `2eefda6`，没有新作者补丁。复盘确认 #438 明确要求 tested v0.4.6 migration lifecycle；exact head 的 `go test ./cmd/workload-manager -count=1` 稳定失败 5 个 scheme assertions，而 green coverage 只跑 `./pkg/...`。
 - Final-head review harness：已新增 `agentcube-pr-review/scripts/final_head_review.py`。对 #446 `2eefda6` 的 forward test 能追踪 workflow -> Makefile -> shell test scope，只运行 CI 未覆盖的 `./cmd/workload-manager`，并命中 5 个 assertion failures、dead migration URL、lexicographic semver、removed validation 和 personal PATH；skill 14 个单测及结构校验通过。
+- Agent AutoHarness：已新增 `.agents/skills/agent-autoharness/`，用 observable JSON/JSONL trace 分开评估 task achievement/reliability、search/read/edit/finding/requirement precision-recall、token/time/tool/event efficiency、trajectory flags 和 harness-layer repair candidates；paired compare 默认阻止 named achievement/reliability regression，并核对 exact attempt 与 model/environment/budget/seed context。#446 单任务事后重建从 2/7 finding recall 到 7/7，仅验证 evaluator/contract；context 与效率 telemetry 缺失，因此总 gate 是 `INCONCLUSIVE`，不能宣称效率或总体成功率提升。
 - Upstream comments rule：任何 upstream issue/PR/comment/review request/maintainer mention 都必须先让用户确认 exact target/body；不要自动 `/assign`、`/lgtm`、request review 或 mention maintainer。
 
 ## Active Upstream Threads
@@ -61,6 +62,7 @@
 - #447 / #448：已完成并合入，不再追踪 review；仅在发现 merged regression 时重新打开调查。
 - #429：保持 `cf4024b` 两文件 scope；先在 fork-only validation branch rebase 到 `upstream/main@0704bb9` 并跑 exact-head checks，再让用户确认 open PR branch update。
 - #446：immutability test validity inline 已发布；codegen 草稿因 `@acsoto` 同主题评论跳过。等待作者处理 current 7 个 active threads 和 migration root finding；新 push 后先运行 `agentcube-pr-review/scripts/final_head_review.py`，再按其 ledger 关闭 #438 acceptance、hand-written files、changed test packages、workflow coverage、external asset/semver boundary、真实 API CEL 与 migration lifecycle。不要重复 maintainer feedback，也不要把 fork adapter 直接开成竞争 PR。
+- Agent harness：下一次真实 Review 用 `agent-autoharness` 直接采集 normalized events、model/environment/budget/seed context 与 token/time/tool telemetry；先扩成至少 3 个 frozen labeled tasks、每个 3 attempts，再判断 task achievement、reliability、finding recall 和 efficiency 是否真实改善。不要用 Day57 单任务 post-hoc reconstruction 训练后再当 held-out 证据。
 - 若用户要下一项贡献：优先选择可验证 review/testing feedback；#413 cleanup 即使技术方向匹配也不要与 active PR 重复。
 - 若用户要代码工作：切到 `main` 或 clean topic branch from `upstream/main`，不要在 `intern` 写 AgentCube 源码。
 

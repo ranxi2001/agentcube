@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent AutoHarness"
+  short_description: "Evaluate and improve agent execution harnesses"
+  default_prompt: "Use $agent-autoharness to score these agent trajectories, compare the baseline and challenger, and propose only regression-gated harness improvements."
