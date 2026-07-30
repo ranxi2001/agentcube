@@ -237,7 +237,7 @@ Target：`volcano-sh/agentcube` PR #446 的既有 [inline thread](https://github
 Thanks, the v1beta1 manager wiring and binary-level scheme test now address my original comment. I also ran into the same MCP SDK v2 compatibility issue and opened #448 with the full v2 migration. Once it merges, #446 can rebase on `main` and drop the overlapping MCP changes, keeping this PR focused on the agent-sandbox upgrade.
 <!-- POSTED:PR446_MCP_REPLY:END -->
 
-## 2026-07-30 #446 `2eefda6` Focused Review Draft
+## 2026-07-30 #446 `2eefda6` Focused Review Publication
 
 Target：`volcano-sh/agentcube` PR #446。Exact head：`2eefda6bd88a00fe217a0c154536d5883d46209b`。Review event：`COMMENT`，root body empty。Freshness/duplicate guard：33 files、single signed commit、11 项实际 checks 与 DCO 全绿、Tide pending；existing active thread 仅有此前 scheme comment，与以下两项不重复。
 
@@ -247,16 +247,18 @@ Visualization gate：两项均为单文件、单反例、单修改请求；短 p
 
 Anchor：`pkg/workloadmanager/codeinterpreter_controller_test.go:144`，right side。Metrics：83 visible words / 1 nonblank line / 549 characters。
 
-<!-- DRAFT:PR446_IMMUTABILITY_INLINE:START -->
+<!-- POSTED:PR446_IMMUTABILITY_INLINE:START -->
 Could we make this test exercise the API-level immutability it claims? It only constructs a Go value and checks the slice contents, so it passes without a CRD or API server and would still pass if the v0.5.3 CEL rule were removed. Please replace it with integration/E2E coverage that creates a Sandbox, reads it back, changes `spec.volumeClaimTemplates`, and requires `apierrors.IsInvalid` from Update (retrying conflicts if the controller updates the object concurrently). That would actually validate the release contract described in the PR body.
-<!-- DRAFT:PR446_IMMUTABILITY_INLINE:END -->
+<!-- POSTED:PR446_IMMUTABILITY_INLINE:END -->
 
 ### Inline 2: codegen portability and scope
 
 Anchor：`hack/update-codegen.sh:7`，right side。Metrics：88 visible words / 1 nonblank line / 633 characters。
 
-<!-- DRAFT:PR446_CODEGEN_INLINE:START -->
+<!-- SKIPPED:PR446_CODEGEN_INLINE:START -->
 Could we keep the existing `kube::codegen::gen_client` flow and remove this workstation-specific setup? This line adds `/c/Users/safiy/go/bin` to every contributor's PATH; the new flow also patches a copied generator with GNU-only `sed -i`, installs binaries into GOPATH, and deletes all of `client-go` before invoking generators manually. I verified the v0.5.3 adapter still passes `make gen-check` with the repository's prior helper, so these changes are not required for this dependency migration. If Windows codegen support is needed, please handle it portably and separately, without personal paths or patching generator source.
-<!-- DRAFT:PR446_CODEGEN_INLINE:END -->
+<!-- SKIPPED:PR446_CODEGEN_INLINE:END -->
 
-Posting guard：任何发布前重新读取 current head、两个行锚点和 active threads；只有用户确认上述 exact target、两段正文和 `COMMENT` event 后才能提交。
+用户确认发布后，`2026-07-30 17:31 CST` posting guard 发现 maintainer `@acsoto` 刚在 `hack/update-codegen.sh:7` 发布同主题 inline，因此 codegen 草稿按 duplicate guard 跳过。head 仍为 `2eefda6`，immutability anchor 仍是 current diff line 144，且 review comments 中没有同主题内容。用户知情后确认继续，最终以空 root body 的 `COMMENT` review 发布 [review 4817414997](https://github.com/volcano-sh/agentcube/pull/446#pullrequestreview-4817414997) / [inline 3681625786](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3681625786)；API 回读 author、commit、path、line 和 83-word 正文均一致。
+
+同一轮 `@acsoto` 还发布了 mandatory v0.4.6-to-v0.5.x migration E2E、不存在的 migration asset、错误 GVK、empty-name validation regression 和 lexicographic version comparison 等 findings。当前不重复这些 maintainer comments，也不追加 root review、`/lgtm`、resolve、reviewer request 或 maintainer mention。
