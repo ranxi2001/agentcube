@@ -13,7 +13,7 @@ if [ -z "${MTLS_ENABLED+x}" ]; then
         MTLS_ENABLED=true
     fi
 fi
-AGENT_SANDBOX_VERSION=${AGENT_SANDBOX_VERSION:-v0.4.6}
+AGENT_SANDBOX_VERSION=${AGENT_SANDBOX_VERSION:-v0.5.3}
 E2E_REQUIRE_CODEINTERPRETER=${E2E_REQUIRE_CODEINTERPRETER:-false}
 WORKLOAD_MANAGER_IMAGE=${WORKLOAD_MANAGER_IMAGE:-workloadmanager:latest}
 ROUTER_IMAGE=${ROUTER_IMAGE:-agentcube-router:latest}
@@ -333,10 +333,171 @@ run_setup() {
     done
 
     step "Installing agent-sandbox (${AGENT_SANDBOX_VERSION})..."
+    
+    # E2E Upgrade test logic
+    if [ "${E2E_SKIP_SETUP}" != "true" ] && [ "${AGENT_SANDBOX_VERSION}" = "v0.5.3" ]; then
+        step "Seeding v0.4.6 agent-sandbox for upgrade test..."
+        kubectl_apply_url "https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.4.6/manifest.yaml"
+        kubectl_apply_url "https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.4.6/extensions.yaml"
+        
+        kubectl -n agent-sandbox-system rollout status deployment/agent-sandbox-controller --timeout=300s
+        
+        # Seed v1alpha1 SandboxClaim to simulate cold-start pool
+        ensure_namespace "${AGENTCUBE_NAMESPACE}"
+        cat <<EOF | kubectl apply -f -
+apiVersion: extensions.agents.x-k8s.io/v1alpha1
+kind: SandboxTemplate
+metadata:
+  name: e2e-upgrade-template
+  namespace: ${AGENTCUBE_NAMESPACE}
+spec:
+  podTemplate:
+    spec:
+      containers:
+      - name: pause
+        image: registry.k8s.io/pause:3.10
+---
+apiVersion: extensions.agents.x-k8s.io/v1alpha1
+kind: SandboxClaim
+metadata:
+  name: shadow-pool-e2e-code-interpreter
+  namespace: ${AGENTCUBE_NAMESPACE}
+spec:
+  sandboxTemplateRef:
+    name: e2e-upgrade-template
+---
+apiVersion: agents.x-k8s.io/v1alpha1
+kind: Sandbox
+metadata:
+  name: upgrade-bound-sandbox
+  namespace: ${AGENTCUBE_NAMESPACE}
+spec:
+  replicas: 1
+  podTemplate:
+    spec:
+      containers:
+      - name: pause
+        image: registry.k8s.io/pause:3.10
+---
+apiVersion: extensions.agents.x-k8s.io/v1alpha1
+kind: SandboxClaim
+metadata:
+  name: upgrade-bound-claim
+  namespace: ${AGENTCUBE_NAMESPACE}
+spec:
+  sandboxTemplateRef:
+    name: e2e-upgrade-template
+EOF
+
+        echo "Simulating bound SandboxClaim by patching ownerReference and status..."
+        sleep 2
+        CLAIM_UID=$(kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
+        
+        kubectl patch sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" --type=merge -p "{\"metadata\":{\"ownerReferences\":[{\"apiVersion\":\"extensions.agents.x-k8s.io/v1alpha1\",\"kind\":\"SandboxClaim\",\"name\":\"upgrade-bound-claim\",\"uid\":\"${CLAIM_UID}\",\"controller\":true,\"blockOwnerDeletion\":true}]}}"
+        kubectl patch sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" --subresource=status --type=merge -p '{"status":{"sandbox":{"name":"upgrade-bound-sandbox"}}}'
+        
+        echo "Waiting for v0.4.6 controller to spin up the Pod for the bound Sandbox..."
+        # Poll up to 60s for the Pod object to be created first (controller may lag)
+        for i in $(seq 1 30); do
+            if kubectl get pod upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" >/dev/null 2>&1; then
+                echo "Pod upgrade-bound-sandbox found after ${i}x2s"
+                break
+            fi
+            if [ "$i" -eq 30 ]; then
+                echo "Timed out waiting for pod upgrade-bound-sandbox to be created"
+                exit 1
+            fi
+            sleep 2
+        done
+        # Wait up to 60s for the Pod to reach Ready state
+        kubectl wait --for=condition=Ready pod/upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" --timeout=60s
+        
+        # Capture the UIDs to verify they survive the upgrade without being recreated
+        BOUND_SANDBOX_UID=$(kubectl get sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
+        BOUND_POD_UID=$(kubectl get pod upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
+        echo "Captured pre-upgrade UIDs -> Sandbox: ${BOUND_SANDBOX_UID}, Pod: ${BOUND_POD_UID}"
+        
+        echo "Running migration bootstrap phase..."
+        curl -fsSL https://raw.githubusercontent.com/kubernetes-sigs/agent-sandbox/refs/tags/v0.5.3/helm/files/migrate.sh -o /tmp/migrate.sh
+        chmod +x /tmp/migrate.sh
+        /tmp/migrate.sh --phase=bootstrap
+    fi
+
     # Download then apply to avoid URL parsing issues / improve debuggability.
-    kubectl_apply_url "https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/manifest.yaml"
-    kubectl_apply_url "https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/extensions.yaml"
+    if [[ "${AGENT_SANDBOX_VERSION}" =~ ^v0\.4\. ]]; then
+        kubectl_apply_url "https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/manifest.yaml"
+        kubectl_apply_url "https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/extensions.yaml"
+    else
+        kubectl_apply_url "https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/sandbox-with-extensions.yaml"
+        kubectl -n agent-sandbox-system patch deployment agent-sandbox-controller --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--sandbox-concurrent-workers=10"}]'
+    fi
+    
     verify_agent_sandbox_controller
+    if [ "${E2E_SKIP_SETUP}" != "true" ] && [ "${AGENT_SANDBOX_VERSION}" = "v0.5.3" ]; then
+        echo "Waiting for conversion webhook to become responsive (kube-proxy endpoint sync)..."
+        for i in {1..30}; do
+            if kubectl get sandboxwarmpools.extensions.agents.x-k8s.io -A >/dev/null 2>&1; then
+                echo "Webhook is responsive!"
+                break
+            fi
+            echo "Webhook not ready yet, waiting... (attempt $i/30)"
+            if [ $i -eq 30 ]; then
+                echo "Timed out waiting for webhook. Controller logs:"
+                kubectl logs -n agent-sandbox-system -l control-plane=controller-manager || true
+            fi
+            sleep 5
+        done
+        
+        echo "Running migration migrate phase..."
+        /tmp/migrate.sh --phase=migrate
+        
+        step "Verifying SandboxClaims survived migration"
+        kubectl get sandboxclaim shadow-pool-e2e-code-interpreter -n "${AGENTCUBE_NAMESPACE}" || {
+            echo "Error: Seeded cold SandboxClaim was lost during migration!" >&2
+            exit 1
+        }
+        
+        # Wait a moment for the new v0.5 controller to process the claims
+        echo "Waiting for new controller to reconcile claims..."
+        sleep 10
+        
+        kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" || {
+            echo "Error: Seeded bound SandboxClaim was lost during migration!" >&2
+            exit 1
+        }
+        
+        echo "Verifying warm-start regression: bound Sandbox and Pod UIDs must not change..."
+        POST_UPGRADE_SANDBOX_UID=$(kubectl get sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
+        POST_UPGRADE_POD_UID=$(kubectl get pod upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
+        
+        if [ "${POST_UPGRADE_SANDBOX_UID}" != "${BOUND_SANDBOX_UID}" ] || [ -z "${POST_UPGRADE_SANDBOX_UID}" ]; then
+            echo "Error: Bound Sandbox UID changed or lost during upgrade! (Expected: ${BOUND_SANDBOX_UID}, Got: ${POST_UPGRADE_SANDBOX_UID})" >&2
+            exit 1
+        fi
+        
+        if [ "${POST_UPGRADE_POD_UID}" != "${BOUND_POD_UID}" ] || [ -z "${POST_UPGRADE_POD_UID}" ]; then
+            echo "Error: Bound Pod UID changed or lost during upgrade! (Expected: ${BOUND_POD_UID}, Got: ${POST_UPGRADE_POD_UID})" >&2
+            exit 1
+        fi
+        
+        echo "Verifying bound SandboxClaim kept its Sandbox binding..."
+        POST_UPGRADE_BINDING=$(kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.status.sandbox.name}')
+        if [ "${POST_UPGRADE_BINDING}" != "upgrade-bound-sandbox" ]; then
+            echo "Error: Bound SandboxClaim lost its sandbox binding! (Got: ${POST_UPGRADE_BINDING})" >&2
+            exit 1
+        fi
+        
+        echo "Verifying shadow pool was created during migration..."
+        # The bootstrap names the shadow pool after the template (e2e-upgrade-template),
+        # producing shadow-pool-e2e-upgrade-template. The referenced SandboxTemplate
+        # exists (we seeded e2e-upgrade-template), so the pool should exist.
+        kubectl get sandboxwarmpool shadow-pool-e2e-upgrade-template -n "${AGENTCUBE_NAMESPACE}" || {
+            echo "Error: Shadow pool was not created during migration" >&2
+            exit 1
+        }
+        echo "SandboxClaim migration, bound lifecycle, and pool adoption verified successfully"
+    fi
+
 
     step "Building images..."
     # We assume we are in the project root
@@ -699,6 +860,8 @@ else
         fi
     fi
 fi
+
+
 
 # Collect logs if tests failed
 if [ $TEST_FAILED -eq 1 ]; then

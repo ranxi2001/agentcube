@@ -28,10 +28,51 @@ AgentCube relies on the [kubernetes-sigs/agent-sandbox](https://github.com/kuber
 
 ```bash
 # Install agent-sandbox CRDs and controller
-AGENT_SANDBOX_VERSION=v0.1.1
-kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/manifest.yaml
-kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/extensions.yaml
+AGENT_SANDBOX_VERSION=v0.5.3
+kubectl apply --server-side -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/sandbox-with-extensions.yaml
 ```
+
+> [!NOTE]
+> `agent-sandbox` v0.5.3 sets default controller concurrency to `sandbox-concurrent-workers=100` (up from 1). In clusters with high sandbox churn or limited API server resources, this can be tuned via deployment args if needed.
+> 
+> **Kubernetes Dependency Boundary**: Dependencies (`k8s.io/*`) have been updated to `v0.36.2`. The `corev1.PodSpec` schema in v0.36 tombstones the experimental `workloadRef` field in favor of `schedulingGroup`. If upgrading custom `AgentRuntime` manifests that relied on `workloadRef`, transition those fields to `schedulingGroup`.
+
+### Upgrade Guide (v0.4.6 to v0.5.3)
+
+When upgrading an existing `v0.4.6` installation with active or cold-start `CodeInterpreter` claims (`warmPoolSize > 0`), applying `v0.5.3` directly can cause claims to map to `warmPoolRef.name=shadow-pool-<template>`. Because `v0.5.3` requeues with `WarmPoolNotFound` if the shadow pool does not exist, claims may hit AgentCube's 2-minute create timeout and enter rollback. 
+
+To safely upgrade from `v0.4.6` to `v0.5.3`, follow these mandatory steps:
+
+1. **Backup Existing Resources**
+   ```bash
+   kubectl get sandboxclaims,sandboxes,sandboxtemplates,sandboxwarmpools,codeinterpreters -A -o yaml > backup.yaml
+   ```
+2. **Download the Migration Helper**
+   Obtain the pinned `v0.5.3` migration helper script from the release assets:
+   ```bash
+   wget https://raw.githubusercontent.com/kubernetes-sigs/agent-sandbox/refs/tags/v0.5.3/helm/files/migrate.sh -O migrate.sh
+   chmod +x migrate.sh
+   ```
+3. **Run Pre-Upgrade Bootstrap**
+   This prevents `WarmPoolNotFound` errors for existing cold-start claims:
+   ```bash
+   ./migrate.sh --phase=bootstrap
+   ```
+4. **Apply v0.5.3 Manifest**
+   ```bash
+   kubectl apply --server-side -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.5.3/sandbox-with-extensions.yaml
+   ```
+5. **Wait for Readiness**
+   Wait for the new controller and conversion webhook to be fully responsive before proceeding:
+   ```bash
+   kubectl rollout status deployment/agent-sandbox-controller -n agent-sandbox-system
+   until kubectl get sandboxwarmpools.extensions.agents.x-k8s.io --all-namespaces >/dev/null 2>&1; do sleep 2; done
+   ```
+6. **Run Post-Upgrade Migrate**
+   Execute the migration phase to finalize the upgrade:
+   ```bash
+   ./migrate.sh --phase=migrate
+   ```
 
 Verify the installation:
 
@@ -241,7 +282,6 @@ To remove AgentCube from your cluster:
 ```bash
 helm uninstall agentcube -n agentcube
 kubectl delete namespace agentcube
-AGENT_SANDBOX_VERSION=v0.1.1
-kubectl delete -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/extensions.yaml
-kubectl delete -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/manifest.yaml
+AGENT_SANDBOX_VERSION=v0.5.3
+kubectl delete -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/sandbox-with-extensions.yaml
 ```

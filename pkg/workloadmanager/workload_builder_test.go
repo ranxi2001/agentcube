@@ -182,8 +182,8 @@ func TestBuildSandboxClaimObject(t *testing.T) {
 		if claim.Name != "claim-abc" {
 			t.Errorf("expected name claim-abc, got %q", claim.Name)
 		}
-		if claim.Spec.TemplateRef.Name != "my-ci" {
-			t.Errorf("expected templateRef name my-ci, got %q", claim.Spec.TemplateRef.Name)
+		if claim.Spec.WarmPoolRef.Name != "my-ci" {
+			t.Errorf("expected WarmPoolRef name my-ci, got %q", claim.Spec.WarmPoolRef.Name)
 		}
 		if claim.Labels[SessionIdLabelKey] != "session-claim-test" {
 			t.Errorf("expected label %s=session-claim-test, got %q", SessionIdLabelKey, claim.Labels[SessionIdLabelKey])
@@ -403,7 +403,7 @@ func TestBuildSandboxByAgentRuntime_Success(t *testing.T) {
 		cubeInformerFactory:  factory,
 	}
 
-	sandbox, entry, err := buildSandboxByAgentRuntime(testNamespace, testAgentRuntimeName, "", ifm)
+	sandbox, entry, err := buildSandboxByAgentRuntime(testNamespace, testAgentRuntimeName, "user-123", ifm)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -426,6 +426,9 @@ func TestBuildSandboxByAgentRuntime_Success(t *testing.T) {
 	// Validate Entry
 	if entry.Kind != types.SandboxKind {
 		t.Errorf("expected entry kind %q, got %q", types.SandboxKind, entry.Kind)
+	}
+	if entry.OwnerID != "user-123" {
+		t.Errorf("expected entry ownerID %q, got %q", "user-123", entry.OwnerID)
 	}
 	if entry.IdleTimeout != 30*time.Minute {
 		t.Errorf("expected idle timeout 30m, got %v", entry.IdleTimeout)
@@ -600,10 +603,11 @@ func TestBuildSandboxByCodeInterpreter_SuccessNoWarmPool(t *testing.T) {
 		cubeInformerFactory:     factory,
 	}
 
-	sandbox, claim, entry, err := buildSandboxByCodeInterpreter(testNamespace, "ci-no-wp", "", ifm)
+	sandbox, claim, entry, err := buildSandboxByCodeInterpreter(testNamespace, "ci-no-wp", "user-123", ifm)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	assert.Equal(t, "user-123", entry.OwnerID)
 
 	if sandbox == nil {
 		t.Fatal("expected sandbox not to be nil")
@@ -677,8 +681,8 @@ func TestBuildSandboxByCodeInterpreter_SuccessWithWarmPool(t *testing.T) {
 	if entry.Kind != types.SandboxClaimsKind {
 		t.Errorf("expected entry.Kind to be %q, got %q", types.SandboxClaimsKind, entry.Kind)
 	}
-	if claim.Spec.TemplateRef.Name != testCodeInterpreterWarmPool {
-		t.Errorf("expected templateRef name %q, got %q", testCodeInterpreterWarmPool, claim.Spec.TemplateRef.Name)
+	if claim.Spec.WarmPoolRef.Name != testCodeInterpreterWarmPool {
+		t.Errorf("expected WarmPoolRef name %q, got %q", testCodeInterpreterWarmPool, claim.Spec.WarmPoolRef.Name)
 	}
 	if len(claim.OwnerReferences) != 1 {
 		t.Fatalf("expected 1 owner reference, got %d", len(claim.OwnerReferences))
@@ -786,4 +790,42 @@ func TestBuildSandboxClaimObject_OwnershipLabels(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAgentRuntimePodSpec_K8s36CompatibilityBoundary(t *testing.T) {
+	// Verifies that PodSpec in v0.36.2 is cleanly constructed and deep-copied
+	// when building Sandbox objects from AgentRuntime templates.
+	ar := &runtimev1alpha1.AgentRuntime{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      "compat-runtime",
+		},
+		Spec: runtimev1alpha1.AgentRuntimeSpec{
+			Template: &runtimev1alpha1.SandboxTemplate{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "app", Image: "python:3.11-slim"},
+					},
+				},
+			},
+		},
+	}
+
+	fakeClient := cubefake.NewSimpleClientset(ar)
+	factory := cubeinformers.NewSharedInformerFactory(fakeClient, 0)
+	agentRuntimeInformer := factory.Runtime().V1alpha1().AgentRuntimes()
+	assert.NoError(t, agentRuntimeInformer.Informer().GetStore().Add(ar))
+
+	ifm := &Informers{
+		AgentRuntimeLister:   agentRuntimeInformer.Lister(),
+		AgentRuntimeInformer: agentRuntimeInformer.Informer(),
+		informerFactory:      newFactory(),
+		cubeInformerFactory:  factory,
+	}
+
+	sandbox, entry, err := buildSandboxByAgentRuntime(testNamespace, "compat-runtime", "owner-456", ifm)
+	assert.NoError(t, err)
+	assert.NotNil(t, sandbox)
+	assert.Equal(t, "owner-456", entry.OwnerID)
+	assert.Equal(t, "python:3.11-slim", sandbox.Spec.PodTemplate.Spec.Containers[0].Image)
 }
