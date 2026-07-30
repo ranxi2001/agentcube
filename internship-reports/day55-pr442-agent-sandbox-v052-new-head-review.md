@@ -689,3 +689,18 @@ E2E run `30511568062` 随后两个 jobs 都失败。local MCP 测试等待 `127.
 > 分析：这里不能把 `c0fc500` 简单视为“已经吸收 #448”。Git topology 确实包含 #448，但 conflict resolution 后的工作树没有保留 #448 的有效行为。review 必须按 current tree 和 exact-head checks 判断，而不是按 merge parent 推断。
 
 截至本节写入，没有向 #446 发布新 review、comment、reply、resolve、Prow command 或 reviewer request。作者仍在连续补丁阶段；下一轮先刷新 exact head 和 E2E 终态，再决定是否把 immutability test validity 与 non-portable codegen 压成 focused review draft，发布前仍需用户确认 exact target/body/event。
+
+### 12.6 `2eefda6` “Everything is done” 复核
+
+作者在 `2026-07-30T08:07:52Z` 评论 `@acsoto @ranxi2001 Please check. Everything is done.`。`2026-07-30 17:13 CST` 回读确认 #446 已 force-push/squash 为 exact head `2eefda6bd88a00fe217a0c154536d5883d46209b`：单个 signed commit、33 files、`upstream/main@0704bb9` 是其直接祖先，GitHub 判定 `MERGEABLE`。build、Codegen、Codespell、Go/Python lint、Python SDK、Coverage、两个 E2E 和 DCO 共 11 项实际检查全部通过；只有 Tide 因尚缺 `lgtm` / `approved` 保持 pending。
+
+这次补丁已经处理旧 head 的两个动态问题：MCP 工作树保留 #448 合入后的 Streamable HTTP 行为，#446 对 `integrations/code-interpreter-mcp/pyproject.toml` 只剩无语义的文件末尾换行差异；此前错误的 v0.4.6 upgrade fixture 也已删除。因此不能继续用 `c0fc500` 的 Python Lint / E2E failure 评价 current head。
+
+但 “done” 只说明作者认为补丁和 CI 已完成，不等于 focused code review 已无问题。exact current tree 仍保留两项有证据的 finding：
+
+1. `pkg/workloadmanager/codeinterpreter_controller_test.go:144-168` 的 `TestSandboxVolumeClaimTemplatesImmutability` 只构造内存 Go struct，并断言 PVC slice 长度和名称。它没有 CREATE/GET/UPDATE，没有 API Server，也不执行 v0.5.3 CRD CEL；focused `go test` 在无 cluster/CRD 环境中 0.00 秒通过，证明该测试即使删除 immutability rule 仍会绿。PR body 关于“test the new immutability behavior”的表述因此缺少因果覆盖。fork `5957314` 已证明可行测试形态：真实创建 Sandbox、重新读取、`RetryOnConflict` 更新 `spec.volumeClaimTemplates`，并要求 API 返回 `Invalid`。
+2. `hack/update-codegen.sh:7` 仍硬编码作者个人 `/c/Users/safiy/go/bin`，`:59-74` 复制并用 GNU `sed -i` patch generator source、安装 binaries，`:77` 删除整个 `client-go` 后手工生成。exact `2eefda6` 的 `make gen-check` 在本机确实通过且 zero diff，所以不能称它当前 Linux CI 失败；准确风险是脚本把 v0.5.3 dependency upgrade 扩大成个人路径、GNU/BSD portability 和生成器维护变更，而 fork adapter 使用 upstream 原 codegen flow 已同样通过。
+
+另有两项非阻断清理：`integrations/code-interpreter-mcp/pyproject.toml` 只删除末尾换行；两份 getting-started 文档各有一处 trailing whitespace。升级文档描述 mandatory migration，但 current E2E 只验证 fresh v0.5.3 install；v0.4.6 persisted objects / storedVersions 的原地 migration 仍应作为未验证限制，而不是冒充已覆盖。
+
+本节没有向 #446 发布 review/comment、resolve thread、Prow command、reviewer request 或 maintainer mention。若要公开反馈，优先把前两项拆成 focused inline comments，发布前必须再次核对 exact head/anchor/duplicate，并让用户确认 exact target/body/event。
