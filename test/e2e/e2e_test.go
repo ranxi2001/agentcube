@@ -35,6 +35,7 @@ import (
 	"github.com/volcano-sh/agentcube/pkg/apis/runtime/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -45,6 +46,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	sandboxv1beta1 "sigs.k8s.io/agent-sandbox/api/v1beta1"
@@ -220,6 +222,60 @@ func runAgentRuntimeTestCase(t *testing.T, env *testEnv, namespace, runtimeName 
 	}
 
 	t.Logf("Echo test successful: input='%s' -> output='%s'", tc.input, resp.Output)
+}
+
+func TestSandboxVolumeClaimTemplatesImmutable(t *testing.T) {
+	ctx, err := newE2ETestContext()
+	require.NoError(t, err)
+
+	sandbox := &sandboxv1beta1.Sandbox{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("e2e-vct-immutable-%d", time.Now().UnixNano()),
+			Namespace: agentcubeNamespace,
+		},
+		Spec: sandboxv1beta1.SandboxSpec{
+			SandboxBlueprint: sandboxv1beta1.SandboxBlueprint{
+				PodTemplate: sandboxv1beta1.PodTemplate{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name:  "sandbox",
+							Image: "registry.k8s.io/pause:3.10",
+						}},
+					},
+				},
+			},
+			OperatingMode: sandboxv1beta1.SandboxOperatingModeSuspended,
+		},
+	}
+
+	require.NoError(t, ctx.ctrlClient.Create(context.Background(), sandbox))
+	t.Cleanup(func() {
+		err := ctx.ctrlClient.Delete(context.Background(), sandbox)
+		if err != nil && !apierrors.IsNotFound(err) {
+			t.Errorf("delete test Sandbox: %v", err)
+		}
+	})
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &sandboxv1beta1.Sandbox{}
+		if err := ctx.ctrlClient.Get(context.Background(), client.ObjectKeyFromObject(sandbox), current); err != nil {
+			return err
+		}
+		current.Spec.VolumeClaimTemplates = []sandboxv1beta1.PersistentVolumeClaimTemplate{{
+			EmbeddedObjectMetadata: sandboxv1beta1.EmbeddedObjectMetadata{Name: "data"},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Mi")},
+				},
+			},
+		}}
+
+		return ctx.ctrlClient.Update(context.Background(), current)
+	})
+	require.Error(t, err)
+	require.True(t, apierrors.IsInvalid(err), "expected CRD validation error, got %v", err)
+	require.ErrorContains(t, err, "volumeClaimTemplates is immutable")
 }
 
 // ===== AgentRuntime E2E Test Cases =====
