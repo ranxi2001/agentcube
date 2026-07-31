@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "ledger_id": "agentcube-pr438-pr442-pr446-technical-findings",
+  "ledger_version": 4,
+  "ledger_digest": "7d400ba49ee32fc0ff3ce7ee09ac79fc1fc60210449a09441769fb20c5acff24",
+  "target": {
+    "repository": "volcano-sh/agentcube",
+    "pull_request": 446
+  },
+  "head": "a0f48828b642f7005da46324d1dfaa528033b8b7",
+  "closures": [
+    {
+      "id": "F01-production-beta-scheme",
+      "status": "fixed",
+      "evidence": [
+        "main.go registers the core and extension v1beta1 schemes and watches v1beta1 Sandbox",
+        "cmd/workload-manager scheme tests use the production scheme builder"
+      ]
+    },
+    {
+      "id": "F03-migration-helper-doc-parity",
+      "status": "fixed",
+      "evidence": [
+        "Both guides use the tagged kubernetes-sigs/agent-sandbox v0.5.3 helm/files/migrate.sh helper"
+      ]
+    },
+    {
+      "id": "F04-scheme-test-gvks",
+      "status": "fixed",
+      "evidence": [
+        "main_test.go uses exported SchemeGroupVersion.WithKind values"
+      ]
+    },
+    {
+      "id": "F05-empty-name-validation",
+      "status": "fixed",
+      "evidence": [
+        "handleSandboxCreate calls CreateSandboxRequest.Validate and handlers_test.go covers missing name"
+      ]
+    },
+    {
+      "id": "F06-version-boundary",
+      "status": "fixed",
+      "evidence": [
+        "run_e2e.sh selects only the explicit v0.4.* legacy family instead of using string ordering"
+      ]
+    },
+    {
+      "id": "F07-portable-codegen-path",
+      "status": "fixed",
+      "evidence": [
+        "hack/update-codegen.sh no longer prepends a contributor-specific Windows path"
+      ]
+    },
+    {
+      "id": "F08-causal-immutability-test",
+      "status": "fixed",
+      "evidence": [
+        "E2E creates and reads a Sandbox, attempts an API Update, and requires apierrors.IsInvalid"
+      ]
+    },
+    {
+      "id": "F09-existing-claim-upgrade-lifecycle",
+      "status": "present",
+      "evidence": [
+        "run_e2e.sh still waits a fixed 10 seconds instead of requiring the migrated bound claim Ready condition",
+        "The fixture does not originate from a real warm pool and the test does not delete the migrated claim or prove garbage collection and warm-pool refill"
+      ]
+    },
+    {
+      "id": "F10-bootstrap-shadow-pools",
+      "status": "fixed",
+      "evidence": [
+        "The custom migration helper is absent and run_e2e.sh invokes the tagged upstream bootstrap phase"
+      ]
+    },
+    {
+      "id": "F11-migration-data-safety",
+      "status": "fixed",
+      "evidence": [
+        "The custom apply/delete flow is absent in favor of the upstream annotation-based migration helper"
+      ]
+    },
+    {
+      "id": "F12-router-h2c-scope",
+      "status": "fixed",
+      "evidence": [
+        "The opt-in h2c flag and config change are absent from the current diff"
+      ]
+    },
+    {
+      "id": "F13-tagged-manifest-url",
+      "status": "fixed",
+      "evidence": [
+        "Both guides use the existing v0.5.3 sandbox-with-extensions.yaml release asset"
+      ]
+    },
+    {
+      "id": "F14-backup-all-migrated-kinds",
+      "status": "fixed",
+      "evidence": [
+        "Both guides back up sandboxes, sandboxclaims, sandboxtemplates, and sandboxwarmpools"
+      ]
+    },
+    {
+      "id": "F15-exported-resource-signature",
+      "status": "fixed",
+      "evidence": [
+        "runtime/v1alpha1.Resource keeps schema.GroupVersionResource and generated listers call GroupResource"
+      ]
+    },
+    {
+      "id": "F16-kubernetes-codegen-version",
+      "status": "fixed",
+      "evidence": [
+        "go.mod and hack/update-codegen.sh now use Kubernetes and code-generator v0.36.2",
+        "make gen-check passed from a clean detached worktree at a0f48828"
+      ]
+    },
+    {
+      "id": "F17-auth-owner-store-persistence",
+      "status": "present",
+      "evidence": [
+        "handleSandboxCreate resolves ownerID but no longer copies it to sandboxEntry.OwnerID",
+        "Both builders put ownerID on Kubernetes metadata while returning an entry without OwnerID",
+        "A focused real-handler test failed with expected user-123 and actual empty; restoring the removed assignment made the same test pass",
+        "Router fail-closes an existing non-admin session whose Store OwnerID is empty"
+      ]
+    },
+    {
+      "id": "F18-codegen-gobin-install-path",
+      "status": "present",
+      "evidence": [
+        "go install honors non-empty GOBIN but the script always invokes tools from GOPATH/bin",
+        "An isolated GOBIN reproduction exited 127 after placing all tools in GOBIN and deleting client-go"
+      ]
+    },
+    {
+      "id": "F19-embedded-podspec-workloadref",
+      "status": "present",
+      "evidence": [
+        "The base AgentRuntime CRD exposed podTemplate.spec.workloadRef while the current CRD removes it and exposes schedulingGroup",
+        "Kubernetes v0.36 tombstones WorkloadRef and a focused JSON decode test proved the typed PodSpec silently drops the old field",
+        "No AgentRuntime API migration note or compatibility test maps workloadRef to schedulingGroup"
+      ]
+    },
+    {
+      "id": "F20-conversion-webhook-readiness-docs",
+      "status": "present",
+      "evidence": [
+        "Both mandatory upgrade guides run phase=migrate immediately after Deployment rollout status",
+        "The dependency migration guide and this PR's E2E require an API read through the conversion webhook after rollout"
+      ]
+    },
+    {
+      "id": "F21-scheme-test-ci-discovery",
+      "status": "present",
+      "evidence": [
+        "Coverage runs go test ./pkg/... and E2E runs go test ./test/e2e/...; neither command executes cmd/workload-manager/main_test.go",
+        "The exact-head scheme test passes only when run directly, so green CI does not guard the production registration regression"
+      ]
+    }
+  ]
+}

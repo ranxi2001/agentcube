@@ -875,3 +875,103 @@ review skill 现已要求 replacement/superseding PR 使用稳定 finding ID 合
 - Kubernetes libraries 为 v0.36.2，code-generator 仍为 v0.35.4。
 
 详细 finding provenance、review recall、skill 修改与 dataset leakage 边界见 [Day57 Section 9](day57-agent-autoharness-trajectory-evaluation.md#9-446-全-lineage-复盘与-executable-skill-修正)。本轮仍未向 upstream 发布任何内容。
+
+## 17. `a0f4882` exact-head reset 与新增回归
+
+`2026-07-31 21:51 CST` 再次做只读 freshness scan。#446 仍是 open、non-draft、structurally mergeable，current exact head 为 `a0f48828b642f7005da46324d1dfaa528033b8b7`，base 为 `upstream/main@0704bb96502af32f2bd90d47f1e11b4c8099959e`。PR 现为单个 signed commit、35 files、`+1049/-455`；12 个 executable/DCO checks 全部通过，Tide 只等待 `lgtm/approved`。从上一快照开始没有新增 human review，decision-relevant change 只有作者把 `e577a5e` 推进到当前 head。
+
+`e577a5e..a0f4882` 只改 6 个文件：`hack/update-codegen.sh` 把 code-generator 从 v0.35.4 对齐到 v0.36.2，并重新生成 5 个 client/informer 文件。因此旧 `F16-kubernetes-codegen-version` 已关闭；clean detached worktree 中 `make gen-check` 通过且没有 drift。这个小 delta 没有修改 upgrade fixture、鉴权创建链、AgentRuntime CRD 或两份升级文档，所以这些区域必须按完整 final tree 而不是按最后 6-file delta 复核。
+
+> 注释：绿色 Codegen Check 只证明默认 CI 环境可以重复生成当前输出。它不自动证明所有合法 Go 环境变量组合都使用同一套 generator，也不覆盖前面 hand-written 代码的 runtime contract。
+
+### 17.1 `[P1]` authenticated owner 没有进入 Store
+
+base 的 `pkg/workloadmanager/handlers.go` 在 builder 返回后执行：
+
+```go
+if ownerID != "" {
+    sandboxEntry.OwnerID = ownerID
+}
+```
+
+current head 删除了这段赋值。`resolveSandboxOwnerID` 仍在 `handlers.go:173` 得到 subject，并把它传给两个 builder；但 builder 只把 owner 写到 Sandbox / SandboxClaim annotation 与 label，`workload_builder.go:302-307` 和 `347-352` 返回的 `sandboxEntry` 都没有 `OwnerID`。随后 placeholder、最终 Store record 和 create response 都从这个空 entry 复制 owner。
+
+Router 的 existing-session RLAC 不读 Kubernetes annotation，而在 `pkg/router/handlers.go:107-116` 读取 Store record 并 fail closed。可达结果是：非管理员第一次不带 session ID 创建成功，拿到 session ID 后由同一个 subject 再次请求，却确定性收到 `403 sandbox has no owner record`。AgentRuntime、cold CodeInterpreter 和 warm-pool claim 三条创建路径都经过这段代码。
+
+隔离 exact-head test 用真实 create handler 注入 `user-123` 并捕获 Store entry，结果为 `expected "user-123", actual ""`；只恢复上述 assignment 后，同一个 test 通过。现有测试只检查 Kubernetes metadata，或直接向 helper 注入一个已经带 OwnerID 的 entry；E2E 默认 `KEYCLOAK_ENABLED=false`，没有覆盖 non-admin create -> reuse。这是当前 public thread 中没有重复项的新 finding。
+
+> 分析：这里不是 annotation 少写一次，而是 authorization decision record 丢失。只给 builder metadata 增加断言会继续 false green；修复测试必须捕获 Store write，并让同一 non-admin subject 复用返回的 session。
+
+### 17.2 `[P1]` existing bound claim lifecycle 仍是 false green
+
+`test/e2e/run_e2e.sh` 手工把 `upgrade-bound-claim` 绑定到 standalone `upgrade-bound-sandbox`，却没有构造真实 warm pool producer。v0.5.3 conversion 会从 sandbox name 推导 `warmPoolRef.name=upgrade-bound`，而 fixture 没有这个 pool；另行检查的 `shadow-pool-e2e-upgrade-template` 不是该 bound claim 的来源。
+
+升级后脚本固定 `sleep 10`，只验证 Claim 仍存在、Sandbox/Pod UID 不变、status binding 未空以及另一个 shadow pool 存在。它没有要求 migrated Claim 达到 `Ready`，也没有删除该 Claim、验证原 Sandbox/Pod 被 GC，或证明 source pool refill。因此 controller 持续 `WarmPoolNotFound` 时测试仍可打印 “lifecycle verified”。
+
+这仍是 `F09-existing-claim-upgrade-lifecycle`，不是新 defect ID；#438 的 adoption/deletion/refill contract 和 #446 既有 [discussion r3689367077](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3689367077) 已经公开指出它。不要重复发布相同评论。正确 fixture 应由真实 v0.4.6 warm pool 生产 bound Sandbox，再验证 upgrade 后 Ready、同一 identity、delete/GC 和 refill。
+
+### 17.3 `[P2]` non-empty `GOBIN` 会让 codegen 删除输出后失败
+
+`hack/update-codegen.sh:58-83` 固定从 `$(go env GOPATH)/bin` 执行 generator，但 `go install` 在 `GOBIN` 非空时会把二进制安装到 `GOBIN`。脚本随后先删除整个 `client-go`，再尝试执行不存在的 `GOPATH/bin/client-gen`。
+
+隔离复现为 `GOPATH=/tmp/agentcube-pr446-gopath`、`GOBIN=/tmp/agentcube-pr446-gobin` 运行 `bash hack/update-codegen.sh`。三个 v0.36.2 binaries 都正确落在 GOBIN，脚本却以 exit 127 报 `.../gopath/bin/client-gen: No such file or directory`，并把 25 个 tracked generated files 留在 deleted 状态。若 GOPATH/bin 恰有旧 binary，则会更隐蔽地运行错误版本。该问题影响 `make gen-client`、`make gen-all` 和 `make gen-check`；当前 CI 没设置 GOBIN。
+
+最小修正是以 `go env GOBIN` 为首选、空时 fallback GOPATH/bin，或给三项 install 显式设置隔离 GOBIN 并从那里执行；应在工具路径/版本验证完成后才替换 generated tree。这与旧 Windows personal PATH 评论相关，但触发与后果不同，不是 duplicate。
+
+### 17.4 `[P2]` embedded `PodSpec` 升级移除了 `workloadRef`
+
+base 使用 `k8s.io/api v0.35.4`，其 `corev1.PodSpec` 含 `workloadRef`；AgentRuntime CRD 因嵌入 `corev1.PodSpec` 也公开服务该字段。current v0.36.2 把 protobuf tag 42 tombstone，并用 shape 不同的 `schedulingGroup` 替代。生成后的 current CRD 删除 `workloadRef`、增加 `schedulingGroup`。
+
+focused JSON counterexample 把旧 payload `{"workloadRef":{"name":"batch-a"}}` 解码到 current typed `PodSpec`，round trip 只剩 containers，`workloadRef` 被静默丢弃。`buildSandboxByAgentRuntime` 又从 typed informer 对象 DeepCopy 该 PodSpec 到新 Sandbox，所以已有 AgentRuntime 的 workload-aware scheduling intent 不会到达新 runtime object；用户更新旧 CR 时也受新 schema 约束。PR 没有 migration note、versioned conversion 或 compatibility test。
+
+> 分析：这是 dependency-generated API surface，不只是 `go.mod` 内部实现变化。影响范围限定在实际使用 Kubernetes GenericWorkload / `workloadRef` 的 AgentRuntime；没有该字段的对象不受影响。修复需明确支持边界，并在保留旧 intent 或正式 breaking migration 之间做显式选择。
+
+### 17.5 `[P2]` mandatory upgrade docs 没验证 conversion webhook
+
+两份 getting-started guide 都在 apply v0.5.3 后只执行 controller Deployment `rollout status`，随后立即运行 `./migrate.sh --phase=migrate`。rollout 只能证明 Pod availability，不能证明 conversion webhook Service/endpoints 已传播且 API Server 可调用。
+
+dependency v0.5.3 的 `docs/api-migration-guide.md` 明确要求 rollout 后循环执行 `kubectl get sandboxwarmpools.extensions.agents.x-k8s.io -A`，本 PR 的 E2E 在 `run_e2e.sh:423-437` 也加入同一 probe，理由正是 kube-proxy endpoint sync。mandatory operator docs 应带 bounded timeout 地保留这一步；否则 storage rewrite 可能在 webhook 短暂不可用时中途失败。
+
+### 17.6 CI discovery 与其余 residual risk
+
+新增 `cmd/workload-manager/main_test.go` 当前直接执行通过，但 GitHub coverage 只运行 `go test -race ... ./pkg/...`，E2E 只运行 `go test ./test/e2e/...`，Docker build 不执行 `_test.go`。因此全部 checks 绿色仍不保护 scheme registration；旧 head 已经出现过 green checks + direct package failure。`F21-scheme-test-ci-discovery` 保持 present，至少应在 CI 加 `go test ./cmd/workload-manager`，或统一执行全部非 live Go packages。
+
+另有两个不提升为独立 defect 的 residual risk：
+
+- `UserK8sClient.CreateSandbox` / `CreateSandboxClaim` 的 exported parameter 从 dependency v1alpha1 变为 v1beta1，静态上会破坏仓外 Go caller；但 GitHub code search 没找到仓外 import，且 `pkg/workloadmanager` 没有明确 supported SDK contract，所以只保留为兼容性假设。
+- garbage-collection fake test 对 DELETE 返回 NotFound，只断言 Store 删除；TTL E2E 在 session 未消失时也不会失败。它们不能证明真实 claim GVR/GC，但本轮没有从 production source 建立新的 GC bug，风险继续由 F09 live lifecycle E2E 关闭。
+
+### 17.7 验证与 closure
+
+exact `a0f4882` 的本地结果：
+
+- `go test ./cmd/workload-manager ./pkg/workloadmanager ./pkg/router ./pkg/picod ./client-go/... -count=1`：通过；
+- `go test -race ./pkg/workloadmanager -count=1`：通过；
+- `go test ./test/e2e -run '^$' -count=1`：编译通过，但没有执行 live tests；
+- `bash -n test/e2e/run_e2e.sh`：通过；
+- `make gen-check`：clean worktree 通过且 zero diff；
+- non-empty GOBIN codegen：exit 127，且 `client-go` 被删除；
+- authenticated handler owner persistence：exact head red，恢复单项 assignment 后 green；
+- old `workloadRef` typed decode：exact head red，round trip 丢字段；
+- `git diff --check upstream/main...HEAD`：两份 docs 与 `run_e2e.sh` 仍有 trailing whitespace；这是机械清理，不作为 blocker。
+
+lineage ledger 已从 v3 的 15 项扩为 v4 的 20 项，current closure 是 **14 fixed / 6 present / 0 unclassified**。present IDs 为 `F09`、`F17`、`F18`、`F19`、`F20`、`F21`；结构 closure complete，但 merge readiness 仍 blocked。Docusaurus build 未运行，因为 exact worktree 没有 `node_modules`；本轮没有新建 live cluster，current Actions 只作为现有 runtime evidence，不能替代缺失场景。
+
+### 17.8 Final-head file rationale closure
+
+| 文件组 | 修改理由与 current-head 结论 | 证据 / 风险映射 |
+| --- | --- | --- |
+| `cmd/workload-manager/main.go`、`main_test.go` | production manager 注册 core/extension v1beta1 types，并增加 scheme regression | 直接 package test 通过；CI discovery 缺口记为 `F21` |
+| `pkg/workloadmanager/*.go` 与相邻 tests | 把 Sandbox、Claim、WarmPool、condition、GVR 和 informer/controller path 从 alpha 迁到 beta，并适配 pointer/OperatingMode/WarmPoolRef | focused unit/race 通过；owner Store regression 为 `F17`，exported beta signatures 保留为 residual assumption |
+| `go.mod`、`go.sum` | agent-sandbox v0.5.3 要求 Kubernetes/controller-runtime dependency family 升级 | module verify/tidy 与 compile 通过；embedded PodSpec API break 为 `F19` |
+| `pkg/apis/runtime/v1alpha1/doc.go`、`groupversion_info.go` | 把 generator package markers 放到标准 `doc.go`，并抑制新 dependency 的 `scheme.Builder` deprecation | `make gen-check` 通过；`Resource()` source contract 已由 `F15` closure 证明保留 |
+| `hack/update-codegen.sh`、`client-go/**`、AgentRuntime CRD | 对齐 code-generator v0.36.2，并重新生成 client/informer/schema | 默认 clean regeneration 通过；GOBIN 失败为 `F18`，CRD schema drift为 `F19` |
+| 两份 getting-started guide | 安装 v0.5.3，并记录 v0.4.6 backup/bootstrap/apply/migrate 顺序 | tagged URLs 均为 200；webhook readiness 缺口为 `F20` |
+| `test/e2e/e2e_test.go`、`run_e2e.sh` | 建立真实 alpha -> beta setup、API immutability 与 post-upgrade assertions | current Actions 运行；bound Claim fixture 的 producer/Ready/delete/refill 缺口为 `F09` |
+| `pkg/router/server.go` | 新 `x/net` 把 h2c 标为 deprecated，PR 用 scoped nolint 保留既有 HTTP/2 cleartext behavior | source 与 router tests 通过；此前 h2c scope regression 已由 `F12` closure 关闭 |
+| `pkg/picod/execute_test.go`、`files_test.go` | Windows 下跳过需要 symlink privilege 的 tests | 不改变 production behavior，但与 dependency upgrade 无直接关系；属于可拆出的低风险 scope noise |
+| `integrations/code-interpreter-mcp/pyproject.toml` | 只删除文件末尾 newline | 无语义、无测试价值；应从 diff 移除，但不提升为 correctness finding |
+
+> 分析：generated files 不需要逐行重新发明 rationale，但必须回溯到 generator/source 并通过 clean regeneration。无语义 newline 与独立 Windows test skip 也不能因 PR 很大而自动获得 scope 正当性；这里明确记录它们，但不让机械清理淹没 runtime blockers。
+
+本节没有发布 upstream review/comment、没有 resolve thread、没有 `/lgtm`、Prow command、reviewer request 或 maintainer mention。新增 findings 若要公开，必须先按 current head 做 duplicate/anchor guard，并让用户确认 exact target/body/event。

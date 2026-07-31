@@ -61,13 +61,13 @@ Evidence labels:
 
 ### Early liveness must not become false readiness
 
-- Trigger: A server listener or health endpoint is started before informer sync, Store/database ping, credential loading, leader election, or another business dependency.
-- Hidden assumption: Accepting a TCP/HTTP request means the component can safely serve its production routes, or a one-time startup error check supervises the listener for its full lifetime.
-- Failure mode: Kubernetes adds the Pod to Service endpoints while business handlers still see stale caches or unavailable dependencies; later fatal `Serve` errors are written to an error channel after its only reader has returned.
-- Evidence source: `CODE`, AgentCube PR #442 moved the WorkloadManager listener before informer cache sync and Store ping. `/health` always returned 200, the Helm chart reused it or TCP for readiness, and `Start` consumed the listener error channel only once before returning nil.
-- Review question: Which signal owns liveness, which state gates readiness and business traffic, and who continuously observes listener failure until shutdown?
-- Validation: Hold each dependency unready while the listener is live; assert liveness can pass, readiness stays false, business traffic is rejected or withheld, and a late listener error reaches the process supervisor. Then release dependencies and prove readiness transitions once.
-- False-positive guard: An early listener is correct when readiness is separately dependency-aware, routes are gated until initialization completes, and the serving goroutine remains supervised for the process lifetime.
+- Trigger: A server listener, health endpoint, controller Deployment, or conversion webhook Pod becomes live before informer sync, Store/database ping, credential loading, Service endpoint propagation, leader election, or another business dependency.
+- Hidden assumption: Accepting a TCP/HTTP request or completing `kubectl rollout status` means every production route and webhook-backed API operation is usable, or a one-time startup error check supervises the listener for its full lifetime.
+- Failure mode: Kubernetes adds the Pod to Service endpoints while business handlers still see stale caches or unavailable dependencies; an operator starts a storage migration before the conversion webhook responds; or later fatal `Serve` errors are written to an error channel after its only reader has returned.
+- Evidence source: `CODE`, AgentCube PR #442 moved the WorkloadManager listener before informer cache sync and Store ping. `/health` always returned 200, the Helm chart reused it or TCP for readiness, and `Start` consumed the listener error channel only once before returning nil. AgentCube PR #446's mandatory upgrade guide treated Deployment rollout as conversion-webhook readiness, while both the dependency migration guide and its E2E required a post-rollout API read through that webhook.
+- Review question: Which signal owns liveness, which state gates readiness and business traffic, which API call proves a webhook is actually serving, and who continuously observes listener failure until shutdown?
+- Validation: Hold each dependency unready while the listener or Pod is live; assert liveness can pass, readiness stays false, business traffic or migration is withheld, and a late listener error reaches the process supervisor. For conversion webhooks, perform a bounded API read that requires conversion after rollout and before rewriting stored objects. Then release dependencies and prove readiness transitions once.
+- False-positive guard: An early listener or rollout-only wait is correct when readiness is separately dependency-aware, the Pod readiness probe traverses the required Service/webhook path, routes are gated until initialization completes, and the serving goroutine remains supervised for the process lifetime.
 
 ### New reads can create hidden RBAC requirements
 
@@ -119,6 +119,16 @@ Evidence labels:
 - Validation: Trace claim/session ID, Sandbox name/UID, Pod UID/IP, ownerRef transfer, routing, and deletion.
 - False-positive guard: Direct-create paths may intentionally use one name when the runtime contract guarantees identity equivalence.
 
+### Authorization identity must reach the persisted decision record
+
+- Trigger: A request resolves an authenticated subject and writes ownership to a Kubernetes object, Store entry, cache record, token, or response that another component later authorizes against.
+- Hidden assumption: Ownership metadata on the runtime object means every authorization consumer sees the same identity, even when routing reads a separate Store record.
+- Failure mode: Creation succeeds, but the creator cannot reuse the returned session because the persisted authorization record has an empty or stale owner and a downstream component correctly fails closed.
+- Evidence source: `CODE` and `OBS`, AgentCube PR #446 kept the owner annotation and label on Sandbox/SandboxClaim objects but removed the assignment to `sandboxEntry.OwnerID`. A focused real-handler test observed an empty Store owner; restoring the single assignment made it pass, and Router's RLAC path deterministically rejects that record with 403.
+- Review question: From identity extraction through every builder, placeholder, final update, response, and authorization read, which exact field carries the subject and can any parallel representation diverge?
+- Validation: Drive the real authenticated create handler, capture the persisted record, then reuse its returned session as the same non-admin subject and require success; also require a different subject to fail. A builder-only metadata assertion is insufficient.
+- False-positive guard: Multiple owner representations are unnecessary when every authorization consumer reads one authoritative object directly. Do not require duplication when the architecture deliberately derives and verifies identity from that source on each request.
+
 ### Prove presence before absence in cleanup tests
 
 - Trigger: An async lifecycle test waits only for a resource to disappear.
@@ -131,13 +141,23 @@ Evidence labels:
 
 ### Fix generators, not generated output
 
-- Trigger: PR manually edits `client-go`, CRDs, deepcopy code, or generated workflow artifacts.
-- Hidden assumption: The checked-in result is the source of truth.
-- Failure mode: Regeneration removes the fix or produces recurring drift.
-- Evidence source: AgentCube generation workflow and repeated generated-code review practice.
-- Review question: Which source type, marker, template, or post-process owns this line?
-- Validation: Run the official generator and verify a clean repeat run.
-- False-positive guard: A repository-documented post-generation patch may be legitimate when the upstream generator cannot express the required result.
+- Trigger: A PR manually edits `client-go`, CRDs, deepcopy code, or generated workflow artifacts, or rewrites the script that installs and invokes generator binaries.
+- Hidden assumption: The checked-in result is the source of truth, `go install` always writes to `$(go env GOPATH)/bin`, and it is safe to delete generated output before validating the exact tools that will replace it.
+- Failure mode: Regeneration removes the fix or produces recurring drift; a configured `GOBIN` receives the new tools while the script executes missing or stale binaries from GOPATH; the script then leaves the generated tree deleted after failure.
+- Evidence source: `CODE` and `OBS`, AgentCube generation workflow and repeated generated-code review practice. AgentCube PR #446 installed code-generator tools with `go install`, invoked only `GOPATH/bin`, and deleted `client-go` first; an isolated non-empty `GOBIN` reproduction exited 127 with all three new tools in GOBIN and the output tree removed.
+- Review question: Which source type, marker, template, or post-process owns this line, and do installation, version validation, invocation, cleanup, and replacement all use the same explicit tool directory?
+- Validation: Run the official generator twice and require zero drift. Repeat with isolated non-empty `GOBIN` and `GOPATH`, verify the invoked binary versions/paths, and inject a tool failure to prove the previous generated tree remains intact or is atomically replaced.
+- False-positive guard: A repository-documented post-generation patch may be legitimate when the upstream generator cannot express the required result. `GOPATH/bin` is sufficient only when the script explicitly controls `GOBIN` to that directory or rejects incompatible configuration before modifying output.
+
+### Embedded dependency types make dependency upgrades API changes
+
+- Trigger: A CRD spec embeds or aliases an upstream Kubernetes type such as `corev1.PodSpec`, and a dependency bump changes that type or regenerated schema.
+- Hidden assumption: Updating `k8s.io/api` is an internal build change, so successful generation and in-repository compilation prove the CRD remains backward compatible.
+- Failure mode: A previously served field disappears or is renamed in the CRD, typed informers silently drop its JSON, and controllers create runtime objects without the user's scheduling, security, storage, or resource intent.
+- Evidence source: `CODE` and `OBS`, AgentCube PR #446 moved from Kubernetes v0.35 to v0.36. The embedded AgentRuntime `PodSpec` schema replaced `workloadRef` with differently shaped `schedulingGroup`; Kubernetes tombstoned the old Go field, and a focused typed JSON decode dropped it.
+- Review question: Which user-visible schema fields were added, removed, renamed, or type-changed solely because an embedded dependency type changed, and what happens to existing stored objects on read, update, and downstream copy?
+- Validation: Diff generated OpenAPI/CRD schemas semantically, inspect upstream type and protobuf changes, then decode representative old JSON through the new typed client and exercise an API-server update plus the controller's copy path. Require an explicit versioned migration or documented compatibility boundary for intentional breaks.
+- False-positive guard: No defect exists when the removed field was never served by a released CRD, the project contract excludes that feature/version combination, or a versioned conversion and compatibility test preserve the old intent. Treat generated-schema churn without a reachable stored object as a lead, not an automatic finding.
 
 ### Middleware observation must wrap abort and recovery paths
 
