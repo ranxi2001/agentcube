@@ -75,13 +75,14 @@ A predecessor-PR thread is not a duplicate on a replacement PR. Every status nee
 python3 /home/agentcube/.agents/skills/agentcube-pr-review/scripts/final_head_review.py \
   --repo-root /path/to/pr-worktree \
   --base upstream/main --head <exact-sha> \
+  --target-repository volcano-sh/agentcube --target-pull-request 446 \
   --acceptance-file /path/to/issue-body.md \
   --finding-ledger /path/to/findings.json \
   --finding-closure /path/to/closure.json \
   --run-go-tests --check-urls --format markdown
 ```
 
-Compute `ledger_digest` from the parsed ledger object serialized with sorted keys, UTF-8, and compact separators; whitespace-only formatting changes do not alter it. The digest prevents an old closure from being reused after findings, summaries, provenance, or paths change without a version bump. `target` binds decision evidence to one current PR.
+Compute `ledger_digest` from the parsed ledger object serialized with sorted keys, UTF-8, and compact separators; whitespace-only formatting changes do not alter it. The digest prevents an old closure from being reused after findings, summaries, provenance, or paths change without a version bump. The command-line target is trusted review context; the harness requires the closure `target` and every decision URL to match it, so a closure cannot redefine “current PR.”
 
 ```bash
 python3 -c 'import hashlib,json,sys; value=json.load(open(sys.argv[1], encoding="utf-8")); print(hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest())' findings.json

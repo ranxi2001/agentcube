@@ -376,19 +376,22 @@ def load_finding_ledger(paths: Iterable[str]) -> list[dict[str, Any]]:
     return findings
 
 
-def closure_target(value: dict[str, Any], path: Path) -> dict[str, Any]:
-    target = value.get("target")
+def validated_target(target: Any, source: str | Path) -> dict[str, Any]:
     if not isinstance(target, dict):
-        raise ValueError(f"{path}: target must be an object")
+        raise ValueError(f"{source}: target must be an object")
     repository = target.get("repository")
     pull_request = target.get("pull_request")
     if not isinstance(repository, str) or not re.fullmatch(
         r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository
     ):
-        raise ValueError(f"{path}: target.repository must be owner/repo")
+        raise ValueError(f"{source}: target.repository must be owner/repo")
     if isinstance(pull_request, bool) or not isinstance(pull_request, int) or pull_request < 1:
-        raise ValueError(f"{path}: target.pull_request must be a positive integer")
+        raise ValueError(f"{source}: target.pull_request must be a positive integer")
     return {"repository": repository, "pull_request": pull_request}
+
+
+def closure_target(value: dict[str, Any], path: Path) -> dict[str, Any]:
+    return validated_target(value.get("target"), path)
 
 
 def validate_decision_evidence(
@@ -415,7 +418,11 @@ def validate_decision_evidence(
         association = decision.get("author_association")
         if not isinstance(author, str) or not author.strip():
             raise ValueError(f"{path}: accepted finding {entry.get('id')} needs decision author")
-        if association not in {"OWNER", "MEMBER", "COLLABORATOR"}:
+        if not isinstance(association, str) or association not in {
+            "OWNER",
+            "MEMBER",
+            "COLLABORATOR",
+        }:
             raise ValueError(
                 f"{path}: accepted finding {entry.get('id')} needs maintainer author_association"
             )
@@ -426,9 +433,11 @@ def close_finding_ledger(
     findings: list[dict[str, Any]],
     closure_paths: Iterable[str],
     expected_head: str,
+    expected_target: dict[str, Any],
     no_carry_forward_findings: bool = False,
 ) -> dict[str, Any]:
     closure_paths = list(closure_paths)
+    expected_target = validated_target(expected_target, "command-line target")
     if no_carry_forward_findings and (findings or closure_paths):
         raise ValueError(
             "--no-carry-forward-findings cannot be combined with a finding ledger or closure"
@@ -453,6 +462,12 @@ def close_finding_ledger(
         ledger_version = value.get("ledger_version")
         ledger_digest = value.get("ledger_digest")
         target = closure_target(value, path)
+        if target != expected_target:
+            raise ValueError(
+                f"{path}: closure target {target['repository']}#{target['pull_request']} "
+                f"does not match command-line target "
+                f"{expected_target['repository']}#{expected_target['pull_request']}"
+            )
         declared_head = value.get("head")
         entries = value.get("closures")
         if not isinstance(ledger_id, str) or not ledger_id.strip():
@@ -535,6 +550,7 @@ def close_finding_ledger(
     head_matches = None if not declared_heads else all(head == expected_head for head in declared_heads)
     return {
         "mode": "none-declared" if no_carry_forward_findings else "ledger" if findings else "unspecified",
+        "expected_target": expected_target,
         "source_provided": bool(findings),
         "closure_source_provided": bool(sources),
         "expected_head": expected_head,
@@ -790,6 +806,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         findings,
         args.finding_closure,
         surface["head"]["sha"],
+        {
+            "repository": args.target_repository,
+            "pull_request": args.target_pull_request,
+        },
         args.no_carry_forward_findings,
     )
     finding_state = finding_closure_state(finding_closure)
@@ -856,6 +876,8 @@ def markdown(report: dict[str, Any]) -> str:
         "",
         f"- Base: `{surface['base']['ref']}` (`{surface['base']['sha']}`)",
         f"- Head: `{surface['head']['ref']}` (`{surface['head']['sha']}`)",
+        f"- Target PR: `{report['finding_ledger']['expected_target']['repository']}"
+        f"#{report['finding_ledger']['expected_target']['pull_request']}`",
         f"- Changed files: `{surface['changed_file_count']}`",
         f"- Acceptance context: `{gate['acceptance_context']}`",
         f"- Changed-test CI coverage: `{gate['changed_test_ci_coverage']}`",
@@ -960,6 +982,17 @@ def main() -> int:
     parser.add_argument("--repo-root", default=".", help="Checked-out repository root")
     parser.add_argument("--base", required=True, help="Base ref")
     parser.add_argument("--head", default="HEAD", help="Exact head ref")
+    parser.add_argument(
+        "--target-repository",
+        required=True,
+        help="Expected pull-request repository in owner/repo form",
+    )
+    parser.add_argument(
+        "--target-pull-request",
+        required=True,
+        type=int,
+        help="Expected pull-request number",
+    )
     parser.add_argument(
         "--acceptance-file", action="append", default=[], help="Issue/proposal text file; repeatable"
     )

@@ -19,6 +19,8 @@ SPEC.loader.exec_module(FINAL_HEAD_REVIEW)
 
 
 class FinalHeadReviewTest(unittest.TestCase):
+    TARGET = {"repository": "volcano-sh/agentcube", "pull_request": 446}
+
     def run_cli(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [
@@ -30,6 +32,10 @@ class FinalHeadReviewTest(unittest.TestCase):
                 "HEAD",
                 "--head",
                 "HEAD",
+                "--target-repository",
+                self.TARGET["repository"],
+                "--target-pull-request",
+                str(self.TARGET["pull_request"]),
                 *arguments,
             ],
             check=False,
@@ -223,7 +229,7 @@ class FinalHeadReviewTest(unittest.TestCase):
 
             findings = FINAL_HEAD_REVIEW.load_finding_ledger([str(ledger)])
             result = FINAL_HEAD_REVIEW.close_finding_ledger(
-                findings, [str(closure)], "a" * 40
+                findings, [str(closure)], "a" * 40, self.TARGET
             )
 
             self.assertEqual(result["missing_ids"], ["codegen-version"])
@@ -271,11 +277,13 @@ class FinalHeadReviewTest(unittest.TestCase):
 
     def test_closure_without_finding_ledger_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "requires a non-empty"):
-            FINAL_HEAD_REVIEW.close_finding_ledger([], ["closure.json"], "a" * 40)
+            FINAL_HEAD_REVIEW.close_finding_ledger(
+                [], ["closure.json"], "a" * 40, self.TARGET
+            )
 
     def test_explicit_no_carry_mode_is_preserved_in_result(self) -> None:
         result = FINAL_HEAD_REVIEW.close_finding_ledger(
-            [], [], "a" * 40, no_carry_forward_findings=True
+            [], [], "a" * 40, self.TARGET, no_carry_forward_findings=True
         )
 
         self.assertEqual(result["mode"], "none-declared")
@@ -287,7 +295,9 @@ class FinalHeadReviewTest(unittest.TestCase):
         )
 
     def test_unspecified_carry_mode_remains_unassessed(self) -> None:
-        result = FINAL_HEAD_REVIEW.close_finding_ledger([], [], "a" * 40)
+        result = FINAL_HEAD_REVIEW.close_finding_ledger(
+            [], [], "a" * 40, self.TARGET
+        )
 
         self.assertEqual(result["mode"], "unspecified")
         closure_state = FINAL_HEAD_REVIEW.finding_closure_state(result)
@@ -338,7 +348,7 @@ class FinalHeadReviewTest(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "status must be one of"):
                 FINAL_HEAD_REVIEW.close_finding_ledger(
-                    findings, [str(closure)], "a" * 40
+                    findings, [str(closure)], "a" * 40, self.TARGET
                 )
 
     def test_closure_must_match_finding_ledger_version(self) -> None:
@@ -376,7 +386,7 @@ class FinalHeadReviewTest(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "does not match"):
                 FINAL_HEAD_REVIEW.close_finding_ledger(
-                    findings, [str(closure)], "a" * 40
+                    findings, [str(closure)], "a" * 40, self.TARGET
                 )
 
     def test_closure_must_match_canonical_ledger_digest(self) -> None:
@@ -416,7 +426,45 @@ class FinalHeadReviewTest(unittest.TestCase):
                 ValueError, "does not match supplied ledger content"
             ):
                 FINAL_HEAD_REVIEW.close_finding_ledger(
-                    findings, [str(closure)], "a" * 40
+                    findings, [str(closure)], "a" * 40, self.TARGET
+                )
+
+    def test_closure_target_must_match_command_line_target(self) -> None:
+        findings = [
+            {
+                "id": "finding-a",
+                "summary": "Keep the contract.",
+                "provenance": ["review"],
+                "paths": [],
+                "ledger_id": "upgrade",
+                "ledger_version": 1,
+                "ledger_digest": "b" * 64,
+                "ledger_source": "ledger.json",
+            }
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            closure = Path(directory) / "closure.json"
+            closure.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "ledger_id": "upgrade",
+                        "ledger_version": 1,
+                        "ledger_digest": "b" * 64,
+                        "target": {
+                            "repository": "volcano-sh/agentcube",
+                            "pull_request": 442,
+                        },
+                        "head": "a" * 40,
+                        "closures": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "does not match command-line target"):
+                FINAL_HEAD_REVIEW.close_finding_ledger(
+                    findings, [str(closure)], "a" * 40, self.TARGET
                 )
 
     def test_decision_statuses_require_current_pr_and_maintainer_evidence(self) -> None:
@@ -436,6 +484,20 @@ class FinalHeadReviewTest(unittest.TestCase):
                         "url": "https://github.com/volcano-sh/agentcube/pull/446#issuecomment-1",
                         "author": "reviewer",
                         "author_association": "CONTRIBUTOR",
+                    },
+                },
+                "accepted-by-maintainer",
+                target,
+                Path("closure.json"),
+            )
+        with self.assertRaisesRegex(ValueError, "maintainer author_association"):
+            FINAL_HEAD_REVIEW.validate_decision_evidence(
+                {
+                    "id": "accepted",
+                    "decision": {
+                        "url": "https://github.com/volcano-sh/agentcube/pull/446#issuecomment-1",
+                        "author": "reviewer",
+                        "author_association": ["MEMBER"],
                     },
                 },
                 "accepted-by-maintainer",

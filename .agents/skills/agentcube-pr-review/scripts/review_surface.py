@@ -4,11 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import re
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 
 PATH_CATEGORIES = (
@@ -101,246 +105,198 @@ def extract_agent_sandbox_versions(go_mod: str, e2e_script: str) -> dict[str, st
     return {"go_dependency": dependency, "e2e_default": runtime}
 
 
-def workflow_job_blocks(e2e_workflow: str) -> list[str]:
-    lines = e2e_workflow.splitlines()
-    jobs_index = None
-    jobs_indent = 0
-    for index, line in enumerate(lines):
-        match = re.match(r"^(?P<indent>\s*)jobs:\s*(?:#.*)?$", line)
-        if match:
-            jobs_index = index
-            jobs_indent = len(match.group("indent"))
-            break
-    if jobs_index is None:
-        return []
-
-    job_indent = None
-    starts: list[int] = []
-    end = len(lines)
-    for index in range(jobs_index + 1, len(lines)):
-        line = lines[index]
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        indent = len(line) - len(line.lstrip())
-        if indent <= jobs_indent:
-            end = index
-            break
-        if job_indent is None:
-            job_indent = indent
-        if indent == job_indent and re.match(r"^\s*[A-Za-z0-9_-]+:\s*(?:#.*)?$", line):
-            starts.append(index)
-
-    return [
-        "\n".join(lines[start : starts[offset + 1] if offset + 1 < len(starts) else end])
-        for offset, start in enumerate(starts)
-    ]
+def canonical_scalar(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value).strip().lower()
 
 
-def yaml_key_blocks(text: str, key: str) -> list[str]:
-    lines = text.splitlines()
-    starts: list[tuple[int, int]] = []
-    pattern = re.compile(rf"^(?P<indent>\s*){re.escape(key)}:\s*(?:#.*)?$")
-    for index, line in enumerate(lines):
-        match = pattern.match(line)
-        if match:
-            starts.append((index, len(match.group("indent"))))
-
-    blocks: list[str] = []
-    for start, parent_indent in starts:
-        end = len(lines)
-        for index in range(start + 1, len(lines)):
-            line = lines[index]
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            indent = len(line) - len(line.lstrip())
-            if indent <= parent_indent:
-                end = index
-                break
-        blocks.append("\n".join(lines[start:end]))
-    return blocks
-
-
-def yaml_list_item_blocks(text: str) -> list[str]:
-    lines = text.splitlines()
-    if not lines:
-        return []
-    parent_indent = len(lines[0]) - len(lines[0].lstrip())
-    item_indent = None
-    starts: list[int] = []
-    for index, line in enumerate(lines[1:], 1):
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        indent = len(line) - len(line.lstrip())
-        if indent <= parent_indent:
-            break
-        if item_indent is None and line.lstrip().startswith("-"):
-            item_indent = indent
-        if item_indent is not None and indent == item_indent and line.lstrip().startswith("-"):
-            starts.append(index)
-    return [
-        "\n".join(lines[start : starts[offset + 1] if offset + 1 < len(starts) else len(lines)])
-        for offset, start in enumerate(starts)
-    ]
-
-
-def e2e_environment_contexts(job: str) -> list[str]:
-    target_re = re.compile(E2E_COMMAND_PATTERN)
-    step_blocks = [
-        step
-        for steps in yaml_key_blocks(job, "steps")
-        for step in yaml_list_item_blocks(steps)
-        if target_re.search(step)
-    ]
-    if not step_blocks:
-        return []
-
-    job_lines = job.splitlines()
-    job_indent = len(job_lines[0]) - len(job_lines[0].lstrip())
-    child_indents = [
-        len(line) - len(line.lstrip())
-        for line in job_lines[1:]
-        if line.strip()
-        and not line.lstrip().startswith("#")
-        and len(line) - len(line.lstrip()) > job_indent
-    ]
-    child_indent = min(child_indents) if child_indents else None
-    job_env = [
-        block
-        for block in yaml_key_blocks(job, "env")
-        if child_indent is not None
-        and len(block.splitlines()[0]) - len(block.splitlines()[0].lstrip()) == child_indent
-    ]
-    inherited_env = "\n".join(job_env)
-    return [f"{inherited_env}\n{step}" if inherited_env else step for step in step_blocks]
-
-
-def matrix_key_has_false(matrix_block: str, matrix_key: str) -> bool:
-    lines = matrix_block.splitlines()
-
-    def child_line_indices(key: str) -> set[int]:
-        indices: set[int] = set()
-        for index, line in enumerate(lines):
-            match = re.match(rf"^(?P<indent>\s*){key}:\s*(?:#.*)?$", line)
-            if not match:
-                continue
-            parent_indent = len(match.group("indent"))
-            for child_index in range(index + 1, len(lines)):
-                child = lines[child_index]
-                stripped = child.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-                indent = len(child) - len(child.lstrip())
-                if indent <= parent_indent:
-                    break
-                indices.add(child_index)
-        return indices
-
-    excluded_lines = child_line_indices("exclude")
-    included_lines = child_line_indices("include")
-    unconditional_false_exclude = False
-    mapping_re = re.compile(
-        r"^\s*(?:-\s*)?(?P<key>[A-Za-z0-9_-]+):\s*(?P<value>[^#]*?)\s*(?:#.*)?$"
+def matrix_mapping_matches(combination: dict[str, Any], pattern: dict[str, Any]) -> bool:
+    return all(
+        key in combination and canonical_scalar(combination[key]) == canonical_scalar(value)
+        for key, value in pattern.items()
     )
-    for exclude_block in yaml_key_blocks(matrix_block, "exclude"):
-        for item in yaml_list_item_blocks(exclude_block):
-            mappings = [
-                match.groupdict()
-                for line in item.splitlines()
-                if (match := mapping_re.match(line))
-            ]
-            if len(mappings) == 1 and mappings[0]["key"] == matrix_key and re.fullmatch(
-                r"[\"']?false[\"']?", mappings[0]["value"].strip(), re.IGNORECASE
-            ):
-                unconditional_false_exclude = True
 
-    def false_path_survives(index: int) -> bool:
-        return index in included_lines or not unconditional_false_exclude
 
-    pattern = re.compile(
-        rf"^(?P<prefix>\s*(?:-\s*)?)(?P<key>{re.escape(matrix_key)}):"
-        rf"\s*(?P<value>[^#]*?)\s*(?:#.*)?$",
-        re.IGNORECASE,
+def matrix_combinations(job: dict[str, Any]) -> list[dict[str, Any]]:
+    strategy = job.get("strategy")
+    matrix = strategy.get("matrix") if isinstance(strategy, dict) else None
+    if not isinstance(matrix, dict):
+        return [{}]
+
+    axes: list[tuple[str, list[Any]]] = []
+    for key, raw_values in matrix.items():
+        if key in {"include", "exclude"}:
+            continue
+        values = raw_values if isinstance(raw_values, list) else [raw_values]
+        axes.append((str(key), values))
+
+    combinations = (
+        [
+            dict(zip((key for key, _ in axes), values, strict=True))
+            for values in itertools.product(*(values for _, values in axes))
+        ]
+        if axes
+        else []
     )
-    for index, line in enumerate(lines):
-        if index in excluded_lines:
-            continue
-        match = pattern.match(line)
-        if not match:
-            continue
-        value = match.group("value").strip()
-        if re.fullmatch(r"[\"']?false[\"']?", value, re.IGNORECASE):
-            if false_path_survives(index):
-                return True
-            continue
-        if value.startswith("[") and value.endswith("]") and re.search(
-            r"(?:\[|,)\s*[\"']?false[\"']?\s*(?:,|\])", value, re.IGNORECASE
-        ):
-            if false_path_survives(index):
-                return True
-            continue
-        if value:
-            continue
+    raw_excludes = matrix.get("exclude", [])
+    excludes = raw_excludes if isinstance(raw_excludes, list) else [raw_excludes]
+    excludes = [item for item in excludes if isinstance(item, dict)]
+    combinations = [
+        combination
+        for combination in combinations
+        if not any(matrix_mapping_matches(combination, excluded) for excluded in excludes)
+    ]
 
-        key_indent = line.index(match.group("key"))
-        for child in lines[index + 1 :]:
-            stripped = child.strip()
-            if not stripped or stripped.startswith("#"):
+    raw_includes = matrix.get("include", [])
+    includes = raw_includes if isinstance(raw_includes, list) else [raw_includes]
+    combinations.extend(dict(item) for item in includes if isinstance(item, dict))
+    if not axes and not combinations and "include" not in matrix:
+        return [{}]
+    return combinations
+
+
+def workflow_jobs(e2e_workflow: str) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    try:
+        document = yaml.safe_load(e2e_workflow)
+    except yaml.YAMLError:
+        return []
+    if not isinstance(document, dict):
+        return []
+    jobs = document.get("jobs")
+    if isinstance(jobs, dict):
+        workflow_env = document.get("env") if isinstance(document.get("env"), dict) else {}
+        return [
+            (job, workflow_env) for job in jobs.values() if isinstance(job, dict)
+        ]
+    if isinstance(document.get("steps"), list):
+        return [(document, {})]
+    if "run" in document:
+        step = {"run": document.get("run")}
+        if "env" in document:
+            step["env"] = document.get("env")
+        return [({"steps": [step], "strategy": document.get("strategy")}, {})]
+    return []
+
+
+def resolved_env_bool(value: Any, combination: dict[str, Any]) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if not isinstance(value, str):
+        return None
+    matrix_reference = re.fullmatch(
+        r"\s*\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}\s*", value
+    )
+    if matrix_reference:
+        value = combination.get(matrix_reference.group(1))
+        if isinstance(value, bool):
+            return value
+        if not isinstance(value, str):
+            return None
+    normalized = value.strip().strip("\"'").lower()
+    if normalized == "false":
+        return False
+    if normalized == "true":
+        return True
+    return None
+
+
+def shell_assignment_bool(value: str, inherited: bool | None) -> bool | None:
+    normalized = value.strip().strip("\"'")
+    if normalized in {"$MTLS_ENABLED", "${MTLS_ENABLED}"}:
+        return inherited
+    if normalized.lower() == "false":
+        return False
+    if normalized.lower() == "true":
+        return True
+    return None
+
+
+def leading_mtls_assignment(
+    prefix: str, inherited: bool | None
+) -> tuple[bool, bool, bool | None]:
+    try:
+        tokens = shlex.split(prefix, comments=True, posix=True)
+    except ValueError:
+        return False, False, None
+    while tokens and tokens[0] in {"if", "!", "then", "do"}:
+        tokens.pop(0)
+    found = False
+    value = inherited
+    for token in tokens:
+        assignment = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)=(.*)", token)
+        if not assignment:
+            return False, found, value
+        if assignment.group(1) == "MTLS_ENABLED":
+            found = True
+            value = shell_assignment_bool(assignment.group(2), inherited)
+    return True, found, value
+
+
+def persistent_mtls_assignment(segment: str, inherited: bool | None) -> tuple[bool, bool | None]:
+    try:
+        tokens = shlex.split(segment, comments=True, posix=True)
+    except ValueError:
+        return False, inherited
+    if not tokens:
+        return False, inherited
+    if tokens[0] == "export":
+        tokens = tokens[1:]
+    elif not all(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", token) for token in tokens):
+        return False, inherited
+    found = False
+    value = inherited
+    for token in tokens:
+        assignment = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)=(.*)", token)
+        if assignment and assignment.group(1) == "MTLS_ENABLED":
+            found = True
+            value = shell_assignment_bool(assignment.group(2), inherited)
+    return found, value
+
+
+def run_has_mtls_disabled_e2e(run: str, initial: bool | None) -> bool:
+    run = run.replace("\\\n", " ")
+    run = "\n".join(line for line in run.splitlines() if not line.lstrip().startswith("#"))
+    state = initial
+    for segment in re.split(r"\r?\n|;|&&|\|\|", run):
+        segment = segment.strip()
+        if not segment:
+            continue
+        for command in re.finditer(E2E_COMMAND_PATTERN, segment):
+            command_position, has_override, override = leading_mtls_assignment(
+                segment[: command.start()], state
+            )
+            if not command_position:
                 continue
-            indent = len(child) - len(child.lstrip())
-            if indent <= key_indent:
-                break
-            if re.match(r"^\s*-\s*[\"']?false[\"']?\s*(?:#.*)?$", child, re.IGNORECASE):
-                if false_path_survives(index):
-                    return True
-                break
+            effective = override if has_override else state
+            if effective is False:
+                return True
+        changed, value = persistent_mtls_assignment(segment, state)
+        if changed:
+            state = value
     return False
 
 
 def workflow_has_mtls_disabled_path(e2e_workflow: str) -> bool:
-    direct_patterns = (
-        r"^\s*MTLS_ENABLED:\s*[\"']?false[\"']?\s*(?:#.*)?$",
-        r"^\s*(?:-\s*)?(?:run:\s*)?export\s+MTLS_ENABLED=[\"']?false[\"']?(?:\s|;|$)",
-        rf"^\s*(?:-\s*)?(?:run:\s*)?(?:.*[;&|]\s*)?"
-        rf"MTLS_ENABLED=[\"']?false[\"']?\s+[^#\n]*{E2E_COMMAND_PATTERN}",
-    )
-    parsed_jobs = workflow_job_blocks(e2e_workflow)
-    jobs = parsed_jobs or [e2e_workflow]
-    for job in jobs:
-        executable_job = "\n".join(
-            line for line in job.splitlines() if not line.lstrip().startswith("#")
-        )
-        contexts = (
-            e2e_environment_contexts(executable_job)
-            if parsed_jobs
-            else (
-                [executable_job]
-                if re.search(E2E_COMMAND_PATTERN, executable_job)
-                else []
-            )
-        )
-        matrix_blocks = yaml_key_blocks(executable_job, "matrix")
-        for context in contexts:
-            if any(
-                re.search(pattern, context, re.MULTILINE | re.IGNORECASE)
-                for pattern in direct_patterns
-            ):
-                return True
-            matrix_references = re.findall(
-                r"^\s*MTLS_ENABLED:\s*[\"']?\$\{\{\s*matrix\."
-                r"([A-Za-z0-9_-]+)\s*\}\}[\"']?\s*(?:#.*)?$",
-                context,
-                re.MULTILINE,
-            )
-            if any(
-                matrix_key_has_false(matrix_block, matrix_key)
-                for matrix_key in matrix_references
-                for matrix_block in matrix_blocks
-            ):
-                return True
-
+    for job, workflow_env in workflow_jobs(e2e_workflow):
+        steps = job.get("steps")
+        if not isinstance(steps, list):
+            continue
+        job_env = job.get("env") if isinstance(job.get("env"), dict) else {}
+        for combination in matrix_combinations(job):
+            for step in steps:
+                if not isinstance(step, dict) or not isinstance(step.get("run"), str):
+                    continue
+                run = step["run"]
+                if not re.search(E2E_COMMAND_PATTERN, run):
+                    continue
+                step_env = step.get("env") if isinstance(step.get("env"), dict) else {}
+                effective_env = {**workflow_env, **job_env, **step_env}
+                initial = resolved_env_bool(
+                    effective_env.get("MTLS_ENABLED"), combination
+                )
+                if run_has_mtls_disabled_e2e(run, initial):
+                    return True
     return False
 
 

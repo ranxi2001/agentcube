@@ -181,6 +181,129 @@ steps:
 
         self.assertTrue(REVIEW_SURFACE.workflow_has_mtls_disabled_path(workflow))
 
+    def test_multidimensional_excludes_remove_every_false_combination(self) -> None:
+        workflow = """jobs:
+  e2e:
+    strategy:
+      matrix:
+        mtls_enabled: [true, false]
+        runner: [ubuntu, windows]
+        exclude:
+          - mtls_enabled: false
+            runner: ubuntu
+          - mtls_enabled: false
+            runner: windows
+    steps:
+      - env:
+          MTLS_ENABLED: ${{ matrix.mtls_enabled }}
+        run: make e2e
+"""
+
+        self.assertFalse(REVIEW_SURFACE.workflow_has_mtls_disabled_path(workflow))
+
+    def test_include_can_readd_a_false_combination_after_exclude(self) -> None:
+        workflow = """jobs:
+  e2e:
+    strategy:
+      matrix:
+        mtls_enabled: [true, false]
+        exclude:
+          - mtls_enabled: false
+        include:
+          - mtls_enabled: false
+    steps:
+      - env:
+          MTLS_ENABLED: ${{ matrix.mtls_enabled }}
+        run: make e2e
+"""
+
+        self.assertTrue(REVIEW_SURFACE.workflow_has_mtls_disabled_path(workflow))
+
+    def test_step_env_true_overrides_job_env_false(self) -> None:
+        workflow = """jobs:
+  e2e:
+    env:
+      MTLS_ENABLED: false
+    steps:
+      - env:
+          MTLS_ENABLED: true
+        run: make e2e
+"""
+
+        self.assertFalse(REVIEW_SURFACE.workflow_has_mtls_disabled_path(workflow))
+
+    def test_workflow_env_applies_to_the_e2e_step(self) -> None:
+        workflow = """env:
+  MTLS_ENABLED: false
+jobs:
+  e2e:
+    steps:
+      - run: make e2e
+"""
+
+        self.assertTrue(REVIEW_SURFACE.workflow_has_mtls_disabled_path(workflow))
+
+    def test_job_env_overrides_workflow_env(self) -> None:
+        workflow = """env:
+  MTLS_ENABLED: false
+jobs:
+  e2e:
+    env:
+      MTLS_ENABLED: true
+    steps:
+      - run: make e2e
+"""
+
+        self.assertFalse(REVIEW_SURFACE.workflow_has_mtls_disabled_path(workflow))
+
+    def test_export_after_e2e_does_not_change_that_execution(self) -> None:
+        workflow = """jobs:
+  e2e:
+    env:
+      MTLS_ENABLED: true
+    steps:
+      - run: |
+          make e2e
+          export MTLS_ENABLED=false
+"""
+
+        self.assertFalse(REVIEW_SURFACE.workflow_has_mtls_disabled_path(workflow))
+
+    def test_temporary_assignment_to_other_command_does_not_leak(self) -> None:
+        workflow = """jobs:
+  e2e:
+    env:
+      MTLS_ENABLED: true
+    steps:
+      - run: MTLS_ENABLED=false echo disabled && make e2e
+"""
+
+        self.assertFalse(REVIEW_SURFACE.workflow_has_mtls_disabled_path(workflow))
+
+    def test_e2e_text_passed_to_echo_is_not_an_execution(self) -> None:
+        workflow = """jobs:
+  e2e:
+    env:
+      MTLS_ENABLED: false
+    steps:
+      - run: echo "make e2e"
+"""
+
+        self.assertFalse(REVIEW_SURFACE.workflow_has_mtls_disabled_path(workflow))
+
+    def test_export_before_e2e_changes_that_execution(self) -> None:
+        workflow = """jobs:
+  e2e:
+    env:
+      MTLS_ENABLED: true
+    steps:
+      - run: |
+          export MTLS_ENABLED=false
+          make e2e
+"""
+
+        self.assertTrue(REVIEW_SURFACE.workflow_has_mtls_disabled_path(workflow))
+
 
 if __name__ == "__main__":
     unittest.main()

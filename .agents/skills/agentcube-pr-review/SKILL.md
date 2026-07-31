@@ -43,7 +43,8 @@ python3 /home/agentcube/.agents/skills/agentcube-pr-review/scripts/review_surfac
 ```
 
 Treat script output as leads. Verify every suspected defect in source, diff, tests, or runtime evidence.
-When a test is gated by an environment default, resolve the complete workflow path before calling it skipped: bind job-level and step-level env to the step that actually runs the test, expand that job's matrix values, follow `${{ matrix.* }}` assignments, and inspect the target job's PASS/SKIP log. A script default or another job/step's env is not the effective value for the target execution.
+The workflow dataflow checks use `PyYAML`; run them in the repository's Python environment where `import yaml` succeeds.
+When a test is gated by an environment default, resolve the complete workflow path before calling it skipped: bind workflow/job/step env to the step that actually runs the test, apply nearest-scope precedence, expand that job's matrix values, follow `${{ matrix.* }}` assignments, and inspect the target job's PASS/SKIP log. A script default or another job/step's env is not the effective value for the target execution.
 
 For a PR declared ready after repeated patching, rebasing, force-pushing, or squashing, also run the final-head evidence harness. Supply the parent Issue/proposal body or explicit acceptance notes; do not silently omit the contract. When using `--run-go-tests`, run from a clean temporary worktree whose `HEAD` equals `--head`; the harness rejects tracked or untracked changes before testing:
 
@@ -51,6 +52,7 @@ For a PR declared ready after repeated patching, rebasing, force-pushing, or squ
 python3 /home/agentcube/.agents/skills/agentcube-pr-review/scripts/final_head_review.py \
   --repo-root /path/to/pr-worktree \
   --base upstream/main --head HEAD \
+  --target-repository volcano-sh/agentcube --target-pull-request 123 \
   --acceptance-file /path/to/issue-body.md \
   --finding-ledger /path/to/findings.json \
   --finding-closure /path/to/closure.json \

@@ -233,7 +233,7 @@ GitHub 当前 commits endpoint 只剩 squash 后的一个 commit，不能再用�
 
 | Artifact | Executable change | 防止的 #446 失误 |
 | --- | --- | --- |
-| `final_head_review.py` | 新增 `--finding-ledger` / `--finding-closure`，绑定 ledger ID/version/content digest、current PR 与 exact head；缺项或 mismatch 时 exit non-zero | predecessor finding 静默丢失或旧 closure 错配新 gold |
+| `final_head_review.py` | 新增 `--finding-ledger` / `--finding-closure`，绑定 ledger ID/version/content digest、caller-supplied target PR 与 exact head；缺项或 mismatch 时 exit non-zero | predecessor finding 静默丢失、closure 自报另一个 PR，或旧 closure 错配新 gold |
 | `final_head_review.py` | base/head exported Go function signature leads | 仓内 regenerated callers 通过却破坏外部 source contract |
 | `final_head_review.py` | Kubernetes libraries 与 code-generator minor alignment lead | green codegen 只证明旧 generator 可重复 |
 | `pr_status.py` | preview 从最早 20 条改为最新 20 条；输出 exact base/head、comment/review/reply/head provenance；`0` 可取全部 | freshness scan 截掉最新 maintainer feedback，或被 rewritten `commit_id` 误导 |
@@ -256,10 +256,18 @@ finding closure harness 已在 current `e577a5e` 上读取 15 项 ledger，得�
 
 这次回放也找到一个 harness 自身的 false positive：`review_surface.py` 只读取 `run_e2e.sh` 的 `MTLS_ENABLED=true` 默认值和 workflow 的 literal env override，因此声称 warm-pool E2E 默认被 skip。实际 `.github/workflows/e2e.yml` 通过 `matrix.mtls_enabled` 同时提供 `true` / `false`，`codeinterpreter-e2e-test` 使用 `false`，当前 CI 日志中的 `TestCodeInterpreterWarmPool` 与 load test 都实际执行并通过。
 
-修复后，coverage lead 会把 job-level / step-level env 绑定到实际执行 E2E 的 step，再沿该 job 的 `MTLS_ENABLED -> matrix.<key> -> <key>: false` 解析 disabled path；回归测试覆盖 direct env、inline shell assignment、matrix include/block list/exclude、跨 job 同名字段、同 job 不同步骤 env 泄漏，以及没有 E2E command 的 false env 反例。closure gate 还覆盖空 ledger、orphan closure、ledger version/content mismatch、schema/status 类型错误，以及“分类 complete 但 present/duplicate 仍阻塞 readiness”；decision 型 status 必须提供 current-PR comment URL，maintainer acceptance 还需 `OWNER/MEMBER/COLLABORATOR` association。调用者必须在 versioned ledger 与显式 `--no-carry-forward-findings` 之间二选一；输出将后者记为 `none-declared` / `not-applicable`，而真正漏传仍是 `not-provided` / `not-assessed` 并失败。`--run-go-tests` 会拒绝 tracked/untracked dirty worktree。PR Review scripts 共 40 个单测通过。
+修复后，coverage lead 会用 PyYAML 把 workflow/job/step env 绑定到实际执行 E2E 的 step，展开该 job 的 matrix product，按 GitHub 语义先 exclude 后 include，再按 nearest-scope 优先级、shell 命令顺序和 command position 判断执行时的 `MTLS_ENABLED`。回归测试覆盖 direct env、inline shell assignment、matrix include/block list、单维/多维 exclude、include 重新加入组合、跨 job 同名字段、同 job 不同步骤 env 泄漏、workflow/job/step override、E2E 前后 export、临时赋值不能泄漏到下一条命令，以及 `echo "make e2e"` 不能伪装成执行。closure gate 还覆盖空 ledger、orphan closure、ledger version/content/target mismatch、schema/status/association 类型错误，以及“分类 complete 但 present/duplicate 仍阻塞 readiness”；decision 型 status 必须提供 caller-supplied current-PR 的 comment URL，maintainer acceptance 还需 `OWNER/MEMBER/COLLABORATOR` association。调用者必须在 versioned ledger 与显式 `--no-carry-forward-findings` 之间二选一；输出将后者记为 `none-declared` / `not-applicable`，而真正漏传仍是 `not-provided` / `not-assessed` 并失败。`--run-go-tests` 会拒绝 tracked/untracked dirty worktree。PR Review scripts 共 50 个单测通过。
 
 对应 skill 的 false-positive guard 现在明确要求：不能从 shell 默认值或别的 job/step 单独推导 workflow 有效值，必须核对 target execution 的 matrix/env dataflow 与 PASS/SKIP 日志。digest 和 decision association 是 structural evidence，不替代 reviewer 对 live comment、author role 和 finding 语义的复核。
 
 > 调试记录：验证时直接执行 `python3 -m unittest .agents/.../test_review_surface.py` 报 `ValueError: Empty module name`，原因是 `unittest` 把以 `.agents` 开头的文件路径当作模块名。改用既有的 `python3 -m unittest discover -s ... -p 'test_review_surface.py'` 后目标用例通过；这不是 harness 行为失败。
 
 > 分析：这证明前向回放不仅要问“新 skill 找到了什么”，还要问“新 skill 发出了哪些错误 leads”。但 #446 lineage 已被完整观察，这仍是 train/regression 自审，不是 held-out promotion evidence；任务达成率、跨任务查全率和效率提升仍需独立 frozen PR 样本验证。
+
+### 9.8 提交后继续攻击 harness
+
+首个固化 commit `743b4be` 推送后，独立 reviewer 没有只复述通过的 40 个测试，而是尝试伪造 closure 和 workflow 反例，找到两个仍可复现的模型缺口：closure 的 `target` 与 decision URL 只彼此自洽，没有绑定本次调用真正审查的 PR；mTLS 文本解析又没有完整处理多维 exclude、step 覆盖 job env、export 时序和 command-scoped assignment。
+
+第二轮修正把 expected repository/PR 提升为强制 CLI 输入。用 `--target-pull-request 442` 读取 #446 closure 现在会报告 `closure target volcano-sh/agentcube#446 does not match command-line target volcano-sh/agentcube#442` 并 exit 2；正确 target #446 仍输出 closure complete、readiness blocked、F09/F16 两个 blocking IDs、exit 1。mTLS 检查改成结构化 YAML/job/step/matrix/env/shell dataflow，四个已知假 disabled paths 都返回 false，而 current #446 的真实 matrix include false 仍返回 true。
+
+> 分析：这次暴露出一个新的 stop rule：harness 自己的 happy-path tests 全绿，不等于 adversarial closure 完成。每个会改变“ready/not ready”的输入边界至少要尝试三类攻击：把证据换绑到别的对象、让执行路径在组合条件下消失、让配置值在更近的作用域或更晚的时序被覆盖。只有正例与反例同时稳定，规则才适合进入 reusable skill。
