@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "run_id": "pr446-final-head-finding-closure-correction-v2",
+  "task_id": "agentcube-pr-446-final-head-review",
+  "attempt": 1,
+  "metadata": {
+    "head": "2eefda6bd88a00fe217a0c154536d5883d46209b",
+    "gold_version": 2,
+    "gold_provenance": "Seven original findings plus three predecessor #442 findings independently confirmed on #446",
+    "trace_provenance": "post-hoc correction; not raw telemetry and not promotion evidence"
+  },
+  "outcome": {
+    "status": "passed",
+    "checks": [
+      {
+        "id": "cover-all-known-findings",
+        "required": true,
+        "passed": true,
+        "grader": {
+          "kind": "reference-coverage",
+          "phase": "finding",
+          "minimum_recall": 1.0
+        }
+      }
+    ]
+  },
+  "reference": {
+    "finding_targets": [
+      "missing-migration-lifecycle",
+      "dead-migration-asset",
+      "broken-scheme-gvk",
+      "empty-name-validation",
+      "lexicographic-version-compare",
+      "personal-codegen-path",
+      "ineffective-immutability-test",
+      "incomplete-migration-backup",
+      "exported-resource-signature-break",
+      "kubernetes-codegen-version-skew"
+    ]
+  },
+  "events": [
+    {"seq": 1, "phase": "finding", "action": "report", "target": "missing-migration-lifecycle", "status": "ok"},
+    {"seq": 2, "phase": "finding", "action": "report", "target": "dead-migration-asset", "status": "ok"},
+    {"seq": 3, "phase": "finding", "action": "report", "target": "broken-scheme-gvk", "status": "ok"},
+    {"seq": 4, "phase": "finding", "action": "report", "target": "empty-name-validation", "status": "ok"},
+    {"seq": 5, "phase": "finding", "action": "report", "target": "lexicographic-version-compare", "status": "ok"},
+    {"seq": 6, "phase": "finding", "action": "report", "target": "personal-codegen-path", "status": "ok"},
+    {"seq": 7, "phase": "finding", "action": "report", "target": "ineffective-immutability-test", "status": "ok"},
+    {"seq": 8, "phase": "verify", "action": "set-closure", "target": "cover-all-known-findings", "status": "ok"},
+    {"seq": 9, "phase": "final", "action": "respond", "status": "ok"}
+  ]
+}

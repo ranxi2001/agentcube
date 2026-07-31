@@ -864,3 +864,14 @@ AutoHarness 的 Context layer 首先漏掉 predecessor ledger，Verification lay
 review skill 现已要求 replacement/superseding PR 使用稳定 finding ID 合并 `parent acceptance + predecessor PR/local report + current-head findings`，逐项标记 `fixed/present/not-applicable/duplicate-on-current-pr`。AutoHarness 也要求 versioned gold provenance，并用 deterministic set comparison 验证 `cover-all-known-findings`，不再接受轨迹自报 boolean。
 
 当前 PR 已推进到 `1826e16`。`275f2e4` 从源码上修复了 manifest URL、backup kinds 和 `Resource()` GVR signature；后续 commits 继续扩充 warm fixture，但 code-generator 仍为 v0.35.4，且最新 successful E2E 还没有证明 migrated Claim 达到 Ready。作者仍在高频补丁阶段，下一轮必须等 head 稳定后重新执行完整 carry-forward ledger，不能根据 commit message 或 resolved thread 判定完成。本节没有发布 upstream 内容。
+
+## 16. `e577a5e` squash head 与 lineage closure
+
+`2026-07-31 17:44 CST` 刷新确认作者已把 `1826e16` squash 为单个 signed commit `e577a5e`。两个 commits 的 tree OID 同为 `a91ae18`，所以旧 head 的 source/runtime 判断仍适用于当前 tree；DCO 与全部 executable checks 已通过，Tide 只等待 `lgtm/approved`。
+
+全 lineage 复盘不再按评论条数计 finding。existing-claim fixture 的 object graph、UID、Ready 三轮反馈合并为同一个 #438 lifecycle invariant；review 后引入的 bad manifest URL 单独记为 new-head regression。最终技术 ledger 有 15 个 stable IDs，current closure 是 13 fixed / 2 present：
+
+- existing bound claim 仍未被等待到 Ready，也没有证明 migrated-claim deletion/refill；
+- Kubernetes libraries 为 v0.36.2，code-generator 仍为 v0.35.4。
+
+详细 finding provenance、review recall、skill 修改与 dataset leakage 边界见 [Day57 Section 9](day57-agent-autoharness-trajectory-evaluation.md#9-446-全-lineage-复盘与-executable-skill-修正)。本轮仍未向 upstream 发布任何内容。

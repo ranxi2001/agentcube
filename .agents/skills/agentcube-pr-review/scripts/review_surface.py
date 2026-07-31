@@ -36,6 +36,9 @@ PRODUCTION_CATEGORIES = {
     "sdk-cli-integrations",
     "deployment",
 }
+E2E_COMMAND_PATTERN = (
+    r"(?:make\s+e2e\b|test/e2e/run_e2e\.sh\b|go\s+test[^\n]*\./test/e2e(?:/\.\.\.)?)"
+)
 
 
 def git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -98,6 +101,249 @@ def extract_agent_sandbox_versions(go_mod: str, e2e_script: str) -> dict[str, st
     return {"go_dependency": dependency, "e2e_default": runtime}
 
 
+def workflow_job_blocks(e2e_workflow: str) -> list[str]:
+    lines = e2e_workflow.splitlines()
+    jobs_index = None
+    jobs_indent = 0
+    for index, line in enumerate(lines):
+        match = re.match(r"^(?P<indent>\s*)jobs:\s*(?:#.*)?$", line)
+        if match:
+            jobs_index = index
+            jobs_indent = len(match.group("indent"))
+            break
+    if jobs_index is None:
+        return []
+
+    job_indent = None
+    starts: list[int] = []
+    end = len(lines)
+    for index in range(jobs_index + 1, len(lines)):
+        line = lines[index]
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip())
+        if indent <= jobs_indent:
+            end = index
+            break
+        if job_indent is None:
+            job_indent = indent
+        if indent == job_indent and re.match(r"^\s*[A-Za-z0-9_-]+:\s*(?:#.*)?$", line):
+            starts.append(index)
+
+    return [
+        "\n".join(lines[start : starts[offset + 1] if offset + 1 < len(starts) else end])
+        for offset, start in enumerate(starts)
+    ]
+
+
+def yaml_key_blocks(text: str, key: str) -> list[str]:
+    lines = text.splitlines()
+    starts: list[tuple[int, int]] = []
+    pattern = re.compile(rf"^(?P<indent>\s*){re.escape(key)}:\s*(?:#.*)?$")
+    for index, line in enumerate(lines):
+        match = pattern.match(line)
+        if match:
+            starts.append((index, len(match.group("indent"))))
+
+    blocks: list[str] = []
+    for start, parent_indent in starts:
+        end = len(lines)
+        for index in range(start + 1, len(lines)):
+            line = lines[index]
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            indent = len(line) - len(line.lstrip())
+            if indent <= parent_indent:
+                end = index
+                break
+        blocks.append("\n".join(lines[start:end]))
+    return blocks
+
+
+def yaml_list_item_blocks(text: str) -> list[str]:
+    lines = text.splitlines()
+    if not lines:
+        return []
+    parent_indent = len(lines[0]) - len(lines[0].lstrip())
+    item_indent = None
+    starts: list[int] = []
+    for index, line in enumerate(lines[1:], 1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip())
+        if indent <= parent_indent:
+            break
+        if item_indent is None and line.lstrip().startswith("-"):
+            item_indent = indent
+        if item_indent is not None and indent == item_indent and line.lstrip().startswith("-"):
+            starts.append(index)
+    return [
+        "\n".join(lines[start : starts[offset + 1] if offset + 1 < len(starts) else len(lines)])
+        for offset, start in enumerate(starts)
+    ]
+
+
+def e2e_environment_contexts(job: str) -> list[str]:
+    target_re = re.compile(E2E_COMMAND_PATTERN)
+    step_blocks = [
+        step
+        for steps in yaml_key_blocks(job, "steps")
+        for step in yaml_list_item_blocks(steps)
+        if target_re.search(step)
+    ]
+    if not step_blocks:
+        return []
+
+    job_lines = job.splitlines()
+    job_indent = len(job_lines[0]) - len(job_lines[0].lstrip())
+    child_indents = [
+        len(line) - len(line.lstrip())
+        for line in job_lines[1:]
+        if line.strip()
+        and not line.lstrip().startswith("#")
+        and len(line) - len(line.lstrip()) > job_indent
+    ]
+    child_indent = min(child_indents) if child_indents else None
+    job_env = [
+        block
+        for block in yaml_key_blocks(job, "env")
+        if child_indent is not None
+        and len(block.splitlines()[0]) - len(block.splitlines()[0].lstrip()) == child_indent
+    ]
+    inherited_env = "\n".join(job_env)
+    return [f"{inherited_env}\n{step}" if inherited_env else step for step in step_blocks]
+
+
+def matrix_key_has_false(matrix_block: str, matrix_key: str) -> bool:
+    lines = matrix_block.splitlines()
+
+    def child_line_indices(key: str) -> set[int]:
+        indices: set[int] = set()
+        for index, line in enumerate(lines):
+            match = re.match(rf"^(?P<indent>\s*){key}:\s*(?:#.*)?$", line)
+            if not match:
+                continue
+            parent_indent = len(match.group("indent"))
+            for child_index in range(index + 1, len(lines)):
+                child = lines[child_index]
+                stripped = child.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                indent = len(child) - len(child.lstrip())
+                if indent <= parent_indent:
+                    break
+                indices.add(child_index)
+        return indices
+
+    excluded_lines = child_line_indices("exclude")
+    included_lines = child_line_indices("include")
+    unconditional_false_exclude = False
+    mapping_re = re.compile(
+        r"^\s*(?:-\s*)?(?P<key>[A-Za-z0-9_-]+):\s*(?P<value>[^#]*?)\s*(?:#.*)?$"
+    )
+    for exclude_block in yaml_key_blocks(matrix_block, "exclude"):
+        for item in yaml_list_item_blocks(exclude_block):
+            mappings = [
+                match.groupdict()
+                for line in item.splitlines()
+                if (match := mapping_re.match(line))
+            ]
+            if len(mappings) == 1 and mappings[0]["key"] == matrix_key and re.fullmatch(
+                r"[\"']?false[\"']?", mappings[0]["value"].strip(), re.IGNORECASE
+            ):
+                unconditional_false_exclude = True
+
+    def false_path_survives(index: int) -> bool:
+        return index in included_lines or not unconditional_false_exclude
+
+    pattern = re.compile(
+        rf"^(?P<prefix>\s*(?:-\s*)?)(?P<key>{re.escape(matrix_key)}):"
+        rf"\s*(?P<value>[^#]*?)\s*(?:#.*)?$",
+        re.IGNORECASE,
+    )
+    for index, line in enumerate(lines):
+        if index in excluded_lines:
+            continue
+        match = pattern.match(line)
+        if not match:
+            continue
+        value = match.group("value").strip()
+        if re.fullmatch(r"[\"']?false[\"']?", value, re.IGNORECASE):
+            if false_path_survives(index):
+                return True
+            continue
+        if value.startswith("[") and value.endswith("]") and re.search(
+            r"(?:\[|,)\s*[\"']?false[\"']?\s*(?:,|\])", value, re.IGNORECASE
+        ):
+            if false_path_survives(index):
+                return True
+            continue
+        if value:
+            continue
+
+        key_indent = line.index(match.group("key"))
+        for child in lines[index + 1 :]:
+            stripped = child.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            indent = len(child) - len(child.lstrip())
+            if indent <= key_indent:
+                break
+            if re.match(r"^\s*-\s*[\"']?false[\"']?\s*(?:#.*)?$", child, re.IGNORECASE):
+                if false_path_survives(index):
+                    return True
+                break
+    return False
+
+
+def workflow_has_mtls_disabled_path(e2e_workflow: str) -> bool:
+    direct_patterns = (
+        r"^\s*MTLS_ENABLED:\s*[\"']?false[\"']?\s*(?:#.*)?$",
+        r"^\s*(?:-\s*)?(?:run:\s*)?export\s+MTLS_ENABLED=[\"']?false[\"']?(?:\s|;|$)",
+        rf"^\s*(?:-\s*)?(?:run:\s*)?(?:.*[;&|]\s*)?"
+        rf"MTLS_ENABLED=[\"']?false[\"']?\s+[^#\n]*{E2E_COMMAND_PATTERN}",
+    )
+    parsed_jobs = workflow_job_blocks(e2e_workflow)
+    jobs = parsed_jobs or [e2e_workflow]
+    for job in jobs:
+        executable_job = "\n".join(
+            line for line in job.splitlines() if not line.lstrip().startswith("#")
+        )
+        contexts = (
+            e2e_environment_contexts(executable_job)
+            if parsed_jobs
+            else (
+                [executable_job]
+                if re.search(E2E_COMMAND_PATTERN, executable_job)
+                else []
+            )
+        )
+        matrix_blocks = yaml_key_blocks(executable_job, "matrix")
+        for context in contexts:
+            if any(
+                re.search(pattern, context, re.MULTILINE | re.IGNORECASE)
+                for pattern in direct_patterns
+            ):
+                return True
+            matrix_references = re.findall(
+                r"^\s*MTLS_ENABLED:\s*[\"']?\$\{\{\s*matrix\."
+                r"([A-Za-z0-9_-]+)\s*\}\}[\"']?\s*(?:#.*)?$",
+                context,
+                re.MULTILINE,
+            )
+            if any(
+                matrix_key_has_false(matrix_block, matrix_key)
+                for matrix_key in matrix_references
+                for matrix_block in matrix_blocks
+            ):
+                return True
+
+    return False
+
+
 def dependency_runtime_versions(repo: Path, head: str) -> dict[str, str | None]:
     go_mod = object_text(repo, head, "go.mod") or ""
     e2e_script = object_text(repo, head, "test/e2e/run_e2e.sh") or ""
@@ -108,9 +354,7 @@ def extract_codeinterpreter_e2e_coverage(
     e2e_script: str, e2e_workflow: str, e2e_go: str
 ) -> dict[str, bool]:
     default_mtls = bool(re.search(r"^\s*MTLS_ENABLED=true\s*$", e2e_script, re.MULTILINE))
-    workflow_disables_mtls = bool(
-        re.search(r"^\s*MTLS_ENABLED:\s*[\"']?false[\"']?\s*$", e2e_workflow, re.MULTILINE)
-    )
+    workflow_disables_mtls = workflow_has_mtls_disabled_path(e2e_workflow)
     warm_pool_match = re.search(
         r"func TestCodeInterpreterWarmPool\([^)]*\)\s*\{(?P<body>.*?)(?=\nfunc |\Z)",
         e2e_go,
@@ -172,8 +416,8 @@ def build_report(repo: Path, base: str, head: str) -> dict[str, Any]:
             {
                 "id": "target-e2e-skipped-by-default",
                 "reason": (
-                    "The standard E2E setup enables mTLS while TestCodeInterpreterWarmPool "
-                    "calls skipIfMTLS, so the target warm-pool path is skipped by default."
+                    "run_e2e.sh defaults to mTLS, TestCodeInterpreterWarmPool calls skipIfMTLS, "
+                    "and no workflow path explicitly supplies MTLS_ENABLED=false."
                 ),
                 "next_check": "Inspect live logs for SKIP and design explicit mTLS and CodeInterpreter coverage modes.",
             }

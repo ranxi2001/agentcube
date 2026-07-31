@@ -577,6 +577,7 @@ Use this workflow before analyzing, reviewing, replying to, or building on someo
 3. Read `Files changed`, not only the conversation. For code PRs, inspect the implementation files, API/CRD changes, generated files, tests, and manifests touched by the PR.
 4. Read human review comments and author replies before bot comments. Distinguish maintainer decisions from AI reviewer suggestions, CI noise, Codecov output, and approval-gate messages.
 5. Check whether later commits or force-pushes already addressed an earlier review comment. Do not repeat stale feedback.
+   Preserve `original_commit_id` as the comment's immutable code anchor. GitHub may rewrite `commit_id` when a comment still maps after a force-push, and replies can inherit the root thread's old original commit. Record the posting-time PR head separately when exact round attribution matters.
 6. Compare the PR's actual text/code against any proposed comment. If our comment conflicts with the PR's current wording, update our comment first.
 7. Record the evidence locally before posting: PR number, commit SHA, files/sections read, key observations, unresolved questions, and whether the comment is a review suggestion, benchmark evidence, or implementation request.
 
@@ -785,10 +786,11 @@ Use the script to inspect a PR:
 
 ```bash
 python3 .agents/skills/agentcube-pr-management/scripts/pr_status.py 379
+python3 .agents/skills/agentcube-pr-management/scripts/pr_status.py 379 --review-comment-limit 0
 python3 .agents/skills/agentcube-issue-discussion/scripts/thread_brief.py 379
 ```
 
-`pr_status.py` follows REST `Link` pagination for files, commits, issue comments, and review comments, then prints title, state, labels, files, commits, complete comment counts, and a bounded review-comment preview. `thread_brief.py` gives the broader discussion timeline, assignee signals, body snippet, and PR review surface. Use both before manual review when the question depends on conversation context.
+`pr_status.py` follows REST `Link` pagination for files, commits, issue comments, and review comments, then prints exact base/head SHAs, title, state, labels, files, commits, complete comment counts, and the newest 20 review comments with `original_commit_id`, current `commit_id`, review ID, reply ID, timestamp, and URL. Use `--review-comment-limit 0` for a complete review-comment ledger. `thread_brief.py` gives the broader discussion timeline, assignee signals, body snippet, and PR review surface. Use both before manual review when the question depends on conversation context.
 
 ## Guardrails
 

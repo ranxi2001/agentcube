@@ -21,6 +21,7 @@ Read the references needed for the changed surface:
 - Always read [references/agentcube-review-checks.md](references/agentcube-review-checks.md) for language, API, lifecycle, test, and conflict checks.
 - Read [references/review-patterns.md](references/review-patterns.md) before finalizing findings and when deciding whether a reusable lesson is proven.
 - Read [references/maintainer-review-methods.md](references/maintainer-review-methods.md) when reviewing a proposal, controller, shared helper, or when calibrating review quality against maintainer history.
+- Read [references/finding-ledger-schema.md](references/finding-ledger-schema.md) for replacement PRs, repeated final-head rounds, or recall comparisons across different heads.
 
 ## Review Workflow
 
@@ -42,14 +43,17 @@ python3 /home/agentcube/.agents/skills/agentcube-pr-review/scripts/review_surfac
 ```
 
 Treat script output as leads. Verify every suspected defect in source, diff, tests, or runtime evidence.
+When a test is gated by an environment default, resolve the complete workflow path before calling it skipped: bind job-level and step-level env to the step that actually runs the test, expand that job's matrix values, follow `${{ matrix.* }}` assignments, and inspect the target job's PASS/SKIP log. A script default or another job/step's env is not the effective value for the target execution.
 
-For a PR declared ready after repeated patching, rebasing, force-pushing, or squashing, also run the final-head evidence harness. Supply the parent Issue/proposal body or explicit acceptance notes; do not silently omit the contract. Run this from a worktree whose `HEAD` equals `--head` when using `--run-go-tests`:
+For a PR declared ready after repeated patching, rebasing, force-pushing, or squashing, also run the final-head evidence harness. Supply the parent Issue/proposal body or explicit acceptance notes; do not silently omit the contract. When using `--run-go-tests`, run from a clean temporary worktree whose `HEAD` equals `--head`; the harness rejects tracked or untracked changes before testing:
 
 ```bash
 python3 /home/agentcube/.agents/skills/agentcube-pr-review/scripts/final_head_review.py \
   --repo-root /path/to/pr-worktree \
   --base upstream/main --head HEAD \
   --acceptance-file /path/to/issue-body.md \
+  --finding-ledger /path/to/findings.json \
+  --finding-closure /path/to/closure.json \
   --run-go-tests --check-urls --format markdown
 ```
 
@@ -59,11 +63,15 @@ Use repeatable `--acceptance-note` arguments when the authoritative contract is 
 - every hand-written changed file requiring reviewer-owned rationale and evidence;
 - every changed Go test package and the exact workflow command, if any, that covers it;
 - direct results for changed Go test packages not proven by CI, without rerunning CI-proven or live E2E packages locally;
-- added external URLs, lexicographic version comparisons, personal absolute paths, and removed validation calls.
+- added external URLs, lexicographic version comparisons, personal absolute paths, removed validation calls, exported Go signature changes, and Kubernetes library/code-generator minor-version skew.
 
-When the PR replaces, supersedes, or reimplements an earlier PR, build a carry-forward finding ledger before reviewing the new head. Union the parent acceptance contract with unresolved findings from the predecessor PR, local review reports, and validated review threads. Give each finding a stable ID and classify it on the new head as `fixed`, `present`, `not-applicable`, or `duplicate-on-current-pr`, with code or test evidence. A comment on a closed predecessor PR is not a duplicate on the replacement PR, and an old resolved thread is not evidence that the replacement fixed the code. Until the harness has a dedicated finding-ledger input, pass every still-applicable item as an `--acceptance-note` and close it explicitly in the final ledger.
+When the PR replaces, supersedes, or reimplements an earlier PR, build a carry-forward finding ledger before reviewing the new head. Union the parent acceptance contract with unresolved findings from the predecessor PR, local review reports, and validated review threads. Give each finding a stable ID and classify it on the new head as `fixed`, `present`, `not-applicable`, `duplicate-on-current-pr`, or `accepted-by-maintainer`, with code or test evidence. A comment on a closed predecessor PR is not a duplicate on the replacement PR, and an old resolved thread is not evidence that the replacement fixed the code. Bind the closure to the ledger ID, logical version, canonical content digest, current PR, and exact head. Use the dedicated `--finding-ledger` and `--finding-closure` inputs; do not downgrade known findings into free-form acceptance notes.
 
-Treat the output as an evidence ledger, not a finding generator. Close each row against code, runtime evidence, or an explicit out-of-scope rationale. A green check name does not close a changed test package unless the mapped command includes it.
+When there is no predecessor or earlier review finding to carry forward, pass `--no-carry-forward-findings`. The final-head harness deliberately rejects an omitted finding mode so that “no prior findings” is a reviewer-owned decision rather than an accidental default.
+
+For every review round, record the exact reviewed SHA. Before comparing another reviewer or learning from later comments, classify each comment as a same-head miss, a later-head regression, a follow-up on the same acceptance invariant, or a distinct current-head finding. Count only same-head findings in that round's recall denominator. Rerun boundary checks on every new head because URL, API, generator, fixture, and workflow evidence from an earlier head is stale after those lines change.
+
+Treat the output as an evidence ledger, not a finding generator. Close each row against code, runtime evidence, or an explicit out-of-scope rationale. A green check name does not close a changed test package unless the mapped command includes it. Do not publish or declare completion while a supplied finding ledger is missing a closure, contains an unclassified ID, was closed against another ledger version/head, or still has `present` / `duplicate-on-current-pr` rows. A maintainer-accepted residual must use `accepted-by-maintainer` with decision evidence instead of weakening the gate.
 
 When studying a maintainer's repeated review method, fetch a bounded, diverse PR sample with:
 

@@ -20,6 +20,7 @@ EVENT_STATUSES = EVENT_SUCCESS | EVENT_FAILURE | {"skipped"}
 EVENT_PHASES = {"search", "read", "edit", "finding", "verify", "tool", "final"}
 REFERENCE_PHASES = ("search", "read", "edit", "finding")
 REFERENCE_KEYS = {phase: f"{phase}_targets" for phase in REFERENCE_PHASES}
+REFERENCE_COVERAGE_PHASES = set(REFERENCE_PHASES) | {"requirement"}
 COMPARISON_CONTEXT_FIELDS = ("model", "environment", "budget", "seed")
 
 
@@ -82,8 +83,33 @@ def validate_run(run: dict[str, Any]) -> None:
         if check["id"] in seen_check_ids:
             raise ContractError(f"run {run['run_id']}: duplicate outcome check {check['id']}")
         seen_check_ids.add(check["id"])
-        if not isinstance(check.get("required", True), bool) or not isinstance(check.get("passed"), bool):
-            raise ContractError(f"run {run['run_id']}: check required/passed must be boolean")
+        if not isinstance(check.get("required", True), bool):
+            raise ContractError(f"run {run['run_id']}: check required must be boolean")
+        grader = check.get("grader")
+        if grader is None:
+            if not isinstance(check.get("passed"), bool):
+                raise ContractError(f"run {run['run_id']}: declared check passed must be boolean")
+            continue
+        if not isinstance(grader, dict) or grader.get("kind") != "reference-coverage":
+            raise ContractError(
+                f"run {run['run_id']}: check grader.kind must be reference-coverage"
+            )
+        if grader.get("phase") not in REFERENCE_COVERAGE_PHASES:
+            raise ContractError(
+                f"run {run['run_id']}: reference-coverage phase must be one of "
+                f"{sorted(REFERENCE_COVERAGE_PHASES)}"
+            )
+        minimum = grader.get("minimum_recall", 1.0)
+        if (
+            isinstance(minimum, bool)
+            or not isinstance(minimum, (int, float))
+            or not 0 <= float(minimum) <= 1
+        ):
+            raise ContractError(
+                f"run {run['run_id']}: reference-coverage minimum_recall must be between 0 and 1"
+            )
+        if "passed" in check and not isinstance(check["passed"], bool):
+            raise ContractError(f"run {run['run_id']}: declared check passed must be boolean")
     events = run.get("events")
     if not isinstance(events, list):
         raise ContractError(f"run {run['run_id']}: events must be a list")
@@ -228,9 +254,46 @@ def choose_reference(run: dict[str, Any], events: list[dict[str, Any]]) -> tuple
     return index, candidates[index]
 
 
-def outcome_score(run: dict[str, Any]) -> dict[str, Any]:
+def resolve_outcome_checks(
+    checks: list[dict[str, Any]], coverage: dict[str, Any]
+) -> list[dict[str, Any]]:
+    resolved: list[dict[str, Any]] = []
+    for check in checks:
+        grader = check.get("grader")
+        if grader is None:
+            resolved.append(
+                {
+                    "id": check["id"],
+                    "required": check.get("required", True),
+                    "passed": check["passed"],
+                    "source": "declared",
+                }
+            )
+            continue
+        phase = grader["phase"]
+        metric = coverage["requirement"] if phase == "requirement" else coverage["phases"][phase]
+        recall = metric["recall"]
+        minimum = float(grader.get("minimum_recall", 1.0))
+        passed = recall is not None and float(recall) >= minimum
+        resolved.append(
+            {
+                "id": check["id"],
+                "required": check.get("required", True),
+                "passed": passed,
+                "source": "reference-coverage",
+                "phase": phase,
+                "recall": recall,
+                "minimum_recall": minimum,
+                "declared_passed": check.get("passed"),
+            }
+        )
+    return resolved
+
+
+def outcome_score(run: dict[str, Any], coverage: dict[str, Any]) -> dict[str, Any]:
     outcome = run["outcome"]
-    required = [check for check in outcome.get("checks", []) if check.get("required", True)]
+    checks = resolve_outcome_checks(outcome.get("checks", []), coverage)
+    required = [check for check in checks if check["required"]]
     if required:
         passed = sum(1 for check in required if check["passed"])
         completion = passed / len(required)
@@ -244,6 +307,7 @@ def outcome_score(run: dict[str, Any]) -> dict[str, Any]:
         "passed_required_checks": passed,
         "completion_rate": completion,
         "strict_success": strict,
+        "checks": checks,
     }
 
 
@@ -253,6 +317,20 @@ def reasonableness_flags(
     flags: list[dict[str, Any]] = []
     if run["outcome"]["status"] == "passed" and outcome["completion_rate"] < 1.0:
         flags.append({"id": "passed_with_incomplete_required_checks"})
+    for check in outcome["checks"]:
+        if (
+            check["source"] == "reference-coverage"
+            and check["declared_passed"] is not None
+            and check["declared_passed"] != check["passed"]
+        ):
+            flags.append(
+                {
+                    "id": "declared_check_disagrees_with_grader",
+                    "check": check["id"],
+                    "declared": check["declared_passed"],
+                    "derived": check["passed"],
+                }
+            )
     verify_events = [event for event in events if event.get("phase") == "verify" and event.get("status", "ok") in EVENT_SUCCESS]
     edit_events = [event for event in events if event.get("phase") == "edit" and event.get("status", "ok") in EVENT_SUCCESS]
     if outcome["strict_success"] and not verify_events:
@@ -385,6 +463,10 @@ def diagnoses(score: dict[str, Any]) -> list[dict[str, str]]:
         add("high_failed_event_rate", "Tool Interface/Observability", "surface actionable errors and fix the failing adapter boundary")
     flag_map = {
         "passed_with_incomplete_required_checks": ("Governance", "block completion until required checks pass"),
+        "declared_check_disagrees_with_grader": (
+            "Verification/Governance",
+            "derive completion from the frozen reference instead of a trajectory-provided boolean",
+        ),
         "passed_without_verification": ("Verification/Governance", "require deterministic evidence before completion"),
         "edit_without_prior_read": ("Context/Governance", "require target inspection or declare a new target"),
         "verification_precedes_last_edit": ("Verification", "rerun validation after the final edit"),
@@ -401,8 +483,8 @@ def diagnoses(score: dict[str, Any]) -> list[dict[str, str]]:
 
 def score_run(run: dict[str, Any], repeat_threshold: int = 3) -> dict[str, Any]:
     events = run["events"]
-    outcome = outcome_score(run)
     reference_index, coverage = choose_reference(run, events)
+    outcome = outcome_score(run, coverage)
     result = {
         "run_id": run["run_id"],
         "task_id": run["task_id"],

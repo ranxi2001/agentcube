@@ -41,7 +41,7 @@ Required run fields:
 | `task_id` | Stable ID shared by baseline and challenger |
 | `attempt` | Positive integer trial ID paired across baseline and challenger |
 | `outcome.status` | `passed`, `partial`, `failed`, or `blocked` |
-| `outcome.checks` | Deterministic task checks with `id`, `required`, and `passed` |
+| `outcome.checks` | Task checks with `id`, `required`, and either declared `passed` or a deterministic `grader` |
 | `events` | Observable trajectory events |
 
 Promotion comparisons also require `comparison_context.model`, `comparison_context.environment`, `comparison_context.budget`, and `comparison_context.seed`. Missing fields make the gate `INCONCLUSIVE`; unequal fields make it `FAIL`.
@@ -60,6 +60,22 @@ Optional reference fields:
 Alternative target sets are allowed only when independently known to be valid. The scorer selects the best declared variant and reports its index.
 
 JSON arrays, one JSON object, `{"runs": [...]}`, and JSONL are accepted.
+
+Use a derived reference-coverage check when completion means covering a frozen target set:
+
+```json
+{
+  "id": "cover-all-known-findings",
+  "required": true,
+  "grader": {
+    "kind": "reference-coverage",
+    "phase": "finding",
+    "minimum_recall": 1.0
+  }
+}
+```
+
+Supported phases are `search`, `read`, `edit`, `finding`, and `requirement`. A declared `passed` may be retained when auditing a historical trace, but the derived result controls completion and disagreement is flagged.
 
 ## 3. Metric Definitions
 
@@ -127,6 +143,7 @@ The deterministic scorer emits leads, not semantic proof:
 | Flag | Meaning |
 | --- | --- |
 | `passed_with_incomplete_required_checks` | Final status contradicts required checks |
+| `declared_check_disagrees_with_grader` | A trajectory-provided boolean contradicts deterministic reference coverage |
 | `passed_without_verification` | Success is claimed without a verify event |
 | `edit_without_prior_read` | Existing target edited before observable inspection |
 | `verification_precedes_last_edit` | Evidence is stale relative to the final edit |
@@ -182,4 +199,4 @@ Use at least three attempts for stochastic high-value tasks when practical. Repo
 
 These sources do not establish one universal trajectory score. This skill deliberately preserves separate outcome, coverage, resource, and reasonableness metrics.
 
-The scorer consumes check results produced by external deterministic graders; it does not execute those graders or prove the semantic validity of their booleans and target IDs. Store grader ID/version and evidence provenance with the benchmark, and audit them before treating a gate as release evidence.
+The scorer consumes ordinary check results produced by external deterministic graders and does not prove their semantic validity. Its built-in `reference-coverage` grader only proves set coverage against the supplied target IDs; it does not prove that the gold set is complete or that a reported finding is semantically valid. Store gold/grader version and evidence provenance with the benchmark, and audit them before treating a gate as release evidence.

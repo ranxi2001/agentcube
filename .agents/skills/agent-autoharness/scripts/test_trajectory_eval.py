@@ -124,6 +124,72 @@ class TrajectoryEvalTest(unittest.TestCase):
         self.assertEqual(score["coverage"]["phases"]["read"]["recall"], 0.0)
         self.assertEqual(score["coverage"]["phases"]["finding"]["recall"], 0.0)
 
+    def test_reference_coverage_check_overrides_self_declared_completeness(self) -> None:
+        run = run_fixture(
+            "finding-closure",
+            checks=[
+                {
+                    "id": "cover-all-known-findings",
+                    "required": True,
+                    "passed": True,
+                    "grader": {
+                        "kind": "reference-coverage",
+                        "phase": "finding",
+                        "minimum_recall": 1.0,
+                    },
+                }
+            ],
+            events=[
+                {
+                    "seq": 1,
+                    "phase": "finding",
+                    "action": "report",
+                    "target": "bug-1",
+                    "status": "ok",
+                },
+                {"seq": 2, "phase": "verify", "action": "audit", "target": "review", "status": "ok"},
+                {"seq": 3, "phase": "final", "action": "respond", "status": "ok"},
+            ],
+            reference={"finding_targets": ["bug-1", "bug-2"]},
+        )
+
+        TRAJECTORY_EVAL.validate_run(run)
+        score = TRAJECTORY_EVAL.score_run(run)
+        flags = {item["id"] for item in score["reasonableness_flags"]}
+
+        self.assertEqual(score["coverage"]["phases"]["finding"]["recall"], 0.5)
+        self.assertFalse(score["outcome"]["checks"][0]["passed"])
+        self.assertFalse(score["outcome"]["strict_success"])
+        self.assertIn("declared_check_disagrees_with_grader", flags)
+
+    def test_reference_coverage_check_passes_from_observed_finding_set(self) -> None:
+        run = run_fixture(
+            "finding-closure-complete",
+            checks=[
+                {
+                    "id": "cover-all-known-findings",
+                    "required": True,
+                    "grader": {
+                        "kind": "reference-coverage",
+                        "phase": "finding",
+                    },
+                }
+            ],
+            events=[
+                {"seq": 1, "phase": "finding", "action": "report", "target": "bug-1", "status": "ok"},
+                {"seq": 2, "phase": "finding", "action": "report", "target": "bug-2", "status": "ok"},
+                {"seq": 3, "phase": "verify", "action": "audit", "target": "review", "status": "ok"},
+                {"seq": 4, "phase": "final", "action": "respond", "status": "ok"},
+            ],
+            reference={"finding_targets": ["bug-1", "bug-2"]},
+        )
+
+        TRAJECTORY_EVAL.validate_run(run)
+        score = TRAJECTORY_EVAL.score_run(run)
+
+        self.assertTrue(score["outcome"]["checks"][0]["passed"])
+        self.assertTrue(score["outcome"]["strict_success"])
+
     def test_missing_resource_measurements_stay_null(self) -> None:
         run = run_fixture("run-no-resources")
         run.pop("resources")

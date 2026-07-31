@@ -51,7 +51,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("number", type=int, help="GitHub PR number")
     parser.add_argument("--repo", default="volcano-sh/agentcube", help="owner/repo")
+    parser.add_argument(
+        "--review-comment-limit",
+        type=int,
+        default=20,
+        help="Number of newest review comments to include; use 0 for all",
+    )
     args = parser.parse_args()
+    if args.review_comment_limit < 0:
+        parser.error("--review-comment-limit must be non-negative")
 
     base = f"https://api.github.com/repos/{args.repo}"
     pr = request_json(f"{base}/pulls/{args.number}")
@@ -59,6 +67,19 @@ def main():
     commits = request_all_pages(f"{base}/pulls/{args.number}/commits?per_page=100")
     issue_comments = request_all_pages(f"{base}/issues/{args.number}/comments?per_page=100")
     review_comments = request_all_pages(f"{base}/pulls/{args.number}/comments?per_page=100")
+    ordered_review_comments = (
+        sorted(
+            (item for item in review_comments if isinstance(item, dict)),
+            key=lambda item: item.get("created_at") or "",
+        )
+        if isinstance(review_comments, list)
+        else review_comments
+    )
+    review_comment_preview = (
+        ordered_review_comments
+        if not isinstance(ordered_review_comments, list) or args.review_comment_limit == 0
+        else ordered_review_comments[-args.review_comment_limit :]
+    )
 
     result = {
         "number": args.number,
@@ -70,6 +91,10 @@ def main():
         "changed_files": pr.get("changed_files") if isinstance(pr, dict) else None,
         "additions": pr.get("additions") if isinstance(pr, dict) else None,
         "deletions": pr.get("deletions") if isinstance(pr, dict) else None,
+        "updated_at": pr.get("updated_at") if isinstance(pr, dict) else None,
+        "base_sha": pr.get("base", {}).get("sha") if isinstance(pr, dict) else None,
+        "head_sha": pr.get("head", {}).get("sha") if isinstance(pr, dict) else None,
+        "mergeable_state": pr.get("mergeable_state") if isinstance(pr, dict) else None,
         "files": [
             {
                 "filename": f.get("filename"),
@@ -97,15 +122,22 @@ def main():
         "review_comments": [
             {
                 "user": c.get("user", {}).get("login"),
+                "id": c.get("id"),
+                "created_at": c.get("created_at"),
                 "path": c.get("path"),
                 "line": c.get("line") or c.get("original_line"),
+                "commit_id": c.get("commit_id"),
+                "original_commit_id": c.get("original_commit_id"),
+                "pull_request_review_id": c.get("pull_request_review_id"),
+                "in_reply_to_id": c.get("in_reply_to_id"),
+                "html_url": c.get("html_url"),
                 "body": c.get("body", "")[:500],
             }
-            for c in review_comments[:20]
+            for c in review_comment_preview
             if isinstance(c, dict)
         ]
-        if isinstance(review_comments, list)
-        else review_comments,
+        if isinstance(review_comment_preview, list)
+        else review_comment_preview,
     }
 
     json.dump(result, sys.stdout, ensure_ascii=False, indent=2)

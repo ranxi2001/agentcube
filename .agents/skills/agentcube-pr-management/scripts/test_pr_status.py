@@ -83,9 +83,16 @@ class PRStatusTest(unittest.TestCase):
     def test_main_counts_all_comments_and_keeps_preview_shape(self):
         review_comments = [
             {
+                "id": index,
                 "user": {"login": f"reviewer-{index}"},
                 "path": "pkg/example.go",
                 "line": index + 1,
+                "created_at": f"2026-07-31T{index // 60:02d}:{index % 60:02d}:00Z",
+                "commit_id": "current-head",
+                "original_commit_id": f"original-{index}",
+                "pull_request_review_id": 1000 + index,
+                "in_reply_to_id": None,
+                "html_url": f"https://example.test/comments/{index}",
                 "body": f"comment {index}",
             }
             for index in range(101)
@@ -109,7 +116,7 @@ class PRStatusTest(unittest.TestCase):
                     [{"filename": "pkg/example.go", "status": "modified"}],
                     [{"sha": "123456789", "commit": {"message": "subject\nbody"}}],
                     [{"id": index} for index in range(102)],
-                    review_comments,
+                    list(reversed(review_comments)),
                 ],
             ):
                 with mock.patch.object(sys, "argv", [str(SCRIPT), "442"]):
@@ -120,7 +127,9 @@ class PRStatusTest(unittest.TestCase):
         self.assertEqual(result["issue_comments_count"], 102)
         self.assertEqual(result["review_comments_count"], 101)
         self.assertEqual(len(result["review_comments"]), 20)
-        self.assertEqual(result["review_comments"][0]["user"], "reviewer-0")
+        self.assertEqual(result["review_comments"][0]["user"], "reviewer-81")
+        self.assertEqual(result["review_comments"][-1]["original_commit_id"], "original-100")
+        self.assertEqual(result["review_comments"][-1]["pull_request_review_id"], 1100)
         self.assertEqual(result["commits"], [{"sha": "1234567", "message": "subject"}])
 
 

@@ -32,7 +32,7 @@ Define before running an agent:
 - budget fields: wall time, tokens, tool calls, and cost when available;
 - repeated attempts `k`, random seeds, model, harness version, and environment version.
 
-For review tasks, version the finding gold set and record provenance. Build it from the parent acceptance contract, validated findings on predecessor/replacement PRs, local evidence ledgers, and independently confirmed current-head findings. A required check such as `cover-all-known-findings` needs a deterministic set comparison between frozen gold IDs and observed finding IDs; do not accept a trajectory-provided boolean as proof of completeness. If later evidence proves the gold set was incomplete, preserve the original artifact, publish a corrected version, and invalidate the old recall/completion claim instead of silently rewriting history.
+For review tasks, version the finding gold set and record provenance. Build it from the parent acceptance contract, validated findings on predecessor/replacement PRs, local evidence ledgers, and independently confirmed current-head findings. Merge repeated comments that test the same acceptance invariant into one stable finding ID; keep distinct regressions introduced by attempted fixes separate. A required check such as `cover-all-known-findings` needs a deterministic set comparison between frozen gold IDs and observed finding IDs; do not accept a trajectory-provided boolean as proof of completeness. If later evidence proves the gold set was incomplete, preserve the original artifact, publish a corrected version, and invalidate the old recall/completion claim instead of silently rewriting history.
 
 Use explicit alternative reference target sets for known valid alternate solutions. Do not retroactively rewrite gold targets merely to make one run look better.
 
@@ -55,7 +55,15 @@ Write one run per JSON object. Capture only task-relevant normalized events:
   "outcome": {
     "status": "partial",
     "checks": [
-      {"id": "all-blocking-findings", "required": true, "passed": false}
+      {
+        "id": "all-blocking-findings",
+        "required": true,
+        "grader": {
+          "kind": "reference-coverage",
+          "phase": "finding",
+          "minimum_recall": 1.0
+        }
+      }
     ]
   },
   "reference": {
@@ -94,6 +102,8 @@ Inspect all four result groups:
 - **Reasonableness:** deterministic flags such as edit-before-read, stale verification, unverified completion, unrecovered failure, or repeated loops.
 
 Treat missing reference targets as `null`, not as perfect precision/recall.
+
+For checks that mean “cover the frozen reference set,” use the built-in `reference-coverage` grader for `search`, `read`, `edit`, `finding`, or `requirement`. The scorer derives `passed` from the selected reference variant and requested minimum recall. If a trace also supplies `passed` and it disagrees, the derived result wins and the scorer emits `declared_check_disagrees_with_grader`.
 
 ### 4. Attribute before repairing
 
@@ -151,6 +161,7 @@ After acceptance:
 ## Integration
 
 - Use `agentcube-pr-review` to produce technical findings and exact review coverage; use this skill to evaluate the review agent across a labeled PR set.
+- Import the exact-head finding ledger from `agentcube-pr-review` into `reference.finding_targets`; keep all heads and replacement PRs from one issue lineage in the same dataset split to prevent later-review leakage.
 - Use `agentcube-pr-management` for any upstream action. This skill never authorizes comments, PRs, reviewer requests, or branch mutation.
 - Use benchmark-native deterministic graders whenever available; normalize their results into this skill's run contract rather than replacing them.
 

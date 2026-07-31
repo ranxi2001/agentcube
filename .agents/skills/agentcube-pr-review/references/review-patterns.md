@@ -44,10 +44,10 @@ Evidence labels:
 - Trigger: A PR changes `go.mod`, API/runtime semantics, or adds/modifies tests in packages not obviously covered by one CI command.
 - Hidden assumption: Green build/coverage/e2e checks execute every changed test package, use the imported dependency's controller/runtime version, and actually run the feature scenario.
 - Failure mode: A new `_test.go` is never executed, tests compile against a new library while live E2E installs an old controller, or the right runtime is installed but the target suite is skipped by auth/mTLS/feature gates.
-- Evidence source: `CODE` and `OBS`. AgentCube PR #387 used `agent-sandbox v0.4.6` in `go.mod` while E2E installed `v0.1.1`; after alignment, the mTLS job still skipped CodeInterpreter/WarmPool tests. AgentCube PR #446 had all checks green while `go test ./cmd/workload-manager -count=1` failed all five new scheme assertions: coverage ran only `./pkg/...`, Docker build did not execute tests, and E2E did not run that package.
+- Evidence source: `CODE` and `OBS`. AgentCube PR #387 used `agent-sandbox v0.4.6` in `go.mod` while E2E installed `v0.1.1`; after alignment, the mTLS job still skipped CodeInterpreter/WarmPool tests. AgentCube PR #446 had all checks green while `go test ./cmd/workload-manager -count=1` failed all five new scheme assertions: coverage ran only `./pkg/...`, Docker build did not execute tests, and E2E did not run that package. A later #446 codegen check also stayed green while Kubernetes libraries were v0.36.2 and the script deliberately generated with code-generator v0.35.4; deterministic output did not prove toolchain-family compatibility.
 - Review question: For every changed `_test.go`, which exact workflow command executes its package; which controller, CRD, and image versions does live E2E install; and which target tests pass rather than skip?
-- Validation: Build a changed-test-package to workflow-command map, run uncovered packages directly, then inspect workflow inputs, install logs, and PASS/SKIP output against dependency versions and claimed behavior.
-- False-positive guard: A package need not run in multiple jobs when one named check executes it directly and the check is required. Intentional version skew is valid when explicitly named and paired with target-version coverage.
+- Validation: Build a changed-test-package to workflow-command map, run uncovered packages directly, then inspect workflow inputs, generator versions, install logs, and PASS/SKIP output against dependency versions and claimed behavior.
+- False-positive guard: A package need not run in multiple jobs when one named check executes it directly and the check is required. Do not infer a target is skipped from the shell script's default alone: bind env to the job/step that actually runs the test, expand only that job's matrix values, trace `${{ matrix.* }}` assignments, and verify its PASS/SKIP log. Intentional version skew is valid when explicitly named and paired with target-version coverage.
 
 ### Lifecycle E2E fixtures must traverse the real producer
 
@@ -208,6 +208,26 @@ Evidence labels:
 - Review question: Which validated findings from every predecessor PR and local report remain applicable to this replacement head, and where is the current code or test evidence that closes each stable finding ID?
 - Validation: Export the predecessor finding ledger, union it with the parent acceptance contract, map every item to the replacement paths/symbols, and classify each as fixed, present, not applicable, or duplicate on the current PR. Freeze that union before measuring finding recall or declaring final-head completion.
 - False-positive guard: Do not carry stale findings when the replacement deliberately changes scope or the underlying code no longer exists. Close them with explicit current-head evidence instead of silently retaining or dropping them.
+
+### Review-round learning needs immutable head provenance and stable finding identity
+
+- Trigger: A PR is force-pushed, squashed, or patched through several review rounds, then one reviewer appears to have found more comments than another.
+- Hidden assumption: Current GitHub comment metadata still identifies the reviewed code, and each later comment represents a distinct defect that belonged in the earlier review's recall denominator.
+- Failure mode: `commit_id` is rewritten after a squash, new regressions are counted as old misses, and repeated closure feedback on one invariant is counted as several bugs. The resulting recall and skill changes reward the wrong behavior.
+- Evidence source: `CODE`, `OBS`, and `MAINTAINER`, AgentCube PR #446. Our final review targeted `449fb75`; the later bad manifest URL was introduced by `2592301`, while two later fixture comments were successive closure checks for the same existing-claim lifecycle finding. GitHub later mapped those comments to squashed head `e577a5e`, but `original_commit_id`, reply links, timestamps, and recorded posting-time heads preserved the actual rounds.
+- Review question: What exact SHA and review scope were declared, did this condition exist on that tree, and is the later comment a same-head miss, a new-head regression, a follow-up on the same invariant, or a distinct finding?
+- Validation: Freeze the review head and cutoff before inspection; retain comment ID, review ID, `original_commit_id`, `in_reply_to_id`, timestamp, and posting-time PR head; compare trees/patches across rounds; assign one stable finding ID per acceptance invariant before computing recall.
+- False-positive guard: Split findings when an attempted fix introduces a distinct trigger and consequence, such as a migration patch that separately omits bootstrap state and deletes resources. Do not merge comments merely because they touch the same file.
+
+### Repository builds do not prove exported Go source compatibility
+
+- Trigger: A PR changes the signature or removes an exported function/method in an importable `pkg/` package while regenerating all in-repository callers.
+- Hidden assumption: Green repository compilation proves existing external callers still compile, or adding a replacement helper under a new name preserves old call sites.
+- Failure mode: Downstream consumers fail at compile time even though generated code and every in-repository test pass.
+- Evidence source: `CODE` and `MAINTAINER`, AgentCube PR #446 changed `runtime/v1alpha1.Resource(string)` from `schema.GroupVersionResource` to `schema.GroupResource`; regenerated listers compiled, but external callers retained the old source contract. The correct adaptation kept `Resource` stable and called `.GroupResource()` in the generated consumer.
+- Review question: Which exported signatures changed between base and head, and can existing out-of-repository source continue compiling without renaming or changing expected types?
+- Validation: Generate a base/head exported-signature lead, inspect known external/generated consumers, and compile a minimal old-signature caller when compatibility is claimed.
+- False-positive guard: A versioned breaking API change is valid when the compatibility policy and migration contract explicitly permit it. Treat the static signature difference as a lead until package visibility and policy are verified.
 
 ### Proposal front door must establish actor, outcome, and current vocabulary
 
