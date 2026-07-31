@@ -763,3 +763,63 @@ exact `2eefda6` 的 GitHub checks 全绿，但 workflow-to-command 映射是：
 - skill 目录的 14 个 Python 单测、`py_compile`、`quick_validate.py` 和 `git diff --check` 通过。
 
 harness 在真实缺陷存在时以 exit 1 结束，同时保留完整 ledger；这证明此次复盘已经进入可重复工具链，而不只是一段事后解释。
+
+## 14. 2026-07-31：#446 `449fb75` final-head review
+
+### 14.1 最新 review 与 PR 状态
+
+`2026-07-31 09:31 CST` 从上次 `2026-07-30 18:00 CST` 做只读 freshness scan，decision-relevant 更新只有 #446。作者在旧 head `2eefda6` 后追加 10 个 commits，current exact head 为 `449fb752fdded85fffd81b96d4554972f0eb8260`，base 仍是已合入 #448 的 `upstream/main@0704bb9`；PR 现为 35 files、`+814/-410`、open、non-draft、structurally mergeable。
+
+最新 human review 仍是 `@acsoto` 在 `2026-07-30 21:04 CST` 针对 `fd0507f` 提交的 4 个 inline comments：自制 migration bootstrap 没创建 shadow pools、recreate/delete flow 会丢数据、upgrade E2E 缺少 post-upgrade assertions、文档 helper URL 仍为 404。此后作者又追加 6 个 commits，但截至本次扫描，没有 maintainer 对 `449fb75` 提交新的 review、`/lgtm` 或 `/approve`。
+
+GitHub 当前把 11 个 review threads 中 10 个标记为 resolved，只留下我们较早的 production scheme thread active；但 thread state 不是代码证据。`449fb75` 的 11 个实际 Actions checks 全部通过，包括两个 E2E matrix job；DCO 单独失败，原因是首个 commit 有 `Signed-off-by`，后续 10 个 commits 都没有 signoff。Tide 仍等待 `lgtm` 和 `approved` labels。
+
+### 14.2 上一轮 comments 的代码闭环
+
+| Review concern | `449fb75` 状态 | 证据 |
+| --- | --- | --- |
+| Production manager 没注册 v1beta1 scheme/watch | 已修 | `main.go` 注册 core/extension beta scheme，并 `For(&v1beta1.Sandbox{})`；binary-level scheme test 通过 |
+| Scheme test 使用错误 group strings | 已修 | 改用 exported `SchemeGroupVersion.WithKind(...)`；本机 `go test ./cmd/workload-manager -count=1` 通过 |
+| Empty name validation regression | 已修 | 恢复 `CreateSandboxRequest.Validate()` 并新增 missing-name case |
+| `volumeClaimTemplates` test 不经过 API Server | 已修 | test 移到 E2E，执行真实 Create/Update，并要求 `apierrors.IsInvalid`；exact-head CodeInterpreter E2E 日志显示该 test 通过 |
+| 字典序版本比较 | 已修 current target | 改为 `v0.4.*` regex，其他版本走 combined manifest；不再把 `v0.10.0` 判成旧版 |
+| Personal PATH in codegen | 已修原问题 | 删除个人 Windows paths；codegen workflow 通过，但 PR 同时扩大为一套新的 generator install/source-patch 流程 |
+| 自制 migration 会漏建 pool / 删除 claim | 已修 | 删除自制脚本，改用 upstream v0.5.3 tagged `helm/files/migrate.sh` 的 bootstrap/migrate phases |
+| Upgrade E2E 没有迁移后断言 | 部分修复 | CI 真实执行 bootstrap/migrate，确认 seeded cold claim 存活和 shadow pool 存在；fresh v1beta1 warm-pool adoption/delete/refill test 也通过，但没有覆盖 active v1alpha1 claim 的 binding identity |
+| 两份文档使用不存在的 release asset | 仅修一份 | root guide 改为 tagged raw URL；Docusaurus mirror 仍请求不存在的 `releases/download/v0.5.3/migrate.sh` |
+
+### 14.3 Current final-head findings
+
+#### [P1] 没有测试 #438 点名的 active/warm SandboxClaim 升级风险
+
+`test/e2e/run_e2e.sh:345-356` 只创建一个没有 `status.sandbox.name`、没有既有 Sandbox/Pod、也没有 binding identity 的 v1alpha1 SandboxClaim，源码注释也明确称它是 cold-start fixture。迁移后 shell 只检查 claim 仍存在和 shadow pool 已创建。
+
+这不能覆盖 #438 等待 v0.5.2 的核心原因。上游 agent-sandbox #1124 修的是 warm-started claim 在 controller upgrade 时因 optimistic-lock/transient lookup error 丢失 bound sandbox status 并错误 cold-restart；其 migration test 会构造已绑定的 warm claim，并验证升级后仍绑定到原 sandbox。#446 后续运行的 `TestCodeInterpreterWarmPool` 虽然证明升级后的 fresh v1beta1 claim 可以 adoption/delete/refill，但它创建的是新对象，无法证明旧 v1alpha1 active claim 的 `status.sandbox.name` 和 sandbox identity 在 conversion/controller restart 后保留。
+
+修正测试应至少在 v0.4.6 阶段创建真实 Sandbox + SandboxClaim，补齐 owner references/status binding，记录原 Sandbox name/UID；升级后断言同一 claim 仍指向同一 Sandbox，而不是只断言非空或资源存在。若要完整关闭 #438，再把该旧 claim 接入 deletion/refill lifecycle，或者明确拆开“旧 binding preservation”和“新 beta lifecycle”两组因果断言。
+
+> 分析：这里不是要求复制 upstream 全部 migration suite，而是要求测试命中本次 release prerequisite 的故障状态。cold claim 验证 shadow bootstrap，warm/active claim 验证 status/binding preservation；两者不是可互换样本。
+
+#### [P1] agent-sandbox upgrade 无关地关闭了 Router 默认 h2c
+
+`pkg/router/server.go:185-199` 把原来始终使用的 `h2c.NewHandler` 改成 `EnableH2C` 条件分支，而 `cmd/router/main.go` 新 flag 默认值是 `false`。Helm `agentcube-router` Deployment 没有传 `--enable-h2c`，`values.yaml` 也没有相应设置，因此标准安装升级后会静默从默认 h2c 变成 HTTP/1 handler。
+
+Router h2c 是从历史 PR `c65ef24` 引入并在 `docs/design/router-proposal.md` 明确描述为 default-enabled 的既有能力；本 PR 的 #438 / agent-sandbox API migration 不需要改变该 contract，也没有 h2c compatibility test。使用 HTTP/2 cleartext prior knowledge 的现有客户端不会自动得到原行为。应从 #446 删除 `cmd/router/main.go`、`pkg/router/config.go`、`pkg/router/server.go` 的这组变化；如果确实要改变安全默认值，应单开 PR，说明 threat model、backward compatibility、Helm exposure 和协议测试。
+
+#### [P1] Docusaurus 镜像升级指南仍在第 2 步返回 404
+
+`docs/agentcube/docs/getting-started.md:46` 仍写 `https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.5.3/migrate.sh`。v0.5.3 release 只有 `sandbox.yaml`、`extensions.yaml`、`sandbox-with-extensions.yaml` 三个 assets；实测该 helper URL 返回 404。root `docs/getting-started.md` 已使用可用的 tagged raw URL，因此只需同步同一 URL 和 `-O migrate.sh` 到 Docusaurus mirror。当前 resolved thread 不能覆盖这个仍可复现的用户阻塞。
+
+### 14.4 验证与当前结论
+
+本轮运行 `final_head_review.py` 对齐 `upstream/main@0704bb9...449fb75` 和 #438 acceptance contract。ledger 识别 35 个 changed files，证明 CI 没覆盖新增的 `./cmd/workload-manager` test package，并自动补跑成功；新增外部 URL 检查同时得到 tagged raw migration helper `200`、combined manifest `200`、Docusaurus release-asset helper `404`。
+
+本机额外验证：
+
+- `go test ./cmd/workload-manager -count=1`：通过；
+- `go test ./pkg/router ./pkg/workloadmanager ./pkg/picod -count=1`：通过；
+- exact-head CI `codeinterpreter-e2e-test` 日志：bootstrap/migrate 均成功，cold claim/shadow pool assertions、`TestCodeInterpreterWarmPool`、API immutability test 均实际执行并通过；
+- `git diff --check upstream/main...HEAD`：失败，两个 docs 行和 `run_e2e.sh` 多处 trailing whitespace；属于机械清理项，不替代上述 contract findings；
+- 本机没有 current Kubernetes context，因此没有重复运行完整 E2E；使用 exact-head 官方 CI 日志作为 live-cluster evidence。
+
+当前判断为 **NOT READY**：旧 comments 的主要实现缺陷已大幅收敛，但 active claim acceptance、Router h2c regression、镜像文档 404 和 DCO 仍阻塞进入 approval。此次只完成 read-only review 和本地记录，没有发布 comment/review、resolve thread、Prow command、reviewer request 或 maintainer mention。
