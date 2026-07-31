@@ -822,4 +822,14 @@ Router h2c 是从历史 PR `c65ef24` 引入并在 `docs/design/router-proposal.m
 - `git diff --check upstream/main...HEAD`：失败，两个 docs 行和 `run_e2e.sh` 多处 trailing whitespace；属于机械清理项，不替代上述 contract findings；
 - 本机没有 current Kubernetes context，因此没有重复运行完整 E2E；使用 exact-head 官方 CI 日志作为 live-cluster evidence。
 
-当前判断为 **NOT READY**：旧 comments 的主要实现缺陷已大幅收敛，但 active claim acceptance、Router h2c regression、镜像文档 404 和 DCO 仍阻塞进入 approval。此次只完成 read-only review 和本地记录，没有发布 comment/review、resolve thread、Prow command、reviewer request 或 maintainer mention。
+当前判断为 **NOT READY**：旧 comments 的主要实现缺陷已大幅收敛，但 active claim acceptance、Router h2c regression、镜像文档 404 和 DCO 仍阻塞进入 approval。
+
+### 14.5 Final-head review 发布记录
+
+用户确认 exact target、head、review body 和三条 inline comment 后，已于 `2026-07-31 10:15 CST` 对 `449fb75` 发布 [COMMENT review](https://github.com/volcano-sh/agentcube/pull/446#pullrequestreview-4824881370)，没有使用 `REQUEST_CHANGES`、`/lgtm`、Prow command 或 maintainer mention：
+
+- [active/warm v1alpha1 binding fixture](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3687580741)，锚点 `test/e2e/run_e2e.sh:345`；
+- [Router h2c scope regression](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3687580746)，锚点 `pkg/router/server.go:189`；
+- [Docusaurus migration helper 404](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3687580749)，锚点 `docs/agentcube/docs/getting-started.md:46`。
+
+发布后通过 REST 与 GraphQL 复核：review state 为 `COMMENTED`，commit id 仍为 `449fb75`；三个 threads 均 `isOutdated=false`、`isResolved=false`，行号分别为 345、189、46。下一步只在作者 push 新 head 后重新验证实现和 tests，不根据 thread resolve 状态直接判定修复。
