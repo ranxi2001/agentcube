@@ -152,3 +152,13 @@ Gold finding 集合固定为七项：migration lifecycle、dead migration asset�
 - AgentCube Review integration：`.agents/skills/agentcube-pr-review/SKILL.md`
 
 已验证：16 个 scorer 单测通过，Python compile 通过，skill structure validation 通过；PR #446 baseline/challenger comparison 的可测 gates 通过，因 comparison context 和效率 telemetry 缺失按预期返回 `INCONCLUSIVE` / exit 1；`git diff --check` 通过。此次没有发布 upstream comment、review、issue、PR、Prow command 或 maintainer mention。
+
+## 8. 后续证据对七项 gold 的修正
+
+`2026-07-31` 的 #446 后续 review 证明，本节 5.1 的七项 gold 不完整。Day55 在 predecessor PR #442 上早已记录 `migration backup` 缺 SandboxTemplate/SandboxWarmPool、exported `Resource()` 从 `GroupVersionResource` 改为 `GroupResource` 的 source break，以及 Kubernetes v0.36.2 / code-generator v0.35.4 skew；replacement #446 `449fb75` 仍保留三项，但它们没有进入 baseline/challenger reference targets。`@acsoto` 后来在 #446 独立指出三项，构成新的 verified evidence。
+
+不回写原 JSONL 伪装成预先冻结的 gold。保留原结果作为“七项不完整 gold 下 scorer 的行为”，另记录 corrected version：finding target 至少由 7 项增至 10 项，challenger observable findings 仍为 7，因此 corrected lower-bound recall 是 `7/10 = 70%`，不是 100%。`cover-all-known-findings=true` 也不成立，因为它来自 trajectory 输入，没有 deterministic grader 对 frozen gold IDs 做集合闭合。
+
+这次 failure attribution 是：最早可阻止问题的 **Context** layer 没有传入 predecessor finding ledger；**Verification** layer 没有验证 gold completeness 和 finding-set closure；**Governance** layer 允许在部分 ledger rows 未关闭时结束。它不提供效率比较证据，manifest URL 与 fixture 的两条后续评论又来自 review 后新增代码，不能回算到旧 head recall。
+
+已把修正规则加入 `agentcube-pr-review` 与 `agent-autoharness`：replacement PR 必须继承未关闭 finding ledger；review gold 需要版本和 provenance；`cover-all-known-findings` 必须由 deterministic set comparison 产生。原 benchmark 继续保持 `INCONCLUSIVE`，并进一步标记为 incomplete-gold evidence，不能用于 promotion。

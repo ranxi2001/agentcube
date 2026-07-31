@@ -61,6 +61,8 @@ Use repeatable `--acceptance-note` arguments when the authoritative contract is 
 - direct results for changed Go test packages not proven by CI, without rerunning CI-proven or live E2E packages locally;
 - added external URLs, lexicographic version comparisons, personal absolute paths, and removed validation calls.
 
+When the PR replaces, supersedes, or reimplements an earlier PR, build a carry-forward finding ledger before reviewing the new head. Union the parent acceptance contract with unresolved findings from the predecessor PR, local review reports, and validated review threads. Give each finding a stable ID and classify it on the new head as `fixed`, `present`, `not-applicable`, or `duplicate-on-current-pr`, with code or test evidence. A comment on a closed predecessor PR is not a duplicate on the replacement PR, and an old resolved thread is not evidence that the replacement fixed the code. Until the harness has a dedicated finding-ledger input, pass every still-applicable item as an `--acceptance-note` and close it explicitly in the final ledger.
+
 Treat the output as an evidence ledger, not a finding generator. Close each row against code, runtime evidence, or an explicit out-of-scope rationale. A green check name does not close a changed test package unless the mapped command includes it.
 
 When studying a maintainer's repeated review method, fetch a bounded, diverse PR sample with:

@@ -199,6 +199,16 @@ Evidence labels:
 - Validation: Treat the ready/squashed head as a new review surface: rebuild the issue acceptance matrix, classify all changed files, run every changed test package not proven by workflow commands, validate external artifacts, and exercise boundary values before carrying forward old conclusions.
 - False-positive guard: A tiny follow-up that changes only the exact reviewed lines may use an incremental pass when head ancestry, diff, tests, and acceptance scope are unchanged. Do not force a full repository review for a genuinely local patch.
 
+### Replacement PRs must inherit unresolved finding ledgers
+
+- Trigger: A PR is closed, superseded, or replaced by another PR for the same issue, or a new branch reimplements a repeatedly reviewed patch.
+- Hidden assumption: Rebuilding only the parent-issue acceptance matrix and current diff is sufficient, while comments or local findings attached to the predecessor no longer need to be carried forward.
+- Failure mode: A known defect disappears from the review gold set, an old-PR duplicate-suppression decision is incorrectly applied to the replacement, and final-head review claims full coverage while the same code remains broken.
+- Evidence source: `CODE`, `OBS`, and `MAINTAINER`, AgentCube PR #442 -> #446. The #442 final report already recorded an incomplete migration backup, a source-breaking `Resource()` return-type change, and Kubernetes v0.36.2 / code-generator v0.35.4 skew. All three remained in #446 `449fb75`, but the replacement final-head finding set omitted them; `@acsoto` independently reported all three on #446.
+- Review question: Which validated findings from every predecessor PR and local report remain applicable to this replacement head, and where is the current code or test evidence that closes each stable finding ID?
+- Validation: Export the predecessor finding ledger, union it with the parent acceptance contract, map every item to the replacement paths/symbols, and classify each as fixed, present, not applicable, or duplicate on the current PR. Freeze that union before measuring finding recall or declaring final-head completion.
+- False-positive guard: Do not carry stale findings when the replacement deliberately changes scope or the underlying code no longer exists. Close them with explicit current-head evidence instead of silently retaining or dropping them.
+
 ### Proposal front door must establish actor, outcome, and current vocabulary
 
 - Trigger: A formal proposal introduces a public feature name, API resource, node component, or external runtime integration.

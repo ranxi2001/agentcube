@@ -32,6 +32,8 @@ Define before running an agent:
 - budget fields: wall time, tokens, tool calls, and cost when available;
 - repeated attempts `k`, random seeds, model, harness version, and environment version.
 
+For review tasks, version the finding gold set and record provenance. Build it from the parent acceptance contract, validated findings on predecessor/replacement PRs, local evidence ledgers, and independently confirmed current-head findings. A required check such as `cover-all-known-findings` needs a deterministic set comparison between frozen gold IDs and observed finding IDs; do not accept a trajectory-provided boolean as proof of completeness. If later evidence proves the gold set was incomplete, preserve the original artifact, publish a corrected version, and invalidate the old recall/completion claim instead of silently rewriting history.
+
 Use explicit alternative reference target sets for known valid alternate solutions. Do not retroactively rewrite gold targets merely to make one run look better.
 
 ### 2. Capture a normalized trajectory

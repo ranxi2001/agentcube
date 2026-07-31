@@ -833,3 +833,34 @@ Router h2c 是从历史 PR `c65ef24` 引入并在 `docs/design/router-proposal.m
 - [Docusaurus migration helper 404](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3687580749)，锚点 `docs/agentcube/docs/getting-started.md:46`。
 
 发布后通过 REST 与 GraphQL 复核：review state 为 `COMMENTED`，commit id 仍为 `449fb75`；三个 threads 均 `isOutdated=false`、`isResolved=false`，行号分别为 345、189、46。下一步只在作者 push 新 head 后重新验证实现和 tests，不根据 thread resolve 状态直接判定修复。
+
+## 15. 为什么 `@acsoto` 又比我们找到更多问题
+
+### 15.1 先按 reviewed head 校准数量
+
+我们在 `2026-07-31 10:15 CST` review 的是 `449fb75`。作者随后提交 `2592301` 到 `1826e16`；`@acsoto` 在 `2026-07-31 15:50-17:16 CST` 发布 6 条评论。因此不能把 6 条全部计为旧 review 的漏检：
+
+| 评论 | `449fb75` 是否已有 | 判断 |
+| --- | --- | --- |
+| root guide 的 tagged `deploy/sandbox-with-extensions.yaml` 404 | 否 | `2592301` 把原本可用的 release asset URL 改坏，是 review 后的新回归 |
+| backup 漏 SandboxTemplate / SandboxWarmPool | 是 | 同-head 真实漏检 |
+| `Resource()` 从 GVR 改成 GR，破坏外部 client-go caller | 是 | 同-head 真实漏检 |
+| Kubernetes libraries v0.36.2，code-generator 仍 pin v0.35.4 | 是 | 同-head 真实漏检 |
+| 新 bound fixture 没 ownerRef/template/pool/Pod UID，也没证明新 controller reconcile | 否 | 作者按我们 active-claim finding 新增 fixture 后的 follow-up；是同一 finding 的实现验收，不是旧 head 新 bug |
+| fixture 补齐对象图和 UID 后仍没等待 Claim Ready | 否 | 后续 fixture 的第二轮验收；继续证明同一 warm-start finding 尚未闭环 |
+
+按当前已确认集合，`449fb75` 的公开 final-head findings 至少有 6 个：我们找到 3 个，漏 3 个，lower-bound finding recall 是 `3/6 = 50%`；三条均有效，所以 precision 仍是 `3/3`。这个分母仍可能不完整，不能把 50% 当总体能力定值。
+
+### 15.2 真正根因是 finding ledger 丢失
+
+三个漏检都不是第一次见。本文审 #442 时已经明确写过：operator backup 缺两个会被 migration 处理的 kind，`Resource()` exported return type 是 source-breaking，以及 Kubernetes v0.36.2 与 code-generator v0.35.4 存在 cross-minor skew。replacement #446 继承了同样代码，但 final-head reset 只重建了 #438 acceptance 与七项当轮 gold，没有把 #442 未关闭的本地 finding ledger 合并进来。
+
+因此发生了一个反向错误：旧 PR 的 duplicate/resolved 语境被记住了，旧 PR 的未修技术结论却没有被带到 replacement PR。`final_head_review.py` 虽然列出了两个 docs 文件和 `register.go`，但 row 没有 machine-readable `fixed/present/not-applicable` closure；仓内编译通过也不能证明 exported Go API 对仓外 caller 兼容。
+
+AutoHarness 的 Context layer 首先漏掉 predecessor ledger，Verification layer 又直接信任 trace 中的 `cover-all-known-findings=true`，Governance layer 最后允许在 3 个 blocker 后结束。原 Day57 七项 gold 因此不是“全部已知 finding”；加入这三项后，那个 post-hoc challenger 的 corrected lower-bound recall 是 `7/10 = 70%`，不是 100%。
+
+### 15.3 可复用修正
+
+review skill 现已要求 replacement/superseding PR 使用稳定 finding ID 合并 `parent acceptance + predecessor PR/local report + current-head findings`，逐项标记 `fixed/present/not-applicable/duplicate-on-current-pr`。AutoHarness 也要求 versioned gold provenance，并用 deterministic set comparison 验证 `cover-all-known-findings`，不再接受轨迹自报 boolean。
+
+当前 PR 已推进到 `1826e16`。`275f2e4` 从源码上修复了 manifest URL、backup kinds 和 `Resource()` GVR signature；后续 commits 继续扩充 warm fixture，但 code-generator 仍为 v0.35.4，且最新 successful E2E 还没有证明 migrated Claim 达到 Ready。作者仍在高频补丁阶段，下一轮必须等 head 稳定后重新执行完整 carry-forward ledger，不能根据 commit message 或 resolved thread 判定完成。本节没有发布 upstream 内容。
