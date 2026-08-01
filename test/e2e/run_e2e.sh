@@ -463,22 +463,18 @@ EOF
         }
 
         echo "Waiting for new controller to reconcile upgrade-bound-claim to Ready state..."
-        for i in $(seq 1 30); do
-            CLAIM_READY=$(kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
-            if [ "${CLAIM_READY}" == "True" ]; then
-                echo "SandboxClaim upgrade-bound-claim is Ready after ${i}x2s"
-                break
-            fi
-            if [ "$i" -eq 30 ]; then
-                echo "Error: Timed out waiting for upgrade-bound-claim to become Ready!" >&2
-                echo "=== SandboxClaim Diagnostics ===" >&2
-                kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" -o yaml >&2
-                echo "=== Controller Logs ===" >&2
-                kubectl logs -n agent-sandbox-system deployment/agent-sandbox-controller --tail=100 >&2
-                exit 1
-            fi
-            sleep 2
-        done
+        CONTROLLER_NAMESPACE="agent-sandbox-system"
+        if ! kubectl wait --for='jsonpath={.status.conditions[?(@.type=="Ready")].status}=True' sandboxclaim/upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" --timeout=60s; then
+            echo "Error: Timed out waiting 60s for SandboxClaim upgrade-bound-claim Ready=True!" >&2
+            echo "=== SandboxClaim Diagnostics ===" >&2
+            kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" -o yaml >&2
+            kubectl describe sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" >&2
+            echo "=== Events ===" >&2
+            kubectl get events -n "${AGENTCUBE_NAMESPACE}" --sort-by=.metadata.creationTimestamp | tail -50 >&2
+            echo "=== Controller Logs ===" >&2
+            kubectl logs -n "${CONTROLLER_NAMESPACE}" deployment/agent-sandbox-controller --tail=100 >&2 || true
+            exit 1
+        fi
         
         echo "Verifying warm-start regression: bound Sandbox and Pod UIDs must not change..."
         POST_UPGRADE_SANDBOX_UID=$(kubectl get sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
