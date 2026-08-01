@@ -457,14 +457,28 @@ EOF
             exit 1
         }
         
-        # Wait a moment for the new v0.5 controller to process the claims
-        echo "Waiting for new controller to reconcile claims..."
-        sleep 10
-        
         kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" || {
             echo "Error: Seeded bound SandboxClaim was lost during migration!" >&2
             exit 1
         }
+
+        echo "Waiting for new controller to reconcile upgrade-bound-claim to Ready state..."
+        for i in $(seq 1 30); do
+            CLAIM_READY=$(kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
+            if [ "${CLAIM_READY}" == "True" ]; then
+                echo "SandboxClaim upgrade-bound-claim is Ready after ${i}x2s"
+                break
+            fi
+            if [ "$i" -eq 30 ]; then
+                echo "Error: Timed out waiting for upgrade-bound-claim to become Ready!" >&2
+                echo "=== SandboxClaim Diagnostics ===" >&2
+                kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" -o yaml >&2
+                echo "=== Controller Logs ===" >&2
+                kubectl logs -n agent-sandbox-system deployment/agent-sandbox-controller --tail=100 >&2
+                exit 1
+            fi
+            sleep 2
+        done
         
         echo "Verifying warm-start regression: bound Sandbox and Pod UIDs must not change..."
         POST_UPGRADE_SANDBOX_UID=$(kubectl get sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
