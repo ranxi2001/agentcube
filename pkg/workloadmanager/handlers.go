@@ -158,10 +158,6 @@ func (s *Server) handleSandboxCreate(c *gin.Context, kind string) {
 	}
 
 	namespace := sandboxReq.Namespace
-	if namespace == "" {
-		respondError(c, http.StatusBadRequest, "namespace is required")
-		return
-	}
 
 	var (
 		sandbox      *sandboxv1beta1.Sandbox
