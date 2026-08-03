@@ -1044,3 +1044,13 @@ v5 ledger 有 21 个 stable IDs，exact-head closure 为 `16 fixed / 5 present /
 > 分析：作者的 `done.` 对 `F22-e2e-webhook-wait-fail-open` 是准确的 closure 信号，但它只回答这条 inline finding。它不能替代对整个 PR 的 readiness 判断，也不能自动关闭其他公开线程。
 
 本轮没有重跑 v5 全量 ledger，因此只记录 `F22` 从 present 到 fixed 的增量结论。migrated Claim deletion/GC/refill、`workloadRef` 兼容边界、两份文档的无界 webhook wait 和仓库级 scheme-test CI discovery 不因这一行改动而改变。DCO 仍为 `ACTION_REQUIRED`：检查明确列出 `da4140d` 与 `353f1df` 两个缺少 `Signed-off-by` 的 commits；Tide 仍等待合并标签。本轮没有发布 reply、resolve、review、Prow command 或 maintainer mention。
+
+### 18.7 `/lgtm` go/no-go
+
+`2026-08-03 11:48 CST` 再次刷新 #446 后，head 仍为 `d7333cc`，`upstream/main` 仍为 PR base `0704bb9`，全部 executable checks 通过。当前结论是 **NO `/lgtm`**，不是因为刚修的 timeout finding，而是至少还有两个独立硬门槛：DCO 明确失败；Issue #438 要求同一 existing active SandboxClaim 在升级后继续完成 deletion、Sandbox/Pod GC 和 source-pool refill，当前脚本只等待 Ready 并校验 UID/binding，没有删除 `upgrade-bound-claim` 或验证 refill。
+
+`workloadRef` 兼容边界和两份文档的无界 webhook probe 也仍存在。相关 GitHub threads 被标记 resolved，但没有 `OWNER` / `MEMBER` / `COLLABORATOR` 给出 accepted-risk 决定；作者解释“上游删除字段”和回复 `ok` 不能代替项目兼容承诺。仓库级 scheme-test CI discovery 继续作为独立 follow-up，不加入本次 PR 的最小阻断集合。
+
+> 分析：`/lgtm` 表示 reviewer 认为当前 diff 在既定 scope 内已经可合并；它不是“我最后一条评论修了”的确认按钮。绿色 CI、作者 `done.` 和 resolved thread 都是输入信号，不能覆盖仍未满足的 parent-Issue acceptance 或 DCO gate。
+
+本轮只读核对，没有发布 `/lgtm`、reply、resolve、review、Prow command 或 maintainer mention。
