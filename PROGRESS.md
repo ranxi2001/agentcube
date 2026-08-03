@@ -10,7 +10,7 @@
 
 - Branch/workflow：当前本地在 `intern`，该分支是本地记录专用分支，只跟踪 `.agents/`、`internship-reports/`、`PROGRESS.md`、`AGENTS.md`、`README-ZH.md`；不要在 `intern` 跟踪 AgentCube 源码、charts、client-go、workflow 或 `internship-reports/` 外的 benchmark/source 工具。代码工作切到 `main` 或 clean topic branch from `upstream/main`。记录类 commit 完成后默认 push `origin intern:intern`。
 - Intern branch cleanup：用户要求精简 `intern` 后，已在 `bceff94 chore: prune intern branch to local records [skip ci]` 删除上游源码/CI/SDK/docs 等 tracked 文件并保留 `.agents/`；该 commit 已 push 到 `origin/intern`。`.agents/.gitignore` 会忽略 `.agents/.env`、`__pycache__` 和 `*.pyc`。
-- Community freshness scan：最近一次增量复核到 `2026-07-31 21:51 CST`。#446 current signed head 为 `a0f4882`，35 files；12 个 executable/DCO checks 通过，Tide 只等 `lgtm/approved`。从上一快照没有新增 human review，decision-relevant change 只有 code-generator 对齐与 regenerated clients。
+- Community freshness scan：最近一次增量复核到 `2026-08-03 09:48 CST`。在 `2026-07-31 21:51 CST` 快照后新增 #449/#450 CodeInterpreter child ownership bug/fix 与 Dependabot PR #451；#446 只有 Codecov/Gemini bot activity，current signed head 仍为 `a0f4882`，没有新 human review 或 code。#450 exact head `f722b51` 的 executable checks/DCO 全绿，Tide 只等 `lgtm/approved`。
 - Final-head review harness：`agentcube-pr-review/scripts/final_head_review.py` 支持 versioned `--finding-ledger` + exact-head `--finding-closure`，绑定 ledger ID/version/content digest、target PR 和 exact head。#446 v4 technical ledger 为 14 fixed / 6 present / 0 unclassified；present 是 migrated bound claim lifecycle、Store OwnerID、GOBIN codegen、embedded PodSpec `workloadRef`、webhook readiness docs 和 scheme-test CI discovery。结构 closure complete，但 readiness blocked / exit 1。
 - Review harness learning：早先 forward replay 自报 current #446 只剩两项，新的 fresh-context review 用 handler red/green、GOBIN repro、typed JSON counterexample 与 upstream migration contract 证明该 completeness 仍是假阳性。review patterns 已补 authorization decision record、embedded dependency CRD surface，并加强 generator install/invoke 与 webhook readiness；这仍是同 lineage regression，不是 held-out promotion。
 - Agent AutoHarness：scorer 现支持 built-in `reference-coverage` outcome grader；corrected #446 v2 trace 对 10 项 gold 的 7 个 finding events 得到 recall `70%`、strict failure，并标记自报 completeness 与 grader 冲突。整个 #438/#442/#446 lineage 已污染，只能用于 train/regression；效率 telemetry 仍缺失。
@@ -19,6 +19,7 @@
 
 ## Active Upstream Threads
 
+- #450 `check CodeInterpreter child ownership`：open、non-draft、head `f722b51`、2 files `+165/-16`，Fixes #449；本地 exact-head review 证明 steady-state update 与 create-collision retry 方向正确，但两处 delete 在 ownership GET 后仍发 name-only DELETE，没有 UID/resourceVersion preconditions。并发 ownerRef 修改或同名替换后仍可删除未归属对象，属于 source-proven reachable latent bug；未发布 upstream comment，等待用户确认 exact text。
 - #447 / #448 Code Interpreter MCP SDK v2：maintainer 选择 latest v2 SDK 后，upstream PR [#448](https://github.com/volcano-sh/agentcube/pull/448) exact head `1286b3a` 已于 `2026-07-30 09:53 CST` 通过 merge commit `0704bb9` 合入 `main`，关联 bug #447 已关闭。合入前 fork 9/9 与 upstream 13/13 checks 全绿，覆盖 local Streamable HTTP、stdio、Docker rollout 与 in-cluster MCP E2E；该前置不再是 #429/#446 的 blocker。
 - #446 `Upgrade agent sandbox v0.5.3`：open、non-draft、current `a0f4882`，1 signed commit、35 files；全部 executable checks/DCO 通过，Tide 等 `lgtm/approved`。`2026-07-31 23:03 CST` 已在 exact head 发布 [COMMENT review](https://github.com/volcano-sh/agentcube/pull/446#pullrequestreview-4829685167)，包含 Store OwnerID、GOBIN、PodSpec `workloadRef` 与 webhook readiness docs 四项新 finding；F09 与 scheme-test CI discovery 不重复发布。等待作者处理或新 push 后再复核。
 - Fork-only v0.5.3 adapter：`compat/agent-sandbox-v053-independent@5957314` 基于 `upstream/main@0704bb9`，保留已验证的 v0.5.2 beta adapter，仅用 5-file increment 升到 v0.5.3，并新增真实 API Server 的 `volumeClaimTemplates` immutability E2E。local lint/gen-check/build/non-E2E all-Go/workloadmanager race 与隔离 k3d v1.32.5 + official v0.5.3 manifest focused E2E 通过；fork push checks 9/9 success。分支只用于实现/review 证据，不创建竞争 upstream PR。
@@ -61,6 +62,7 @@
 ## Next
 
 - 每个 substantive AgentCube work loop 开始先做只读 community freshness scan；更新 scan timestamp 和 decision-relevant changes，不发布 upstream 内容。
+- #450：若用户要发布 review，先准备一个 anchored at `codeinterpreter_controller.go:318` 的 concise English finding，明确 GET-owned-A -> concurrent replace/mutate -> name-only DELETE 的反例，并请求 UID + ResourceVersion preconditions 和 race regression；发布前让用户确认 exact body/target。
 - #447 / #448：已完成并合入，不再追踪 review；仅在发现 merged regression 时重新打开调查。
 - #429：保持 `cf4024b` 两文件 scope；先在 fork-only validation branch rebase 到 `upstream/main@0704bb9` 并跑 exact-head checks，再让用户确认 open PR branch update。
 - #446：current `a0f4882` 已完成 exact-head 20-item closure；14 fixed、6 present。若要公开新增 findings，先刷新 head/thread/anchor 并让用户确认 exact English text、target 和 review event；F09 不重复发布。不要自动 resolve、`/lgtm`、mention maintainer，也不把 fork adapter 开成竞争 PR。

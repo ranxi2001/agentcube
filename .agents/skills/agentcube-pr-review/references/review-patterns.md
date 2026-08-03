@@ -129,6 +129,16 @@ Evidence labels:
 - Validation: Drive the real authenticated create handler, capture the persisted record, then reuse its returned session as the same non-admin subject and require success; also require a different subject to fail. A builder-only metadata assertion is insufficient.
 - False-positive guard: Multiple owner representations are unnecessary when every authorization consumer reads one authoritative object directly. Do not require duplication when the architecture deliberately derives and verifies identity from that source on each request.
 
+### Bind ownership checks to destructive write preconditions
+
+- Trigger: A controller GETs an object, checks its owner reference, UID, generation, or another identity invariant, then issues DELETE or another destructive operation by namespace/name.
+- Hidden assumption: Passing the fetched object to the client automatically binds the write to that object's UID/resourceVersion, or no other actor can change or replace the object between validation and the API Server write.
+- Failure mode: After validation, another actor changes ownership or deletes and recreates the same name; a name-only DELETE then removes the unvalidated current object and violates the ownership boundary the check was meant to protect.
+- Evidence source: `CODE`, AgentCube PR #450 exact head `f722b51`. Both CodeInterpreter child delete helpers validated `metav1.IsControlledBy`, but controller-runtime v0.23.3 `typedClient.Delete` extracted only GVK/namespace/name and sent empty delete preconditions because the callers supplied no `client.DeleteOption`.
+- Review question: Which UID and resourceVersion did the ownership decision validate, and does the final destructive request require that exact object version to still exist?
+- Validation: Interpose between GET/validation and DELETE, then change owner references or replace the object with the same name. Require UID/resourceVersion preconditions to return Conflict and prove the changed/replacement object survives; retry must GET and validate the current object again.
+- False-positive guard: A separate precondition is unnecessary when the storage/API operation already atomically compares the validated identity/version, or when garbage collection owns deletion through a verified owner reference instead of a controller-issued name-only request. An ordinary Kubernetes Update already carries resourceVersion; verify the actual client method before applying this finding to all writes.
+
 ### Prove presence before absence in cleanup tests
 
 - Trigger: An async lifecycle test waits only for a resource to disappear.
