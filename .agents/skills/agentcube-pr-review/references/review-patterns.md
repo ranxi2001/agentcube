@@ -246,8 +246,28 @@ Evidence labels:
 - Failure mode: `commit_id` is rewritten after a squash, new regressions are counted as old misses, and repeated closure feedback on one invariant is counted as several bugs. The resulting recall and skill changes reward the wrong behavior.
 - Evidence source: `CODE`, `OBS`, and `MAINTAINER`, AgentCube PR #446. Our final review targeted `449fb75`; the later bad manifest URL was introduced by `2592301`, while two later fixture comments were successive closure checks for the same existing-claim lifecycle finding. GitHub later mapped those comments to squashed head `e577a5e`, but `original_commit_id`, reply links, timestamps, and recorded posting-time heads preserved the actual rounds.
 - Review question: What exact SHA and review scope were declared, did this condition exist on that tree, and is the later comment a same-head miss, a new-head regression, a follow-up on the same invariant, or a distinct finding?
-- Validation: Freeze the review head and cutoff before inspection; retain comment ID, review ID, `original_commit_id`, `in_reply_to_id`, timestamp, and posting-time PR head; compare trees/patches across rounds; assign one stable finding ID per acceptance invariant before computing recall.
+- Validation: Freeze the review head and cutoff before inspection; retain comment ID, review ID, `original_commit_id`, `in_reply_to_id`, timestamp, and posting-time PR head; compare trees/patches across rounds; advance the finding ledger through that cutoff, including the current reviewer's own comments created after its prior version; assign one stable finding ID per acceptance invariant before computing recall.
 - False-positive guard: Split findings when an attempted fix introduces a distinct trigger and consequence, such as a migration patch that separately omits bootstrap state and deletes resources. Do not merge comments merely because they touch the same file.
+
+### Lifecycle acceptance must stay on one object lineage
+
+- Trigger: An upgrade, migration, adoption, or recovery test proves early transitions on one persisted object but relies on a later test with freshly created objects for deletion, garbage collection, replacement, or refill.
+- Hidden assumption: Passing each lifecycle operation somewhere in the suite proves that one pre-existing object can traverse the complete required lifecycle after the change.
+- Failure mode: Migration preserves identity and reaches Ready, yet deletion, owner-driven garbage collection, or pool refill is broken only for migrated state; a fresh post-upgrade object masks the gap.
+- Evidence source: `CODE` and `OBS`, AgentCube PR #446 exact head `353f1df`. The upgrade fixture proved a v0.4.6 bound claim became Ready and retained Sandbox/Pod UIDs, but never deleted that claim or exercised its source pool. A separate post-upgrade `TestCodeInterpreterWarmPool` used a fresh v1beta1 lineage, so Issue #438's migrated-claim deletion/GC/refill contract remained open.
+- Review question: Do all required lifecycle assertions refer to the same originating parent, claim/session, child UIDs, and pool identity, or did the test switch to a clean object before the risky transition?
+- Validation: Capture the pre-change parent, claim/session, Sandbox, Pod, and pool identities; migrate; wait for reconciliation; delete the same claim/session; require those exact UIDs to disappear; then require the same pool to restore desired capacity with a replacement UID.
+- False-positive guard: Separate lineages are sufficient when the acceptance contract independently asks only whether each operation works on new objects. Do not require one monolithic E2E when no persisted-state or cross-transition behavior is claimed.
+
+### Readiness loops before mutation must fail closed
+
+- Trigger: A shell loop probes an API, webhook, controller, or endpoint before migration, deletion, rollout continuation, or another mutating step.
+- Hidden assumption: A finite retry loop implies success because the loop eventually terminates, or a later command will fail clearly enough.
+- Failure mode: The retry budget is exhausted, diagnostics are printed, and execution falls through into a partial or unsafe mutation; an unbounded operator guide can instead hang forever.
+- Evidence source: `CODE` and a shell counterexample, AgentCube PR #446 exact head `353f1df`. The E2E webhook loop logged its thirtieth failure without exiting and then invoked the four-kind storage migration helper; an always-failing `kubectl` model still reached the migration marker with exit zero. Both upgrade guides used an unbounded `until` loop for the same gate.
+- Review question: What explicit success flag or terminal branch separates a ready dependency from retry exhaustion, and can any mutating command execute after the failure path?
+- Validation: Stub the probe to fail for every attempt, remove real sleeps, and require non-zero exit before a mutation marker. Also test success on the last allowed attempt and require operator-facing timeout diagnostics.
+- False-positive guard: Fall-through is acceptable only when the following operation is explicitly designed as the readiness probe, is atomic or safely idempotent, and produces an equally clear bounded failure without partial side effects.
 
 ### Repository builds do not prove exported Go source compatibility
 

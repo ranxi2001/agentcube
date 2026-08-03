@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "ledger_id": "agentcube-pr438-pr442-pr446-technical-findings",
+  "ledger_version": 5,
+  "findings": [
+    {
+      "id": "F01-production-beta-scheme",
+      "summary": "Register and watch every v1beta1 agent-sandbox type used by production controllers.",
+      "provenance": ["PR #446 discussion_r3671892415 at 822dc7b"],
+      "paths": ["cmd/workload-manager/main.go", "cmd/workload-manager/main_test.go"]
+    },
+    {
+      "id": "F03-migration-helper-doc-parity",
+      "summary": "Use one pinned runnable migration helper in both getting-started guides.",
+      "provenance": ["PR #446 discussions r3681580685, r3682886604, and r3687580749"],
+      "paths": ["docs/getting-started.md", "docs/agentcube/docs/getting-started.md"]
+    },
+    {
+      "id": "F04-scheme-test-gvks",
+      "summary": "Construct manager scheme-test GVKs from the exported dependency GroupVersions.",
+      "provenance": ["PR #446 discussion_r3681580896 at 2eefda6"],
+      "paths": ["cmd/workload-manager/main_test.go"]
+    },
+    {
+      "id": "F05-empty-name-validation",
+      "summary": "Preserve CreateSandboxRequest validation so an empty name is rejected at the HTTP boundary.",
+      "provenance": ["PR #446 discussion_r3681581092 at 2eefda6"],
+      "paths": ["pkg/workloadmanager/handlers.go", "pkg/workloadmanager/handlers_test.go"]
+    },
+    {
+      "id": "F06-version-boundary",
+      "summary": "Do not select agent-sandbox manifests with lexicographic version comparison.",
+      "provenance": ["PR #446 discussion_r3681581300 at 2eefda6"],
+      "paths": ["test/e2e/run_e2e.sh"]
+    },
+    {
+      "id": "F07-portable-codegen-path",
+      "summary": "Do not inject a contributor-specific Windows PATH into the shared codegen script.",
+      "provenance": ["PR #446 discussion_r3681581452 at 2eefda6", "Day55 local independent-adapter comparison"],
+      "paths": ["hack/update-codegen.sh"]
+    },
+    {
+      "id": "F08-causal-immutability-test",
+      "summary": "Exercise volumeClaimTemplates immutability through API admission rather than an in-memory struct assertion.",
+      "provenance": ["PR #446 discussion_r3681625786 at 2eefda6", "Day55 fork API-server counterexample"],
+      "paths": ["pkg/workloadmanager/codeinterpreter_controller_test.go", "test/e2e/e2e_test.go"]
+    },
+    {
+      "id": "F09-existing-claim-upgrade-lifecycle",
+      "summary": "Prove an existing bound claim preserves identity, reconciles to Ready, and supports deletion and pool refill after upgrade.",
+      "provenance": ["Issue #438 acceptance contract", "PR #446 issuecomment-5129068621 and discussions r3682886443, r3687580741, r3688905141, r3689367077, r3695951622"],
+      "paths": ["test/e2e/run_e2e.sh", "test/e2e/e2e_test.go"]
+    },
+    {
+      "id": "F10-bootstrap-shadow-pools",
+      "summary": "Preserve the official migration bootstrap scan and shadow-pool creation semantics.",
+      "provenance": ["PR #446 discussion_r3682886158 at fd0507f"],
+      "paths": ["hack/migrate-agent-sandbox.sh", "test/e2e/run_e2e.sh"]
+    },
+    {
+      "id": "F11-migration-data-safety",
+      "summary": "Do not ignore a failed conversion apply and then delete every SandboxClaim.",
+      "provenance": ["PR #446 discussion_r3682886316 at fd0507f", "PR #446 E2E log showing no objects passed to apply followed by deletion"],
+      "paths": ["hack/migrate-agent-sandbox.sh", "test/e2e/run_e2e.sh"]
+    },
+    {
+      "id": "F12-router-h2c-scope",
+      "summary": "Do not change the Router's established default h2c behavior in an agent-sandbox dependency upgrade.",
+      "provenance": ["PR #446 discussion_r3687580746 at 449fb75"],
+      "paths": ["cmd/router/main.go", "pkg/router/config.go", "pkg/router/server.go"]
+    },
+    {
+      "id": "F13-tagged-manifest-url",
+      "summary": "Use a manifest URL that exists in the pinned v0.5.3 release/tag.",
+      "provenance": ["PR #446 discussion_r3688904681 after 2592301"],
+      "paths": ["docs/getting-started.md", "docs/agentcube/docs/getting-started.md"]
+    },
+    {
+      "id": "F14-backup-all-migrated-kinds",
+      "summary": "Back up SandboxTemplate and SandboxWarmPool as well as Sandbox and SandboxClaim before migration.",
+      "provenance": ["Predecessor PR #442 Day55 review", "PR #446 discussion_r3688904811 at f35e458"],
+      "paths": ["docs/getting-started.md", "docs/agentcube/docs/getting-started.md"]
+    },
+    {
+      "id": "F15-exported-resource-signature",
+      "summary": "Preserve runtime/v1alpha1.Resource as schema.GroupVersionResource for existing external callers.",
+      "provenance": ["Predecessor PR #442 Day55 review", "PR #446 discussion_r3688904994 at f35e458"],
+      "paths": ["pkg/apis/runtime/v1alpha1/register.go", "client-go/listers/runtime/v1alpha1"]
+    },
+    {
+      "id": "F16-kubernetes-codegen-version",
+      "summary": "Align the Kubernetes code-generator minor version with api, apimachinery, and client-go.",
+      "provenance": ["Predecessor PR #442 Day55 review", "PR #446 discussion_r3689366928 at 1826e16"],
+      "paths": ["go.mod", "hack/update-codegen.sh"]
+    },
+    {
+      "id": "F17-auth-owner-store-persistence",
+      "summary": "Persist the authenticated owner ID in the Store record used by Router ownership checks.",
+      "provenance": ["PR #446 discussion_r3691344801 at a0f4882", "Focused handler red/green regression test"],
+      "paths": ["pkg/workloadmanager/handlers.go", "pkg/workloadmanager/workload_builder.go", "pkg/workloadmanager/sandbox_helper.go", "pkg/router/handlers.go"]
+    },
+    {
+      "id": "F18-codegen-gobin-install-path",
+      "summary": "Install and execute code-generation tools from the same directory when GOBIN is configured.",
+      "provenance": ["PR #446 discussion_r3691344805 at a0f4882", "Isolated non-empty GOBIN reproduction"],
+      "paths": ["hack/update-codegen.sh"]
+    },
+    {
+      "id": "F19-embedded-podspec-workloadref",
+      "summary": "Preserve or explicitly migrate the AgentRuntime PodSpec workloadRef contract when moving to Kubernetes v0.36.",
+      "provenance": ["PR #446 discussion_r3691344811 at a0f4882", "Focused typed JSON decode counterexample"],
+      "paths": ["go.mod", "pkg/apis/runtime/v1alpha1/agent_type.go", "manifests/charts/base/crds/runtime.agentcube.volcano.sh_agentruntimes.yaml", "pkg/workloadmanager/workload_builder.go", "pkg/workloadmanager/workload_builder_test.go", "docs/getting-started.md", "docs/agentcube/docs/getting-started.md"]
+    },
+    {
+      "id": "F20-conversion-webhook-readiness-docs",
+      "summary": "Probe the conversion webhook with a bounded fail-closed gate before the documented post-upgrade storage migration.",
+      "provenance": ["PR #446 discussion_r3691344808 at a0f4882", "agent-sandbox v0.5.3 API migration guide"],
+      "paths": ["docs/getting-started.md", "docs/agentcube/docs/getting-started.md"]
+    },
+    {
+      "id": "F21-scheme-test-ci-discovery",
+      "summary": "Run the changed workload-manager scheme regression test in CI.",
+      "provenance": ["PR #446 exact-head changed-test-to-workflow mapping at a0f4882", "PR #446 discussion_r3681580896"],
+      "paths": ["cmd/workload-manager/main_test.go", ".github/workflows/test-coverage.yml"]
+    },
+    {
+      "id": "F22-e2e-webhook-wait-fail-open",
+      "summary": "Fail the E2E upgrade before migration when the conversion-webhook readiness probe exhausts its retry budget.",
+      "provenance": ["PR #446 exact-head 353f1df independent final-head audit", "Always-failing kubectl shell counterexample"],
+      "paths": ["test/e2e/run_e2e.sh"]
+    }
+  ]
+}

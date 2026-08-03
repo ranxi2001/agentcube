@@ -271,3 +271,18 @@ finding closure harness 已在 current `e577a5e` 上读取 15 项 ledger，得�
 第二轮修正把 expected repository/PR 提升为强制 CLI 输入。用 `--target-pull-request 442` 读取 #446 closure 现在会报告 `closure target volcano-sh/agentcube#446 does not match command-line target volcano-sh/agentcube#442` 并 exit 2；正确 target #446 仍输出 closure complete、readiness blocked、F09/F16 两个 blocking IDs、exit 1。mTLS 检查改成结构化 YAML/job/step/matrix/env/shell dataflow，四个已知假 disabled paths 都返回 false，而 current #446 的真实 matrix include false 仍返回 true。
 
 > 分析：这次暴露出一个新的 stop rule：harness 自己的 happy-path tests 全绿，不等于 adversarial closure 完成。每个会改变“ready/not ready”的输入边界至少要尝试三类攻击：把证据换绑到别的对象、让执行路径在组合条件下消失、让配置值在更近的作用域或更晚的时序被覆盖。只有正例与反例同时稳定，规则才适合进入 reusable skill。
+
+### 9.9 `353f1df` replay：推进 ledger cutoff，不拼接 lifecycle
+
+`2026-08-03` 对 PR #446 latest head `353f1df` 重跑 exact-head review。v4 ledger 已包含到 `F21` 的 20 个 stable IDs；本轮保留这些 ID，只更新 closure evidence，并为新发现的 E2E webhook fail-open 增加 `F22`。新增 [v5 ledger](benchmarks/day57-agent-autoharness/pr446-lineage-finding-ledger-v5.json) 与 [`353f1df` closure](benchmarks/day57-agent-autoharness/pr446-353f1df-finding-closure-v5.json)：21 项中 16 fixed、5 present、0 unclassified。
+
+> 分析：每轮 ledger 必须推进到当前 review cutoff，而不是只复用旧文件或重命名 ID。自己的已发布 finding、另一 reviewer 的 finding、旧 coverage residual 和新 head 引入的 distinct finding都必须保留；否则 closure rate 与 recall 分母会再次变小。
+
+本轮给 harness/skill 增加两个 operator：
+
+1. **同一对象 lineage gate**：migrated object's Ready/UID 不能与 fresh post-upgrade object's delete/refill 拼成完整 acceptance。必须沿相同 parent、claim/session、Sandbox/Pod UID 与 pool identity 观察 migrate -> reconcile -> delete -> GC -> refill。
+2. **mutation 前 fail-closed gate**：有限 retry loop 只有在 exhaustion 明确非零退出时才是 readiness gate。日志后 fall through 会启动 mutation；operator docs 的无界 `until` 则会永久挂起。
+
+final-head harness 在 clean detached `353f1df` 上得到 changed-test execution passed、closure complete、finding readiness blocked、exit 1。它同时保留 `F21-scheme-test-ci-discovery`：直接测试通过可以验证当前 head，却不能把“将来 CI 会守住该 regression”误判为 fixed。
+
+这两个 pattern 已写入 `agentcube-pr-review` skill/reference。全部样本仍属于 #438/#442/#446 contaminated lineage，只能作为 train/regression 改进，不能宣称 held-out 泛化或 efficiency promotion。

@@ -975,3 +975,54 @@ lineage ledger 已从 v3 的 15 项扩为 v4 的 20 项，current closure 是 **
 > 分析：generated files 不需要逐行重新发明 rationale，但必须回溯到 generator/source 并通过 clean regeneration。无语义 newline 与独立 Windows test skip 也不能因 PR 很大而自动获得 scope 正当性；这里明确记录它们，但不让机械清理淹没 runtime blockers。
 
 本节没有发布 upstream review/comment、没有 resolve thread、没有 `/lgtm`、Prow command、reviewer request 或 maintainer mention。新增 findings 若要公开，必须先按 current head 做 duplicate/anchor guard，并让用户确认 exact target/body/event。
+
+## 18. 2026-08-03：`353f1df` latest-head closure
+
+### 18.1 Head、公开线程与 CI
+
+本轮只读扫描锁定 PR #446 exact head `353f1dfa60759e5f2e0bbbac239adb93f1ae2650`，base 仍为 `upstream/main@0704bb96502af32f2bd90d47f1e11b4c8099959e`。相对我们已发布四条 review findings 的 `a0f4882`，作者先提交 `a524029` / `c46f3d9` 修复主体，再追加 `da4140d` 与 `353f1df` 处理 migrated Claim Ready wait。PR 当前 36 files、`+1140/-468`。
+
+全部 executable Actions checks 通过，包括 build、lint、coverage、Codegen、`e2e-test` 与 `codeinterpreter-e2e-test`。DCO 单独失败：`a524029`、`c46f3d9` 有 `Signed-off-by`，新增的 `da4140d`、`353f1df` 没有；Tide 还等待 `lgtm` 与 `approved`。没有新的 maintainer review 或 accepted-risk 决定。
+
+### 18.2 已真实关闭
+
+Ready wait 已真实关闭旧 subcondition。exact-head CI 在 `17:07:32Z` 先显示 `upgrade-bound-claim` 的 `READY` 为空，随后于 `17:07:42Z` 出现 `condition met`，源码才继续比较 Sandbox UID、Pod UID 和 binding。这不是固定 sleep 或立即读取形成的 false green。
+
+此前公开的两项实现缺陷也已修：
+
+- direct 与 warm-pool builders 都把认证主体写入返回的 Store entry `OwnerID`，相邻测试断言该值；
+- codegen 脚本读取 `GOBIN`，为空才回退 `GOPATH/bin`，先验证三个 binaries 再删除 `client-go`；Kubernetes libraries 与 code-generator 同为 `v0.36.2`。
+
+因此 v4 ledger 的 `F17-auth-owner-store-persistence` 与 `F18-codegen-gobin-install-path` 可从 present 变为 fixed。线程是否仍 unresolved 不影响代码 closure。
+
+### 18.3 五项仍 present
+
+| Severity | Stable ID | Current-head evidence | 修正方向 |
+| --- | --- | --- | --- |
+| P1 | `F09-existing-claim-upgrade-lifecycle` | `run_e2e.sh:345-397` 没有创建原始 SandboxWarmPool；`:465-507` 只验证 Ready、UID、binding 和 `DESIRED=0` shadow pool 存在。没有删除同一 migrated Claim，也没有验证其 Sandbox/Pod GC 与同一 pool refill；后面的 warm-pool test 使用 fresh v1beta1 lineage | 在 v0.4.6 阶段创建真实 pool/bound Sandbox；迁移后删除同一 Claim，等待原 UIDs 消失，并证明同一 pool 以新 UID 补回 desired capacity |
+| P2 | `F19-embedded-podspec-workloadref` | base CRD 的 `workloadRef{name,podGroup,podGroupReplicaKey}` 被 shape 不同的 `schedulingGroup{podGroupName}` 替代；root guide 只写一句 transition，mirror 缺失；所谓 compatibility test 只构造新 PodSpec 并断言 image | 由 maintainer 明确选择 preserve/migrate 或 accepted break；两份文档与旧 serialized object test 对齐这个决定 |
+| P2 | `F20-conversion-webhook-readiness-docs` | 两份 guide 现在加了 probe，但都是无 timeout、无诊断退出的 `until ...; sleep 2`；webhook 永久不可用时 mandatory upgrade 永久挂起 | 使用 bounded retry 或 `timeout`，耗尽后打印诊断并非零退出；两份 copy 保持一致 |
+| P2 | `F21-scheme-test-ci-discovery` | exact-head `go test ./cmd/workload-manager` 通过，但 coverage 只跑 `./pkg/...`，E2E 只跑 `./test/e2e/...`；新增 manager scheme regression 仍未被任何 CI command 执行 | 在现有 Go test workflow 纳入 `./cmd/workload-manager`，或统一运行全部非 live Go packages |
+| P2 | `F22-e2e-webhook-wait-fail-open` | `run_e2e.sh:438-449` 第 30 次 webhook probe 失败只打印日志，`:451-452` 仍调用 mutating migration helper | exhaustion branch 明确 `exit 1`；补 probe 永远失败时 migration marker 不可达的 shell regression |
+
+> 分析：生命周期 acceptance 必须沿同一对象 lineage。`旧 Claim -> Ready/UID 保留` 与 `新 Claim -> delete/refill` 分别通过，不能拼成 `旧 Claim -> migrate -> delete -> GC -> refill` 的完整证据。
+
+`F22` 是新的 current-head finding，不是 docs thread `r3691344808` 的重复。旧 thread 把 E2E probe 当成文档应复制的参考，只要求两份 operator guide bounded/fail on timeout；本轮才验证 E2E probe 自身会 fall through。最小 shell counterexample 把 `kubectl` 固定为失败、`sleep` 置空，30 次失败后仍输出 `MIGRATE_REACHED` 并 exit 0。上游 helper 会按四类 CRD 继续处理，累计 failure 后才返回，因此等待边界应在 mutation 前 fail closed。
+
+> 注释：`workloadRef` 不是可机械替换的字段名。Kubernetes v0.35.4 的类型有 `Name`、`PodGroup`、`PodGroupReplicaKey`，v0.36.2 的 `PodSchedulingGroup` 只有 `PodGroupName *string`；“upstream 删除了旧字段”解释了来源，但没有定义 AgentCube 对现有 `v1alpha1` AgentRuntime 的兼容承诺。
+
+### 18.4 验证、ledger 与发布边界
+
+本地 exact-head 验证：
+
+```text
+bash -n test/e2e/run_e2e.sh hack/update-codegen.sh             PASS
+go test ./cmd/workload-manager ./pkg/workloadmanager \
+  ./pkg/picod ./pkg/router -count=1                            PASS
+go test ./test/e2e -run '^$' -count=1                          PASS
+final_head_review.py --run-go-tests --check-urls               BLOCKED, expected
+```
+
+v5 ledger 有 21 个 stable IDs，exact-head closure 为 `16 fixed / 5 present / 0 unclassified`。harness 判定 changed-test execution passed、carry-forward closure complete、finding readiness blocked，并以 exit 1 结束。三个 literal upgrade URLs 返回 200；含 shell variable 的 URL保留为 unresolved-variable。`git diff --check` 另发现 docs 与 E2E shell 多处 trailing whitespace，只记为非阻断清理。
+
+本轮没有本地 live cluster，因此没有重复执行完整 E2E；使用 exact-head upstream 两个 E2E job 的实际日志作为 cluster evidence。没有向 #446 发布新 review/comment、reply、resolve、Prow command、reviewer request 或 maintainer mention。
