@@ -1034,3 +1034,13 @@ v5 ledger 有 21 个 stable IDs，exact-head closure 为 `16 fixed / 5 present /
 > 分析：scope gate 不能按“问题是在 review 中发现的”判断，而应看责任和依赖方向。本 PR 新增失败分支的 fail-closed 修复应留在本 PR；通用 test discovery policy 应从 `upstream/main` 独立处理，避免 dependency upgrade 继续吸收 CI infrastructure 变化。
 
 用户确认 exact target/body/event 后，发布前 fail-closed 核对 #446 仍为 open、non-draft、head `353f1dfa60759e5f2e0bbbac239adb93f1ae2650`，且 `test/e2e/run_e2e.sh` 没有同义新线程。`2026-08-03 10:35 CST` 提交 1 个 [`COMMENT` review `4840435164`](https://github.com/volcano-sh/agentcube/pull/446#pullrequestreview-4840435164)，其中只有 1 条 [inline comment `3701010868`](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3701010868)，锚定 `test/e2e/run_e2e.sh:452`，只请求 timeout diagnostics 后 `exit` non-zero。API 回读确认 review/comment 均绑定 exact head，path、line、正文和数量与确认稿一致；没有发布 `REQUEST_CHANGES`、`/lgtm`、Prow command、maintainer mention 或 resolve 操作。
+
+### 18.6 `d7333cc` 增量 closure
+
+作者先在 inline thread 回复 `ok, doing..`，随后于 `2026-08-03 11:19 CST` 回复 [`done.`](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3701126915)，并把 #446 推进到 exact head `d7333cc2fcc78ff923e45a9e4ed5d9e714359baa`。相对评论时的 `353f1df`，新增 diff 只有 `test/e2e/run_e2e.sh` 一行：第 30 次 webhook probe 失败并打印 controller logs 后执行 `exit 1`，其后的 `/tmp/migrate.sh --phase=migrate` 不再可达。
+
+增量验证同时覆盖两个循环边界：probe 连续 30 次失败时返回码为 1 且输出不含 `MIGRATE_REACHED`；第 30 次刚好成功时返回码为 0 且 migration marker 可达。exact-head shell syntax check、`git diff --check` 均通过，GitHub build、lint、coverage、Codegen、Python checks、两个 E2E 等全部 executable checks 通过。
+
+> 分析：作者的 `done.` 对 `F22-e2e-webhook-wait-fail-open` 是准确的 closure 信号，但它只回答这条 inline finding。它不能替代对整个 PR 的 readiness 判断，也不能自动关闭其他公开线程。
+
+本轮没有重跑 v5 全量 ledger，因此只记录 `F22` 从 present 到 fixed 的增量结论。migrated Claim deletion/GC/refill、`workloadRef` 兼容边界、两份文档的无界 webhook wait 和仓库级 scheme-test CI discovery 不因这一行改动而改变。DCO 仍为 `ACTION_REQUIRED`：检查明确列出 `da4140d` 与 `353f1df` 两个缺少 `Signed-off-by` 的 commits；Tide 仍等待合并标签。本轮没有发布 reply、resolve、review、Prow command 或 maintainer mention。
