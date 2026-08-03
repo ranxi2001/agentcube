@@ -444,6 +444,7 @@ EOF
             if [ $i -eq 30 ]; then
                 echo "Timed out waiting for webhook. Controller logs:"
                 kubectl logs -n agent-sandbox-system -l control-plane=controller-manager || true
+                exit 1
             fi
             sleep 5
         done
