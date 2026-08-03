@@ -19,7 +19,7 @@
 
 ## Active Upstream Threads
 
-- #450 `check CodeInterpreter child ownership`：open、non-draft、head `f722b51`、2 files `+165/-16`，Fixes #449；本地 exact-head review 证明 steady-state update 与 create-collision retry 方向正确，但两处 delete 在 ownership GET 后仍发 name-only DELETE，没有 UID/resourceVersion preconditions。并发 ownerRef 修改或同名替换后仍可删除未归属对象，属于 source-proven reachable latent bug；未发布 upstream comment，等待用户确认 exact text。
+- #450 `check CodeInterpreter child ownership`：open、non-draft、head `f722b51`、2 files `+165/-16`，Fixes #449；本地 exact-head review 证明 steady-state update 与 create-collision retry 方向正确，但两处 delete 在 ownership GET 后仍发 name-only DELETE，没有 UID/resourceVersion preconditions。并发 ownerRef 修改或同名替换后仍可删除未归属对象，属于 source-proven reachable latent bug；已用普通 `COMMENT` review 在第 318 行发布 Mermaid 时序图 finding：`https://github.com/volcano-sh/agentcube/pull/450#discussion_r3701004167`。
 - #447 / #448 Code Interpreter MCP SDK v2：maintainer 选择 latest v2 SDK 后，upstream PR [#448](https://github.com/volcano-sh/agentcube/pull/448) exact head `1286b3a` 已于 `2026-07-30 09:53 CST` 通过 merge commit `0704bb9` 合入 `main`，关联 bug #447 已关闭。合入前 fork 9/9 与 upstream 13/13 checks 全绿，覆盖 local Streamable HTTP、stdio、Docker rollout 与 in-cluster MCP E2E；该前置不再是 #429/#446 的 blocker。
 - #446 `Upgrade agent sandbox v0.5.3`：open、non-draft、current `353f1df`，4 commits、36 files；全部 executable checks 通过，DCO 因 `da4140d` / `353f1df` 无 signoff 失败，Tide 等 `lgtm/approved`。Ready、Store OwnerID、GOBIN 与 code-generator skew 已修；v5 closure 为 16 fixed / 5 present。migrated lifecycle、`workloadRef` 与 docs webhook 已有公开线程，不重复发布。scope gate 后只保留 E2E webhook exhaustion 后仍迁移这一条 in-scope finding；scheme-test 未被 CI 执行属于仓库级后续。已准备 1 个 `COMMENT` review 事件、1 条 inline comment，等待用户确认 exact English payload。
 - Fork-only v0.5.3 adapter：`compat/agent-sandbox-v053-independent@5957314` 基于 `upstream/main@0704bb9`，保留已验证的 v0.5.2 beta adapter，仅用 5-file increment 升到 v0.5.3，并新增真实 API Server 的 `volumeClaimTemplates` immutability E2E。local lint/gen-check/build/non-E2E all-Go/workloadmanager race 与隔离 k3d v1.32.5 + official v0.5.3 manifest focused E2E 通过；fork push checks 9/9 success。分支只用于实现/review 证据，不创建竞争 upstream PR。
@@ -62,7 +62,7 @@
 ## Next
 
 - 每个 substantive AgentCube work loop 开始先做只读 community freshness scan；更新 scan timestamp 和 decision-relevant changes，不发布 upstream 内容。
-- #450：若用户要发布 review，先准备一个 anchored at `codeinterpreter_controller.go:318` 的 concise English finding，明确 GET-owned-A -> concurrent replace/mutate -> name-only DELETE 的反例，并请求 UID + ResourceVersion preconditions 和 race regression；发布前让用户确认 exact body/target。
+- #450：已发布普通 inline review，等待作者回复或新 head；新 push 后复核两处 delete 是否增加 UID/resourceVersion preconditions，并确认 `SandboxTemplate` / `SandboxWarmPool` 并发回归测试覆盖，不重复追评。
 - #447 / #448：已完成并合入，不再追踪 review；仅在发现 merged regression 时重新打开调查。
 - #429：保持 `cf4024b` 两文件 scope；先在 fork-only validation branch rebase 到 `upstream/main@0704bb9` 并跑 exact-head checks，再让用户确认 open PR branch update。
 - #446：current `353f1df` 已完成 exact-head 21-item closure；16 fixed、5 present。待用户确认 exact payload 后，发布 1 个 `COMMENT` review、1 条 inline comment：`test/e2e/run_e2e.sh:452` 指出 webhook probe exhaustion 仍继续 mutation，并只请求 timeout diagnostics 后 non-zero exit。scheme-test CI discovery 留作独立仓库级后续；发布前再 fail-closed 核对 head，旧 findings 不重复发布，不自动 resolve、`/lgtm`、mention maintainer，也不把 fork adapter 开成竞争 PR。
