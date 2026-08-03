@@ -1026,3 +1026,11 @@ final_head_review.py --run-go-tests --check-urls               BLOCKED, expected
 v5 ledger 有 21 个 stable IDs，exact-head closure 为 `16 fixed / 5 present / 0 unclassified`。harness 判定 changed-test execution passed、carry-forward closure complete、finding readiness blocked，并以 exit 1 结束。三个 literal upgrade URLs 返回 200；含 shell variable 的 URL保留为 unresolved-variable。`git diff --check` 另发现 docs 与 E2E shell 多处 trailing whitespace，只记为非阻断清理。
 
 本轮没有本地 live cluster，因此没有重复执行完整 E2E；使用 exact-head upstream 两个 E2E job 的实际日志作为 cluster evidence。没有向 #446 发布新 review/comment、reply、resolve、Prow command、reviewer request 或 maintainer mention。
+
+### 18.5 Scope gate 与 review 发布
+
+发布前重新区分了两条未公开 finding 的 ownership。`F22-e2e-webhook-wait-fail-open` 位于本 PR 新增的 upgrade E2E migration path，最小修复仅是在第 30 次 probe 失败并打印诊断后返回非零，属于本 PR correctness scope。`F21-scheme-test-ci-discovery` 虽由本 PR 暴露，但修正需要修改仓库级 workflow；本轮不把它作为 #446 的 inline request，继续留在 ledger 作为独立 CI 后续。
+
+> 分析：scope gate 不能按“问题是在 review 中发现的”判断，而应看责任和依赖方向。本 PR 新增失败分支的 fail-closed 修复应留在本 PR；通用 test discovery policy 应从 `upstream/main` 独立处理，避免 dependency upgrade 继续吸收 CI infrastructure 变化。
+
+用户确认 exact target/body/event 后，发布前 fail-closed 核对 #446 仍为 open、non-draft、head `353f1dfa60759e5f2e0bbbac239adb93f1ae2650`，且 `test/e2e/run_e2e.sh` 没有同义新线程。`2026-08-03 10:35 CST` 提交 1 个 [`COMMENT` review `4840435164`](https://github.com/volcano-sh/agentcube/pull/446#pullrequestreview-4840435164)，其中只有 1 条 [inline comment `3701010868`](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3701010868)，锚定 `test/e2e/run_e2e.sh:452`，只请求 timeout diagnostics 后 `exit` non-zero。API 回读确认 review/comment 均绑定 exact head，path、line、正文和数量与确认稿一致；没有发布 `REQUEST_CHANGES`、`/lgtm`、Prow command、maintainer mention 或 resolve 操作。
