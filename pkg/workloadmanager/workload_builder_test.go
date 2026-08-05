@@ -842,7 +842,7 @@ func TestAgentRuntime_OldObjectCompatibility(t *testing.T) {
 			"namespace": "default"
 		},
 		"spec": {
-			"template": {
+			"podTemplate": {
 				"spec": {
 					"workloadRef": {
 						"name": "my-workload"
