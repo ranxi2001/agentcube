@@ -1102,3 +1102,15 @@ DCO 仍因 `da4140d` 与 `353f1df` 缺少 `Signed-off-by` 而 `action_required`�
 用户确认 exact target、head、event 和完整正文后，于 `2026-08-05 10:24:10 CST` 一次性发布 [`COMMENT` review `4860469530`](https://github.com/volcano-sh/agentcube/pull/446#pullrequestreview-4860469530)。GitHub API 回读确认 reviewer 为 `ranxi2001`、state 为 `COMMENTED`、commit 为 exact `d7333cc`，正文只汇总上述三项 PR-scope residual，并明确已修复 webhook fail-closed thread、没有新增 current-head P1/P2、当前仍不应 `/lgtm`。没有发布新 inline comment、`REQUEST_CHANGES`、Prow command、maintainer mention、thread resolve 或 reviewer request。
 
 > 分析：在同一 finding 已有公开 thread、但作者自行 resolve 后 current tree 仍未关闭时，新的 review round 应引用原 thread 并补充 exact-head closure，而不是复制相同 inline finding。这样既保留 blocker，也让 reviewer 能区分“GitHub resolved metadata”和“技术上已关闭”。
+
+### 18.10 `3882157` main merge 与 #453 cross-reference
+
+作者于 `2026-08-05 11:48:45 CST` 把 `main@939abb5` 直接 merge 进 #446，head 从 `d7333cc2fcc78ff923e45a9e4ed5d9e714359baa` 变为 `3882157b92d9fe2f5c9f112ebdaf872093fcc7f5`。该 commit 的两个 parents 正是 `d7333cc` 与 `939abb5`；first-parent diff 只有 `go.mod` 的 Go `1.26.4 -> 1.26.5` 和三个 Docker builder 镜像的对应 patch，未修改 migrated lifecycle、AgentRuntime CRD/typed `PodSpec`、两份 migration guide 或相关 tests。
+
+新 commit tree 为 `bb6df1fa92216702967bff3faff777c29b6ea660`，与 18.8 在发布 review 前对 `main@939abb5 + d7333cc` 预计算并审查的 merge tree 完全相同。所有新 head executable checks 已通过，因此此前“checks 早于 main advance”的限制关闭；但 `F09`、`F19`、`F20` 的代码证据逐字未变，17 fixed / 4 present 的技术分类不变。旧 closure JSON 仍严格绑定 `d7333cc`，不能冒充 `3882157` 的 exact-head closure；由于当前 merge commit 违反仓库历史规则并预期被 rebase，不为这个瞬态 SHA 新造一份正式 closure。
+
+Prow 随即添加 `do-not-merge/contains-merge-commits`，并在 [评论 `5187308245`](https://github.com/volcano-sh/agentcube/pull/446#issuecomment-5187308245) 要求用 rebase 重放 commits。DCO 仍只列出 `da4140d` 与 `353f1df` 缺少 signoff；Tide 仍等待 `lgtm/approved`。这使当前 head 比 `d7333cc` 多一个明确的流程 blocker，并没有更接近 `/lgtm`。
+
+GitHub 于 `2026-08-05 15:02:54 CST` 显示“acsoto mentioned this pull request”，实际是 #453 产生的 cross-reference。`@acsoto` 在 [#453 评论 `5188629285`](https://github.com/volcano-sh/agentcube/pull/453#issuecomment-5188629285) 说明暂不需要把 getting-started 从 agent-sandbox v0.1.1 调到 v0.4.6，因为 #446 正在完成升级。该 MEMBER 意见证明 #446 是当前 canonical upgrade path，也是拒绝 #453 重复文档改动的 scope 决定；它不是 #446 的 review、`/lgtm`、approval，也没有接受 `F09/F19/F20` 的剩余风险。
+
+本轮只做 latest timeline、first-parent diff、tree identity、CI/DCO/Prow 与 cross-reference 原文核对，没有发布新 review、reply、resolve、Prow command、reviewer request 或 maintainer mention。下一次正式 review 应等待作者按 bot 要求 rebase/squash，或提交触及剩余 findings 的实质 patch，再绑定新的 exact head。
