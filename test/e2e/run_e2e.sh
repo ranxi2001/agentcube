@@ -529,7 +529,7 @@ EOF
         
         echo "Waiting for shadow pool to refill..."
         for i in {1..30}; do
-            AVAILABLE=$(kubectl get sandboxwarmpool shadow-pool-e2e-upgrade-template -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.status.availableReplicas}' 2>/dev/null)
+            AVAILABLE=$(kubectl get sandboxwarmpool shadow-pool-e2e-upgrade-template -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
             if [ "${AVAILABLE:-0}" -ge 1 ]; then
                 echo "Shadow pool successfully refilled!"
                 break
