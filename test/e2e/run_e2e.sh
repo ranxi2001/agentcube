@@ -524,6 +524,9 @@ EOF
             sleep 2
         done
         
+        echo "Setting shadow pool desired replicas to 1..."
+        kubectl patch sandboxwarmpool shadow-pool-e2e-upgrade-template -n "${AGENTCUBE_NAMESPACE}" --type=merge -p '{"spec":{"replicas":1}}'
+        
         echo "Waiting for shadow pool to refill..."
         for i in {1..30}; do
             AVAILABLE=$(kubectl get sandboxwarmpool shadow-pool-e2e-upgrade-template -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.status.availableReplicas}' 2>/dev/null)
@@ -533,6 +536,8 @@ EOF
             fi
             if [ $i -eq 30 ]; then
                 echo "Error: Shadow pool shadow-pool-e2e-upgrade-template failed to refill!" >&2
+                kubectl get sandboxwarmpool shadow-pool-e2e-upgrade-template -n "${AGENTCUBE_NAMESPACE}" -o yaml >&2 || true
+                kubectl get sandboxes -n "${AGENTCUBE_NAMESPACE}" >&2 || true
                 exit 1
             fi
             sleep 5
