@@ -17,6 +17,7 @@ limitations under the License.
 package workloadmanager
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -827,5 +828,55 @@ func TestAgentRuntimePodSpec_K8s36CompatibilityBoundary(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, sandbox)
 	assert.Equal(t, "owner-456", entry.OwnerID)
+	assert.Equal(t, "python:3.11-slim", sandbox.Spec.PodTemplate.Spec.Containers[0].Image)
+}
+
+func TestAgentRuntime_OldObjectCompatibility(t *testing.T) {
+	// This simulates an old AgentRuntime object stored in etcd (v0.4.6 era)
+	// that contains a 'workloadRef' in its PodSpec which is dropped in corev1.PodSpec v0.36.
+	rawJSON := []byte(`{
+		"apiVersion": "runtime.agentcube.volcano.sh/v1alpha1",
+		"kind": "AgentRuntime",
+		"metadata": {
+			"name": "compat-runtime-old",
+			"namespace": "default"
+		},
+		"spec": {
+			"template": {
+				"spec": {
+					"workloadRef": {
+						"name": "my-workload"
+					},
+					"containers": [
+						{
+							"name": "app",
+							"image": "python:3.11-slim"
+						}
+					]
+				}
+			}
+		}
+	}`)
+
+	var ar runtimev1alpha1.AgentRuntime
+	err := json.Unmarshal(rawJSON, &ar)
+	assert.NoError(t, err, "Should successfully unmarshal old JSON despite dropped fields")
+
+	fakeClient := cubefake.NewSimpleClientset(&ar)
+	factory := cubeinformers.NewSharedInformerFactory(fakeClient, 0)
+	agentRuntimeInformer := factory.Runtime().V1alpha1().AgentRuntimes()
+	assert.NoError(t, agentRuntimeInformer.Informer().GetStore().Add(&ar))
+
+	ifm := &Informers{
+		AgentRuntimeLister:   agentRuntimeInformer.Lister(),
+		AgentRuntimeInformer: agentRuntimeInformer.Informer(),
+		informerFactory:      newFactory(),
+		cubeInformerFactory:  factory,
+	}
+
+	sandbox, entry, err := buildSandboxByAgentRuntime("default", "compat-runtime-old", "owner-compat", ifm)
+	assert.NoError(t, err)
+	assert.NotNil(t, sandbox)
+	assert.Equal(t, "owner-compat", entry.OwnerID)
 	assert.Equal(t, "python:3.11-slim", sandbox.Spec.PodTemplate.Spec.Containers[0].Image)
 }

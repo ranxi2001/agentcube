@@ -507,6 +507,36 @@ EOF
             exit 1
         }
         echo "SandboxClaim migration, bound lifecycle, and pool adoption verified successfully"
+        
+        echo "Verifying garbage collection and warm-pool refill of migrated objects..."
+        kubectl delete sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}"
+        
+        echo "Waiting for bound Sandbox to be garbage-collected..."
+        for i in {1..30}; do
+            if ! kubectl get sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" >/dev/null 2>&1; then
+                echo "Sandbox successfully garbage collected"
+                break
+            fi
+            if [ $i -eq 30 ]; then
+                echo "Error: Sandbox upgrade-bound-sandbox was not garbage collected!" >&2
+                exit 1
+            fi
+            sleep 2
+        done
+        
+        echo "Waiting for shadow pool to refill..."
+        for i in {1..30}; do
+            AVAILABLE=$(kubectl get sandboxwarmpool shadow-pool-e2e-upgrade-template -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.status.availableReplicas}' 2>/dev/null || echo "0")
+            if [ "${AVAILABLE}" -ge 1 ]; then
+                echo "Shadow pool successfully refilled!"
+                break
+            fi
+            if [ $i -eq 30 ]; then
+                echo "Error: Shadow pool shadow-pool-e2e-upgrade-template failed to refill!" >&2
+                exit 1
+            fi
+            sleep 5
+        done
     fi
 
 

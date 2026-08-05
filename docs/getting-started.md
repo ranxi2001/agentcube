@@ -66,7 +66,11 @@ To safely upgrade from `v0.4.6` to `v0.5.3`, follow these mandatory steps:
    Wait for the new controller and conversion webhook to be fully responsive before proceeding:
    ```bash
    kubectl rollout status deployment/agent-sandbox-controller -n agent-sandbox-system
-   until kubectl get sandboxwarmpools.extensions.agents.x-k8s.io --all-namespaces >/dev/null 2>&1; do sleep 2; done
+   for i in {1..30}; do
+       if kubectl get sandboxwarmpools.extensions.agents.x-k8s.io --all-namespaces >/dev/null 2>&1; then break; fi
+       if [ $i -eq 30 ]; then echo "Timed out waiting for webhook"; exit 1; fi
+       sleep 2
+   done
    ```
 6. **Run Post-Upgrade Migrate**
    Execute the migration phase to finalize the upgrade:
