@@ -1092,3 +1092,13 @@ local --run-go-tests replay                                  NOT COUNTED, host r
 本轮 Go replay 遇到共享主机负载接近 200、可用内存约 1.3 GiB、无 swap，linker 十多分钟未完成；主动中止后不把它记成 PASS 或 AgentCube failure。`d7333cc` 相对已完成 direct Go tests 的 `353f1df` 只增加一行 shell `exit 1`，且 current head 的 build、lint、coverage、Codegen、Python 和两个 upstream E2E jobs 全部通过。没有新建 live cluster。19 处 trailing whitespace 是机械清理，不提升为 correctness blocker。
 
 DCO 仍因 `da4140d` 与 `353f1df` 缺少 `Signed-off-by` 而 `action_required`；Tide 仍等待 `lgtm/approved`。综合结论继续是 **NO `/lgtm`**。本轮没有向 upstream 发布 review/comment、reply、resolve、Prow command、reviewer request 或 maintainer mention。
+
+### 18.9 `d7333cc` 一次性复核发布
+
+发布前于 `2026-08-05 10:08 CST` 再次刷新 GitHub：#446 仍为 open、non-draft，exact head 仍是 `d7333cc2fcc78ff923e45a9e4ed5d9e714359baa`，此前的 `updatedAt=2026-08-03T05:23:44Z` 只对应作者重新请求 `ranxi2001` review。30 个既有 reviews 全为 `COMMENTED`，没有 `APPROVED` 或 `CHANGES_REQUESTED`；24 个 threads 中 23 个由 PR 作者 resolve，唯一未 resolve 的 `F22` 已由 current code 技术关闭。没有新的 commit、review、comment 或 maintainer accepted-risk 决定。
+
+重复评论守卫确认 `F09`、`F19`、`F20` 都已有 current-PR 公开证据：migrated Claim lifecycle 对应 maintainer thread [`r3682886443`](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3682886443)，`workloadRef` 对应 [`r3691344811`](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3691344811)，两份文档的 bounded webhook gate 对应 [`r3691344808`](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3691344808)。因此没有重新创建三条 inline threads，而是把 exact-head closure 作为一个顶层 review 汇总；仓库级 `F21-scheme-test-ci-discovery` 没有扩进本 PR 的最小 blocker 集合。
+
+用户确认 exact target、head、event 和完整正文后，于 `2026-08-05 10:24:10 CST` 一次性发布 [`COMMENT` review `4860469530`](https://github.com/volcano-sh/agentcube/pull/446#pullrequestreview-4860469530)。GitHub API 回读确认 reviewer 为 `ranxi2001`、state 为 `COMMENTED`、commit 为 exact `d7333cc`，正文只汇总上述三项 PR-scope residual，并明确已修复 webhook fail-closed thread、没有新增 current-head P1/P2、当前仍不应 `/lgtm`。没有发布新 inline comment、`REQUEST_CHANGES`、Prow command、maintainer mention、thread resolve 或 reviewer request。
+
+> 分析：在同一 finding 已有公开 thread、但作者自行 resolve 后 current tree 仍未关闭时，新的 review round 应引用原 thread 并补充 exact-head closure，而不是复制相同 inline finding。这样既保留 blocker，也让 reviewer 能区分“GitHub resolved metadata”和“技术上已关闭”。
