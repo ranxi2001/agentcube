@@ -1054,3 +1054,41 @@ v5 ledger 有 21 个 stable IDs，exact-head closure 为 `16 fixed / 5 present /
 > 分析：`/lgtm` 表示 reviewer 认为当前 diff 在既定 scope 内已经可合并；它不是“我最后一条评论修了”的确认按钮。绿色 CI、作者 `done.` 和 resolved thread 都是输入信号，不能覆盖仍未满足的 parent-Issue acceptance 或 DCO gate。
 
 本轮只读核对，没有发布 `/lgtm`、reply、resolve、review、Prow command 或 maintainer mention。
+
+### 18.8 `2026-08-05` reviewer-request 全量复核
+
+作者于 `2026-08-03 13:23:44 CST` 重新请求 `ranxi2001` review；GitHub timeline event 与 PR `updatedAt` 精确同秒。此后没有新 commit、issue comment、review comment、submitted review、label 或 force-push，因此本轮复核对象仍是 exact head `d7333cc2fcc78ff923e45a9e4ed5d9e714359baa`。这次 activity 只是 reviewer request，不是新的代码修复或 maintainer decision。
+
+`upstream/main` 已因 #452 从 PR merge-base `0704bb9` 前进到 `939abb5`。该 merge 只把 Go directive 和三个 Docker builder tag 从 `1.26.4` 升到 `1.26.5`；`git merge-tree --write-tree upstream/main upstream/pr-446` 成功生成 tree `bb6df1f`，没有文本冲突，也没有关闭或新增 #446 的技术 finding。现有 PR checks 均早于这次 base advance，最终 rebase/merge head 仍应重跑 CI。
+
+#### 18.8.1 Findings first
+
+| Severity / ownership | Stable ID | `d7333cc` current evidence | 结论 |
+| --- | --- | --- | --- |
+| P1 / PR blocker | `F09-existing-claim-upgrade-lifecycle` | `run_e2e.sh:466-509` 只等待同一 migrated `upgrade-bound-claim` Ready，并验证 Sandbox/Pod UID、binding 和 shadow pool 存在；没有删除该 Claim、按原 UID 验证 Sandbox/Pod GC，也没有验证同一 source pool refill。`e2e_test.go:813-858` 使用新建 v1beta1 CodeInterpreter/session，是另一条 lineage | Issue #438 明确要求 existing active Claim 的升级路径以及 adoption、session deletion、GC、refill；新对象通过不能替代迁移对象闭环，仍 present |
+| P2 / PR blocker pending maintainer policy | `F19-embedded-podspec-workloadref` | base AgentRuntime CRD 暴露 `workloadRef{name,podGroup,podGroupReplicaKey}`；head 只剩 shape 不同的 `schedulingGroup{podGroupName}`。生产 builder 继续复制 typed `corev1.PodSpec`，所谓 compatibility test 只构造新 PodSpec 并检查 image；root guide 只有一句 transition，mirror 无说明 | 作者的 `intentional` 解释说明了依赖来源，但没有提供旧 payload migration/rejection test，也不是 maintainer accepted-risk，仍 present |
+| P2 / PR blocker | `F20-conversion-webhook-readiness-docs` | 两份 mandatory upgrade guide 分别在 `docs/getting-started.md:69` 和 mirror `:62` 使用无界 `until kubectl get ...; do sleep 2; done` | webhook 永久不可达时 operator 永久挂起，无诊断和 non-zero exit；E2E 自身的 bounded gate 不能关闭文档路径，仍 present |
+| P2 / repository follow-up | `F21-scheme-test-ci-discovery` | 新 `cmd/workload-manager/main_test.go` 不在 coverage 的 `./pkg/...` 或 E2E 的 `./test/e2e/...` 命令内 | 技术上仍 present；修复归属仓库级 test discovery，不扩进 #446 的最小 PR blocker 集合 |
+
+上一轮唯一新增的 `F22-e2e-webhook-wait-fail-open` 已真实关闭：`run_e2e.sh:447` 在第 30 次失败的诊断后 `exit 1`，mutation 不再可达。21 项 v5 ledger 的 exact-head closure 因此为 **17 fixed / 4 present / 0 unclassified**；新 closure 保存于 [`pr446-d7333cc-finding-closure-v5.json`](benchmarks/day57-agent-autoharness/pr446-d7333cc-finding-closure-v5.json)。独立 final-tree falsification 没有发现 `F09/F19/F20` 之外的新 current-head P1/P2。
+
+#### 18.8.2 Review state 与验证边界
+
+24 个 review threads 中 23 个由 PR 作者自行 resolve，剩余未 resolved thread 正是已由代码关闭的 `F22`。当前仍是 30 个 `COMMENTED` reviews、0 `APPROVED`、0 `CHANGES_REQUESTED`；没有 maintainer 对 `F09`、`F19` 或 `F20` 给出 accepted-risk decision。resolved metadata、作者 `done.` 和 reviewer request 都不能代替 current-tree closure。
+
+验证结果：
+
+```text
+review_surface.py, base 0704bb9 / head d7333cc              36 changed files; structurally mergeable
+final_head_review.py --check-urls                            expected exit 1; 17 fixed / 4 present
+carry-forward finding closure                               COMPLETE
+literal v0.4.6 / v0.5.3 migration URLs                      HTTP 200
+bash -n test/e2e/run_e2e.sh hack/update-codegen.sh           PASS
+git merge-tree latest main@939abb5 + PR head                 PASS, no conflict
+git diff --check base..head                                  FAIL, 19 trailing-whitespace lines
+local --run-go-tests replay                                  NOT COUNTED, host resource contention
+```
+
+本轮 Go replay 遇到共享主机负载接近 200、可用内存约 1.3 GiB、无 swap，linker 十多分钟未完成；主动中止后不把它记成 PASS 或 AgentCube failure。`d7333cc` 相对已完成 direct Go tests 的 `353f1df` 只增加一行 shell `exit 1`，且 current head 的 build、lint、coverage、Codegen、Python 和两个 upstream E2E jobs 全部通过。没有新建 live cluster。19 处 trailing whitespace 是机械清理，不提升为 correctness blocker。
+
+DCO 仍因 `da4140d` 与 `353f1df` 缺少 `Signed-off-by` 而 `action_required`；Tide 仍等待 `lgtm/approved`。综合结论继续是 **NO `/lgtm`**。本轮没有向 upstream 发布 review/comment、reply、resolve、Prow command、reviewer request 或 maintainer mention。

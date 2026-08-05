@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "ledger_id": "agentcube-pr438-pr442-pr446-technical-findings",
+  "ledger_version": 5,
+  "ledger_digest": "8a865a1530f03ee73e7846c9c5f2efc1efe5a6b5a2a42b8ffbe98fb6644d3cf5",
+  "target": {
+    "repository": "volcano-sh/agentcube",
+    "pull_request": 446
+  },
+  "head": "d7333cc2fcc78ff923e45a9e4ed5d9e714359baa",
+  "closures": [
+    {
+      "id": "F01-production-beta-scheme",
+      "status": "fixed",
+      "evidence": ["main.go registers the core and extension v1beta1 schemes and watches v1beta1 Sandbox", "cmd/workload-manager scheme tests use the production scheme builder"]
+    },
+    {
+      "id": "F03-migration-helper-doc-parity",
+      "status": "fixed",
+      "evidence": ["Both guides use the tagged kubernetes-sigs/agent-sandbox v0.5.3 helm/files/migrate.sh helper"]
+    },
+    {
+      "id": "F04-scheme-test-gvks",
+      "status": "fixed",
+      "evidence": ["main_test.go uses exported SchemeGroupVersion.WithKind values"]
+    },
+    {
+      "id": "F05-empty-name-validation",
+      "status": "fixed",
+      "evidence": ["handleSandboxCreate calls CreateSandboxRequest.Validate and handlers_test.go covers missing name"]
+    },
+    {
+      "id": "F06-version-boundary",
+      "status": "fixed",
+      "evidence": ["run_e2e.sh selects only the explicit v0.4.* legacy family instead of using string ordering"]
+    },
+    {
+      "id": "F07-portable-codegen-path",
+      "status": "fixed",
+      "evidence": ["hack/update-codegen.sh no longer prepends a contributor-specific Windows path"]
+    },
+    {
+      "id": "F08-causal-immutability-test",
+      "status": "fixed",
+      "evidence": ["E2E creates and reads a Sandbox, attempts an API Update, and requires apierrors.IsInvalid"]
+    },
+    {
+      "id": "F09-existing-claim-upgrade-lifecycle",
+      "status": "present",
+      "evidence": ["run_e2e.sh waits for upgrade-bound-claim Ready=True and proves the original Sandbox and Pod UIDs and binding survive", "The migrated fixture has no original SandboxWarmPool, never deletes upgrade-bound-claim, and never proves that claim's Sandbox and Pod are garbage-collected or that its source pool refills", "The later TestCodeInterpreterWarmPool uses a fresh post-upgrade v1beta1 lineage and cannot close the migrated v0.4.6 claim lifecycle"]
+    },
+    {
+      "id": "F10-bootstrap-shadow-pools",
+      "status": "fixed",
+      "evidence": ["The custom migration helper is absent and run_e2e.sh invokes the tagged upstream bootstrap phase"]
+    },
+    {
+      "id": "F11-migration-data-safety",
+      "status": "fixed",
+      "evidence": ["The custom apply/delete flow is absent in favor of the upstream annotation-based migration helper"]
+    },
+    {
+      "id": "F12-router-h2c-scope",
+      "status": "fixed",
+      "evidence": ["The opt-in h2c flag and config change are absent from the current diff"]
+    },
+    {
+      "id": "F13-tagged-manifest-url",
+      "status": "fixed",
+      "evidence": ["Both guides use the existing v0.5.3 sandbox-with-extensions.yaml release asset"]
+    },
+    {
+      "id": "F14-backup-all-migrated-kinds",
+      "status": "fixed",
+      "evidence": ["Both guides back up sandboxes, sandboxclaims, sandboxtemplates, and sandboxwarmpools"]
+    },
+    {
+      "id": "F15-exported-resource-signature",
+      "status": "fixed",
+      "evidence": ["runtime/v1alpha1.Resource keeps schema.GroupVersionResource and generated listers call GroupResource"]
+    },
+    {
+      "id": "F16-kubernetes-codegen-version",
+      "status": "fixed",
+      "evidence": ["go.mod and hack/update-codegen.sh both pin Kubernetes v0.36.2", "The exact-head Codegen Check passes"]
+    },
+    {
+      "id": "F17-auth-owner-store-persistence",
+      "status": "fixed",
+      "evidence": ["Both direct and warm-pool builders assign ownerID to the returned Store entry", "workload_builder_test.go asserts the resulting OwnerID"]
+    },
+    {
+      "id": "F18-codegen-gobin-install-path",
+      "status": "fixed",
+      "evidence": ["hack/update-codegen.sh resolves go env GOBIN, falls back to GOPATH/bin only when empty, validates the installed binaries, and removes client-go only after validation"]
+    },
+    {
+      "id": "F19-embedded-podspec-workloadref",
+      "status": "present",
+      "evidence": ["The base AgentRuntime CRD exposed workloadRef with name, podGroup, and podGroupReplicaKey while the head CRD only exposes the differently shaped schedulingGroup.podGroupName", "The root guide only says to transition fields and the mirrored guide has no compatibility note", "TestAgentRuntimePodSpec_K8s36CompatibilityBoundary constructs a new PodSpec and does not decode an old workloadRef payload or prove migration or rejection"]
+    },
+    {
+      "id": "F20-conversion-webhook-readiness-docs",
+      "status": "present",
+      "evidence": ["Both guides probe the webhook with an unbounded until loop", "Neither guide emits diagnostics and exits after a finite retry budget"]
+    },
+    {
+      "id": "F21-scheme-test-ci-discovery",
+      "status": "present",
+      "evidence": ["Coverage runs go test ./pkg/... and E2E runs go test ./test/e2e/...; neither command executes cmd/workload-manager/main_test.go", "The exact-head scheme test passes when run directly, but no CI command guards that regression"]
+    },
+    {
+      "id": "F22-e2e-webhook-wait-fail-open",
+      "status": "fixed",
+      "evidence": ["run_e2e.sh exits 1 immediately after the 30th failed conversion-webhook probe diagnostics, before the migration phase", "Boundary model: all 30 probes fail => exit 1 and migration marker unreachable; success on attempt 30 => exit 0 and migration marker reached", "Exact-head shell syntax and both upstream E2E jobs pass"]
+    }
+  ]
+}
