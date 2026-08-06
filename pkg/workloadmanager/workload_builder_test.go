@@ -832,8 +832,9 @@ func TestAgentRuntimePodSpec_K8s36CompatibilityBoundary(t *testing.T) {
 }
 
 func TestAgentRuntime_OldObjectCompatibility(t *testing.T) {
-	// This simulates an old AgentRuntime object stored in etcd (v0.4.6 era)
-	// that contains a 'workloadRef' in its PodSpec which is dropped in corev1.PodSpec v0.36.
+	// This simulates a schema-valid old AgentRuntime object stored in etcd (v0.4.6 / k8s v0.35.4 era)
+	// containing the complete legacy 'workloadRef' payload (name, podGroup, podGroupReplicaKey).
+	// Upstream k8s.io/api v0.36.2 dropped 'workloadRef' from corev1.PodSpec in favor of 'schedulingGroup'.
 	rawJSON := []byte(`{
 		"apiVersion": "runtime.agentcube.volcano.sh/v1alpha1",
 		"kind": "AgentRuntime",
@@ -845,7 +846,9 @@ func TestAgentRuntime_OldObjectCompatibility(t *testing.T) {
 			"podTemplate": {
 				"spec": {
 					"workloadRef": {
-						"name": "my-workload"
+						"name": "my-workload",
+						"podGroup": "my-podgroup",
+						"podGroupReplicaKey": "0"
 					},
 					"containers": [
 						{
@@ -860,7 +863,7 @@ func TestAgentRuntime_OldObjectCompatibility(t *testing.T) {
 
 	var ar runtimev1alpha1.AgentRuntime
 	err := json.Unmarshal(rawJSON, &ar)
-	assert.NoError(t, err, "Should successfully unmarshal old JSON despite dropped fields")
+	assert.NoError(t, err, "Should successfully unmarshal legacy JSON despite tombstoned workloadRef fields")
 
 	fakeClient := cubefake.NewSimpleClientset(&ar)
 	factory := cubeinformers.NewSharedInformerFactory(fakeClient, 0)
@@ -879,4 +882,8 @@ func TestAgentRuntime_OldObjectCompatibility(t *testing.T) {
 	assert.NotNil(t, sandbox)
 	assert.Equal(t, "owner-compat", entry.OwnerID)
 	assert.Equal(t, "python:3.11-slim", sandbox.Spec.PodTemplate.Spec.Containers[0].Image)
+	
+	// Verify contract: legacy workloadRef fields (name, podGroup, podGroupReplicaKey) are dropped
+	// upon conversion, and SchedulingGroup remains nil unless explicitly configured on the AgentRuntime.
+	assert.Nil(t, sandbox.Spec.PodTemplate.Spec.SchedulingGroup, "SchedulingGroup should be nil by default when unmarshaling legacy workloadRef payloads")
 }

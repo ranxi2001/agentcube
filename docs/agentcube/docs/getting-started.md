@@ -27,10 +27,14 @@ AGENT_SANDBOX_VERSION=v0.5.3
 kubectl apply --server-side -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${AGENT_SANDBOX_VERSION}/sandbox-with-extensions.yaml
 ```
 
-> [!NOTE]
-> `agent-sandbox` v0.5.3 sets default controller concurrency to `sandbox-concurrent-workers=100` (up from 1). In clusters with high sandbox churn or limited API server resources, this can be tuned via deployment args if needed.
+> [!IMPORTANT]
+> **Kubernetes Dependency Boundary (`workloadRef` vs `schedulingGroup`)**:
+> Upstream Kubernetes `v0.36.2` (`k8s.io/api`) removed the experimental `workloadRef` field (`name`, `podGroup`, `podGroupReplicaKey`) from `corev1.PodSpec` and replaced it with `schedulingGroup` (`podGroupName`).
 > 
-> **Kubernetes Dependency Boundary**: Dependencies (`k8s.io/*`) have been updated to `v0.36.2`. The `corev1.PodSpec` schema in v0.36 tombstones the experimental `workloadRef` field in favor of `schedulingGroup`. If upgrading custom `AgentRuntime` manifests that relied on `workloadRef`, transition those fields to `schedulingGroup`.
+> **Compatibility & Scheduling Semantics**:
+> - Legacy `AgentRuntime` objects stored in etcd containing `workloadRef` payloads unmarshal without runtime errors.
+> - However, `workloadRef` fields are tombstoned by the Kubernetes v0.36 API schema and will **not** be copied to newly spawned Sandboxes. Legacy `workloadRef` batch-scheduling intent is **unsupported** on v0.36+.
+> - Workloads requiring batch-scheduling or pod-group semantics must be updated to use `schedulingGroup` with `podGroupName: <group-name>`.
 
 ### Upgrade Guide (v0.4.6 to v0.5.3)
 

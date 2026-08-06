@@ -358,6 +358,16 @@ spec:
         image: registry.k8s.io/pause:3.10
 ---
 apiVersion: extensions.agents.x-k8s.io/v1alpha1
+kind: SandboxWarmPool
+metadata:
+  name: e2e-upgrade-warmpool
+  namespace: ${AGENTCUBE_NAMESPACE}
+spec:
+  replicas: 1
+  sandboxTemplateRef:
+    name: e2e-upgrade-template
+---
+apiVersion: extensions.agents.x-k8s.io/v1alpha1
 kind: SandboxClaim
 metadata:
   name: shadow-pool-e2e-code-interpreter
@@ -498,12 +508,9 @@ EOF
             exit 1
         fi
         
-        echo "Verifying shadow pool was created during migration..."
-        # The bootstrap names the shadow pool after the template (e2e-upgrade-template),
-        # producing shadow-pool-e2e-upgrade-template. The referenced SandboxTemplate
-        # exists (we seeded e2e-upgrade-template), so the pool should exist.
-        kubectl get sandboxwarmpool shadow-pool-e2e-upgrade-template -n "${AGENTCUBE_NAMESPACE}" || {
-            echo "Error: Shadow pool was not created during migration" >&2
+        echo "Verifying warm pool e2e-upgrade-warmpool survived migration..."
+        kubectl get sandboxwarmpool e2e-upgrade-warmpool -n "${AGENTCUBE_NAMESPACE}" || {
+            echo "Error: Warm pool e2e-upgrade-warmpool was not preserved during migration" >&2
             exit 1
         }
         echo "SandboxClaim migration, bound lifecycle, and pool adoption verified successfully"
@@ -511,32 +518,35 @@ EOF
         echo "Verifying garbage collection and warm-pool refill of migrated objects..."
         kubectl delete sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}"
         
-        echo "Waiting for bound Sandbox to be garbage-collected..."
+        echo "Waiting for bound Sandbox and Pod to be garbage-collected..."
         for i in {1..30}; do
-            if ! kubectl get sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" >/dev/null 2>&1; then
-                echo "Sandbox successfully garbage collected"
+            SANDBOX_STATUS=$(kubectl get sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" 2>&1 || true)
+            POD_STATUS=$(kubectl get pod upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" 2>&1 || true)
+            
+            if [[ "${SANDBOX_STATUS}" == *"NotFound"* ]] && [[ "${POD_STATUS}" == *"NotFound"* ]]; then
+                echo "Original Sandbox (${BOUND_SANDBOX_UID}) and Pod (${BOUND_POD_UID}) successfully garbage collected!"
                 break
             fi
             if [ $i -eq 30 ]; then
-                echo "Error: Sandbox upgrade-bound-sandbox was not garbage collected!" >&2
+                echo "Error: Sandbox/Pod upgrade-bound-sandbox were not garbage collected! Sandbox status: ${SANDBOX_STATUS}, Pod status: ${POD_STATUS}" >&2
                 exit 1
             fi
             sleep 2
         done
         
-        echo "Setting shadow pool desired replicas to 1..."
-        kubectl patch sandboxwarmpool shadow-pool-e2e-upgrade-template -n "${AGENTCUBE_NAMESPACE}" --type=merge -p '{"spec":{"replicas":1}}'
-        
-        echo "Waiting for shadow pool to refill..."
+        echo "Waiting for original warm pool e2e-upgrade-warmpool to return to desired capacity..."
         for i in {1..30}; do
-            AVAILABLE=$(kubectl get sandboxwarmpool shadow-pool-e2e-upgrade-template -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
-            if [ "${AVAILABLE:-0}" -ge 1 ]; then
-                echo "Shadow pool successfully refilled!"
-                break
+            READY_REPLICAS=$(kubectl get sandboxwarmpool e2e-upgrade-warmpool -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
+            if [ "${READY_REPLICAS:-0}" -ge 1 ]; then
+                NEW_SANDBOX_UID=$(kubectl get sandboxes -n "${AGENTCUBE_NAMESPACE}" -l agents.x-k8s.io/warm-pool-sandbox -o jsonpath='{.items[0].metadata.uid}' 2>/dev/null || true)
+                if [ -n "${NEW_SANDBOX_UID}" ] && [ "${NEW_SANDBOX_UID}" != "${BOUND_SANDBOX_UID}" ]; then
+                    echo "Warm pool e2e-upgrade-warmpool refilled successfully with new Sandbox UID: ${NEW_SANDBOX_UID} (Original bound Sandbox UID was: ${BOUND_SANDBOX_UID})"
+                    break
+                fi
             fi
             if [ $i -eq 30 ]; then
-                echo "Error: Shadow pool shadow-pool-e2e-upgrade-template failed to refill!" >&2
-                kubectl get sandboxwarmpool shadow-pool-e2e-upgrade-template -n "${AGENTCUBE_NAMESPACE}" -o yaml >&2 || true
+                echo "Error: Warm pool e2e-upgrade-warmpool failed to refill to capacity with a replacement Sandbox!" >&2
+                kubectl get sandboxwarmpool e2e-upgrade-warmpool -n "${AGENTCUBE_NAMESPACE}" -o yaml >&2 || true
                 kubectl get sandboxes -n "${AGENTCUBE_NAMESPACE}" >&2 || true
                 exit 1
             fi
