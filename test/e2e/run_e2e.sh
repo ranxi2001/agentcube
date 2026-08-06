@@ -376,19 +376,6 @@ spec:
   sandboxTemplateRef:
     name: e2e-upgrade-template
 ---
-apiVersion: agents.x-k8s.io/v1alpha1
-kind: Sandbox
-metadata:
-  name: upgrade-bound-sandbox
-  namespace: ${AGENTCUBE_NAMESPACE}
-spec:
-  replicas: 1
-  podTemplate:
-    spec:
-      containers:
-      - name: pause
-        image: registry.k8s.io/pause:3.10
----
 apiVersion: extensions.agents.x-k8s.io/v1alpha1
 kind: SandboxClaim
 metadata:
@@ -399,33 +386,48 @@ spec:
     name: e2e-upgrade-template
 EOF
 
-        echo "Simulating bound SandboxClaim by patching ownerReference and status..."
-        sleep 2
-        CLAIM_UID=$(kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
-        
-        kubectl patch sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" --type=merge -p "{\"metadata\":{\"ownerReferences\":[{\"apiVersion\":\"extensions.agents.x-k8s.io/v1alpha1\",\"kind\":\"SandboxClaim\",\"name\":\"upgrade-bound-claim\",\"uid\":\"${CLAIM_UID}\",\"controller\":true,\"blockOwnerDeletion\":true}]}}"
-        kubectl patch sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" --subresource=status --type=merge -p '{"status":{"sandbox":{"name":"upgrade-bound-sandbox"}}}'
-        
-        echo "Waiting for v0.4.6 controller to spin up the Pod for the bound Sandbox..."
-        # Poll up to 60s for the Pod object to be created first (controller may lag)
+        echo "Waiting for v0.4.6 controller to create a Sandbox for warm pool e2e-upgrade-warmpool..."
         for i in $(seq 1 30); do
-            if kubectl get pod upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" >/dev/null 2>&1; then
-                echo "Pod upgrade-bound-sandbox found after ${i}x2s"
+            BOUND_SANDBOX_NAME=$(kubectl get sandbox -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.items[?(@.metadata.ownerReferences[0].name=="e2e-upgrade-warmpool")].metadata.name}' 2>/dev/null || true)
+            if [ -z "${BOUND_SANDBOX_NAME}" ]; then
+                BOUND_SANDBOX_NAME=$(kubectl get sandbox -n "${AGENTCUBE_NAMESPACE}" -l agents.x-k8s.io/warm-pool-sandbox -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+            fi
+            if [ -n "${BOUND_SANDBOX_NAME}" ]; then
+                echo "Found warm pool Sandbox from lineage: ${BOUND_SANDBOX_NAME}"
                 break
             fi
             if [ "$i" -eq 30 ]; then
-                echo "Timed out waiting for pod upgrade-bound-sandbox to be created"
+                echo "Timed out waiting for v0.4.6 warm pool Sandbox" >&2
                 exit 1
             fi
             sleep 2
         done
-        # Wait up to 60s for the Pod to reach Ready state
-        kubectl wait --for=condition=Ready pod/upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" --timeout=60s
+
+        echo "Simulating warm pool member adoption by patching ownerReference and status..."
+        sleep 2
+        CLAIM_UID=$(kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
         
-        # Capture the UIDs to verify they survive the upgrade without being recreated
-        BOUND_SANDBOX_UID=$(kubectl get sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
-        BOUND_POD_UID=$(kubectl get pod upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
-        echo "Captured pre-upgrade UIDs -> Sandbox: ${BOUND_SANDBOX_UID}, Pod: ${BOUND_POD_UID}"
+        kubectl patch sandbox "${BOUND_SANDBOX_NAME}" -n "${AGENTCUBE_NAMESPACE}" --type=merge -p "{\"metadata\":{\"ownerReferences\":[{\"apiVersion\":\"extensions.agents.x-k8s.io/v1alpha1\",\"kind\":\"SandboxClaim\",\"name\":\"upgrade-bound-claim\",\"uid\":\"${CLAIM_UID}\",\"controller\":true,\"blockOwnerDeletion\":true}]}}"
+        kubectl patch sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" --subresource=status --type=merge -p "{\"status\":{\"sandbox\":{\"name\":\"${BOUND_SANDBOX_NAME}\"}}}"
+        
+        echo "Waiting for v0.4.6 controller to spin up the Pod for bound Sandbox ${BOUND_SANDBOX_NAME}..."
+        for i in $(seq 1 30); do
+            if kubectl get pod "${BOUND_SANDBOX_NAME}" -n "${AGENTCUBE_NAMESPACE}" >/dev/null 2>&1; then
+                echo "Pod ${BOUND_SANDBOX_NAME} found after ${i}x2s"
+                break
+            fi
+            if [ "$i" -eq 30 ]; then
+                echo "Timed out waiting for pod ${BOUND_SANDBOX_NAME} to be created"
+                exit 1
+            fi
+            sleep 2
+        done
+        kubectl wait --for=condition=Ready "pod/${BOUND_SANDBOX_NAME}" -n "${AGENTCUBE_NAMESPACE}" --timeout=60s
+        
+        # Capture the UIDs from the warm pool member lineage
+        BOUND_SANDBOX_UID=$(kubectl get sandbox "${BOUND_SANDBOX_NAME}" -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
+        BOUND_POD_UID=$(kubectl get pod "${BOUND_SANDBOX_NAME}" -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
+        echo "Captured pre-upgrade pool/sandbox/pod lineage -> Sandbox: ${BOUND_SANDBOX_NAME} (${BOUND_SANDBOX_UID}), Pod: ${BOUND_POD_UID}"
         
         echo "Running migration bootstrap phase..."
         curl -fsSL https://raw.githubusercontent.com/kubernetes-sigs/agent-sandbox/refs/tags/v0.5.3/helm/files/migrate.sh -o /tmp/migrate.sh
@@ -488,8 +490,8 @@ EOF
         fi
         
         echo "Verifying warm-start regression: bound Sandbox and Pod UIDs must not change..."
-        POST_UPGRADE_SANDBOX_UID=$(kubectl get sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
-        POST_UPGRADE_POD_UID=$(kubectl get pod upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
+        POST_UPGRADE_SANDBOX_UID=$(kubectl get sandbox "${BOUND_SANDBOX_NAME}" -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
+        POST_UPGRADE_POD_UID=$(kubectl get pod "${BOUND_SANDBOX_NAME}" -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.metadata.uid}')
         
         if [ "${POST_UPGRADE_SANDBOX_UID}" != "${BOUND_SANDBOX_UID}" ] || [ -z "${POST_UPGRADE_SANDBOX_UID}" ]; then
             echo "Error: Bound Sandbox UID changed or lost during upgrade! (Expected: ${BOUND_SANDBOX_UID}, Got: ${POST_UPGRADE_SANDBOX_UID})" >&2
@@ -503,8 +505,8 @@ EOF
         
         echo "Verifying bound SandboxClaim kept its Sandbox binding..."
         POST_UPGRADE_BINDING=$(kubectl get sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}" -o jsonpath='{.status.sandbox.name}')
-        if [ "${POST_UPGRADE_BINDING}" != "upgrade-bound-sandbox" ]; then
-            echo "Error: Bound SandboxClaim lost its sandbox binding! (Got: ${POST_UPGRADE_BINDING})" >&2
+        if [ "${POST_UPGRADE_BINDING}" != "${BOUND_SANDBOX_NAME}" ]; then
+            echo "Error: Bound SandboxClaim lost its sandbox binding! (Expected: ${BOUND_SANDBOX_NAME}, Got: ${POST_UPGRADE_BINDING})" >&2
             exit 1
         fi
         
@@ -518,17 +520,17 @@ EOF
         echo "Verifying garbage collection and warm-pool refill of migrated objects..."
         kubectl delete sandboxclaim upgrade-bound-claim -n "${AGENTCUBE_NAMESPACE}"
         
-        echo "Waiting for bound Sandbox and Pod to be garbage-collected..."
+        echo "Waiting for bound Sandbox ${BOUND_SANDBOX_NAME} and Pod to be garbage-collected..."
         for i in {1..30}; do
-            SANDBOX_STATUS=$(kubectl get sandbox upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" 2>&1 || true)
-            POD_STATUS=$(kubectl get pod upgrade-bound-sandbox -n "${AGENTCUBE_NAMESPACE}" 2>&1 || true)
+            SANDBOX_STATUS=$(kubectl get sandbox "${BOUND_SANDBOX_NAME}" -n "${AGENTCUBE_NAMESPACE}" 2>&1 || true)
+            POD_STATUS=$(kubectl get pod "${BOUND_SANDBOX_NAME}" -n "${AGENTCUBE_NAMESPACE}" 2>&1 || true)
             
             if [[ "${SANDBOX_STATUS}" == *"NotFound"* ]] && [[ "${POD_STATUS}" == *"NotFound"* ]]; then
-                echo "Original Sandbox (${BOUND_SANDBOX_UID}) and Pod (${BOUND_POD_UID}) successfully garbage collected!"
+                echo "Original Sandbox ${BOUND_SANDBOX_NAME} (${BOUND_SANDBOX_UID}) and Pod (${BOUND_POD_UID}) successfully garbage collected!"
                 break
             fi
             if [ $i -eq 30 ]; then
-                echo "Error: Sandbox/Pod upgrade-bound-sandbox were not garbage collected! Sandbox status: ${SANDBOX_STATUS}, Pod status: ${POD_STATUS}" >&2
+                echo "Error: Sandbox/Pod ${BOUND_SANDBOX_NAME} were not garbage collected! Sandbox status: ${SANDBOX_STATUS}, Pod status: ${POD_STATUS}" >&2
                 exit 1
             fi
             sleep 2
