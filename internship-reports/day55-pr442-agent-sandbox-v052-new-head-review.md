@@ -1114,3 +1114,49 @@ Prow 随即添加 `do-not-merge/contains-merge-commits`，并在 [评论 `518730
 GitHub 于 `2026-08-05 15:02:54 CST` 显示“acsoto mentioned this pull request”，实际是 #453 产生的 cross-reference。`@acsoto` 在 [#453 评论 `5188629285`](https://github.com/volcano-sh/agentcube/pull/453#issuecomment-5188629285) 说明暂不需要把 getting-started 从 agent-sandbox v0.1.1 调到 v0.4.6，因为 #446 正在完成升级。该 MEMBER 意见证明 #446 是当前 canonical upgrade path，也是拒绝 #453 重复文档改动的 scope 决定；它不是 #446 的 review、`/lgtm`、approval，也没有接受 `F09/F19/F20` 的剩余风险。
 
 本轮只做 latest timeline、first-parent diff、tree identity、CI/DCO/Prow 与 cross-reference 原文核对，没有发布新 review、reply、resolve、Prow command、reviewer request 或 maintainer mention。下一次正式 review 应等待作者按 bot 要求 rebase/squash，或提交触及剩余 findings 的实质 patch，再绑定新的 exact head。
+
+### 18.11 `86e45ab` 新 reviewer request 与补丁验收
+
+作者没有先清理 merge history，而是在 `3882157` 之后追加 5 个 signed commits，于 `2026-08-06 05:07:44 CST` 在 exact head `86e45ab45318a72df75b0a457aa6f102b1dbf92f` 重新请求 `ranxi2001` review。review-request event 之后没有新 commit、comment、review、label 或 head 变化，因此该 SHA 是本轮稳定审查对象。相对 `3882157` 的增量只改 4 个文件：两份 getting-started guide、`pkg/workloadmanager/workload_builder_test.go` 与 `test/e2e/run_e2e.sh`。
+
+#### 18.11.1 已关闭：文档 webhook gate
+
+两份 mandatory upgrade guide 都把无界 `until` 改成最多 30 次的 probe，并在耗尽时 `exit 1`，之后才允许执行 `./migrate.sh --phase=migrate`。这准确满足原 thread 对 bounded、fail-closed webhook gate 的要求，`F20-conversion-webhook-readiness-docs` 从 present 变为 fixed。没有因为缺少 controller logs 而移动验收目标；原评论只要求 bounded probe 和 timeout failure。
+
+#### 18.11.2 仍未关闭：把另一条 cold lineage 的首次 fill 当成 refill
+
+新增 E2E 确实被 exact-head 两个 upstream jobs 执行并通过，但日志反而把 lineage 分离直接打印出来：
+
+```text
+claim agentcube/upgrade-bound-claim: warm-started (...); no shadow needed
+creating shadow pool agentcube/shadow-pool-e2e-upgrade-template
+Bootstrap summary: scanned=2 warmstart_skipped=1 ... created=1
+shadow-pool-e2e-upgrade-template           READY=<empty> DESIRED=0
+upgrade-bound-claim deleted
+shadow-pool-e2e-upgrade-template patched   replicas: 0 -> 1
+Shadow pool successfully refilled!
+```
+
+`upgrade-bound-claim` 的 Sandbox 是手工创建并绑定的 standalone object；v0.5.3 conversion 按 `stripRandomSuffix(upgrade-bound-sandbox)` 给 warm-started claim 推导 pool identity，并不会给它创建 `shadow-pool-e2e-upgrade-template`。后者由另一条 cold claim `shadow-pool-e2e-code-interpreter` 触发 bootstrap，且 desired replicas 明确为 0。脚本删除前者后再把后者从 0 扩到 1，只证明一个无关 pool 可以首次填充，不能证明 migrated active claim 的 source pool 在 checkout / deletion 后 refill。
+
+此外，脚本只把 `kubectl get sandbox` 的任意非零退出都当作删除成功，没有区分 NotFound 与 API 错误；此前捕获的 `BOUND_POD_UID` 也没有参与删除后的 GC assertion，脚本更没有捕获同一 source pool 的 replacement Sandbox UID。`F09-existing-claim-upgrade-lifecycle` 因此仍 present。最小闭环仍是：在 v0.4.6 中让真实 SandboxWarmPool 生产并交出一个 Sandbox，捕获 Claim/Sandbox/Pod/pool identity；迁移；删除同一 Claim；只在明确 NotFound 时确认原 Sandbox 与 Pod UID 消失；再要求同一 pool 回到原 desired capacity 且出现不同 Sandbox UID。
+
+> 分析：CI 运行了断言并不等于断言证明了标题中的因果关系。这里不是 flaky timing，而是 producer ownership 错了：被删除对象和被观测 refill 的 pool 从未属于同一 lifecycle。
+
+#### 18.11.3 仍未关闭：旧对象 test 只把静默丢字段写成 green
+
+`TestAgentRuntime_OldObjectCompatibility` 最终修正了 `spec.podTemplate` JSON key，确实进入 current typed `corev1.PodSpec`。但 fixture 的 `workloadRef` 只有 `name`；base AgentRuntime CRD 明确要求 `name` 与 `podGroup`，所以它不是一个可由旧 schema 接受并存入 etcd 的 v0.4.6 object。测试随后接受 unknown field 被 `json.Unmarshal` 丢弃，只断言 container image 仍能被 builder 复制；它没有证明 scheduling intent 被保留或映射，也没有显式拒绝不兼容对象。
+
+两份 guide 现在都说把 `workloadRef` “transition” 到 `schedulingGroup`，但两者并非字段改名：旧 shape 是 `name + podGroup + optional podGroupReplicaKey`，新 shape 只有 `podGroupName`。文档没有说明哪个旧值映射到 `podGroupName`，以及其余值没有等价表示。生产 informer 也先解码到同一个 typed AgentRuntime，再由 builder DeepCopy，所以测试实际复现的是生产静默丢失路径，而不是 compatibility closure。`F19-embedded-podspec-workloadref` 保持 present；这仍在 PR 自己引入的 Kubernetes/CRD upgrade scope 内。
+
+> 注释：如果项目明确选择 breaking boundary，最小可审查结果不是实现完整 conversion webhook；可以使用 schema-valid legacy payload，明确断言旧 scheduling intent 的处理方式，并在两份 guide 中给出可执行 mapping 或清楚说明哪些语义不能迁移。当前测试连旧输入前提都不成立。
+
+#### 18.11.4 Checks、流程门槛与 closure
+
+exact head 的 11 个 executable checks 全部通过，包括 coverage、Codegen、lint、build 与两个 E2E。E2E 日志证明新增 lifecycle block 在两个 jobs 中实际执行。`bash -n test/e2e/run_e2e.sh` 通过；`git diff --check base..head` 仍报告 docs 与 E2E shell 的 trailing whitespace，作为机械清理记录，不提升为 correctness blocker。focused `go test ./pkg/workloadmanager` 在共享主机 load average 超过 150、无 swap、可用内存约 1 GiB 时持续编译 6 分钟后中止，不计为 PASS 或代码失败；exact-head coverage workflow 的 `go test -race ... ./pkg/...` 已成功执行该 package。
+
+v5 21-item ledger 的新 immutable closure 保存为 [`pr446-86e45ab-finding-closure-v5.json`](benchmarks/day57-agent-autoharness/pr446-86e45ab-finding-closure-v5.json)，分类为 **18 fixed / 3 present / 0 unclassified**。present IDs 为 PR-scope `F09`、`F19` 与 repository-level follow-up `F21`；相较 `d7333cc`，`F20` 已关闭。`final_head_review.py --check-urls` 验证 ledger digest、target 与 exact head 一致，carry-forward closure complete，5 个 literal migration URLs 为 HTTP 200；因三项 present、`cmd/workload-manager` changed test 未被 CI 发现且本轮未完成 direct replay，harness 按预期以 exit 1 报 finding readiness blocked / changed-test execution not-run，没有把结构 closure complete 误写成 merge ready。
+
+流程上仍是 NO-GO：history 继续包含 merge commit `3882157`，`do-not-merge/contains-merge-commits` 未移除；DCO 精确列出 `da4140d` 与 `353f1df` 缺 signoff；Tide 等待 `lgtm/approved`。31 个 submitted reviews 全为 `COMMENTED`，没有 maintainer 在新 5 commits 后接受 F09/F19 风险。review request 之后没有新活动。
+
+本轮没有发布 GitHub review/comment、reply、resolve、`/lgtm`、Prow command、reviewer request 或 maintainer mention。若要向 upstream 反馈，应只提交一个绑定 `86e45ab` 的新 review，说明 F20 已关闭并给出 F09/F19 的 exact counterexample；发布前仍需用户确认 exact body 与 event。

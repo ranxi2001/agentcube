@@ -262,3 +262,29 @@ Could we keep the existing `kube::codegen::gen_client` flow and remove this work
 用户确认发布后，`2026-07-30 17:31 CST` posting guard 发现 maintainer `@acsoto` 刚在 `hack/update-codegen.sh:7` 发布同主题 inline，因此 codegen 草稿按 duplicate guard 跳过。head 仍为 `2eefda6`，immutability anchor 仍是 current diff line 144，且 review comments 中没有同主题内容。用户知情后确认继续，最终以空 root body 的 `COMMENT` review 发布 [review 4817414997](https://github.com/volcano-sh/agentcube/pull/446#pullrequestreview-4817414997) / [inline 3681625786](https://github.com/volcano-sh/agentcube/pull/446#discussion_r3681625786)；API 回读 author、commit、path、line 和 83-word 正文均一致。
 
 同一轮 `@acsoto` 还发布了 mandatory v0.4.6-to-v0.5.x migration E2E、不存在的 migration asset、错误 GVK、empty-name validation regression 和 lexicographic version comparison 等 findings。当前不重复这些 maintainer comments，也不追加 root review、`/lgtm`、resolve、reviewer request 或 maintainer mention。
+
+## 2026-08-06 #446 `86e45ab` Re-review Approval Package
+
+| 项目 | 内容 |
+| --- | --- |
+| Target | `volcano-sh/agentcube` PR #446 |
+| Exact reviewed head | `86e45ab45318a72df75b0a457aa6f102b1dbf92f` |
+| Review event | `COMMENT` |
+| Inline comments | 0；使用一个顶层 review 汇总新补丁的两个 exact counterexample |
+| Scope | `F09` migrated lifecycle 与 `F19` embedded PodSpec compatibility；不加入 repository-level `F21`，不重复 bot 的 DCO / merge-commit 提示 |
+| Metrics | 261 visible words / 4 nonblank lines / 1763 visible characters |
+| Posting state | pending explicit user confirmation and final freshness guard |
+
+Exact review body:
+
+<!-- DRAFT:PR446_86E45AB_REREVIEW:START -->
+Re-reviewed exact head `86e45ab`. The bounded webhook probes in both guides now close that item. The new E2E block also runs in both current jobs, but two compatibility gaps remain:
+
+- **[P1] The refill assertion crosses object lineages.** The job log shows bootstrap classifies `upgrade-bound-claim` as warm-started and says `no shadow needed`, then creates `shadow-pool-e2e-upgrade-template` for the separate cold claim with desired replicas 0. Deleting the standalone bound claim and scaling that unrelated pool from 0 to 1 proves initial fill, not refill of the migrated claim's source pool. The GC loop also treats any `kubectl get` error as deletion and never verifies the captured Pod UID or a replacement Sandbox UID. Please seed a real v0.4.6 warm pool, adopt from it, then delete the same migrated claim and require the original Sandbox/Pod UIDs to disappear and that same pool to return to desired capacity with a different Sandbox UID.
+
+- **[P2] The old-object test does not model a valid old object or verify its scheduling contract.** The previous CRD required both `workloadRef.name` and `workloadRef.podGroup`, but the fixture supplies only `name`; the assertions then prove only that an unrelated container image survives while `workloadRef` is silently dropped. Because `workloadRef` (`name`, `podGroup`, `podGroupReplicaKey`) is not shape-equivalent to `schedulingGroup` (`podGroupName`), "transition those fields" does not define the migration. If dropping this alpha field is intentional, please use a schema-valid legacy payload and explicitly test and document which scheduling semantics are unsupported; otherwise map the supported intent.
+
+I would still hold `/lgtm` until these two gaps are closed or explicitly accepted by a maintainer.
+<!-- DRAFT:PR446_86E45AB_REREVIEW:END -->
+
+Posting guard：发布前重新读取 PR exact head、review request 后 timeline、existing comments/reviews 和 labels。只有 head 仍为 `86e45ab` 且没有同义新 feedback 时，才可在用户确认后提交一个 `COMMENT` review；不得自动发布、resolve thread、添加 `/lgtm` 或 mention maintainer。
