@@ -1160,3 +1160,35 @@ v5 21-item ledger 的新 immutable closure 保存为 [`pr446-86e45ab-finding-clo
 流程上仍是 NO-GO：history 继续包含 merge commit `3882157`，`do-not-merge/contains-merge-commits` 未移除；DCO 精确列出 `da4140d` 与 `353f1df` 缺 signoff；Tide 等待 `lgtm/approved`。31 个 submitted reviews 全为 `COMMENTED`，没有 maintainer 在新 5 commits 后接受 F09/F19 风险。review request 之后没有新活动。
 
 本轮没有发布 GitHub review/comment、reply、resolve、`/lgtm`、Prow command、reviewer request 或 maintainer mention。若要向 upstream 反馈，应只提交一个绑定 `86e45ab` 的新 review，说明 F20 已关闭并给出 F09/F19 的 exact counterexample；发布前仍需用户确认 exact body 与 event。
+
+### 18.12 `8a528f1` 再次 reviewer request 与 final-head closure
+
+作者在上一轮 `COMMENT` review 后新增两个 signed commits：`5bf231a` 修改两份 getting-started guide、`workload_builder_test.go` 与 migration E2E，`8a528f1` 只对 Go test 做 `gofmt`。作者于 `2026-08-06 17:54:00 CST` 再次请求 `ranxi2001` review；本轮审查绑定 exact head `8a528f1d67fe5615ea04b9eb34903af53ed8a4ea`。父 Issue #438 没有新的 scope 或 accepted-risk 决定。
+
+#### 18.12.1 `F19` 已关闭
+
+`TestAgentRuntime_OldObjectCompatibility` 现在使用旧 CRD 可接受的完整 `workloadRef`：必填 `name`、`podGroup` 和可选 `podGroupReplicaKey`。测试显式断言 v0.36 typed decode 会丢弃该 legacy field，且不会无依据地合成 `SchedulingGroup`。两份 guide 同步声明这是一条 breaking compatibility boundary：旧 `workloadRef` scheduling intent 不受 v0.36+ 支持，需要 pod-group 语义的用户必须迁移到 `schedulingGroup.podGroupName`。这满足上一轮给出的两种可接受方向之一，即使用 schema-valid payload 并明确测试、记录不兼容语义，因此 `F19-embedded-podspec-workloadref` 从 present 变为 fixed。
+
+focused command `go test ./pkg/workloadmanager -run 'TestAgentRuntime_(OldObjectCompatibility|PodSpec_K8s36CompatibilityBoundary)$' -count=1` 通过，`gofmt -d pkg/workloadmanager/workload_builder_test.go` 无输出。
+
+#### 18.12.2 `F09` 仍是 false green
+
+新 E2E 确实创建了 `e2e-upgrade-warmpool`，但 `upgrade-bound-sandbox` 仍由脚本独立创建，没有该 pool 的 owner reference、`agents.x-k8s.io/warm-pool-sandbox` label 或 pool-generated name；随后脚本把它手工绑定给 `upgrade-bound-claim`。这两条资源线没有成为同一条 lifecycle：
+
+```text
+e2e-upgrade-warmpool -> pool-created Sandbox A (already Ready, pool label)
+
+upgrade-bound-claim -> manually-created upgrade-bound-sandbox B -> Pod B
+```
+
+v0.5.3 conversion webhook 对 warm-started claim 执行 `stripRandomSuffix(status.sandbox.name)`。因此 `upgrade-bound-sandbox` 会转换成 `warmPoolRef.name=upgrade-bound`，不是 `e2e-upgrade-warmpool`。删除 claim B 后，脚本读取的是 pool A 已经为 1 的 `status.readyReplicas`，再用只有 key、没有 pool hash value 的通用 label selector 取任意 pool Sandbox。Sandbox A 从测试开始就满足 `UID != BOUND_SANDBOX_UID`，所以即使删除 claim B 完全没有触发 pool refill，断言也能立即通过。
+
+正确闭环需要让 v0.4.6 controller 从真实 pool 生产 Sandbox，记录该 pool 的 name/hash 与 member Sandbox/Pod UID，再让同一 claim 真正 adopt 该 member。迁移后删除同一 claim，必须先确认原 Sandbox/Pod UID 消失，再确认同一 pool 回到原 desired capacity，并出现属于该 pool 的不同 Sandbox UID。当前 `F09-existing-claim-upgrade-lifecycle` 仍是唯一 PR-scope correctness blocker。
+
+#### 18.12.3 Harness、checks 与流程 gate
+
+`final_head_review.py` 在 clean detached worktree 对 21-item v5 ledger 重跑。新 immutable closure 保存为 [`pr446-8a528f1-finding-closure-v5.json`](benchmarks/day57-agent-autoharness/pr446-8a528f1-finding-closure-v5.json)，结果为 **19 fixed / 2 present / 0 unclassified**。present IDs 是 PR-scope `F09` 和 repository-level follow-up `F21-scheme-test-ci-discovery`。harness 直接执行此前未被 CI discovery 覆盖的 `go test ./cmd/workload-manager -count=1`，91.224 秒通过；changed-test execution 因而为 passed。literal v0.4.6/v0.5.3 URLs 仍返回 HTTP 200，带版本变量的 URL 保持 unresolved-variable lead 而不是失败。
+
+附加验证：`bash -n test/e2e/run_e2e.sh` 通过，exact-head 两个 E2E jobs、coverage、Codegen、lint、build 和 Python checks 全部通过。`git diff --check 86e45ab..8a528f1` 只报告 `run_e2e.sh:525` 一处 trailing whitespace，不提升为 correctness finding。
+
+DCO 仍精确列出 `da4140d`、`353f1df` 两个 unsigned commits；history 仍含 merge commit `3882157`，Prow label `do-not-merge/contains-merge-commits` 未移除；Tide 等待 `lgtm/approved`。综合结论仍是 **NO `/lgtm`**。本轮没有发布 review/comment、reply、resolve、Prow command、reviewer request 或 maintainer mention。
