@@ -882,7 +882,7 @@ func TestAgentRuntime_OldObjectCompatibility(t *testing.T) {
 	assert.NotNil(t, sandbox)
 	assert.Equal(t, "owner-compat", entry.OwnerID)
 	assert.Equal(t, "python:3.11-slim", sandbox.Spec.PodTemplate.Spec.Containers[0].Image)
-	
+
 	// Verify contract: legacy workloadRef fields (name, podGroup, podGroupReplicaKey) are dropped
 	// upon conversion, and SchedulingGroup remains nil unless explicitly configured on the AgentRuntime.
 	assert.Nil(t, sandbox.Spec.PodTemplate.Spec.SchedulingGroup, "SchedulingGroup should be nil by default when unmarshaling legacy workloadRef payloads")
