@@ -1192,3 +1192,43 @@ v0.5.3 conversion webhook 对 warm-started claim 执行 `stripRandomSuffix(statu
 附加验证：`bash -n test/e2e/run_e2e.sh` 通过，exact-head 两个 E2E jobs、coverage、Codegen、lint、build 和 Python checks 全部通过。`git diff --check 86e45ab..8a528f1` 只报告 `run_e2e.sh:525` 一处 trailing whitespace，不提升为 correctness finding。
 
 DCO 仍精确列出 `da4140d`、`353f1df` 两个 unsigned commits；history 仍含 merge commit `3882157`，Prow label `do-not-merge/contains-merge-commits` 未移除；Tide 等待 `lgtm/approved`。综合结论仍是 **NO `/lgtm`**。本轮没有发布 review/comment、reply、resolve、Prow command、reviewer request 或 maintainer mention。
+
+### 18.13 `7a17302` real member 补丁复核
+
+作者在上一轮 review 后新增 signed commit `7a17302efae3a5b9d3a8b68751de378457a1dc8a`，增量只修改 `test/e2e/run_e2e.sh`，并于 `2026-08-07 03:38 CST` 回复已改用 `e2e-upgrade-warmpool` 的实际 member。#446 仍为 open、non-draft，base 与 current `main` 均为 `939abb5`，结构上可合并；父 Issue #438 与 upstream #1124 没有新的 accepted-risk 或 scope 变化。
+
+#### 18.13.1 已修正：producer/name lineage
+
+新脚本不再独立创建 `upgrade-bound-sandbox`。它会从 v0.4.6 pool 选出实际 member，捕获该 Sandbox 与 Pod 的 exact UID，迁移后检查同一 binding/UID，删除 Claim 后要求两个对象明确返回 `NotFound`。因为 pool-generated name 形如 `e2e-upgrade-warmpool-xxxxx`，v0.5.3 conversion 的 suffix stripping 现在会得到正确的 `warmPoolRef=e2e-upgrade-warmpool`。上一轮的 producer/name mismatch 已真实关闭，不能继续复用旧 counterexample。
+
+#### 18.13.2 `F09` 仍未关闭：测试手工伪造 adoption
+
+当前 fixture 在同一次 apply 中创建 Template、replicas=1 的 pool、一个 cold fixture Claim 和 `upgrade-bound-claim`；两个 Claim 都省略 `spec.warmpool`，因此在 v0.4.6 下都使用 default policy。脚本随后从 pool 中选一个 member，却不是等待 Claim controller 交出它，而是在 `run_e2e.sh:410-411` 直接覆盖该 member 的 controller owner，并写入 Claim status。
+
+这有一条 source-proven 的可达误判路径：
+
+1. `upgrade-bound-claim` 可在 pool member Ready 前先 cold-create 自己的 Sandbox，或与另一 default-policy Claim 竞争 member。
+2. 脚本再把另一个 pool member 的 owner/status 强行改给同一 Claim，使 fixture 可能短暂拥有两条 Sandbox lineage。
+3. v0.4.6 pool controller 会忽略仍带 pool label、但已由 Claim 控制的 member，并立即把 replicas=1 的缺口补出 replacement；这个 replacement 可以早于 migration 存在。
+4. 迁移后的 `readyReplicas >= 1` 与 namespace-wide generic warm-pool label 查询会接受这个旧 replacement，因此不足以证明 current controller 对 exact source pool 完成了预期 lifecycle。
+
+v0.4.6 的真实 adoption 会写 Claim assigned-Sandbox label、移除 pool labels、转移 ownership 并传播 Claim identity；其 status fast path 会接受脚本伪造的 owner/status 而跳过这些步骤。focused upstream pool-controller test 也确认 foreign controller owner 会触发 replacement 逻辑。最小修正是先只创建并 ready Template/Pool，捕获 exact member，再创建指定该 pool 的 bound Claim 并等待生产 controller 报告同一 UID 与 ownership；cold fixture 应在之后创建并显式设为 `warmpool: none`。迁移后应把 bound Sandbox/Pod GC 与 exact named-pool replacement 分开验证，后者使用 pool owner/hash 和新 UID，而不是 namespace-wide generic selector。
+
+> 分析：pool 正常会在 member 被 adopt、离开 pool ownership 时补池，而不是在 Claim 删除时才补池。这里的 blocker 不是要求错误的“删除触发 refill”时点，而是 fixture 没有证明真实 adoption，并且最终断言没有绑定补池对象、source pool 和 controller version 的因果边界。
+
+#### 18.13.3 Exact-head checks 与流程 gate
+
+新 exact head 没有任何 GitHub Actions run；GitHub rollup 只有 DCO `action_required` 和 Tide `pending`。上一 head `8a528f1` 的 build、lint、coverage、Codegen 与两个 E2E 绿色结果不覆盖这次 shell 增量。direct exact-head 验证通过：
+
+```text
+bash -n test/e2e/run_e2e.sh                                  PASS
+git diff --check 8a528f1..7a17302                            PASS
+go test ./test/e2e -run '^$' -count=1                        PASS (compile-only)
+go test ./cmd/workload-manager -count=1                      PASS
+focused v0.4.6 pool-controller ownerRef test                 PASS
+live migration E2E                                           NOT RUN (no usable local cluster)
+```
+
+21-item v5 ledger 的 exact-head closure 保存为 [`pr446-7a17302-finding-closure-v5.json`](benchmarks/day57-agent-autoharness/pr446-7a17302-finding-closure-v5.json)，结果仍为 **19 fixed / 2 present / 0 unclassified**。PR-scope blocker 是 `F09-existing-claim-upgrade-lifecycle`；`F21-scheme-test-ci-discovery` 仍是 repository-level follow-up，因为 CI 只执行 `./pkg/...` 与 `./test/e2e/...`，没有发现 `cmd/workload-manager/main_test.go`。direct scheme test 通过不等于 CI 已守住该回归。harness 验证 carry-forward closure complete、changed-test execution passed；5 个 literal migration URLs 返回 HTTP 200，3 个含 shell variable 的 URL 保持 unresolved-variable，最终因两项 present finding 按预期 exit 1。
+
+DCO 继续明确列出 `da4140d` 与 `353f1df` 缺 signoff；history 仍含 merge commit `3882157` 和 `do-not-merge/contains-merge-commits` label；Tide 仍需 `lgtm/approved`。综合结论继续是 **NO `/lgtm`**。本轮没有发布 GitHub review/comment、reply、resolve、Prow command、reviewer request 或 maintainer mention。
