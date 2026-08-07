@@ -1232,3 +1232,47 @@ live migration E2E                                           NOT RUN (no usable 
 21-item v5 ledger 的 exact-head closure 保存为 [`pr446-7a17302-finding-closure-v5.json`](benchmarks/day57-agent-autoharness/pr446-7a17302-finding-closure-v5.json)，结果仍为 **19 fixed / 2 present / 0 unclassified**。PR-scope blocker 是 `F09-existing-claim-upgrade-lifecycle`；`F21-scheme-test-ci-discovery` 仍是 repository-level follow-up，因为 CI 只执行 `./pkg/...` 与 `./test/e2e/...`，没有发现 `cmd/workload-manager/main_test.go`。direct scheme test 通过不等于 CI 已守住该回归。harness 验证 carry-forward closure complete、changed-test execution passed；5 个 literal migration URLs 返回 HTTP 200，3 个含 shell variable 的 URL 保持 unresolved-variable，最终因两项 present finding 按预期 exit 1。
 
 DCO 继续明确列出 `da4140d` 与 `353f1df` 缺 signoff；history 仍含 merge commit `3882157` 和 `do-not-merge/contains-merge-commits` label；Tide 仍需 `lgtm/approved`。综合结论继续是 **NO `/lgtm`**。本轮没有发布 GitHub review/comment、reply、resolve、Prow command、reviewer request 或 maintainer mention。
+
+### 18.14 fork-only same-lineage 参考实现与真实验证
+
+`2026-08-07 11:14 CST` 再次刷新 GitHub，#446 仍为 open、non-draft，exact head 仍是 `7a17302efae3a5b9d3a8b68751de378457a1dc8a`，current `main` 仍是 `939abb5b1f52a2d8f841ac1dbdc03fc96269bb5e`；没有新的 upstream commit、Actions run、review 或 accepted-risk 决定。为回答“如何修复并验证”，从该 exact head 创建 fork-only branch `fix/pr446-lineage-reference`，落下 signed-off commit [`13e6f443a4660636daf841c233989578b9aee074`](https://github.com/ranxi2001/agentcube/commit/13e6f443a4660636daf841c233989578b9aee074)。没有创建 upstream PR、comment、review、reply、Prow command 或 maintainer mention。
+
+#### 18.14.1 参考修复的因果边界
+
+fixture 现在按四个阶段运行：
+
+1. 只创建 v0.4.6 Template 与 replicas=1 的 named Pool，等待 `status.selector` 对应的唯一 Ready Sandbox，并要求 controller owner kind/name/UID 精确指向该 Pool；在创建 Claim 前捕获 Sandbox 与 Pod UID，记为 A。
+2. 创建显式 `warmpool: e2e-upgrade-warmpool` 的 bound Claim，等待 v0.4.6 controller 自己完成 adoption。通过条件同时包含 Claim assigned label/status binding、Sandbox owner 转移、pool label 删除、claim UID label 写入以及 A/Pod UID 不变；脚本不再 patch Sandbox owner 或 Claim status。adoption 后等待同一 selector/Pool owner 下出现不同 UID 的 Ready replacement B，再创建 `warmpool: none` 的隔离 cold fixture。
+3. v0.5.3 storage migration 后，不先相信旧 `Ready=True`。脚本要求 A 与 B 都出现 v0.5.3-only `agents.x-k8s.io/launch-type=warm` marker，同时检查 Claim `warmPoolRef`、binding/UID、A owner、Pool UID/selector 和 B owner/UID 全部保持一致。
+4. 删除 Claim 只验证 A 与 Pod 的精确 GC，并确认独立的 B 未受影响。随后显式删除 B，只有同一 selector、同一 Pool owner UID 下出现不同 name/UID、Ready 且 `launch-type=warm` 的 C 才算 current-controller refill 成功。
+
+这把旧 fixture 混在一起的三个命题拆开：真实 adoption、Claim-owned lineage GC、Pool-owned lineage refill。namespace-wide generic label 与“任意 UID 不等于 A”的弱断言均已删除。
+
+#### 18.14.2 focused k3d live migration
+
+本机 standard kind 仍处于既有 kubelet/cgroup stop condition，因此使用隔离的 `k3d` v1.32.5 集群，只安装官方 agent-sandbox v0.4.6 与 v0.5.3 manifests，并执行真实 bootstrap/storage migration。live 结果为：
+
+```text
+A Sandbox UID  6d9bf37d-aee1-4f7b-8edc-9428183dc99b
+A Pod UID      99a7ef9a-7e8a-47de-a880-a58390a211e3
+B Sandbox UID  c05d0d21-7e7a-4bce-a86d-a64ea598e91d
+C Sandbox UID  c968a8e7-ee19-4477-b8cb-1210a7186752
+Pool UID       e1af6b2b-6f87-4a62-923a-af1b91a03565
+Claim UID      bd988108-913c-4519-81ce-4def3aaa0dd2
+result         PASS
+```
+
+测试观察到 A 的真实 v0.4.6 adoption、A/B 的 v0.5.3 marker、A/Pod GC、B 在 Claim GC 后继续存在，以及显式删除 B 后同一 Pool 补出 C。临时 `pr446-lineage-ref` 集群、network、volume 与 standalone kubeconfig 已删除；未影响主机上其他容器。
+
+#### 18.14.3 fork CI 与终态
+
+fork push 精确绑定 `13e6f44`，9 个 workflows 全部成功：[Agentcube E2E run `31143151561`](https://github.com/ranxi2001/agentcube/actions/runs/31143151561)、Go CI、Coverage、Lint、Codegen、Codespell、Copyright、Python Lint 与 Python SDK。E2E 两个独立 matrix job 都实际执行 same-lineage block：
+
+| Job | A | v0.4.6 replacement B | v0.5.3 refill C | Result |
+|---|---|---|---|---|
+| `e2e-test` | `qclmc / 531408c7` | `xpfkq / 50df5d53` | `jq5lt / 78de2aa4` | success |
+| `codeinterpreter-e2e-test` | `z4674 / 53609a4d` | `shr6f / 4647232b` | `x8wjr / 233b77bd` | success |
+
+本地 `bash -n`、`git diff --check`、`go test ./test/e2e -run '^$' -count=1`、`go test ./cmd/workload-manager -count=1`、全部 non-E2E Go packages、v0.5.3 conversion 与 focused controller tests 均通过。裸 `go test ./...` 会执行需要 Router/WorkloadManager 端口转发与 kubeconfig 的 live E2E，因本地服务已清理而按预期失败；这项结果没有被伪装成代码失败或通过。
+
+该 fork commit 证明 `F09-existing-claim-upgrade-lifecycle` 有可运行的修复路径，但 upstream PR head 仍是未包含该 commit 的 `7a17302`，所以 upstream closure 继续保持 19 fixed / 2 present，结论仍是 **NO `/lgtm`**。流程 gate 也未变化：DCO 仍列出两个旧 unsigned commits，history 仍含 merge commit，Tide 仍等待 `lgtm/approved`。
