@@ -1276,3 +1276,200 @@ fork push 精确绑定 `13e6f44`，9 个 workflows 全部成功：[Agentcube E2E
 本地 `bash -n`、`git diff --check`、`go test ./test/e2e -run '^$' -count=1`、`go test ./cmd/workload-manager -count=1`、全部 non-E2E Go packages、v0.5.3 conversion 与 focused controller tests 均通过。裸 `go test ./...` 会执行需要 Router/WorkloadManager 端口转发与 kubeconfig 的 live E2E，因本地服务已清理而按预期失败；这项结果没有被伪装成代码失败或通过。
 
 该 fork commit 证明 `F09-existing-claim-upgrade-lifecycle` 有可运行的修复路径，但 upstream PR head 仍是未包含该 commit 的 `7a17302`，所以 upstream closure 继续保持 19 fixed / 2 present，结论仍是 **NO `/lgtm`**。流程 gate 也未变化：DCO 仍列出两个旧 unsigned commits，history 仍含 merge commit，Tide 仍等待 `lgtm/approved`。
+
+## 19. 2026-08-10：RainbowMango same-head review 与能力升级
+
+### 19.1 证据边界与权威性
+
+`2026-08-10 16:30 CST` 最终只读刷新 #446：PR 仍为 open、non-draft，exact base
+`939abb5b1f52a2d8f841ac1dbdc03fc96269bb5e`、exact head
+`624c875bcfa29282d0b6b4ea5171867ad4913202`，没有作者回复或新提交。RainbowMango 在
+`2026-08-10 06:55-07:13 UTC` 提交的 7 条 inline comments，其 `commit_id` 与
+`original_commit_id` 全部等于 `624c875`；PR `updatedAt` 仍停在最后一条维护者评论，没有作者
+reply 或新 commit，因此这次比较没有 later-head regression 或 squash 映射歧义。
+
+根 `OWNERS` 同时把 RainbowMango 列为 reviewer 和 approver，GitHub association 为
+`COLLABORATOR`。这使其对 AgentCube 的 PR 范围、文档承载位置和合入顺序具有权威性，但不把
+所有简短意见自动变成可跨项目复用的技术定律。
+
+### 19.2 7 条评论应归并为 5 个稳定主题
+
+| Stable topic | RainbowMango 的结论 | 我们在同一 tree 前已有的证据 | 公平分类 |
+|---|---|---|---|
+| upgrade guide placement | 两份 Getting Started 都不应承载 upgrade guide；第二条 `ditto` 是同一主题 | 我们完整审过 migration 文档的 URL、备份 kinds、webhook fail-closed 与双份一致性，但没有先问 Getting Started 是否是 owning surface | 同一 acceptance invariant 上的 maintainer information-architecture decision；不是新增 correctness finding |
+| codegen merge-unit scope | 先问为何改 `hack/update-codegen.sh`，再明确只有 `CODEGEN_VERSION` 行需要 | 12.5 已用 clean `make gen-check` zero diff 证明整套 Windows/manual-generator rewrite 不是 v0.5.3 必需；之后却继续修 rewrite 内部的 GOBIN 失败 | 已知 stable topic 的 same-head closure/governance miss；不是 discovery miss |
+| MCP no-op churn | `pyproject.toml` 不需要修改 | 12.6 与 17.8 已记录 current diff 只剩 EOF newline、无语义且“应从 diff 移除” | 已知 stable topic 的 same-head closure/reporting miss |
+| PicoD Windows test scope | `pkg/picod/files_test.go` 与升级无关 | 17.8 已把 `files_test.go` 和 `execute_test.go` 两处 skip 记为可拆出的 scope noise，覆盖面比单条 anchor 更完整 | 已知 stable topic 的 same-head closure/reporting miss |
+| dependency prerequisite split | 先独立 bump Kubernetes/controller-runtime，再让 #446 只保留 agent-sandbox v0.5.3 | 我们已证明 v0.36.2/controller-runtime v0.24.1 是强制且广泛的 compatibility surface，但没有要求把它变成 prerequisite PR | maintainer merge sequencing decision；普通 reviewer 可提前提出高价值拆分问题，但不能把精确两步策略伪装成公开合同 |
+
+两份 docs 与两条 codegen anchors 各自只算一个 topic。公平结果不是“维护者新发现 7 个、我们
+发现 0 个”，而是：
+
+- same-head technical correctness discovery miss：**0**；这 7 条没有新增 P1/P2 correctness defect；
+- 已被我们明确发现的 stable scope topics：**3/5**；
+- 已知 actionable scope topic 仍穿过最终 readiness decision：**3**；
+- 需要维护者定调、但我们可以更早提出 open question 的 project-policy topics：**2**；
+- “no remaining P1/P2” 的字面结论仍成立，但“review complete”加 `/lgtm` 对整个 diff 的 readiness
+  表达过度。
+
+#438 明确要求已有 v0.4.6 安装与 active SandboxClaims 具备 documented and tested upgrade
+path。维护者否定的是 Getting Started 的承载位置，不是 acceptance requirement 本身；后续修改
+不能据此直接删除 upgrade documentation 或相关安全性验证。
+
+### 19.3 能力差异不是单一的“谁更懂代码”
+
+我们的优势仍然是深层 correctness：API/storage migration、producer ownership、UID lineage、
+adoption/GC/refill、auth owner persistence、generated schema、CI discovery 和 causal E2E 都有源码、
+red/green 或 live evidence。RainbowMango 本轮 7 条没有推翻这些 closure。
+
+维护者本轮更强的是 review economics 和 merge-unit judgment：先问为什么触碰一个 surface、依赖
+必要性是否等于同 PR 必要性、信息应由哪个文档承载，再投入细节审查。我们虽然看见了三项
+scope noise，却有明显的 fix-it bias：codegen 整块已经被证明不需要后，仍继续修它内部的 GOBIN
+问题；MCP/PicoD 被降为“非 P2 清理”后，从最终 gate 中消失。point/line correctness 很强，surface
+层的 keep/remove/separate 决策不够坚决。
+
+这也暴露了 completion vocabulary 的问题：finding severity 只描述行为后果，不能替代 merge
+readiness。一个 PR 可以没有 P1/P2 correctness finding，同时仍因已知 `remove` / `separate` 项而
+不适合 `/lgtm`。
+
+### 19.4 `agentcube-pr-review` 升级
+
+本轮将这条教训固化为 scope-first gate，而不是追加若干只匹配 #446 文件名的启发式：
+
+1. 深审前先把 diff 分为 direct acceptance、forced prerequisite、generated consequence、validation、
+   docs/ops artifact 和 independent cleanup/no-op；对每个 hand-written file 与 material hunk 记录
+   owning surface、independent mergeability 和 `keep/remove/separate/unresolved/mixed`。
+2. 必要 dependency 不再自动等于同一 merge unit；可独立构建、测试、合入的 repository-wide
+   prerequisite 默认拆分，除非中间 tree 无法编译或无法保持同一 atomic compatibility invariant。
+3. 已知 `remove` / `separate` topic 即使不是 correctness defect，也必须保留在 final readiness
+   ledger；review-induced scope 需要重新证明，不能因“是 reviewer 要求的”自动获得正当性。
+4. final head 增加 anchor-free scope pass，防止旧 finding ledger 把注意力锁在历史 blocker。
+5. maintainer 对 placement/sequencing 的决定单独记为 policy calibration；改变 artifact location 不会
+   静默删除 Issue acceptance。
+
+`final_head_review.py` 新增 exact-head `--scope-closure` JSON gate。它要求每个 hand-written path
+恰好出现一次，校验 target PR/head、非空 acceptance/owner/rationale/evidence、未知/重复路径、
+independent `keep` 的 atomicity 说明，以及 `mixed` 文件的 hunk-level disposition。缺文件、stale
+head 或任一 `remove/separate/unresolved` 项都会 non-zero exit；只有完整 `keep` closure 才能 ready。
+
+回归用 exact #446 `939abb5...624c875` 运行时，harness 枚举 27 个 hand-written paths，维护者
+comments 涉及的 6 个不同路径全部出现；未提供 scope closure 时结果为 `not-provided` 并 exit 1。
+旧 harness 在同样 27 项全未关闭时仍会 exit 0，这正是本轮修掉的流程漏洞。
+
+独立 code audit 继续找到四条历史 fail-open：ready scope 下缺 acceptance contract 仍可 exit 0、
+changed Go test 未被 CI 覆盖且未 direct-run 仍可 exit 0、Git quoted path 会让 Unicode/tab path
+逃出测试与 scope 识别、宽松的 generated substring 会误排除手写文件。现在 CLI 同时 gate
+acceptance 和 uncovered-test execution；changed-path 解析改为 NUL-delimited + surrogateescape；
+generated detection 只接受 canonical comment header。另补齐 `mixed` 全 `keep` 时不能绕过
+independent-item atomicity。
+
+第二轮 audit 继续沿 path/dataflow 找到：literal external URL 未执行 `--check-urls` 仍可 ready、
+NUL-safe changed-file list 的下游 `changed_lines` 仍会丢 Unicode path、canonical generated comment
+若出现在 `package` 后仍会误排除手写文件、`_test.go -> .go` rename 会逃出 package ledger、首尾
+空白文件名会被 scope parser `.strip()` 改写。最终实现改为按 canonical path 单独解析 hunk body，
+external URL 未通过网络或人工 exact-surface closure 即阻塞，只允许 generated marker 出现在
+comment-only preamble，按 HEAD 是否仍有 Go files 追踪 rename-away/cross-package test，并为 path
+使用不 strip 的 NUL-free identity validator。
+
+第三轮独立 audit 又找到三个 material false-ready：禁用 workflow 内的 `echo "go test ..."`
+静态文本会被误算成 CI coverage、deterministic boundary lead 只展示不 gate、以及
+`git merge-tree` 已证明冲突时 CLI 仍可能 exit 0。最终 closure 现在绑定 exact
+base/head/merge-base；workflow 命令只作为 candidate，必须补 exact-head PASS job 证据或 direct
+run；每个 boundary lead 用稳定 key 分类为 `resolved/not-applicable/present/accepted-by-maintainer`，
+其中缺失或 `present` 都阻塞；structural merge conflict 也直接阻塞。新增端到端回归分别构造
+`if: false + echo` workflow、未闭环 lexical-version lead 和双分支同一行真实冲突，三者均确认
+不能 false ready。
+
+随后 adversarial replay 证明 CI closure 的自由文本 `source="trust me"` 仍可配合 disabled
+`echo "go test ..."` candidate 伪造 ready；#446 实跑也说明 `${VERSION}` URL 若只有 HEAD probe 会
+形成无法人工闭环的永久 false block。最终 workflow discovery 改为结构化 YAML job/step，排除
+statically disabled 和 `echo/printf` 文本；CI closure 必须给出 current-repository Actions job URL，
+harness 通过 GitHub API 核对 exact head、successful run、workflow path、job 与 named successful
+step。自由文本不再参与 coverage，API 不可用时只能 direct-run。URL 则增加 exact-string
+`resolved/not-applicable/present/accepted-by-maintainer` closure，网络 2xx/3xx 可自动闭环，变量 URL
+用具体展开值的验证证据闭环，缺项和 `present` 仍阻塞。
+
+最终稳定 diff 的 adversarial audit 又复现两条 CI false-ready：`true || go test ./pkg/...` 的 step
+整体 success 不能证明测试执行；同一 job 内目标同名 step skipped、另一个同名 step success 会被
+错误匹配。另有一条 ref race：入口虽记录旧 SHA，后续 diff/merge/object reads 仍使用可移动 ref。
+最终只允许 uniquely identified static non-matrix job 中，单一 control-flow-free direct `go test`
+整步成为 CI-waivable；Makefile、script、multi-command、pipeline、`if/exit/true ||` 都只作 lead。
+remote closure 同时精确核对 workflow、static job name、YAML step ordinal/name 和 success，重复或
+dynamic identity 不可 waiver。`review_surface.py` 先一次性解析 base/head SHA，之后 merge-base、
+merge-tree、diff、object reads、test discovery 与 direct test 全部只使用冻结 SHA。对应负向 tests
+覆盖 control-flow bypass、同名错配和 ref movement。
+
+最后的定点复测确认上述三个反例已经关闭，但又构造出 `go test -run '^$' ./pkg/...` 配合绿色
+Actions step 的 false-ready，并指出 `continue-on-error: true` 会让 step success 与测试退出码脱钩。
+最终 eligibility 再收紧为完整 package 执行：`-run/-skip/-short/-list/-c/-count<=0/-exec/-tags`、
+动态 flags、command/workflow/job/step `GOFLAGS` 与非 false `continue-on-error` 全部 lead-only，不能
+用 API PASS waiver。正常的 coverage flags、race 和正数 count 仍可在其余 identity 条件满足时闭环。
+
+第二次复测确认这两条串通路径关闭后，又用 `go test -n` 证明按危险参数黑名单仍会漏掉“绿色但
+不执行”，并用 `-overlay` 证明 exact-head source 也可能被替换；`container.env.GOFLAGS` 与前序写入
+`$GITHUB_ENV` 同样能绕过只检查三层 `env` 的实现。最终不再扩充黑名单，而改成 safe execution
+allowlist：未知 build/test flag 一律 lead-only；同时检查 container env、前序 `$GITHUB_ENV` /
+`go env -w`、effective working directory 与 shell。#446 的 `-race -v -coverprofile -coverpkg` 只在
+command/flag 层满足 allowlist；不可静态证明的执行上下文统一回退 direct-run。
+
+继续复核真实 #446 coverage replay 后，发现此前把 Actions API 的 `head_sha=624c875` 等同于
+“worktree checkout 了 624c875”是错误的。`run 31167804353 / job 92832553795` 的 event 是
+`pull_request`，默认执行的 synthetic merge commit 为 `fc885104`，其两个 parent 是当时的 main
+`4b38a442` 与 PR head `624c875`，tree 也与 PR head 不同；workflow 的 checkout 又没有显式绑定
+exact head。因此当前 harness 将该 candidate 记为 `ci_waivable=false`、
+`exact_head_checkout=false`，即使 workflow/job/step 都 success 也只能作 lead。remote waiver 现在只
+接受 immutable 40-hex setup actions、唯一 clean exact-head checkout、受控 Ubuntu runner、无前序
+shell/env 注入，以及 `push` / `workflow_dispatch` exact-head run；`pull_request` event 一律拒绝。
+
+direct fallback 的对抗检查又复现三条环境 false-pass：`PATH` 首位的假 `go` 可直接 `exit 0`，强制
+`GOWORK=off` 可绕过仓库 workspace 而测试旧 `replace` 依赖，带 BOM 或前导空白的 build constraint
+可让 Linux job 静默跳过新增测试。最终 direct gate 要求调用者显式传入受审绝对 `--go-binary`，
+不再从 `PATH` 发现工具；清除 Go/CGO/compiler/loader 注入、固定 `GOENV=off` 与受控 `PATH`，并按
+package 选择 HEAD 中最近的 governing `go.work`，只有没有适用 workspace 时才 `GOWORK=off`。
+GOOS/GOARCH suffix 与含 BOM/缩进的 source build constraints 均要求显式兼容平台/tag execution。
+
+随后 adversarial replay 进一步覆盖普通空格、Tab、vertical tab、form feed、NBSP 与 UTF-8 BOM；
+这些 changed test 均无法获得 workflow waiver，direct gate 返回阻断码 2。当轮 focused harness tests
+**50/50**、`agentcube-pr-review` 三个 test scripts **79/79**、本轮涉及的七个 skill test scripts
+**107/107** 全部通过；`py_compile`、`git diff --check` 与 skill `quick_validate.py` 也通过。
+
+另一轮独立 code review 随后仍找到两项 P1 与一项 P2：Git ignored 的 `_test.go` 可以加入
+`TestMain` 后 `os.Exit(0)`，而普通 `git status` 继续 clean；tracked `go.work` 的 `use/replace` 或
+`go.mod replace` 可以指向 repository 外的本地模块；direct gate 又把执行平台固定假设成
+Linux/amd64，却没有核对显式 Go binary 的 host，因而在 macOS/arm64 上可能跳过 suffix test。
+
+最终 direct-run 不再在输入 worktree 中执行，而是用 `git ls-tree` 与 `git cat-file blob` 把 exact
+head 的 regular tracked files 逐项物化到新 temporary tree；Git ignored files、smudge/filter 后的
+worktree 内容均不能参与。执行前用 `go work edit -json` 和 `go list -m -json all` 绑定 workspace
+use/replace、main modules 与 local replacements，任一 resolved path 越出 materialized tree 都拒绝；
+显式工具同时必须报告 Linux/amd64 host，环境固定 `GOOS=linux`、`GOARCH=amd64`、`GOENV=off` 与
+`GOTOOLCHAIN=local`。ignored `TestMain`、`go.work use ../external`、darwin/arm64 fake tool 三条原始
+PoC 均已反向通过，focused suite 为 **52/52**，review skill 三套为 **81/81**。
+
+两名独立代理随后在同一行为版本上完成限定 P1/P2 终局审查，额外覆盖 external `go.work replace`、
+external `go.mod replace` 与 vendor 组合，结论均为 clean。最终七套 skill tests
+**109/109** 全部通过，`py_compile`、`git diff --check` 与 skill `quick_validate.py` 再次通过；最后仅
+校正了包含 list 字段的 package/workflow row 类型标注，没有改变执行路径。
+
+升级后的 exact #446 `939abb5...624c875` 回归仍枚举 36 changed files / 27 hand-written paths，
+Rainbow 六个不同 comment paths 覆盖 6/6。该 surface 结构可合并，但因没有 exact-surface scope
+closure、两个 exported-signature boundary leads 未分类、四个 changed Go test packages 没有 PASS
+closure/direct result、七个 URL 未检查，harness 按预期 exit 1。coverage 的 direct command 是
+checkout/event 不可 waiver 的 lead-only candidate；经 Makefile/script 到达的 E2E command 也是
+lead-only，两者都没有再被静态文本或绿色 PR run 自动当成 exact-head 执行成功。
+
+skill-creator fresh-context forward test 在 #446 上先于 correctness 重建出三个公开证据可支持的
+scope topic（codegen rewrite、PicoD Windows skips、MCP EOF churn），把 upgrade-guide placement
+与 dependency sequencing 分离为 maintainer-policy questions，并没有制造新的 blocking correctness
+finding；harness 也拒绝在缺 scope closure 和 `./cmd/workload-manager` direct test 时 ready。这个结果
+仍受训练泄漏限制，因为 required reference 已包含 #446 证据，不能单独当 held-out improvement。
+
+因此又用未写入新 pattern 证据的 #450 `0704bb9...0b646d8` 做 held-out 式 false-positive pass。
+fresh agent 把 ownership validation、`OwnershipConflict` status、`AlreadyExists` retry、UID/RV delete
+preconditions 与相邻 causal tests 保持为一个 coherent merge unit，判定 **0 remove / 0 separate /
+0 unresolved**；没有因跨四个文件或包含 race hardening 就机械拆 PR。这说明新 gate 至少同时通过
+#446 的 scope recall 检查与 #450 的 focused-PR precision 检查，但仍不是多任务统计结论。
+
+本轮没有修改 #446、发布评论、回复、resolve、发送 `/lgtm`、request review 或 mention maintainer。
+最新 upstream 状态仍是等待作者按维护者意见调整或解释；旧的“review 已结束，只等 merge”状态已经
+失效。

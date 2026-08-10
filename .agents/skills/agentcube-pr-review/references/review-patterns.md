@@ -229,6 +229,30 @@ Evidence labels:
 - Validation: Treat the ready/squashed head as a new review surface: rebuild the issue acceptance matrix, classify all changed files, run every changed test package not proven by workflow commands, validate external artifacts, and exercise boundary values before carrying forward old conclusions.
 - False-positive guard: A tiny follow-up that changes only the exact reviewed lines may use an incremental pass when head ancestry, diff, tests, and acceptance scope are unchanged. Do not force a full repository review for a genuinely local patch.
 
+### Every material hunk must belong to the smallest coherent merge unit
+
+- Trigger: A feature or dependency upgrade also changes repository-wide tooling, documentation
+  placement, platform-specific tests, formatting-only files, or independently valuable prerequisites.
+- Hidden assumption: If an incidental change is correct, related to a dependency cone, or added during
+  review, making it robust is enough to justify keeping it in the feature PR.
+- Failure mode: Known `remove` / `separate` items are downgraded because they are not correctness
+  defects; the final review then reports no P1/P2 findings and `/lgtm` implies the whole diff is ready.
+- Evidence source: `CODE` and `MAINTAINER`, AgentCube PR #446 exact head `624c875`. Before final
+  completion, our local report had already shown that the broad code-generator rewrite was unnecessary,
+  the MCP `pyproject.toml` change was only EOF churn, and PicoD Windows skips were independent test
+  cleanup. Those three topics remained in the same head later challenged by RainbowMango. Two additional
+  maintainer decisions selected a different upgrade-document surface and a prerequisite dependency PR.
+- Review question: Which acceptance item or direct compatibility constraint requires this exact file
+  and each material hunk, why is this the owning surface, and can the group be built, tested, and merged
+  independently?
+- Validation: Build an exact-head scope closure with `keep`, `remove`, `separate`, `unresolved`, or
+  hunk-level `mixed` dispositions. When necessary, run the minimal counterfactual by removing the group
+  or retaining only the version/generated delta. Keep readiness blocked until every `remove`, `separate`,
+  or `unresolved` item disappears from a new head or an authoritative decision changes the merge unit.
+- False-positive guard: Keep an atomic API/storage migration, its generated/lockfile consequences, or
+  repository-required mirrored documentation together when an intermediate tree cannot compile or
+  preserve the same compatibility invariant. File count and component count alone do not prove a split.
+
 ### Replacement PRs must inherit unresolved finding ledgers
 
 - Trigger: A PR is closed, superseded, or replaced by another PR for the same issue, or a new branch reimplements a repeatedly reviewed patch.

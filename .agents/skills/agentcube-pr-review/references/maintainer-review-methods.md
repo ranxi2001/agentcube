@@ -13,7 +13,7 @@ This reference distills repeated public review methods, not a maintainer's perso
 
 The initial corpus sampled public reviews by `@RainbowMango` across:
 
-- AgentCube PRs #357, #366, #396, and #431;
+- AgentCube PRs #357, #366, #396, #431, and #446;
 - Karmada foundational PRs #4, #6, #34, #59, #62, #84, and #93 from 2020;
 - Karmada PRs #7395, #7613, #7640, and #7732 from 2026.
 
@@ -37,11 +37,31 @@ Before reviewing the patch, ask whether the reported behavior is actually observ
 - Karmada #7640: omitted value-typed placement was expected to decode to an empty value; the reviewer challenged the bug label and expected the request to remain allowed.
 - AgentCube #357: a nearby improvement was sensible but explicitly rejected as out of scope for a typo-only PR.
 
-### 2. Establish actor, outcome, and current vocabulary
+### 2. Establish the smallest coherent merge unit
+
+Before deep correctness work, cluster the diff by direct acceptance behavior, forced prerequisite,
+generated consequence, validation, documentation, and independent cleanup. Ask why each hand-written
+file and material hunk is touched, whether its current surface owns that behavior, and whether the
+group can be built, tested, and merged independently.
+
+AgentCube #446 provides exact-head evidence. RainbowMango's seven inline comments on `624c875`
+collapse into five stable topics: upgrade-document placement, a broad code-generator rewrite where
+only the version pin was needed, EOF-only MCP churn, independent PicoD Windows test skips, and a
+Kubernetes/controller-runtime prerequisite that should land before the agent-sandbox feature upgrade.
+Our prior local report had already identified the codegen, MCP, and PicoD topics, but they remained in
+the diff when review completion was declared. The miss was closure and merge-unit judgment, not new
+technical-correctness discovery.
+
+Use the method, not the comment terseness. A maintainer may authoritatively choose repository
+information architecture and merge sequencing. An external reviewer should present those choices as
+evidence-backed scope questions until a public contract or maintainer decision settles them. The
+parent Issue's acceptance requirement remains in force when only the artifact location changes.
+
+### 3. Establish actor, outcome, and current vocabulary
 
 For proposals, make the first 60 lines explain the user/administrator, their pain, the promised outcome, stable feature/component names, current roadmap terminology, and authoritative external references. See the `Proposal front door` pattern in `review-patterns.md`.
 
-### 3. Search for existing ownership and precedent
+### 4. Search for existing ownership and precedent
 
 Before accepting a new helper, controller rule, or configuration shape:
 
@@ -53,13 +73,13 @@ Before accepting a new helper, controller rule, or configuration shape:
 
 Evidence: Karmada #59 found an existing readiness helper and duplicate finalizer; AgentCube #396 reused Karmada's predictable Dependabot schedule and asked the author to justify grouping. AgentCube #431 challenged a redundant `NodeSelector`, an unconsumed endpoint field, and hardcoded CPU/memory fields when Kubernetes already provides `corev1.ResourceList`.
 
-### 4. Trace shared helpers by domain type and destination
+### 5. Trace shared helpers by domain type and destination
 
 Generic helpers can erase meaningful differences. Enumerate each caller's resource kind, namespace semantics, queue/worker, status writer, and cleanup owner.
 
 Karmada #7613 showed the concrete failure: a helper shared by `ResourceBinding` and `ClusterResourceBinding` always selected the namespaced worker, causing the cluster-scoped lookup to use an empty namespace and silently leave resources unevicted.
 
-### 5. Review reconciliation as state transitions
+### 6. Review reconciliation as state transitions
 
 For controllers, check:
 
@@ -76,7 +96,7 @@ For controllers, check:
 
 Karmada #59 and #62 repeatedly applied these checks to status, finalizer, error, log, and delayed-readiness paths. AgentCube #431 applied the same scale question to per-node 30-second status writes and pointed to kubelet's Lease-based heartbeat precedent.
 
-### 6. Require comments and names to explain responsibility
+### 7. Require comments and names to explain responsibility
 
 Reject stale copy-paste comments, misleading names, and logs without namespace/object identity. Delete comments that merely restate syntax; require a short algorithm or invariant note where the control flow is otherwise hard to recover.
 
@@ -84,11 +104,11 @@ This is not cosmetic when the name becomes a feature, API, metric, finalizer, co
 
 For public API fields, comments are part of the contract. Require the meaning, writer, optional or required behavior, mutability, default or zero-value semantics, and precedence when multiple fields interact. Keep field-local validation with the field; reserve separate webhook documentation for cross-field, cross-object, or authenticated admission rules.
 
-### 7. Use explicit review rounds
+### 8. Use explicit review rounds
 
 When a large patch still has structural problems, say that another review round is required. Do not let dozens of local fixes imply approval. Karmada #84 and #93 explicitly required a second round; #84 was closed in favor of a cleaner replacement path.
 
-### 8. Verify claimed fixes and recovery windows
+### 9. Verify claimed fixes and recovery windows
 
 Treat an author reply such as `done` or a GitHub-resolved thread as a lead, not proof. Re-read the current text, open external references, and trace the protected invariant from failure detection through recovery completion.
 

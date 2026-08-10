@@ -46,7 +46,7 @@ Treat script output as leads. Verify every suspected defect in source, diff, tes
 The workflow dataflow checks use `PyYAML`; run them in the repository's Python environment where `import yaml` succeeds.
 When a test is gated by an environment default, resolve the complete workflow path before calling it skipped: bind workflow/job/step env to the step that actually runs the test, apply nearest-scope precedence, expand that job's matrix values, follow `${{ matrix.* }}` assignments, and inspect the target job's PASS/SKIP log. A script default or another job/step's env is not the effective value for the target execution.
 
-For a PR declared ready after repeated patching, rebasing, force-pushing, or squashing, also run the final-head evidence harness. Supply the parent Issue/proposal body or explicit acceptance notes; do not silently omit the contract. When using `--run-go-tests`, run from a clean temporary worktree whose `HEAD` equals `--head`; the harness rejects tracked or untracked changes before testing:
+For a PR declared ready after repeated patching, rebasing, force-pushing, or squashing, also run the final-head evidence harness. Supply the parent Issue/proposal body or explicit acceptance notes; do not silently omit the contract. When using `--run-go-tests`, point at a clean worktree whose `HEAD` equals `--head` and pass an explicitly reviewed absolute `--go-binary`. The harness rejects tracked or untracked changes, never discovers a test binary from `PATH`, and executes from a fresh tree materialized directly from exact-head Git blobs so ignored files cannot affect the result:
 
 ```bash
 python3 /home/agentcube/.agents/skills/agentcube-pr-review/scripts/final_head_review.py \
@@ -54,17 +54,29 @@ python3 /home/agentcube/.agents/skills/agentcube-pr-review/scripts/final_head_re
   --base upstream/main --head HEAD \
   --target-repository volcano-sh/agentcube --target-pull-request 123 \
   --acceptance-file /path/to/issue-body.md \
+  --scope-closure /path/to/scope-closure.json \
   --finding-ledger /path/to/findings.json \
   --finding-closure /path/to/closure.json \
-  --run-go-tests --check-urls --format markdown
+  --run-go-tests --go-binary /reviewed/absolute/path/to/go \
+  --check-urls --format markdown
 ```
 
 Use repeatable `--acceptance-note` arguments when the authoritative contract is already available as concise text. The harness must expose, at minimum:
 
 - every acceptance candidate from the parent Issue/proposal;
-- every hand-written changed file requiring reviewer-owned rationale and evidence;
-- every changed Go test package and the exact workflow command, if any, that covers it;
-- direct results for changed Go test packages not proven by CI, without rerunning CI-proven or live E2E packages locally;
+- every hand-written changed file requiring an exact-head `keep`, `remove`, `separate`,
+  `unresolved`, or hunk-level `mixed` scope disposition;
+- every changed Go test package and matching workflow-command candidates, without treating static
+  workflow text as execution evidence;
+- an exact-head GitHub Actions job/step PASS verified live for an eligible control-flow-free,
+  full-package `go test` workflow step whose flags are on the safe execution allowlist, whose setup
+  actions are immutable and checkout is clean/exact, whose GitHub-hosted runner, root directory,
+  environment, and failure propagation are statically trustworthy, and whose run event is `push` or
+  `workflow_dispatch`, or a direct run for the changed package;
+- direct results for changed Go test packages not proven by CI, using a Git-object-materialized tree,
+  the nearest governing HEAD-tracked `go.work`, only in-tree workspace/main/local-replace modules, a
+  sanitized Go/compiler/loader environment, and an explicitly reviewed Linux/amd64 Go binary, without
+  rerunning CI-proven or live E2E packages locally;
 - added external URLs, lexicographic version comparisons, personal absolute paths, removed validation calls, exported Go signature changes, and Kubernetes library/code-generator minor-version skew.
 
 When the PR replaces, supersedes, or reimplements an earlier PR, build a carry-forward finding ledger before reviewing the new head. Union the parent acceptance contract with unresolved findings from the predecessor PR, local review reports, and validated review threads. Before each new final-head run, advance that ledger through the review cutoff: include findings published or validated after the previous ledger version, including the current reviewer's own later comments. Give each finding a stable ID and classify it on the new head as `fixed`, `present`, `not-applicable`, `duplicate-on-current-pr`, or `accepted-by-maintainer`, with code or test evidence. A comment on a closed predecessor PR is not a duplicate on the replacement PR, and an old resolved thread is not evidence that the replacement fixed the code. Bind the closure to the ledger ID, logical version, canonical content digest, current PR, and exact head. Use the dedicated `--finding-ledger` and `--finding-closure` inputs; do not downgrade known findings into free-form acceptance notes.
@@ -75,7 +87,23 @@ For every review round, record the exact reviewed SHA. Before comparing another 
 
 For lifecycle acceptance, keep every required transition on one traceable object lineage. A migrated object's Ready and identity checks cannot be combined with deletion, garbage collection, or refill checks performed on a fresh post-upgrade object. Record the original and replacement UIDs and the owning pool/session identity at each transition.
 
-Treat the output as an evidence ledger, not a finding generator. Close each row against code, runtime evidence, or an explicit out-of-scope rationale. A green check name does not close a changed test package unless the mapped command includes it. Do not publish or declare completion while a supplied finding ledger is missing a closure, contains an unclassified ID, was closed against another ledger version/head, or still has `present` / `duplicate-on-current-pr` rows. A maintainer-accepted residual must use `accepted-by-maintainer` with decision evidence instead of weakening the gate.
+Treat the output as an evidence ledger, not a finding generator. Close each row against code,
+runtime evidence, or an authoritative decision. An out-of-scope rationale is not closure: mark the
+item `remove` or `separate` and keep readiness blocked until a new exact head removes/splits it or a
+maintainer explicitly changes the merge-unit decision. A green check name does not close a changed
+test package. Makefile, script, matrix/dynamic-job, duplicate-name, nested-module-overreach,
+build-constrained-test, and shell-control-flow matches remain lead-only; they cannot waive direct
+execution. An eligible direct command is covered only after its exact-head Actions `push` or
+`workflow_dispatch` run, immutable setup and exact clean checkout, workflow, uniquely named static
+job, step ordinal/name, and step success are verified through the GitHub API. A `pull_request` run
+normally executes a synthetic merge ref and is not exact-head evidence. Bind the scope closure to the
+exact base, head, and merge base. Explicitly close every
+deterministic boundary lead; `present` remains blocking. Do not publish or declare completion while
+the surface has a structural merge conflict, the scope or boundary closure is missing, stale,
+incomplete, or blocked, or while a supplied finding ledger is missing a closure, contains an
+unclassified ID, was closed against another ledger version/head, or still has `present` /
+`duplicate-on-current-pr` rows. A maintainer-accepted residual must use
+`accepted-by-maintainer` with decision evidence instead of weakening the gate.
 
 When studying a maintainer's repeated review method, fetch a bounded, diverse PR sample with:
 
@@ -95,7 +123,40 @@ When a force-push or rebase claims to resolve conflicts, use all three views:
 
 A clean merge proves only structural compatibility. It does not prove behavior was preserved.
 
-### 2. Build a change model before judging code
+### 2. Gate the smallest coherent merge unit
+
+Do this before repairing or deeply reviewing incidental implementation. Partition the diff into
+change groups, then classify every hand-written file and every material hunk as:
+
+- direct acceptance behavior;
+- forced compatibility prerequisite;
+- generated or lockfile consequence;
+- validation evidence;
+- documentation or operational artifact;
+- independent cleanup, refactor, platform work, or no-op churn.
+
+For each file or material hunk, record the acceptance item or direct compatibility constraint that
+requires it, why this is the owning surface, whether it can be built, tested, and merged
+independently, and a `keep`, `remove`, `separate`, or `unresolved` disposition. Use `mixed` when one
+file contains necessary and independent hunks. A dependency can be technically required by the
+final feature while still belonging in a prerequisite PR.
+
+Run the minimal counterfactual where uncertainty is material: remove the group, or retain only the
+smallest version/generated change, then compile, regenerate, or run the focused test. Do not improve
+an incidental change in place after evidence shows that the current merge unit does not require it.
+Track scope added in response to review separately; reviewer-requested code is not automatically in
+scope.
+
+Repeat this pass anchor-free on the exact final head before reading the old closure. Preserve known
+`remove` / `separate` items in the ledger even when they are not correctness defects. Do not declare
+review completion or send `/lgtm` while any such item remains in the diff.
+
+When a maintainer chooses a document location or PR sequence, treat that as an authoritative project
+decision, not a universal technical rule. Update the acceptance mapping: changing the artifact's
+location does not waive the parent Issue's documented behavior unless the maintainer explicitly
+changes that requirement.
+
+### 3. Build a change model before judging code
 
 Summarize the change in six parts:
 
@@ -117,7 +178,7 @@ request -> validation -> desired state -> reconciliation/execution
 
 Name the actor that writes each transition. Distinguish authoritative, cached, derived, and reflected state. Track Kubernetes `UID`, `generation`, `resourceVersion`, owner references, and status writers when identity or freshness matters.
 
-### 3. Expand from point to line to surface
+### 4. Expand from point to line to surface
 
 Review in three passes:
 
@@ -127,7 +188,7 @@ Review in three passes:
 
 Do not stop at the diff if the defect can only be seen in consumers, controllers, generated clients, RBAC, Helm values, or runtime installation scripts.
 
-### 4. Apply architectural and design gates
+### 5. Apply architectural and design gates
 
 Ask:
 
@@ -141,7 +202,7 @@ Ask:
 
 Use the component map in `agentcube-architecture-review.md`. A responsibility overlap is not automatically a defect; prove duplicated ownership or divergent semantics.
 
-### 5. Apply implementation gates
+### 6. Apply implementation gates
 
 Use `agentcube-review-checks.md` to inspect:
 
@@ -154,7 +215,7 @@ Use `agentcube-review-checks.md` to inspect:
 
 Repository style is supporting evidence, not a substitute for a behavioral argument.
 
-### 6. Attack non-happy paths
+### 7. Attack non-happy paths
 
 At minimum, inspect:
 
@@ -168,7 +229,7 @@ At minimum, inspect:
 
 For async lifecycle changes, verify the sequence itself. A final absence check can pass even if the resource was never created; require presence before absence where appropriate.
 
-### 7. Validate evidence in proportion to risk
+### 8. Validate evidence in proportion to risk
 
 Prefer this evidence ladder:
 
@@ -204,7 +265,7 @@ Apply this gate before calling an unobserved scenario a bug or using it as a blo
 
 Fault injection proves conditional control flow, not production reachability. A reachable latent bug may still block when the trigger is a routine external failure mode and the consequence violates a correctness or safety invariant. Reachability is necessary but not sufficient for blocking: also prove that the current PR introduces or modifies the path, the correction is in scope, and the consequence is material. Keep a hypothetical scenario non-blocking and present it as a question, evidence gap, or realistic-test request rather than a bug.
 
-### 8. Write findings reviewer-first
+### 9. Write findings reviewer-first
 
 Order findings by severity. Each finding must include:
 
@@ -283,6 +344,11 @@ After a completed review, classify the outcome:
 - stable AgentCube architecture knowledge: update `references/agentcube-architecture-review.md`;
 - reusable five-step review workflow: update this skill or its script;
 - one-off uncertainty: leave it out.
+
+When comparing reviewers, report correctness discovery, scope discovery, known-item closure, and
+maintainer-policy calibration separately. Deduplicate repeated inline anchors into stable topics and
+count only same-head evidence. A known `remove` / `separate` item that survives an `/lgtm` is a closure
+failure even when technical finding recall is unchanged.
 
 When comparing repeated review runs or changing this review harness, use `agent-autoharness` with a frozen labeled task set. Report outcome, finding recall, resource efficiency, and trajectory flags separately; do not infer improvement from one newly discovered finding or from a single post-hoc reconstruction.
 

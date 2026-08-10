@@ -50,6 +50,8 @@ def git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProce
         ["git", "-C", str(repo), *args],
         check=check,
         text=True,
+        encoding="utf-8",
+        errors="surrogateescape",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -61,6 +63,26 @@ def object_text(repo: Path, ref: str, path: str) -> str | None:
 
 
 def parse_changed_files(raw: str) -> list[dict[str, str]]:
+    if "\0" in raw:
+        fields = raw.split("\0")
+        if fields and fields[-1] == "":
+            fields.pop()
+        files: list[dict[str, str]] = []
+        index = 0
+        while index < len(fields):
+            status = fields[index]
+            index += 1
+            path_count = 2 if status.startswith(("R", "C")) else 1
+            if index + path_count > len(fields):
+                raise ValueError("incomplete NUL-delimited git --name-status output")
+            paths = fields[index : index + path_count]
+            index += path_count
+            item = {"status": status, "path": paths[-1]}
+            if path_count == 2:
+                item["old_path"] = paths[0]
+            files.append(item)
+        return files
+
     files: list[dict[str, str]] = []
     for line in raw.splitlines():
         parts = line.split("\t")
@@ -337,13 +359,15 @@ def codeinterpreter_e2e_coverage(repo: Path, head: str) -> dict[str, bool]:
 def build_report(repo: Path, base: str, head: str) -> dict[str, Any]:
     base_sha = git(repo, "rev-parse", base).stdout.strip()
     head_sha = git(repo, "rev-parse", head).stdout.strip()
-    merge_base = git(repo, "merge-base", base, head).stdout.strip()
-    base_is_ancestor = git(repo, "merge-base", "--is-ancestor", base, head, check=False).returncode == 0
+    merge_base = git(repo, "merge-base", base_sha, head_sha).stdout.strip()
+    base_is_ancestor = (
+        git(repo, "merge-base", "--is-ancestor", base_sha, head_sha, check=False).returncode == 0
+    )
 
-    merge_result = git(repo, "merge-tree", "--write-tree", base, head, check=False)
+    merge_result = git(repo, "merge-tree", "--write-tree", base_sha, head_sha, check=False)
     structurally_mergeable = merge_result.returncode == 0
 
-    raw_files = git(repo, "diff", "--name-status", f"{base}...{head}").stdout
+    raw_files = git(repo, "diff", "--name-status", "-z", f"{base_sha}...{head_sha}").stdout
     files = parse_changed_files(raw_files)
     category_map: dict[str, list[str]] = {}
     for item in files:
@@ -351,8 +375,8 @@ def build_report(repo: Path, base: str, head: str) -> dict[str, Any]:
             category_map.setdefault(category, []).append(item["path"])
 
     leads: list[dict[str, str]] = []
-    versions = dependency_runtime_versions(repo, head)
-    codeinterpreter_coverage = codeinterpreter_e2e_coverage(repo, head)
+    versions = dependency_runtime_versions(repo, head_sha)
+    codeinterpreter_coverage = codeinterpreter_e2e_coverage(repo, head_sha)
     if versions["go_dependency"] and versions["e2e_default"]:
         if versions["go_dependency"] != versions["e2e_default"]:
             leads.append(
@@ -432,7 +456,7 @@ def build_report(repo: Path, base: str, head: str) -> dict[str, Any]:
         "agent_sandbox_versions": versions,
         "codeinterpreter_e2e_coverage": codeinterpreter_coverage,
         "review_leads": leads,
-        "diff_stat": git(repo, "diff", "--stat", f"{base}...{head}").stdout.rstrip(),
+        "diff_stat": git(repo, "diff", "--stat", f"{base_sha}...{head_sha}").stdout.rstrip(),
     }
 
 

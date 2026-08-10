@@ -16,7 +16,21 @@
 ## Scope and conflict integrity
 
 - Compare issue/proposal intent, PR body, commits, and actual diff.
-- Identify unrelated refactors, generated churn, local artifacts, and hidden prerequisites.
+- Partition the diff into the smallest coherent merge units before deep implementation review.
+- For every hand-written file and material hunk, name the acceptance item or direct compatibility
+  constraint that requires it, the owning surface, and whether it can be built, tested, and merged
+  independently.
+- Classify each item as `keep`, `remove`, `separate`, `unresolved`, or hunk-level `mixed`; an
+  out-of-scope explanation blocks readiness until the exact head removes or splits the item.
+- Identify unrelated refactors, generated churn, local artifacts, no-op whitespace changes, and
+  hidden prerequisites. Do not repair an unrelated change in place after proving it unnecessary.
+- Distinguish a forced dependency from a forced merge unit. Independently valuable or repository-wide
+  prerequisites default to a separate PR unless an intermediate tree cannot compile or preserve the
+  same atomic compatibility invariant.
+- Check documentation ownership and audience separately from documentation necessity. Moving an
+  artifact does not silently waive a parent Issue's documented acceptance requirement.
+- Repeat the scope pass anchor-free on the final head and preserve known `remove` / `separate` items
+  in the readiness ledger, even when they are not correctness findings.
 - Verify base ancestry and structural mergeability.
 - Use `git range-diff` across old/new patch series after rebase or conflict resolution.
 - Inspect conflict hotspots in shared manifests, generated files, dependency locks, API types, and tests.
@@ -153,6 +167,22 @@ Concurrency checks:
 - Inspect workflow inputs, setup scripts, defaults, environment variables, installed CRDs/controller/image, and feature flags.
 - Compare `go.mod` dependency version with the actual runtime/controller version used by e2e.
 - Verify the changed test is discovered and runs, rather than merely compiling.
+- Treat workflow commands as discovery leads until the exact checkout source, immutable setup actions,
+  concrete GitHub-hosted runner, run event, static job/step identity, and live PASS evidence all match.
+  A `pull_request` run on GitHub's synthetic merge ref is not exact-head execution proof.
+- Do not infer a full package pass from filtered, skipped, compile/dry-run, zero-count, overlay,
+  unknown/dynamic-flagged, `GOFLAGS`-injected, environment-mutated, non-root, custom-shell, or
+  `continue-on-error` test steps.
+- Map package coverage across Go module boundaries. Root `go test ./...` does not cover nested modules,
+  and recursive wildcards skip `testdata`, `vendor`, dot-prefixed, and underscore-prefixed directories.
+- Changed tests with GOOS/GOARCH suffixes or source build constraints need explicit compatible
+  platform/tag execution; a Linux/amd64 green job that skipped those files is not coverage.
+- For a direct fallback, require a clean exact-head input worktree and execute from a fresh tree
+  materialized from exact-head Git blobs, not from files visible in the input directory. Require an
+  explicitly reviewed absolute Linux/amd64 Go binary, sanitized Go/compiler/loader variables,
+  `GOENV=off`, `GOTOOLCHAIN=local`, and the nearest governing `go.work` tracked at HEAD. Reject
+  workspace/main/local-replace module paths outside the materialized tree. Do not select `go` from
+  ambient `PATH`, let ignored Go files participate, or force `GOWORK=off` across a repository workspace.
 - Distinguish core validation from release, publish, approval, or optional jobs.
 - Remove useless or misleading CI evidence from reviewer-facing summaries; keep only checks that change confidence.
 
@@ -163,7 +193,8 @@ Concurrency checks:
 - Check minimum Kubernetes/Go/Python versions and pinned CI runners.
 - Verify old stored state and old clients when backward compatibility is claimed.
 - Confirm generated code and lock files came from the intended toolchain.
-- Keep prerequisite upgrades separate when they are independently valuable or repository-wide.
+- Keep prerequisite upgrades separate when they are independently valuable or repository-wide;
+  dependency necessity alone does not prove same-PR necessity.
 - Do not let test scripts silently install an older version than the code imports.
 
 ## Limitations and review confidence

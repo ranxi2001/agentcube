@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import importlib.util
+import subprocess
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT = Path(__file__).with_name("review_surface.py")
@@ -13,6 +15,74 @@ SPEC.loader.exec_module(REVIEW_SURFACE)
 
 
 class ReviewSurfaceTest(unittest.TestCase):
+    def test_build_report_freezes_refs_to_shas_before_reading_surface(self) -> None:
+        base_ref = "moving-base"
+        head_ref = "moving-head"
+        base_sha = "a" * 40
+        head_sha = "b" * 40
+        calls: list[tuple[str, ...]] = []
+
+        def fake_git(
+            _repo: Path, *arguments: str, check: bool = True
+        ) -> subprocess.CompletedProcess[str]:
+            calls.append(arguments)
+            if arguments == ("rev-parse", base_ref):
+                output = f"{base_sha}\n"
+            elif arguments == ("rev-parse", head_ref):
+                output = f"{head_sha}\n"
+            elif arguments[:1] == ("merge-base",) and "--is-ancestor" not in arguments:
+                output = f"{base_sha}\n"
+            else:
+                output = ""
+            return subprocess.CompletedProcess([], 0, stdout=output, stderr="")
+
+        with (
+            mock.patch.object(REVIEW_SURFACE, "git", side_effect=fake_git),
+            mock.patch.object(
+                REVIEW_SURFACE,
+                "dependency_runtime_versions",
+                return_value={"go_dependency": None, "e2e_default": None},
+            ),
+            mock.patch.object(
+                REVIEW_SURFACE,
+                "codeinterpreter_e2e_coverage",
+                return_value={
+                    "default_mtls_enabled": False,
+                    "workflow_disables_mtls": False,
+                    "warm_pool_skips_when_mtls": False,
+                    "warm_pool_skipped_by_default": False,
+                },
+            ),
+        ):
+            report = REVIEW_SURFACE.build_report(Path("."), base_ref, head_ref)
+
+        self.assertEqual(report["base"]["sha"], base_sha)
+        self.assertEqual(report["head"]["sha"], head_sha)
+        for arguments in calls[2:]:
+            self.assertNotIn(base_ref, arguments)
+            self.assertNotIn(head_ref, arguments)
+
+    def test_nul_changed_file_parser_preserves_unicode_tabs_and_renames(self) -> None:
+        files = REVIEW_SURFACE.parse_changed_files(
+            "M\0pkg/é_test.go\0R100\0old\tname.go\0new\nname.go\0"
+        )
+
+        self.assertEqual(
+            files,
+            [
+                {"status": "M", "path": "pkg/é_test.go"},
+                {
+                    "status": "R100",
+                    "old_path": "old\tname.go",
+                    "path": "new\nname.go",
+                },
+            ],
+        )
+
+    def test_nul_changed_file_parser_rejects_truncated_records(self) -> None:
+        with self.assertRaisesRegex(ValueError, "incomplete NUL-delimited"):
+            REVIEW_SURFACE.parse_changed_files("R100\0old.go\0")
+
     def test_extracts_agent_sandbox_dependency_and_runtime_versions(self) -> None:
         versions = REVIEW_SURFACE.extract_agent_sandbox_versions(
             "require sigs.k8s.io/agent-sandbox v0.4.6\n",
