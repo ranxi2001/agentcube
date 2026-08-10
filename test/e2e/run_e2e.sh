@@ -240,6 +240,18 @@ ensure_namespace() {
     kubectl get ns "${ns}" >/dev/null 2>&1 || kubectl create ns "${ns}"
 }
 
+verify_workloadmanager_event_permissions() {
+    local service_account="system:serviceaccount:${AGENTCUBE_NAMESPACE}:workloadmanager"
+    local verb
+    for verb in create patch; do
+        if ! kubectl auth can-i "${verb}" events.events.k8s.io \
+            --namespace "${WORKLOAD_NAMESPACE}" --as "${service_account}" --quiet; then
+            echo "WorkloadManager service account cannot ${verb} events.events.k8s.io in ${WORKLOAD_NAMESPACE}" >&2
+            return 1
+        fi
+    done
+}
+
 docker_pull_if_missing() {
     local image="$1"
     if docker image inspect "${image}" > /dev/null 2>&1; then
@@ -763,6 +775,8 @@ EOF
 
     step "Creating test AgentRuntimes..."
     kubectl create namespace "${WORKLOAD_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+    step "Verifying WorkloadManager Event permissions..."
+    verify_workloadmanager_event_permissions
     # Create normal echo-agent
     apply_workload_fixture test/e2e/echo_agent.yaml
     # Create echo-agent-short-ttl with short sessionTimeout for TTL testing

@@ -34,12 +34,15 @@ import (
 	agentcubeclientset "github.com/volcano-sh/agentcube/client-go/clientset/versioned"
 	"github.com/volcano-sh/agentcube/pkg/apis/runtime/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -63,6 +66,16 @@ const (
 
 	e2eCodeInterpreterName = "e2e-code-interpreter"
 	enabledEnvValue        = "true"
+
+	agentSandboxSystemNamespace             = "agent-sandbox-system"
+	agentSandboxControllerDeployment        = "agent-sandbox-controller"
+	codeInterpreterReadyCondition           = "Ready"
+	codeInterpreterReadyReason              = "Reconciled"
+	codeInterpreterWarmPoolCondition        = "WarmPoolAvailable"
+	codeInterpreterWarmPoolReady            = "WarmPoolReady"
+	codeInterpreterWarmPoolBelowWatermark   = "WarmPoolBelowWatermark"
+	codeInterpreterWarmPoolEventAction      = "WarmPoolAvailability"
+	codeInterpreterEventReportingController = "codeinterpreter-controller"
 )
 
 var (
@@ -827,7 +840,9 @@ func TestCodeInterpreterWarmPool(t *testing.T) {
 	}
 	name := codeInterpreter.Name
 	warmPoolSize := 0
+	var warmPoolSizeForHealth int32
 	if codeInterpreter.Spec.WarmPoolSize != nil {
+		warmPoolSizeForHealth = *codeInterpreter.Spec.WarmPoolSize
 		warmPoolSize = int(*codeInterpreter.Spec.WarmPoolSize)
 	}
 
@@ -839,6 +854,9 @@ func TestCodeInterpreterWarmPool(t *testing.T) {
 		ctx.cleanupCodeInterpreter(t, namespace, name, yamlPath, claimedResources)
 	}()
 
+	ctx.verifyWarmPoolReady(t, namespace, name, warmPoolSize)
+	ctx.verifyCodeInterpreterWarmPoolAvailable(t, namespace, name)
+	ctx.verifyCodeInterpreterWarmPoolHealthPropagation(t, namespace, name, warmPoolSizeForHealth)
 	initialPods := ctx.verifyWarmPoolReady(t, namespace, name, warmPoolSize)
 
 	sessionID := env.executeAndVerifyCode(t, namespace, name, "Hello from warmpool!")
@@ -1069,6 +1087,271 @@ func (ctx *e2eTestContext) verifyWarmPoolReady(t *testing.T, namespace, name str
 	pods, err := ctx.getWarmPoolPodIdentities(namespace, name)
 	require.NoError(t, err)
 	return pods
+}
+
+func (ctx *e2eTestContext) verifyCodeInterpreterWarmPoolAvailable(t *testing.T, namespace, name string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		codeInterpreter := &v1alpha1.CodeInterpreter{}
+		if err := ctx.ctrlClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: name}, codeInterpreter); err != nil {
+			return false
+		}
+		condition := apimeta.FindStatusCondition(codeInterpreter.Status.Conditions, codeInterpreterWarmPoolCondition)
+		return condition != nil &&
+			condition.Status == metav1.ConditionTrue &&
+			condition.Reason == codeInterpreterWarmPoolReady &&
+			condition.ObservedGeneration == codeInterpreter.Generation
+	}, time.Minute, time.Second, "CodeInterpreter %s/%s should project its ready SandboxWarmPool status", namespace, name)
+}
+
+func (ctx *e2eTestContext) verifyCodeInterpreterWarmPoolHealthPropagation(t *testing.T, namespace, name string, originalDesired int32) {
+	t.Helper()
+	require.Equal(t, int32(2), originalDesired, "health propagation setup relies on the 2-replica pool having no below-watermark state")
+
+	restoreController, err := ctx.pauseAgentSandboxController()
+	require.NoError(t, err, "pause agent-sandbox controller before writing synthetic warm-pool status")
+	stateRestored := false
+	controllerRestored := false
+	defer ctx.cleanupWarmPoolHealthPropagation(
+		t,
+		namespace,
+		name,
+		originalDesired,
+		&stateRestored,
+		&controllerRestored,
+		restoreController,
+	)
+
+	const (
+		healthDesired       int32 = 3
+		belowWatermarkReady int32 = 1
+	)
+
+	codeInterpreter := &v1alpha1.CodeInterpreter{}
+	require.NoError(t, ctx.ctrlClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: name}, codeInterpreter))
+	previousGeneration := codeInterpreter.Generation
+	require.NoError(t, ctx.patchCodeInterpreterWarmPoolSize(codeInterpreter, healthDesired))
+
+	var healthGeneration int64
+	var codeInterpreterUID k8stypes.UID
+	require.Eventually(t, func() bool {
+		current := &v1alpha1.CodeInterpreter{}
+		if err := ctx.ctrlClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: name}, current); err != nil {
+			return false
+		}
+		warmPool := &extensionsv1beta1.SandboxWarmPool{}
+		if err := ctx.ctrlClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: name}, warmPool); err != nil {
+			return false
+		}
+		if current.Generation <= previousGeneration || current.Spec.WarmPoolSize == nil || *current.Spec.WarmPoolSize != healthDesired ||
+			warmPool.Spec.Replicas == nil || *warmPool.Spec.Replicas != healthDesired || warmPool.Status.ReadyReplicas != originalDesired ||
+			!codeInterpreterConditionsMatch(current, current.Generation, metav1.ConditionTrue, codeInterpreterWarmPoolReady) {
+			return false
+		}
+		healthGeneration = current.Generation
+		codeInterpreterUID = current.UID
+		return true
+	}, time.Minute, time.Second, "CodeInterpreter should remain healthy with %d ready replicas at the %d-replica test watermark", originalDesired, healthDesired)
+
+	existingEvent, err := ctx.findWarmPoolWarningEvent(namespace, name, codeInterpreterUID)
+	require.NoError(t, err)
+	require.Nil(t, existingEvent, "the 2-replica setup must not emit a prior below-watermark event for this CodeInterpreter UID")
+
+	require.NoError(t, ctx.patchWarmPoolReadyReplicas(namespace, name, belowWatermarkReady))
+	require.Eventually(t, func() bool {
+		current := &v1alpha1.CodeInterpreter{}
+		if err := ctx.ctrlClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: name}, current); err != nil {
+			return false
+		}
+		return codeInterpreterConditionsMatch(current, healthGeneration, metav1.ConditionFalse, codeInterpreterWarmPoolBelowWatermark)
+	}, time.Minute, time.Second, "status-only SandboxWarmPool update should enqueue its owning CodeInterpreter")
+
+	var warningEvent *eventsv1.Event
+	require.Eventually(t, func() bool {
+		var eventErr error
+		warningEvent, eventErr = ctx.findWarmPoolWarningEvent(namespace, name, codeInterpreterUID)
+		return eventErr == nil && warningEvent != nil
+	}, time.Minute, time.Second, "WorkloadManager should persist a below-watermark events.k8s.io Event")
+	require.Equal(t, corev1.EventTypeWarning, warningEvent.Type)
+	require.Equal(t, codeInterpreterWarmPoolBelowWatermark, warningEvent.Reason)
+	require.Equal(t, codeInterpreterWarmPoolEventAction, warningEvent.Action)
+	require.Equal(t, codeInterpreterEventReportingController, warningEvent.ReportingController)
+	require.Equal(t, codeInterpreterUID, warningEvent.Regarding.UID)
+	require.Equal(t, name, warningEvent.Regarding.Name)
+	require.Equal(t, "CodeInterpreter", warningEvent.Regarding.Kind)
+
+	require.NoError(t, ctx.patchWarmPoolReadyReplicas(namespace, name, originalDesired))
+	require.Eventually(t, func() bool {
+		current := &v1alpha1.CodeInterpreter{}
+		if err := ctx.ctrlClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: name}, current); err != nil {
+			return false
+		}
+		return codeInterpreterConditionsMatch(current, healthGeneration, metav1.ConditionTrue, codeInterpreterWarmPoolReady)
+	}, time.Minute, time.Second, "restoring SandboxWarmPool status should restore WarmPoolAvailable=True")
+
+	require.NoError(t, ctx.restoreWarmPoolHealthTestState(namespace, name, originalDesired))
+	stateRestored = true
+	require.NoError(t, restoreController())
+	controllerRestored = true
+}
+
+func (ctx *e2eTestContext) cleanupWarmPoolHealthPropagation(
+	t *testing.T,
+	namespace, name string,
+	originalDesired int32,
+	stateRestored, controllerRestored *bool,
+	restoreController func() error,
+) {
+	t.Helper()
+	if !*stateRestored {
+		if err := ctx.restoreWarmPoolHealthTestState(namespace, name, originalDesired); err != nil {
+			t.Errorf("restore warm-pool health test state: %v", err)
+		}
+	}
+	if !*controllerRestored {
+		if err := restoreController(); err != nil {
+			t.Errorf("restore agent-sandbox controller: %v", err)
+		}
+	}
+}
+
+func codeInterpreterConditionsMatch(ci *v1alpha1.CodeInterpreter, generation int64, warmPoolStatus metav1.ConditionStatus, warmPoolReason string) bool {
+	if ci.Generation != generation || !ci.Status.Ready {
+		return false
+	}
+	readyCondition := apimeta.FindStatusCondition(ci.Status.Conditions, codeInterpreterReadyCondition)
+	warmPoolCondition := apimeta.FindStatusCondition(ci.Status.Conditions, codeInterpreterWarmPoolCondition)
+	return readyCondition != nil &&
+		readyCondition.Status == metav1.ConditionTrue &&
+		readyCondition.Reason == codeInterpreterReadyReason &&
+		readyCondition.ObservedGeneration == generation &&
+		warmPoolCondition != nil &&
+		warmPoolCondition.Status == warmPoolStatus &&
+		warmPoolCondition.Reason == warmPoolReason &&
+		warmPoolCondition.ObservedGeneration == generation
+}
+
+func (ctx *e2eTestContext) patchWarmPoolReadyReplicas(namespace, name string, ready int32) error {
+	warmPool := &extensionsv1beta1.SandboxWarmPool{}
+	if err := ctx.ctrlClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: name}, warmPool); err != nil {
+		return err
+	}
+	before := warmPool.DeepCopy()
+	warmPool.Status.ReadyReplicas = ready
+	return ctx.ctrlClient.Status().Patch(context.Background(), warmPool, client.MergeFrom(before))
+}
+
+func (ctx *e2eTestContext) patchCodeInterpreterWarmPoolSize(codeInterpreter *v1alpha1.CodeInterpreter, desired int32) error {
+	before := codeInterpreter.DeepCopy()
+	codeInterpreter.Spec.WarmPoolSize = &desired
+	return ctx.ctrlClient.Patch(context.Background(), codeInterpreter, client.MergeFrom(before))
+}
+
+func (ctx *e2eTestContext) restoreWarmPoolHealthTestState(namespace, name string, desired int32) error {
+	if err := ctx.patchWarmPoolReadyReplicas(namespace, name, desired); err != nil {
+		return err
+	}
+	codeInterpreter := &v1alpha1.CodeInterpreter{}
+	if err := ctx.ctrlClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: name}, codeInterpreter); err != nil {
+		return err
+	}
+	if codeInterpreter.Spec.WarmPoolSize == nil || *codeInterpreter.Spec.WarmPoolSize != desired {
+		if err := ctx.patchCodeInterpreterWarmPoolSize(codeInterpreter, desired); err != nil {
+			return err
+		}
+	}
+
+	return wait.PollUntilContextTimeout(context.Background(), time.Second, time.Minute, true, func(pollCtx context.Context) (bool, error) {
+		current := &v1alpha1.CodeInterpreter{}
+		if err := ctx.ctrlClient.Get(pollCtx, client.ObjectKey{Namespace: namespace, Name: name}, current); err != nil {
+			return false, client.IgnoreNotFound(err)
+		}
+		warmPool := &extensionsv1beta1.SandboxWarmPool{}
+		if err := ctx.ctrlClient.Get(pollCtx, client.ObjectKey{Namespace: namespace, Name: name}, warmPool); err != nil {
+			return false, client.IgnoreNotFound(err)
+		}
+		return current.Spec.WarmPoolSize != nil && *current.Spec.WarmPoolSize == desired &&
+			warmPool.Spec.Replicas != nil && *warmPool.Spec.Replicas == desired &&
+			warmPool.Status.ReadyReplicas == desired &&
+			codeInterpreterConditionsMatch(current, current.Generation, metav1.ConditionTrue, codeInterpreterWarmPoolReady), nil
+	})
+}
+
+func (ctx *e2eTestContext) findWarmPoolWarningEvent(namespace, name string, uid k8stypes.UID) (*eventsv1.Event, error) {
+	eventList, err := ctx.kubeClient.EventsV1().Events(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for i := range eventList.Items {
+		event := &eventList.Items[i]
+		if event.Type == corev1.EventTypeWarning &&
+			event.Reason == codeInterpreterWarmPoolBelowWatermark &&
+			event.Action == codeInterpreterWarmPoolEventAction &&
+			event.ReportingController == codeInterpreterEventReportingController &&
+			event.Regarding.UID == uid &&
+			event.Regarding.Name == name &&
+			event.Regarding.Kind == "CodeInterpreter" {
+			return event.DeepCopy(), nil
+		}
+	}
+	return nil, nil
+}
+
+func (ctx *e2eTestContext) pauseAgentSandboxController() (func() error, error) {
+	deployments := ctx.kubeClient.AppsV1().Deployments(agentSandboxSystemNamespace)
+	deployment, err := deployments.Get(context.Background(), agentSandboxControllerDeployment, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	originalReplicas := int32(1)
+	if deployment.Spec.Replicas != nil {
+		originalReplicas = *deployment.Spec.Replicas
+	}
+	if err := ctx.scaleAgentSandboxController(0); err != nil {
+		if restoreErr := ctx.scaleAgentSandboxController(originalReplicas); restoreErr != nil {
+			return nil, fmt.Errorf("pause agent-sandbox controller: %v; restore after failed pause: %w", err, restoreErr)
+		}
+		return nil, err
+	}
+
+	restored := false
+	return func() error {
+		if restored {
+			return nil
+		}
+		if err := ctx.scaleAgentSandboxController(originalReplicas); err != nil {
+			return err
+		}
+		restored = true
+		return nil
+	}, nil
+}
+
+func (ctx *e2eTestContext) scaleAgentSandboxController(replicas int32) error {
+	deployments := ctx.kubeClient.AppsV1().Deployments(agentSandboxSystemNamespace)
+	patch := []byte(fmt.Sprintf(`{"spec":{"replicas":%d}}`, replicas))
+	if _, err := deployments.Patch(context.Background(), agentSandboxControllerDeployment, k8stypes.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		return err
+	}
+
+	return wait.PollUntilContextTimeout(context.Background(), time.Second, 3*time.Minute, true, func(pollCtx context.Context) (bool, error) {
+		deployment, err := deployments.Get(pollCtx, agentSandboxControllerDeployment, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		if replicas == 0 {
+			selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+			if err != nil {
+				return false, err
+			}
+			pods, err := ctx.kubeClient.CoreV1().Pods(agentSandboxSystemNamespace).List(pollCtx, metav1.ListOptions{LabelSelector: selector.String()})
+			if err != nil {
+				return false, err
+			}
+			return deployment.Status.Replicas == 0 && len(pods.Items) == 0, nil
+		}
+		return deployment.Status.Replicas == replicas && deployment.Status.ReadyReplicas == replicas && deployment.Status.AvailableReplicas == replicas, nil
+	})
 }
 
 func (e *testEnv) executeAndVerifyCode(t *testing.T, namespace, name, expectedOutput string) string {

@@ -103,8 +103,9 @@ func main() {
 	}
 
 	codeInterpreterReconciler := &workloadmanager.CodeInterpreterReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorder("codeinterpreter-controller"),
 	}
 
 	if err := setupControllers(mgr, sandboxReconciler, codeInterpreterReconciler); err != nil {
