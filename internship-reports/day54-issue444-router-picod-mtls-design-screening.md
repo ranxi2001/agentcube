@@ -208,3 +208,19 @@ Gate result:
 评论以 `main@58422c` 为证据锚点，用 234 visible words / 6 nonblank lines 压缩为四个 implementation contract：private-key isolation、peer/session binding、ServiceAccount attestation 和 transport-policy ownership；结尾建议先把工作定位为 #441 的 focused child，并对齐 #293 与 #352。GitHub API 回读确认发布账号为 `ranxi2001`、正文与确认稿一致；没有附加 `/assign`、Prow 命令、label、review request 或额外 mention。
 
 下一步只等待作者或 maintainer 回应这些合同。没有新回复或新设计证据时，不自动追评、认领或启动实现。
+
+## 10. 2026-08-10 author reply review
+
+Issue 作者于 `2026-08-09 20:52 CST` 回复 [comment 5231615498](https://github.com/volcano-sh/agentcube/issues/444#issuecomment-5231615498)。本轮在 `upstream/main@4b38a442ba37db7ebf75903b051710c8b8936402` 重新核对 issue 全线程、#293、#352、#441、当前 Router / PicoD / mTLS / WorkloadManager 源码和 SPIRE chart。
+
+作者已经接受两个关键方向：TLS private key 留在独立 proxy sidecar，mTLS 由 operator 全局强制而不是由 workload 选择；同时同意把 #444 放到 #441 下并与 #293 / #352 对齐。这关闭了原评论中的直接 private-key exposure 方向和 per-workload downgrade 冲突，但还没有形成 maintainer 共识，也没有更新 issue body 或 parent/child metadata。
+
+仍有三个 implementation contract 未闭合：
+
+1. TLS 既然在 sidecar 终止，`RouterSPIFFEID` 必须由 sidecar 校验，而不是由回复所说的 PicoD server TLS config 校验。当前 PicoD 监听所有接口的 `:8080`；设计必须让明文 upstream 只在 Pod 内可达，并只向 Router 公布 sidecar TLS 端口，避免绕过 proxy。
+2. agent-sandbox controller 是正常 Pod creator，不代表输入 PodSpec 可信。它会复制 Sandbox / SandboxTemplate 中的 PodSpec；有权创建 Pod 或 Sandbox 的主体仍可请求保留的 ServiceAccount / labels。Admission 必须是 fail-closed 的安全前置，并覆盖真实 source-resource / controller path，同时明确由谁在任意 workload namespace 创建 ServiceAccount。
+3. PicoD identity 粒度和 target binding 仍未决定。namespace-less shared SVID 把所有 sidecar 放进同一 identity class；当前 Router JWT 虽携带 `session_id` / `user_sub`，PicoD 只验证签名和时间。#352 仍为 open / dirty，且 `/init` 方案存在未解决的 maintainer concern，不能代替 #444 自己定义 session / sandbox binding contract。
+
+因此当前结论仍是 **不 `/assign`、不拆 implementation PR、不给 `/lgtm`**。可以发布一条短 follow-up，要求作者先把 sidecar enforcement boundary、不可伪造的 attestation boundary 和 PicoD identity / JWT target binding 写回正文，再由 #441 owner / maintainer 判断是否进入实现。
+
+本轮是设计与源码核查，没有待测实现，因此没有运行功能测试或 live SPIRE E2E；没有把该限制误写成代码验证通过。拟议 follow-up 已压缩为 175 visible words / 6 nonblank lines，尚未发布，仍需用户确认 exact English text 和 target。
