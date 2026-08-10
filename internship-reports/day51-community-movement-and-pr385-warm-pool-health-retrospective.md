@@ -764,3 +764,194 @@ feature commit 完成后，在 clean worktree 再跑同一命令，`git diff --e
 - 直接 push 会重复 #442 并扩大 #385。
 
 下一步停止条件明确为：等待 #442 稳定并进入 upstream main，然后从最新 `upstream/main` 创建 clean topic branch，只移植 `bc89af4` 的 6-file feature semantics，重新做 range-diff 和目标 E2E，再让用户确认 exact force-with-lease update 与 PR body。
+
+## 24. 2026-08-10 重启 #385：等待前置合入不再是唯一方案
+
+到 2026-08-10，原 #442 已被 replacement PR #446 取代，CodeInterpreter child ownership 修复也形成独立 PR #450。两者都已经完成多轮 review 和 exact-head 验证，但仍在等待 maintainer approval / merge：
+
+| PR | exact head | 当前结论 |
+| --- | --- | --- |
+| #446 agent-sandbox v0.5.3 / v1beta1 migration | `624c875bcfa29282d0b6b4ea5171867ad4913202` | open、mergeable、core checks 全绿、已有 `lgtm` |
+| #450 CodeInterpreter child ownership | `0b646d8e7f742555fb5b2bdb10f3bdf0be1d31aa` | open、mergeable、core checks 全绿、review 已完成并发布 `/lgtm` |
+| #385 旧分支 | `d885b4e32b903cd6315c938fc5d0372aca25654f` | open、conflicting，仍基于旧 API |
+
+用户判断 #446 / #450 大概率不会再发生大改，希望直接更新 #385。为避免把未经验证的机械组合推到公开 PR，本轮先在 clean worktree 中构造完整候选，再把公开更新保留到 exact-text / exact-head 门禁之后。
+
+> 分析：理想 Git 历史仍是等待 #446、#450 合入，再让 #385 只保留一个 feature commit。但等待不是正确性的必要条件。只要临时 stacked branch 的每个前置提交都可追溯、组合冲突被显式解决、整体 E2E 通过，并在 PR body 中如实披露，提前更新可以把长期冲突 PR 恢复成可 review 状态。
+
+## 25. 最终候选分支结构
+
+候选 worktree：
+
+```text
+/tmp/agentcube-pr385-v053-refresh
+refresh/pr385-v053-clean
+```
+
+基线与提交链：
+
+```text
+upstream/main@4b38a442ba37db7ebf75903b051710c8b8936402
+  -> cbcbb338  #446 v0.5.3 / v1beta1 migration
+  -> fcbc9256  #450 child ownership check
+  -> 9e1edf58  #450 ownership status
+  -> dedee9a3  #450 delete preconditions
+  -> ee02a46e  #450 replacement-race tests
+  -> 7361e021  #385 warm-pool health feature
+```
+
+所有 6 个提交都保留原作者和 `Signed-off-by`。最终候选 HEAD 为：
+
+```text
+7361e02191807b3f618267fb868a218caf886a1b
+```
+
+整体相对 `upstream/main` 是 37 files、`+2655/-510`；其中 #385 自身仍是 6 files、`+1052/-66`。PR body 必须明确说明前 5 个提交是等待中的 #446 / #450 前置，不能把 37-file diff 描述成单纯 observability feature。
+
+> 注释：#446 的候选提交与 upstream exact head tree 一致，只额外清理了 3 个文件中的行尾空白。`range-diff` 证明 #450 的 4 个提交和 #385 feature commit 与完成完整 E2E 的上一版候选逐提交等价。
+
+## 26. 组合前置时发现的真实测试断层
+
+把 #446 exact tree 与 #450 原提交直接叠加后，#450 新增的 6 项 ownership / replacement regression test 全部失败。失败不是 #450 业务修复失效，而是 fixture 仍创建 v1alpha1 对象；#446 已把 controller 改为读取 v1beta1，因此测试没有命中 controller 实际查询的对象。
+
+处理方式：
+
+1. 保留 #450 的实现语义和提交边界；
+2. 把相关 test fixture 移植为 v1beta1；
+3. 对迁移后的 exact combined tree 重新跑 6 项 causal regressions；
+4. 再叠加 #385 feature，而不是把失败解释成可忽略的 branch-stack 噪音。
+
+> 分析：CI 单独验证两个 PR，不会自动证明它们的组合。API version migration 最容易产生“代码能编译、测试也存在，但 fixture 已经测不到生产路径”的假绿；因此 stacked PR 必须把组合树视为新的验证对象。
+
+## 27. v0.5.3 版 feature 的最终行为合同
+
+`WarmPoolAvailable` condition：
+
+| 场景 | Status | Reason | 父 `Ready` |
+| --- | --- | --- | --- |
+| warm pool disabled | `Unknown` | `WarmPoolDisabled` | 不因该 condition 降级 |
+| configured but child 尚未观测 | `Unknown` | `WarmPoolProgressing` | 保持 reconcile 语义 |
+| child ownership conflict | `Unknown` | `OwnershipConflict` | `False` |
+| `readyReplicas == 0` | `False` | `WarmPoolEmpty` | `True`，仍可 cold start |
+| `0 < readyReplicas < ceil(desired/2)` | `False` | `WarmPoolBelowWatermark` | `True` |
+| 达到 low watermark | `True` | `WarmPoolReady` | `True` |
+
+本轮额外收紧了以下边界：
+
+- 先验证 child ownership，再读取其 health，避免把同名未归属 pool 的状态投影到父资源；
+- ownership conflict 时清理可能残留的旧 health condition；
+- Event 只在 status write 成功后发送；
+- Warning 只用于首次进入或 reason 转换到 Empty / BelowWatermark；
+- `WarmPoolProgressing` 不发 transient Warning；
+- low watermark 使用 `desired/2 + desired%2`，覆盖 `math.MaxInt32`；
+- `.Owns(v1beta1 SandboxWarmPool)` 监听 child status-only update；
+- Event recorder 使用 `events.k8s.io/v1`，RBAC 仅 `create, patch`。
+
+## 28. 因果 E2E 与最终验证证据
+
+新 E2E 不再只等待自然 readiness 后的 happy-path condition。它会：
+
+1. 暂停 agent-sandbox controller，消除 child status 被立即改回的竞争；
+2. 把 parent desired 调为 3，并等待 parent generation 稳定；
+3. 只修改 child status `readyReplicas: 2 -> 1`；
+4. 验证同一 parent generation 被 `.Owns` watch 重排队，并得到 `WarmPoolBelowWatermark`；
+5. 验证父 `Ready=True`，说明 capacity degradation 不会错误否定 cold-start fallback；
+6. 查询持久化的 `events.k8s.io/v1` Warning Event 及其 reason / regarding 字段；
+7. 只修改 child status `1 -> 2`，验证恢复为 `WarmPoolReady`；
+8. 恢复原始 2/2 配置和 controller deployment。
+
+完整 non-mTLS v0.5.3 E2E 在候选 `7288b98` 通过；最终 `7361e021` 只把 #446 前置提交的行尾空白清理掉，feature commit 与 E2E 文件 tree 未变化。结果包括：
+
+- v0.4.6 -> v0.5.3 migration、exact lineage、GC / refill 通过；
+- `TestCodeInterpreterWarmPool` 包含 status-only degradation / recovery 和 persisted Warning Event，PASS；
+- warm-pool load 100/100，basic load 20/20；
+- Go E2E suite PASS，`201.511s`；
+- Python CodeInterpreter 3/3、LangChain 4/4、local MCP 5/5、stdio MCP 1/1、in-cluster MCP 1/1；
+- dedicated kind cluster 在验证后删除。
+
+最终 `7361e021` 又重新通过：
+
+- `go test ./cmd/workload-manager ./pkg/workloadmanager -count=1`；
+- `go test -race ./pkg/workloadmanager -count=1`；
+- `go test ./test/e2e -run '^$' -count=1`；
+- `make fmt-check`；
+- `make lint`；
+- `make gen-check`；
+- `bash -n test/e2e/run_e2e.sh`；
+- `git diff --check upstream/main...HEAD`。
+
+此前同一 feature tree 还通过 focused `-count=100`、focused race `-count=5`、全部 non-E2E Go packages、`make build-all`、Helm template / lint。
+
+## 29. 公开更新门禁
+
+在任何远端写入之前，必须同时满足：
+
+- #385 fork branch 仍精确指向旧 head `d885b4e32b903cd6315c938fc5d0372aca25654f`；
+- upstream `main` 仍是候选基线 `4b38a442ba37db7ebf75903b051710c8b8936402`；
+- 用户确认 exact target、candidate head、37-file stacked diff、完整 PR body 和 force-with-lease 命令；
+- 推送后按 exact new SHA 观察 CI，而不是引用旧 PR 的绿色 checks；
+- 如果远端 branch 在确认后变化，停止，不扩大 lease。
+
+计划命令：
+
+```bash
+git push \
+  --force-with-lease=refs/heads/feat/warmpool-available-condition:d885b4e32b903cd6315c938fc5d0372aca25654f \
+  origin \
+  7361e02191807b3f618267fb868a218caf886a1b:refs/heads/feat/warmpool-available-condition
+```
+
+截至本节记录时尚未执行 push、PR body edit、comment 或 reviewer request。
+
+## 30. #385 公开更新与 exact-head CI 结果
+
+用户审核并确认 exact head、stacked diff、测试证据、force-with-lease 命令和 298-visible-word PR body 后，于 2026-08-10 更新公开 PR：
+
+```text
+https://github.com/volcano-sh/agentcube/pull/385
+old head: d885b4e32b903cd6315c938fc5d0372aca25654f
+new head: 7361e02191807b3f618267fb868a218caf886a1b
+```
+
+实际 push 使用精确 lease：
+
+```bash
+git push \
+  --force-with-lease=refs/heads/feat/warmpool-available-condition:d885b4e32b903cd6315c938fc5d0372aca25654f \
+  origin \
+  7361e02191807b3f618267fb868a218caf886a1b:refs/heads/feat/warmpool-available-condition
+```
+
+push 成功后，GitHub 把 PR 从 `CONFLICTING/DIRTY` 重算为 `MERGEABLE/UNSTABLE`。公开 diff 为 6 commits、37 files、`+2655/-510`，与发布门禁一致；6 个 commit 的原作者和 DCO signoff 均被 GitHub 正确识别。
+
+第一次运行 `gh pr edit` 失败：当前 token 有 `repo` 权限，但 GraphQL 查询组织字段要求额外 `read:org`。这不是 PR 权限不足，也没有产生部分 body 更新。随后使用 GitHub REST `PATCH /repos/volcano-sh/agentcube/pulls/385` 写入同一份已批准正文，并回读确认：
+
+- PR head 精确为 `7361e02191807b3f618267fb868a218caf886a1b`；
+- base 精确为 `4b38a442ba37db7ebf75903b051710c8b8936402`；
+- 远端 body 与 `/tmp/pr385-v053-body.md` 完全相同；
+- title 保持 `feat: expose CodeInterpreter warm pool health`；
+- 没有发布 comment、reviewer request 或 maintainer mention。
+
+> 注释：这里不为方便而扩大 token scope。REST endpoint 已能完成目标字段更新，避免给本地 token 增加与本任务无关的组织读取权限。
+
+### 30.1 Upstream PR checks
+
+exact head `7361e021` 的非 Tide checks 最终为 `13/13 success`：
+
+- build x2、DCO、Codegen Check、golangci-lint、coverage；
+- Python Lint、Python SDK Tests、Codespell；
+- workflow approval x2；
+- `e2e-test`：SUCCESS，`8m56s`；
+- `codeinterpreter-e2e-test`：SUCCESS，`9m41s`。
+
+失败、取消、skip 和 pending 均为 0。唯一仍 pending 的 `tide` 不是测试失败，而是等待 `approved`、`lgtm` 社区标签。
+
+### 30.2 Fork push checks
+
+同一 exact SHA 在 `ranxi2001/agentcube` 的 push workflows 为 `9/9 success`、jobs `10/10 success`，其中两组 E2E 均通过：
+
+```text
+https://github.com/ranxi2001/agentcube/actions/runs/31362936987
+```
+
+两套 CI 结束后再次确认远端 branch 与 PR head 都没有漂移，仍为 `7361e021`。当前代码与发布工作已完成，下一步只等待 maintainer review；不自动发布催审评论或请求 reviewer。
