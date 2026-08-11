@@ -1,0 +1,76 @@
+---
+config:
+  theme: base
+  flowchart:
+    htmlLabels: false
+  themeVariables:
+    fontFamily: Arial, sans-serif
+    fontSize: 17px
+    primaryTextColor: '#172554'
+    lineColor: '#475569'
+---
+flowchart TB
+    subgraph INTENT["Kthena intent and control plane"]
+        direction LR
+        USER["Operator / GitOps"]
+        CRD[("Kubernetes API Server / etcd\nKthena CRDs")]
+        KCM["Kthena controller manager\nmodel lifecycle and autoscaling"]
+        GENERATED["Generated resources\nPods / Services / routes"]
+        PG["Volcano PodGroup intent\ncreated conditionally\nQueue is referenced, not created"]
+
+        USER -->|"submit desired state"| CRD
+        CRD -->|"watch and reconcile"| KCM
+        KCM -->|"write through Kubernetes API"| GENERATED
+        KCM -.->|"only scheduler=volcano and PodGroup CRD exists"| PG
+    end
+
+    subgraph PLACEMENT["Volcano cluster placement plane"]
+        direction LR
+        VCONTROL["Volcano admission and controllers\nJob / PodGroup / Queue lifecycle"]
+        STATE[("Kubernetes scheduling state\nPods / PodGroup / Queue / Nodes")]
+        SCHED["Volcano scheduler\nSession -> Action -> Plugin"]
+        KUBE["kube-scheduler\nexplicit alternative"]
+        BIND[("Pod binding subresource\nsame Kubernetes API Server")]
+        NODE["Worker Node\nkubelet / runtime / accelerator"]
+        BACKEND["Running inference backend\nPrefill / Decode or aggregate engine"]
+
+        VCONTROL -->|"default, validate and update supported objects"| STATE
+        STATE -->|"schedulerName=volcano\nKthena ModelServing default"| SCHED
+        STATE -.->|"schedulerName=default-scheduler"| KUBE
+        SCHED -->|"Pod -> Node decision"| BIND
+        KUBE -->|"Pod -> Node decision"| BIND
+        BIND -->|"bound PodSpec"| NODE
+        NODE -->|"start containers"| BACKEND
+    end
+
+    GENERATED -->|"unscheduled Pods"| STATE
+    PG -.->|"PodGroup constraints and Queue reference"| STATE
+
+    subgraph REQUEST["Kthena request data plane"]
+        direction LR
+        CLIENT["Inference client"]
+        GATEWAY["Standard API gateway\noptional"]
+        ROUTER["Kthena Router\nRequest -> Backend Pod\nfilter -> score -> select -> proxy"]
+        READY["Ready backend Pod endpoint"]
+
+        CLIENT -->|"HTTP inference request"| GATEWAY
+        GATEWAY -->|"forward"| ROUTER
+        CLIENT -.->|"direct when no gateway"| ROUTER
+        ROUTER -->|"select and proxy"| READY
+    end
+
+    CRD -.->|"watch ModelRoute, ModelServer and Pods"| ROUTER
+    BACKEND -.->|"publish ready endpoint"| READY
+
+    classDef source fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef control fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef state fill:#fef3c7,stroke:#d97706,color:#713f12;
+    classDef runtime fill:#e0e7ff,stroke:#4f46e5,color:#312e81;
+    classDef optional fill:#f8fafc,stroke:#64748b,color:#334155,stroke-dasharray:6 4;
+    classDef note fill:#f1f5f9,stroke:#475569,color:#0f172a;
+
+    class USER,CLIENT,GATEWAY source;
+    class KCM,VCONTROL,SCHED,KUBE,ROUTER control;
+    class CRD,PG,STATE,BIND state;
+    class GENERATED,NODE,BACKEND,READY runtime;
+    class GATEWAY,PG optional;
