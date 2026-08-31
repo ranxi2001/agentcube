@@ -1,0 +1,27 @@
+%% AgentCube internship focus in the end-to-end request path.
+flowchart TB
+    USER["Agent / 用户"] -->|"Session 与代码请求"| SDK["Python SDK / CLI"]
+    SDK -->|"HTTP 请求"| ROUTER["Router<br/>认证、路由、代理<br/>架构 Review"]
+    ROUTER -->|"创建 / 查询 / 删除 Session"| WM["Workload Manager<br/>Session 生命周期编排<br/>主要实现"]
+    ROUTER -->|"执行代码"| PICO["PicoD<br/>Sandbox 数据面<br/>架构 Review"]
+    ROUTER <-->|"Session 与认证状态"| REDIS[("Redis 状态存储")]
+    WM -->|"创建并协调 CR"| KAPI["Kubernetes API Server"]
+    KAPI -->|"监听期望状态"| ASCTRL["agent-sandbox controller"]
+    ASCTRL -->|"分配或接管"| POOL["SandboxWarmPool / SandboxClaim<br/>主要实现"]
+    POOL -->|"拥有生命周期"| SANDBOX["Sandbox / Pod<br/>E2E / benchmark"]
+    PICO -->|"进程与文件操作"| SANDBOX
+
+    classDef entry fill:#e8f1fb,stroke:#4472c4,color:#17365d;
+    classDef control fill:#e2f0d9,stroke:#70ad47,color:#255423;
+    classDef state fill:#fff2cc,stroke:#bf9000,color:#664d00;
+    classDef runtime fill:#f2f2f2,stroke:#666666,color:#262626;
+    classDef focus fill:#fce4d6,stroke:#c65911,color:#7f3000,stroke-width:3px;
+    classDef review fill:#e4dfec,stroke:#8064a2,color:#403152,stroke-width:3px;
+    classDef verify fill:#d9e1f2,stroke:#5b9bd5,color:#1f4e79,stroke-width:3px;
+
+    class USER entry;
+    class KAPI,ASCTRL control;
+    class REDIS state;
+    class WM,POOL focus;
+    class ROUTER,PICO review;
+    class SDK,SANDBOX verify;
