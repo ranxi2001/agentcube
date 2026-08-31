@@ -9,13 +9,13 @@
 | 主要实习证据期 | 2026-06-11 至 2026-08-11 |
 | 社区状态校准日期 | 2026-08-31 |
 
-> 统计口径：本文以 `intern` 分支的 Day 1 至 Day 60、六份周总结、Git 历史和 GitHub issue / PR 状态为依据。2026-08-31 的查询只用于校正“已合入、仍开放、已关闭未合入”等状态，不把实习证据期之后的维护者动作计作本人新增产出。
+> 统计口径：本文以 `intern` 分支的 Day 1 至 Day 60、九份周总结、Git 历史和 GitHub issue / PR 状态为依据。2026-08-31 的查询只用于校正“已合入、仍开放、已关闭未合入”等状态，不把实习证据期之后的维护者动作计作本人新增产出。
 
 ## 一、实习总结
 
 两个月的工作围绕 AgentCube 及其上下游生态展开，主线从“跑通一个开源项目”逐步推进到“能够用代码、测试和社区证据参与云原生 Agent 基础设施建设”。工作覆盖 AgentCube 运行链路、CodeInterpreter 与 agent-sandbox 版本兼容、warm pool 生命周期、CI / release 工程、Kubernetes 控制器 Review、性能测评、竞品与架构研究，以及 Karmada 等关联开源项目的代码贡献。
 
-实习期内，在 AgentCube、Karmada 和 drawio-skill 三个上游仓库共创建 **23 个 PR**：**19 个已合入，3 个仍开放，1 个验证 PR 已关闭未合入**；创建 **5 个 issue**；按同一证据期内创建且由本人 Review 的他人 PR 统计，至少完成 **12 个可定位的实质 PR Review**。本地形成 **60 个编号日报主题、69 份 Day 报告、6 份周总结、28 个图示资产和 143 个 benchmark / review 原始结果文件**。
+实习期内，在 AgentCube、Karmada 和 drawio-skill 三个上游仓库共创建 **23 个 PR**：**19 个已合入，3 个仍开放，1 个验证 PR 已关闭未合入**；创建 **5 个 issue**；按同一证据期内创建且由本人 Review 的他人 PR 统计，至少完成 **12 个可定位的实质 PR Review**。本地形成 **60 个编号日报主题、69 份 Day 报告、9 份周总结、28 个图示资产和 143 个 benchmark / review 原始结果文件**。
 
 最重要的变化不是提交数量，而是工程方法的变化：从“能否运行”推进到“接口约定是否清楚、失败路径是否安全、测试是否触达真实调用链、CI 是否绑定正确版本与测试目标、Review 结论是否能被复核”。
 
@@ -29,7 +29,9 @@
 | 架构边界与功能适配 | 第 3 周 | 研究 Session Runtime Control Plane、Sleep / Resume、Store CAS、RuntimeProvider、Router 与 Workload Manager 职责；推进 agent-sandbox v0.4.6 兼容 | AgentCube #387、Sleep / Resume 设计、Session Runtime 架构图、测试分层与 code rationale matrix |
 | 工程闭环与 CI / release | 第 4-5 周 | 处理组件清理、fork CI、proposal 规范、release 版本、multi-arch build、Dependabot、runner 与 Go toolchain | AgentCube #403、#414、#415、#416、#420、#422、#423、#429；buildx A/B benchmark |
 | 深度 Review 与跨项目验证 | 第 6 周 | 让兼容性改动通过真实 Review 和 E2E；将同一套状态机、cleanup、event predicate、证书身份和 CI 判断用于 Karmada | AgentCube #387 合入；Karmada E2E / controller / certificate PR；AgentCube #400、#431 与 Karmada proposal / code Review |
-| 兼容性收敛与方法沉淀 | 第 7-8 周 | Review agent-sandbox v0.5.2 / v0.5.3、CodeInterpreter ownership、MCP SDK v2；建立 exact-head Review 与 agent harness 评估；调研 AgentENV、Volcano、Kthena | AgentCube #448 合入，#442 / #446 / #450 Review，v0.5.3 fork 验证，Review harness，Day 56-60 架构研究 |
+| 版本升级与运行时安全 | 第 7 周 | Review agent-sandbox v0.5.2、AgentRuntime termination、Router-PicoD mTLS 与 Karmada 删除/调度路径 | AgentCube #442 / #437 / #444 Review，Karmada #7777 merge、#7791 / #7795 提交 |
+| 兼容性收敛与 Review 工具 | 第 8 周 | 修复 MCP SDK v2，独立验证 agent-sandbox v0.5.3，重置 replacement PR 的 final-head Review | AgentCube #448 merge、#446 Review、v0.5.3 fork adapter、Review harness |
+| Ownership、升级实证与收尾 | 第 9 周 | 验收 CodeInterpreter child ownership，完成 warm-pool lineage E2E、PR #385 刷新和四项目架构对照 | AgentCube #450 / #446 Review、#385 更新，Karmada #7795 merge，AgentENV / Volcano / Kthena 研究 |
 
 ### 2.2 工作类型分配
 
@@ -152,7 +154,7 @@ AgentCube 的 CodeInterpreter 依赖 agent-sandbox 的 CRD、warm pool、claim �
 | --- | ---: | --- |
 | 编号日报主题 | 60 | Day 1 至 Day 60 |
 | Day 报告 Markdown | 69 | 部分 Day 拆成主报告、Review 草稿或专项分析 |
-| 周总结 | 6 | Week 1 至 Week 6；第 7-8 周内容保存在 Day 51-60 和本总结 |
+| 周总结 | 9 | Week 1 至 Week 9；Week 9 为 8 月 3 日至 8 月 11 日的收尾延长周 |
 | 图示资产 | 28 | 19 个 PNG、5 个 draw.io、4 个 Mermaid source；包含本总结的系统位置图 |
 | benchmark / review 原始文件 | 143 | 约 2.8 MiB，包含 JSON、日志、closure ledger 和测试证据 |
 | 上游 PR | 23 | AgentCube 14、Karmada 7、drawio-skill 2 |
@@ -285,6 +287,9 @@ AgentCube release 慢的直觉解法可能是增加 cache 或并行 matrix。实
 - [Week 4：可验证的工程闭环](week4-summary.md)
 - [Week 5：构建、CI、版本适配与架构 Review](week5-summary.md)
 - [Week 6：agent-sandbox 适配、Karmada 修复与 PR Review](week6-summary.md)
+- [Week 7：版本升级 Review、运行时安全与 Karmada 调度修复](week7-summary.md)
+- [Week 8：MCP SDK v2 合入、v0.5.3 独立验证与 Final-Head Review](week8-summary.md)
+- [Week 9：Ownership 修复验收、升级实证与实习收尾](week9-summary.md)
 - [Day 57：Agent Review harness 评估](day57-agent-autoharness-trajectory-evaluation.md)
 - [Day 58：CodeInterpreter child ownership Review](day58-pr450-codeinterpreter-child-ownership-review.md)
 - [Day 59：AgentENV Kubernetes 边界研究](day59-kvcache-ai-agentenv-kubernetes-boundary-study.md)
