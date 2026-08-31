@@ -1,285 +1,273 @@
-# 华为实习最终总结：AgentCube 开源工程、Agent Sandbox 与云原生控制面
+# 华为实习主要工作输出及总结：AgentCube 与 Karmada
 
 | 字段 | 内容 |
 | --- | --- |
 | 实习生 | 待填写 |
 | 部门 / 团队 | 华为开源相关团队（待补充正式名称） |
 | 导师 | 待填写 |
-| 主要项目 | [volcano-sh/agentcube](https://github.com/volcano-sh/agentcube) |
-| 主要实习证据期 | 2026-06-11 至 2026-08-11 |
+| 主要项目 | [volcano-sh/agentcube](https://github.com/volcano-sh/agentcube)、[karmada-io/karmada](https://github.com/karmada-io/karmada) |
+| 核心实习证据期 | 2026-06-11 至 2026-08-11 |
+| Karmada 收尾记录 | 延长至 2026-08-27 |
 | 社区状态校准日期 | 2026-08-31 |
 
-> 统计口径：本文以 `intern` 分支的 Day 1 至 Day 60、九份周总结、Git 历史和 GitHub issue / PR 状态为依据。2026-08-31 的查询只用于校正“已合入、仍开放、已关闭未合入”等状态，不把实习证据期之后的维护者动作计作本人新增产出。
+> 统计口径：核心两个月的学习和时间分配以 AgentCube `intern` 分支的 Day 1-60、Week 1-9 和 Git 历史为依据；为完整呈现后续交付，Karmada 专项补充至 2026-08-27。2026-08-31 的查询只校正 PR 的已合入、仍开放和已关闭状态，不把记录期后的维护者动作算作本人新增产出。
 
 ## 一、实习总结
 
-两个月的工作围绕 AgentCube 及其上下游生态展开，主线从“跑通一个开源项目”逐步推进到“能够用代码、测试和社区证据参与云原生 Agent 基础设施建设”。工作覆盖 AgentCube 运行链路、CodeInterpreter 与 agent-sandbox 版本兼容、warm pool 生命周期、CI / release 工程、Kubernetes 控制器 Review、性能测评、竞品与架构研究，以及 Karmada 等关联开源项目的代码贡献。
+本次实习围绕两个云原生开源项目展开。AgentCube 方向主要处理 Agent 代码执行环境的创建、预热、路由和生命周期，工作落在 Workload Manager、CodeInterpreter、agent-sandbox 兼容、CI 与构建链路；Karmada 方向主要处理多集群资源从调度意图到成员集群交付的过程，工作落在证书轮换、Scheduler、Binding / Work、CI / E2E 和多组件调度。
 
-实习期内，在 AgentCube、Karmada 和 drawio-skill 三个上游仓库共创建 **23 个 PR**：**19 个已合入，3 个仍开放，1 个验证 PR 已关闭未合入**；创建 **5 个 issue**；按同一证据期内创建且由本人 Review 的他人 PR 统计，至少完成 **12 个可定位的实质 PR Review**。本地形成 **60 个编号日报主题、69 份 Day 报告、9 份周总结、28 个图示资产和 143 个 benchmark / review 原始结果文件**。
+两条主线共同训练的是同一套工程能力：先确定组件在系统中的位置和状态由谁负责，再用代码、测试和公开 Review 证明改动是否覆盖真实路径。最终在 AgentCube 与 Karmada 两个主仓创建 **26 个 PR**，其中 **18 个已合入、7 个仍开放、1 个已关闭未合入**；加上与项目交付直接相关的 Work API 和绘图工具链贡献，共创建 **29 个 PR**，其中 **21 个已合入**。另创建 **7 个可定位的 Issue**，并对他人 PR 完成 **至少 16 个公开实质 Review**。
 
-最重要的变化不是提交数量，而是工程方法的变化：从“能否运行”推进到“接口约定是否清楚、失败路径是否安全、测试是否触达真实调用链、CI 是否绑定正确版本与测试目标、Review 结论是否能被复核”。
+实习前期关注“项目能否跑起来”，后期的判断标准变为：改动解决什么问题、状态由谁写入、失败后会留下什么结果、测试是否经过真实调用链、PR 是否只承担一个清楚职责。这是本次实习最主要的能力变化。
 
-## 二、两个月的学习、工作与时间分配
+## 二、学习、工作与时间分配
 
 ### 2.1 分阶段安排
 
-| 阶段 | 时间 | 主要学习与工作 | 阶段输出 |
+| 阶段 | 时间 | 学习与工作重点 | 主要输出 |
 | --- | --- | --- | --- |
-| 项目入门与基线建立 | 第 1-2 周 | 跑通 AgentCube、k3s、Redis、Workload Manager、Router、PicoD、Python SDK 和 `math-agent`；学习 Go、Kubernetes CRD / controller、Helm、Python SDK；建立 benchmark 和 fork / upstream 工作流 | Getting Started 复现、sandbox latency / warm pool benchmark、竞品矩阵、首个 AgentCube PR #385、版本兼容 issue / PR |
-| 架构边界与功能适配 | 第 3 周 | 研究 Session Runtime Control Plane、Sleep / Resume、Store CAS、RuntimeProvider、Router 与 Workload Manager 职责；推进 agent-sandbox v0.4.6 兼容 | AgentCube #387、Sleep / Resume 设计、Session Runtime 架构图、测试分层与 code rationale matrix |
-| 工程闭环与 CI / release | 第 4-5 周 | 处理组件清理、fork CI、proposal 规范、release 版本、multi-arch build、Dependabot、runner 与 Go toolchain | AgentCube #403、#414、#415、#416、#420、#422、#423、#429；buildx A/B benchmark |
-| 深度 Review 与跨项目验证 | 第 6 周 | 让兼容性改动通过真实 Review 和 E2E；将同一套状态机、cleanup、event predicate、证书身份和 CI 判断用于 Karmada | AgentCube #387 合入；Karmada E2E / controller / certificate PR；AgentCube #400、#431 与 Karmada proposal / code Review |
-| 版本升级与运行时安全 | 第 7 周 | Review agent-sandbox v0.5.2、AgentRuntime termination、Router-PicoD mTLS 与 Karmada 删除/调度路径 | AgentCube #442 / #437 / #444 Review，Karmada #7777 merge、#7791 / #7795 提交 |
-| 兼容性收敛与 Review 工具 | 第 8 周 | 修复 MCP SDK v2，独立验证 agent-sandbox v0.5.3，重置 replacement PR 的 final-head Review | AgentCube #448 merge、#446 Review、v0.5.3 fork adapter、Review harness |
-| Ownership、升级实证与收尾 | 第 9 周 | 验收 CodeInterpreter child ownership，完成 warm-pool lineage E2E、PR #385 刷新和四项目架构对照 | AgentCube #450 / #446 Review、#385 更新，Karmada #7795 merge，AgentENV / Volcano / Kthena 研究 |
+| 建立运行基线 | 第 1-2 周 | 跑通 AgentCube、Kubernetes、Redis、Router、Workload Manager、PicoD、Python SDK 和真实 Agent 调用；学习 Go、CRD、controller、Helm 和开源协作流程 | Getting Started 复现、sandbox latency / warm pool benchmark、AgentCube PR #385、版本兼容问题与测试计划 |
+| 进入控制面开发 | 第 3 周 | 理解 Session 生命周期、Router 与 Workload Manager 分工、agent-sandbox CRD 和 warm pool；开始 Karmada 传播链路学习 | AgentCube PR #387、Session Runtime 图、Karmada PR #7666、证书轮换 Issue #7690 |
+| 工程交付与 CI | 第 4-5 周 | 推进版本兼容、组件清理、release、multi-arch 构建、GitHub Actions 与 Karmada 证书轮换 | AgentCube #403/#414/#415/#416/#420/#422/#423/#429；Karmada #7697/#7728/#7732 |
+| 深入测试与 Review | 第 6-7 周 | 从 diff 检查转向恢复状态机、失败路径和 cleanup；处理 AgentCube 兼容收敛与 Karmada E2E / Scheduler 问题 | AgentCube #387 合入及 #400/#431/#437/#442 Review；Karmada #7777/#7791/#7795 与多项 Scheduler Review |
+| 版本升级与职责收敛 | 第 8-9 周 | 完成 MCP SDK v2、验证 agent-sandbox v0.5.3、检查对象 ownership 和 replacement；将 Karmada 调度状态拆成可验证职责 | AgentCube #448 合入、#385 更新、#446/#450 Review；Karmada Binding / Work 状态交付分析 |
+| Karmada 专项收尾 | 延长记录 Week 10-12 | 围绕多组件调度拆分 trigger、calculation、accepted result 和 failure protection；完成 Work API 依赖更新 | Karmada #7827/#7830/#7833/#7835/#7841，Work API #74，专项最终总结与系统位置图 |
 
 ### 2.2 工作类型分配
 
-下表是按 60 个日报主题、对应 PR / 测试 / 文档的主任务分类折算，不是打卡系统的精确工时。多个任务同时包含代码、测试和 Review，因此比例用于说明精力重心，不用于财务或考勤统计。
+以下比例按核心证据期内的日报主题、PR、测试和 Review 主任务折算，不是考勤系统的精确工时。一个任务可能同时包含代码和测试，因此只按主要目的归类。
 
 | 工作类型 | 估算占比 | 主要内容 |
 | --- | ---: | --- |
-| 代码实现、版本兼容与 CI / release | 30% | AgentCube agent-sandbox 兼容、warm pool health、MCP SDK v2、组件清理、Go / runner / Dependabot / release / buildx 工作 |
-| PR Review 与开源社区协作 | 25% | AgentCube / Karmada PR Review、Issue / proposal 讨论、review comment、作者修改复核、exact-head 状态检查 |
-| 架构与生态研究 | 25% | Session Runtime、Sleep / Resume、SandboxPool、mTLS、E2B / OpenSandbox / Agent Substrate / AgentENV / Volcano / Kthena 对比 |
-| 测试、benchmark 与环境定位 | 15% | unit、race、E2E、LLM E2E、warm pool 性能、multi-arch build、Kubernetes / KVM 环境分析 |
-| 文档、流程与复用工具 | 5% | 日报 / 周报、TODO、贡献规范、Mermaid / draw.io、review skill 与 agent harness |
+| 代码实现、版本兼容与交付 | 30% | AgentCube agent-sandbox / MCP 兼容、warm pool、release / build；Karmada 证书、调度与 Work 交付 |
+| PR Review 与开源协作 | 25% | AgentCube / Karmada 代码和方案 Review、作者修改复核、Issue 讨论、提交状态跟踪 |
+| 测试、E2E 与性能验证 | 20% | unit、race、E2E、cleanup、warm pool benchmark、multi-arch A/B、CI failure 定位 |
+| 架构学习与系统分析 | 20% | AgentCube Session / Sandbox 控制面，Karmada Scheduler / Binding / Work 状态流 |
+| 文档与图示整理 | 5% | 日报、周总结、测试记录、Mermaid / draw.io 和答辩材料 |
 
-## 三、本人工作在 AgentCube 系统中的位置
+## 三、本人工作在两个系统中的位置
 
-![AgentCube 系统位置与实习工作重点](final-internship-system-position.png)
+![AgentCube 与 Karmada 系统位置及实习工作重点](final-internship-system-position.png)
 
-图的可编辑源文件为 [final-internship-system-position.mmd](final-internship-system-position.mmd)。箭头表示 AgentCube 的主要请求和资源链路；橙色节点是主要实现范围，紫色节点是架构与 Review 重点，蓝色节点表示 SDK / E2E / benchmark 的横向验证覆盖。
+可编辑源文件为 [final-internship-system-position.mmd](final-internship-system-position.mmd)。图中两条链路是并行的实习工作主线，不表示 AgentCube 与 Karmada 已形成生产集成。橙色节点是主要实现范围，紫色节点是重点 Review 范围，蓝色节点表示测试、CI 和性能验证覆盖。
 
-### 3.1 主要聚焦模块
+### 3.1 AgentCube 模块
 
 | 模块 / 边界 | 在系统中的作用 | 本人工作 |
 | --- | --- | --- |
-| Workload Manager / CodeInterpreter | 编排 session 创建、查询、删除和 Kubernetes 资源生命周期 | 适配 agent-sandbox v0.4.6；独立验证 v0.5.2 / v0.5.3；实现 warm pool health；Review child ownership、delete precondition、GC / refill |
-| SandboxWarmPool / SandboxClaim / Sandbox | 提供预热资源、claim 绑定、Sandbox 与 Pod 生命周期 | 分析 adoption、owner reference、UID、generation、resourceVersion 和 upgrade migration；设计真实 E2E 闭环 |
-| Router / PicoD | Router 负责认证、路由和代理，PicoD 负责 sandbox 内代码执行数据面 | 研究 Router -> PicoD mTLS、身份绑定与 sidecar 边界；Review PicoD Prometheus metrics；验证 AgentRuntime 示例链路 |
-| Python SDK / MCP | 向 Agent 和用户提供 session / tool 调用接口 | 修复 Code Interpreter MCP SDK v2 兼容并合入 AgentCube #448；运行 Python SDK 与 `math-agent` 链路 |
-| CI / release / project governance | 为代码、镜像、Helm chart、proposal 和贡献者分支提供持续验证 | 提交 push validation、chart version、native builder、Dependabot、runner pinning、proposal template、Go update workflow 等 PR |
-| 测试与 Review 体系 | 证明功能、兼容、并发、cleanup 和发布结果，而不只证明编译 | 建立 unit -> race -> package -> E2E -> LLM E2E -> cleanup 分层；形成 exact-head、scope closure 和 risk-to-test 方法 |
+| Workload Manager / CodeInterpreter | 接收 Session 请求并编排 Kubernetes 资源生命周期 | 适配 agent-sandbox v0.4.6；独立验证 v0.5.2 / v0.5.3；实现 warm pool 健康状态；Review child ownership 和删除安全 |
+| SandboxWarmPool / SandboxClaim / Sandbox | 提供预热资源、Claim 绑定以及 Sandbox / Pod 生命周期 | 分析对象接管、owner reference、UID、版本迁移、pool refill 和 cleanup；补真实 E2E |
+| Router / PicoD | Router 负责认证和请求转发，PicoD 在 Sandbox 内执行进程与文件操作 | 分析路由、身份和数据面边界；Review metrics 和终止清理；验证真实调用链 |
+| Python SDK / MCP | 向 Agent 和用户提供 Session 与工具调用接口 | 完成 MCP Python SDK v2 迁移；运行 HTTP、stdio、Docker 和集群内 E2E |
+| CI / release | 持续验证代码、镜像和 Helm chart，并管理版本与构建 | 完成 branch push validation、chart version、multi-arch builder、Dependabot、runner pinning 和 Go update workflow |
 
-### 3.2 完成工作需要掌握的知识与技能
+### 3.2 Karmada 模块
 
-| 能力领域 | 需要掌握的知识 | 实际应用 |
+| 模块 / 边界 | 在系统中的作用 | 本人工作 |
 | --- | --- | --- |
-| Go 与控制器开发 | Go interface、context、error wrapping、goroutine、race test、controller-runtime、client-go | Workload Manager 兼容、deadline、ownership、reconcile、event predicate Review |
-| Kubernetes | CRD、owner reference、UID / generation / resourceVersion、RBAC、ServiceAccount、informer cache、finalizer、Pod / RuntimeClass | warm pool lifecycle、资源删除安全、SandboxPool proposal、mTLS 部署边界 |
-| 云原生交付 | Helm、Docker / buildx、multi-arch、GitHub Actions、DCO、codegen、release version | AgentCube push validation、release version、native builder、Dependabot、runner pinning、Go update workflow 及 fork validation |
-| Python 与 Agent 工具链 | Python SDK、MCP、HTTP / SSE / stdio、OpenAI-compatible provider | `math-agent`、Code Interpreter MCP SDK v2、Python SDK tests |
-| 测试与性能工程 | p50 / p95 / p99、并发、warm hit / miss、counterfactual、E2E、cleanup、CI 日志分析 | warm pool benchmark、buildx A/B、Karmada flake RCA、v0.5.x migration E2E |
-| 架构与 Review | 控制面 / 数据面、状态所有权、事务边界、失败恢复、Clean Architecture、scope control | Session Runtime、Sleep / Resume、SandboxPool、AgentENV / Volcano / Kthena 对照和 PR Review |
-| 开源协作 | fork / upstream、topic branch、PR 模板、review comment、维护者角色、证据与状态表达 | 23 个 PR、5 个 issue、至少 12 个他人 PR Review，以及分支与发布流程规范 |
+| `karmadactl init` / certificates | 初始化控制面证书、Secret 与 kubeconfig | 设计并实现 leaf certificate rotation，保护 CA、SAN、client identity、external-etcd credentials 和 Secret metadata |
+| ResourceDetector / Binding | 将资源和策略变化转换为调度意图，并保存期望与已接受结果 | Review waiting store identity；设计 component result API、旧版本写入保护和 source-change trigger |
+| `karmada-scheduler` | 选择集群、计算副本并提交调度结果 | Review health / affinity / debounce；实现 component result、scale calculation 和 failure protection |
+| Binding Controller / Work | 将已接受的分配结果转换为 Work 并下发成员集群 | 设计 Work update guard，失败时保留旧结果与旧 Work，避免部分更新被当成成功 |
+| E2E / CI | 验证安装、传播、调度、清理和回归 | 修复 Flink cleanup、Remedy event、`karmadactl top` fixture 和 EstimatorAssumption 测试隔离；分类共享 CI failure |
 
-## 四、主要任务、输出与结果
+### 3.3 完成工作需要掌握的知识与技能
 
-### 4.1 AgentCube 运行基线、性能测评与竞品分析
-
-实习开始阶段先完成端到端运行基线：本地部署 AgentCube，跑通 Redis、Workload Manager、Router、PicoD、CodeInterpreter、Python SDK 和 `math-agent`，随后把 sandbox 基础设施耗时与 LLM / Agent 规划耗时分开。
-
-主要输出：
-
-- AgentCube sandbox 顺序 5 次测试 `total` p50 约 `177.14 ms`。
-- 并发 10、`warmPoolSize=2` 时 p50 约 `7315.21 ms`，定位为预热池容量不足导致 pool miss。
-- `warmPoolSize=10` 时 p50 约 `436-565 ms`，p95 约 `804-933 ms`；`warmPoolSize=20` 没有继续改善，证明预热池不是越大越好。
-- 同机 cage-bro 顺序 p50 约 `18.41 ms`，但报告明确区分本地轻量沙箱与 Kubernetes 管理 sandbox 的隔离和生命周期边界，没有按倍率直接判断产品优劣。
-- 形成 AgentCube、forkd、CubeSandbox、cage-bro、OpenSandbox、Agent Substrate、E2B、AgentENV 等项目的能力与证据矩阵。
-
-证据入口：[Week 1 总结](week1-summary.md)、[Day 5 sandbox latency](day5-sandbox-latency-and-competitor-analysis.md)、[Day 8 竞品能力矩阵](day8-sandbox-competitor-capability-matrix.md)。
-
-### 4.2 CodeInterpreter 与 agent-sandbox 版本兼容
-
-AgentCube 的 CodeInterpreter 依赖 agent-sandbox 的 CRD、warm pool、claim 和 owner reference 语义。版本升级不仅是修改依赖版本，还会影响 API package、stored version、对象 adoption、NetworkPolicy、E2E manifest、SDK 和 cleanup。
-
-主要输出：
-
-- AgentCube PR [#387](https://github.com/volcano-sh/agentcube/pull/387) 将 CodeInterpreter warm pool 适配到 agent-sandbox v0.4.6，补充真实 deadline 与目标 E2E，2026-07-16 合入。
-- 在不依赖作者方案的情况下独立实现并验证 v0.5.2 / v0.5.3 adapter，覆盖 v1beta1 API、UID adoption、delete / GC、pool refill 和 conversion webhook 等风险。
-- 对 AgentCube agent-sandbox 升级 PR #442 / #446 做多轮 exact-head Review，区分 correctness finding、scope finding、CI discovery 和维护者 policy decision。
-- AgentCube PR [#448](https://github.com/volcano-sh/agentcube/pull/448) 完成 Code Interpreter MCP SDK v2 迁移，local Streamable HTTP、stdio、Docker rollout、in-cluster MCP E2E 与 exact-head checks 通过，2026-07-30 合入。
-- AgentCube PR [#385](https://github.com/volcano-sh/agentcube/pull/385) 实现 `WarmPoolAvailable`，当前代码和验证已完成但仍等待 maintainer review，不能表述为已合入。
-
-证据入口：[Week 6 总结](week6-summary.md)、[Day 50 v0.5.2 独立适配](day50-agent-sandbox-v052-independent-adaptation.md)、[Day 55 v0.5.x Review](day55-pr442-agent-sandbox-v052-new-head-review.md)。
-
-### 4.3 CI、release 与构建性能工程
-
-这一方向的目标是让普通贡献者分支能得到可信验证，并减少版本、镜像和 GitHub Actions 的长期漂移。
-
-| PR | 输出 | 状态 / 效果 |
+| 能力 | 需要掌握的知识 | 实际应用 |
 | --- | --- | --- |
-| AgentCube #391 | Go toolchain 升级到 1.26.4，作为依赖兼容的独立前置 | 已合入 |
-| AgentCube #403 | 删除未进入默认 chart / release / E2E 的 `agentd` | 已合入，15 个文件净删除 683 行 |
-| AgentCube #414 | 为 9 类既有 workflow 增加 branch push validation | 已合入，fork 9/9 checks 通过 |
-| AgentCube #415 | 增加 proposal 索引、模板和贡献入口 | 已合入 |
-| AgentCube #416 | 分离 Docker tag、Helm chart version 与 app version | 已合入，真实 release run 生成并推送 `agentcube-0.0.0.tgz` |
-| AgentCube #420 | multi-arch image 使用原生 Go builder，保持目标架构不变 | 已合入；job wall time 从 1610 秒降到 331 秒，约减少 79.4% |
-| AgentCube #422 | 覆盖非标准路径 Dockerfile 的 base image Dependabot | 已合入，并由真实 fork-generated PR 验证 |
-| AgentCube #423 | 将 11 个浮动 `ubuntu-latest` 固定到 `ubuntu-24.04` | 已合入；actionlint、YAML 与 9/9 checks 通过 |
-| AgentCube #429 | 每周检查 Go 版本并同步 `go.mod` 与 3 个 builder tag | 仍开放；实现已提交，维护者决策与 rebase 不由本人单方面决定 |
+| Go 与控制器开发 | interface、context、error、goroutine、race、controller-runtime、client-go、reconcile、event predicate | AgentCube 生命周期与 deadline；Karmada RemedyActions、ResourceDetector、Binding 更新和调度 Review |
+| Kubernetes API | CRD、owner reference、UID、resourceVersion、served / stored version、webhook、RBAC、finalizer、status | agent-sandbox 版本迁移、对象替换保护、component result API、旧版本写入保护 |
+| 云原生交付 | Helm、Docker / buildx、multi-arch、GitHub Actions、DCO、codegen、release version | AgentCube release / CI / build，Karmada runner 与 E2E 修复 |
+| 多集群调度 | Policy、Binding、Work、affinity、replica estimator、Descheduler | Karmada #7492、#7662、#7830、#7833、#7835、#7841 |
+| 证书与身份 | CA、SAN、client certificate、Secret、kubeconfig、external etcd | Karmada `--cert-mode=rotate` 和无意外写入回归测试 |
+| 测试与性能 | p50 / p95 / p99、并发、counterfactual、E2E、cleanup、CI 日志 | warm pool benchmark、buildx A/B、Karmada flake 因果验证、版本迁移 E2E |
+| 架构与 Review | 控制面 / 数据面、状态所有权、失败恢复、职责拆分、exact-head | AgentCube Sandbox 生命周期与 Karmada desired / accepted / delivered 状态检查 |
 
-证据入口：[Week 4 总结](week4-summary.md)、[Week 5 总结](week5-summary.md)、[Day 38 release failure](day38-release-image-ci-helm-chart-version-failure-analysis.md)、[Day 39 buildx optimization](day39-karmada-image-build-and-agentcube-buildx-performance-optimization.md)。
+## 四、主要工作输出
 
-### 4.4 架构设计与实质 PR Review
+### 4.1 AgentCube：从运行基线到版本兼容
 
-实习后半段把 Review 从“看 diff 和样式”推进到“恢复系统状态机、调用链和失败路径”。重点对象包括：
+实习开始阶段先跑通 AgentCube 的完整请求链路，并把 Sandbox 基础设施耗时与上层 Agent 处理耗时分开。顺序 5 次测试的 `total` p50 约为 `177.14 ms`；并发 10、`warmPoolSize=2` 时 p50 约为 `7315.21 ms`，扩大到 `warmPoolSize=10` 后 p50 降至约 `436-565 ms`，说明性能问题主要来自预热池容量不足，而继续扩大到 20 没有明显收益。
 
-- AgentCube SandboxPool proposal #431：检查 status writer、per-node ownership、heartbeat、generation freshness、RuntimeClass / CRI 接线、cleanup、downscale reservation 和 RBAC。
-- AgentCube PicoD metrics PR #400：用 32 个自定义 HTTP method 复现无界 label cardinality，作者随后增加 bounded method taxonomy 和真实 middleware tests。
-- AgentCube CodeInterpreter ownership PR #450：发现“检查 ownership 后再按名称 DELETE”存在对象替换窗口，推动加入 UID / resourceVersion precondition 和 replacement regression tests。
-- AgentCube Router -> PicoD mTLS issue #444：区分 TLS 终止、Router 身份验证、PicoD identity、JWT target binding 和 sidecar key isolation，不把“启用 TLS”误写成完整身份安全。
-- AgentCube AgentRuntime examples PR #437：通过容器级 TERM 行为验证 PID 1 cleanup，作者修复后复核代码路径，同时保留“现有 E2E 未直接覆盖 termination”的证据边界。
+在此基础上推进版本和生命周期工作：
 
-为避免多轮 force-push 后只检查旧 finding，进一步形成 exact-head Review 方法：冻结 base / head / merge-base，逐个解释 hand-written changed file，检查 changed tests 是否被 CI 实际发现，区分 GitHub checks 名称与具体命令执行证据，并对外部 URL、build constraints、clean worktree 和直接测试 fallback 设 fail-closed 门禁。
+- AgentCube PR [#387](https://github.com/volcano-sh/agentcube/pull/387) 将 CodeInterpreter warm pool 适配到 agent-sandbox v0.4.6，补充真实 deadline 和目标 E2E，于 2026-07-16 合入。
+- AgentCube PR [#448](https://github.com/volcano-sh/agentcube/pull/448) 完成 MCP Python SDK v2 迁移，覆盖 Streamable HTTP、stdio、Docker rollout 和集群内 MCP E2E，于 2026-07-30 合入。
+- AgentCube PR [#385](https://github.com/volcano-sh/agentcube/pull/385) 实现 `WarmPoolAvailable`，代码与验证已完成，当前仍等待 maintainer review，不能表述为已合入。
+- 独立验证 agent-sandbox v0.5.2 / v0.5.3 适配，覆盖 v1beta1 API、UID adoption、删除 / GC、pool refill 和 conversion webhook，用于检查上游升级方案是否遗漏真实迁移路径。
 
-证据入口：[Day 30 AgentCube PR #387 Review](day30-pr387-warm-pool-dataflow-review.md)、[Day 44 SandboxPool Review](day44-sandbox-pool-management-proposal-review.md)、[Day 54 mTLS 设计](day54-issue444-router-picod-mtls-design-screening.md)、[Day 58 ownership Review](day58-pr450-codeinterpreter-child-ownership-review.md)。
+### 4.2 AgentCube：CI、release 与构建效率
 
-### 4.5 Karmada 与工具链跨项目贡献
+| PR | 交付结果 | 状态 / 效果 |
+| --- | --- | --- |
+| #403 | 删除没有进入默认 chart、release 和 E2E 的 `agentd` | 已合入，15 个文件净删除 683 行 |
+| #414 | 为 9 类既有 workflow 增加 branch push validation | 已合入，fork 9/9 checks 通过 |
+| #415 | 增加 proposal 索引、模板和贡献入口 | 已合入 |
+| #416 | 分离 Docker tag、Helm chart version 与 app version | 已合入，真实 release run 生成并推送 `agentcube-0.0.0.tgz` |
+| #420 | multi-arch image 使用 runner 原生 Go builder，目标镜像架构保持不变 | 已合入，job wall time 从 1610 秒降到 331 秒，约减少 79.4% |
+| #422 | 为非标准路径 Dockerfile 增加 base image Dependabot 覆盖 | 已合入，并由 fork 自动生成的更新 PR 验证 |
+| #423 | 将 11 个浮动 `ubuntu-latest` 固定到 `ubuntu-24.04` | 已合入，actionlint、YAML 和 9/9 checks 通过 |
+| #429 | 每周检查 Go 版本并同步 `go.mod` 与 3 个 builder tag | 仍开放；2026-08-31 head `8bfb7bf0` 的普通 E2E 通过、CodeInterpreter E2E 失败，等待后续处理与维护者决定 |
 
-为验证工程方法能否迁移到其他大型 Kubernetes 项目，实习期内在 Karmada 创建 7 个 PR，其中 6 个已合入、1 个仍开放；在 drawio-skill 创建 2 个 PR 并全部合入。
+### 4.3 Karmada：证书、CI 与 E2E
 
-代表性输出：
+Karmada PR [#7697](https://github.com/karmada-io/karmada/pull/7697) 为 `karmadactl init` 增加 `--cert-mode=rotate`。实现限定了恢复时必须保持的内容：复用 CA、保留 SAN、保持 client identity、只保留 external-etcd credentials、更新 Secret 时保留 metadata，并确保最后一次写入失败后重跑可以继续收敛。三节点 host kind 实验覆盖 10 分钟 leaf certificate 过期、轮换到 8760h、按顺序重启控制面并恢复两个 Push member 和 APIService；17 项 checks 通过。该 PR 截止记录期仍 open。
 
-- Karmada #7728：将 18 个 workflow 固定到 Ubuntu 24.04，完整 CI 通过后合入。
-- Karmada #7732：等待 FlinkDeployment control-plane CRD、member CRD 和 `Cluster.Status.APIEnablements` 三层 cleanup，关闭 #7719 后合入。
-- Karmada #7777：证明 `RemedyActions` 变化未触发 reconcile，形成 test-only fail -> fix pass -> reverse-patch fail 的局部因果证据，合入并关闭 #7776。
-- Karmada #7697：设计并实现 init-managed certificate rotation，覆盖身份绑定、共享 CA、远端恢复和部分写入重跑；当前仍开放等待 human review。
-- drawio-skill #49 / #94：补充 edge label overlap 检查，并修复 distribution version 与 marketplace metadata 漂移，均已合入。
+已合入的 CI / E2E 代表工作：
 
-### 4.6 文档、测试报告与可复用资产
+| PR | 交付结果 | 解决的问题 |
+| --- | --- | --- |
+| #7728 | 将 18 个 GitHub Actions workflows 固定到 Ubuntu 24.04 | 避免 runner 镜像变化带来的不可控漂移 |
+| #7732 | 等待 control-plane CRD、member CRD 和 `Cluster.Status.APIEnablements` 三层 cleanup | 防止前一项测试残留污染后一项测试 |
+| #7777 | 让 `RemedyActions` 状态变化触发 reconcile | 通过 test-only fail、fix pass、reverse-patch fail 证明事件遗漏与结果之间的因果关系 |
+| #7795 | 使用稳定 Pod fixture 修复 `karmadactl top` E2E 生命周期竞争 | 降低测试对象过早退出造成的不稳定 |
 
-| 类型 | 数量 | 说明 |
-| --- | ---: | --- |
-| 编号日报主题 | 60 | Day 1 至 Day 60 |
-| Day 报告 Markdown | 69 | 部分 Day 拆成主报告、Review 草稿或专项分析 |
-| 周总结 | 9 | Week 1 至 Week 9；Week 9 为 8 月 3 日至 8 月 11 日的收尾延长周 |
-| 图示资产 | 28 | 19 个 PNG、5 个 draw.io、4 个 Mermaid source；包含本总结的系统位置图 |
-| benchmark / review 原始文件 | 143 | 约 2.8 MiB，包含 JSON、日志、closure ledger 和测试证据 |
-| 上游 PR | 23 | AgentCube 14、Karmada 7、drawio-skill 2 |
-| 上游 issue | 5 | AgentCube 2、Karmada 3 |
-| 他人 PR 实质 Review | 至少 12 | 保守统计；只计同一证据期内创建且可由 `reviewed-by` 定位的他人 PR |
+### 4.4 Karmada：多组件调度与状态交付
 
-## 五、输出数量与状态明细
+Karmada Issue #7492 的目标是让一个 workload 内的多个组件分别计算和保存副本结果。原方案同时包含 API、触发、计算和 Work 更新，后续拆为边界清楚的 PR：
 
-### 5.1 上游 PR 统计
+| PR | 唯一职责 | 截止 2026-08-27 状态 |
+| --- | --- | --- |
+| #7830 | 比较 desired components 与 accepted snapshot，决定是否触发 scale rescheduling | open，等待 CI / review |
+| #7833 | Scheduler 持久化每个集群的 accepted component result | 已合入 |
+| #7835 | 计算 positive delta；scale-down 跳过 estimator；不支持的情况直接失败 | open，等待 CI / review |
+| #7841 | 只有调度成功才提交新 accepted result；失败时保留旧 result 和旧 Work | open，等待 CI / review |
+
+配套 PR #7827 将 EstimatorAssumption E2E 放到独立集群，避免前一测试的 taint 和 scale 残留影响后一测试。当前明确保留一个未覆盖边界：`TargetCluster.Components` 只保存 replicas，没有记录 CPU / memory 要求来自哪个 workload 版本，因此副本和资源要求同时变化时仍不能宣称已经完整支持。
+
+### 4.5 Review 与工程判断
+
+至少 16 个公开实质 Review 对象分布在两个项目：AgentCube #400、#431、#437、#442、#446、#450；Karmada #6863、#7623、#7662、#7692、#7764、#7779、#7800、#7810、#7846、#7860。
+
+代表性结果包括：
+
+- 在 AgentCube #400 中用 32 个自定义 HTTP method 复现无界 metrics label，作者随后加入受限分类和真实 middleware tests。
+- 在 AgentCube #450 中发现“检查 ownership 后再按名称删除”存在同名对象替换窗口，推动加入 UID / resourceVersion precondition 和 replacement regression tests。
+- 在 Karmada #7800 中指出 waiting store 仅按名称匹配可能让旧对象状态误配到同名新对象。
+- 在 Karmada #7810 中区分 `AddAfter` 的固定延迟与真正 trailing-edge debounce，明确其他 producer 和 leader restart 对保证的影响。
+- 在 Karmada #7662 中明确 controller 与 scheduler 不能同时写同一 Binding 状态，需要唯一数据来源、请求 / 确认过程和 Descheduler 优先级。
+
+### 4.6 文档、版本、问题单与测试资产
+
+| 输出类型 | AgentCube 记录 | Karmada 记录 | 说明 |
+| --- | ---: | ---: | --- |
+| 编号 Day 主题 | 60 | 59 | 两个分支各自独立编号，不合并为工时 |
+| Day Markdown | 69 | 86 | 包含主报告、专项分析、Review 和验证记录 |
+| 周总结 | 9 | 10 | AgentCube Week 1-9；Karmada Week 3-12，时间存在重叠 |
+| 图示与演示资产 | 28 个图示资产 | 30 Mermaid、34 PNG、4 draw.io、5 SVG、2 HTML | 用于架构、状态流、Review 和技术汇报 |
+| 原始测试 / Review 文件 | 143 | 按任务保存于各专项目录 | AgentCube 一侧约 2.8 MiB；Karmada 以 task-oriented 报告保存关键证据 |
+
+涉及的主要版本包括 agent-sandbox v0.4.6 / v0.5.2 / v0.5.3、MCP Python SDK v2、Go 1.26.x、Kubernetes v1.32.5 测试环境和 Work API Kubernetes v1.36.4 依赖。所有版本结论均绑定对应 PR、分支或测试记录，不把后续版本的验证倒填到早期 PR。
+
+## 五、量化输出与状态
+
+### 5.1 本人创建的 PR
 
 | 项目 | 创建 PR | 已合入 | 仍开放 | 已关闭未合入 |
 | --- | ---: | ---: | ---: | ---: |
-| AgentCube | 14 | 11 | 2（#385、#429） | 1（#390 fork validation） |
-| Karmada | 7 | 6 | 1（#7697） | 0 |
-| drawio-skill | 2 | 2 | 0 | 0 |
-| **合计** | **23** | **19** | **3** | **1** |
+| AgentCube | 14 | 11 | 2（#385、#429） | 1（#390 验证 PR） |
+| Karmada | 12 | 7 | 5（#7697、#7827、#7830、#7835、#7841） | 0 |
+| **两个主仓小计** | **26** | **18** | **7** | **1** |
+| kubernetes-sigs/work-api | 1 | 1 | 0 | 0 |
+| Agents365-ai/drawio-skill | 2 | 2 | 0 | 0 |
+| **全部相关输出** | **29** | **21** | **7** | **1** |
 
-> 注释：open PR 表示本人已完成当期提交或验证，但外部 review / merge 仍由维护者负责。本文不把 open 写成 merged，也不把绿色本地测试写成社区接受。
+> open 表示本人已提交代码或验证，但维护者仍负责 Review 和合入决定。报告不把 open 写成完成，也不把本地测试通过写成社区接受。
 
-### 5.2 代表性测试与版本证据
+### 5.2 Issue 与 Review
 
-| 工作 | 版本 / head | 测试证据 | 边界 |
+| 类型 | 数量 | 范围 |
+| --- | ---: | --- |
+| 本人创建的 Issue | 7 | AgentCube 2、Karmada 4、开发工具问题 1 |
+| 公开实质 PR Review | 至少 16 | AgentCube 6、Karmada 10；按可定位的他人 PR 对象去重 |
+
+### 5.3 代表性测试与版本证据
+
+| 工作 | 版本 / head | 验证证据 | 证据边界 |
 | --- | --- | --- | --- |
-| AgentCube #387 | agent-sandbox v0.4.6 | official 12/12 checks、目标 CodeInterpreter E2E、deadline regression | 未把后续 v0.5.x 行为算入该 PR |
-| AgentCube #448 | MCP Python SDK v2 | local HTTP / stdio / Docker / in-cluster MCP E2E，upstream 13/13 checks | 只覆盖 Code Interpreter MCP migration |
-| AgentCube #385 | v0.5.3-based current branch | upstream 非 Tide 13/13、fork 9/9 workflows、CodeInterpreter E2E | 当前仍等待 maintainer labels / review |
-| v0.5.3 adapter | fork commit `5957314` 后续验证线 | lint、gen-check、build、non-E2E Go、race、k3d v1.32.5 migration E2E | fork 证据，不是竞争 upstream PR |
-| Multi-arch build | AgentCube #420 | 两组 branch checks、产物架构核对、1610 s -> 331 s | 未宣称 PicoD 的 arm64 系统包安装已优化 |
-| Karmada flake fix | #7732 / #7777 | cleanup E2E、test-only / fix / reverse-patch 因果验证 | 与 CI host I/O stall 分开处理 |
+| AgentCube #387 | agent-sandbox v0.4.6 | official 12/12 checks、目标 CodeInterpreter E2E、deadline regression | 不包含后续 v0.5.x 行为 |
+| AgentCube #448 | MCP Python SDK v2 | local HTTP / stdio / Docker / in-cluster MCP E2E，upstream 13/13 checks | 只覆盖 CodeInterpreter MCP migration |
+| AgentCube #385 | v0.5.3-based branch | upstream 非 Tide 13/13、fork 9/9 workflows、CodeInterpreter E2E | 当前仍等待 maintainer labels / review |
+| AgentCube #420 | multi-arch build | 两组 branch checks、产物架构核对、1610 s 降至 331 s | 未宣称 PicoD arm64 系统包安装已优化 |
+| Karmada #7697 | `--cert-mode=rotate` | 17 项 checks、真实过期证书恢复、部分写入后重跑 | 不包含 CA / external-etcd rotation 和自动重启 |
+| Karmada #7732 / #7777 | cleanup / event predicate | test-only、fix、reverse-patch 与 E2E | 不把共享 CI host I/O stall归因于产品代码 |
+| Karmada #7830/#7835/#7841 | #7492 PR 栈 | unit / race、E2E compile、部分 upstream workflows | 尚未完成完整 Flink quota / no-fit live E2E |
 
 ## 六、最有成就感的工作
 
-### 6.1 把 AgentCube 兼容 PR #387 从“编译兼容”推进到真实生命周期证据
+### 6.1 将 AgentCube 兼容改动推进到真实生命周期验证
 
-这个任务最能代表两个月能力变化。初期容易把依赖升级理解为修改 import 和版本号，实际 Review 证明还要处理 warm-pool adoption、claim deadline、owner reference、NetworkPolicy、manifest 版本、SDK 与 cleanup。最终通过真实 target E2E、deadline 进入 I/O context、运行版本和测试选择门禁，使 PR 在 2026-07-16 合入。
+AgentCube #387 最能体现能力变化。最初把版本兼容理解为修改依赖和 import，Review 后才发现还要处理 warm-pool adoption、claim deadline、owner reference、NetworkPolicy、manifest 版本、SDK 和 cleanup。最终目标 E2E 实际执行并通过，PR 进入上游主线。此后处理 v0.5.2 / v0.5.3 时，能够先列出编译、存储、生命周期、权限、清理和 E2E 六类风险，而不是只从编译错误开始。
 
-成就感来自两点：一是代码进入真实上游主线；二是形成了可以复用的判断，之后面对 v0.5.2 / v0.5.3 不再从编译错误开始，而是先列 migration、storage、lifecycle、auth、cleanup 和 E2E 风险。
+### 6.2 用测量把多架构构建从 27 分钟降到约 5.5 分钟
 
-### 6.2 用 AgentCube 构建 PR #420 把 27 分钟缩短到约 5.5 分钟
+AgentCube #420 先对构建阶段计时，确认主要时间花在 QEMU 下运行 arm64 Go compiler，再只调整 3 个 Dockerfile 的 builder platform，使编译在 runner 原生架构执行，最终镜像仍输出 amd64 / arm64。job wall time 从 1610 秒降到 331 秒，约减少 79.4%。该工作证明性能优化应从测量开始，并保持改动范围与已证明的问题一致。
 
-AgentCube release 慢的直觉解法可能是增加 cache 或并行 matrix。实际先对构建阶段计时，定位主要瓶颈是 arm64 Go compiler 在 QEMU 下执行，再只修改 3 个 Dockerfile 的 builder platform，使编译在 runner 原生架构执行，最终 target stage 仍输出 amd64 / arm64 镜像。job wall time 从 1610 秒下降到 331 秒，约减少 79.4%，同时保持 PR scope 很小。
+### 6.3 将 Karmada 大功能拆成可独立 Review 的交付步骤
 
-这项工作证明性能优化需要“测量 -> 定位 -> 最小改动 -> 产物验证”，而不是先写方案再找数据。
+Karmada #7492 最初将 API、触发、计算和 Work 更新放在一起。后续拆成 trigger、accepted result、calculation 和 failure protection，其中 #7833 已合入，其他 PR 各自保留清楚的职责和未覆盖边界。拆分后可以分别回答“为什么触发、计算什么、什么时候提交结果、失败后保留什么”，也降低了多个 PR 并行修改同一状态时的 Review 成本。
 
-### 6.3 从参与 Review 到建立可执行 Review 门禁
+### 6.4 将 CI 偶发失败转化为可证明的问题
 
-对 AgentCube SandboxPool #431、agent-sandbox 升级 #442 / #446、CodeInterpreter ownership #450 等多轮 PR 的 Review 暴露了一个问题：作者 force-push、rebase 或 squash 后，旧 finding 即使逐条关闭，也不能证明最终 head 满足 parent Issue。后续把 exact refs、scope closure、changed-test discovery、CI evidence 和 direct fallback 编码成 review harness，并用已知遗漏做回放。
-
-这项工作没有直接增加产品功能，但提高了 Review 的可复核性，也让本人看到“Review 完成”应由完整风险面和最终版本证据决定，而不是由评论数量决定。
+Karmada #7732 和 #7777 分别定位到 cleanup barrier 与 event predicate。两项都保留失败时序和修改前后对照；对于多个 etcd 同时出现 `fdatasync` stall 的共享基础设施问题，则没有通过增加超时和重试掩盖。由此形成了“先找产生失败的组件，再看最终失败的测试”的排查方法。
 
 ## 七、完成不理想的工作与原因
 
-### 7.1 AgentCube WarmPoolAvailable PR #385 尚未合入
+### 7.1 AgentCube #385 和 #429 尚未合入
 
-本人已完成实现、v0.5.3 rebase、Event RBAC、测试和 fork / upstream checks，但该 PR 同时受 agent-sandbox 升级、ownership 修复和维护者 review 时序影响。实习期内完成的是“可审查提交与验证”，不是“合入结果”。
+#385 的实现、版本迁移和 E2E 已完成，但仍依赖 agent-sandbox 升级、ownership 修复和维护者 Review；#429 的工作流实现已提交，但 Go baseline 多次变化，2026-08-31 的最新 head 仍有 CodeInterpreter E2E 失败。实习期内完成的是可审查代码与验证，合入状态仍由维护者和 CI 决定。
 
-改进：更早识别依赖链，把 feature、runtime prerequisite 和 repository-wide follow-up 画成明确依赖图；对外汇报使用“已提交 / 等待 review”，避免把维护者时序变成本人的未完成感。
+改进方向是更早画出 feature、runtime prerequisite 和 repository-wide follow-up 的依赖关系，并在每次上游 main 前进后重新验证当前 head，不用追加无关提交代替外部决策。
 
-### 7.2 MicroVM / KVM 竞品没有完成真实运行 benchmark
+### 7.2 Karmada 证书轮换和多组件调度仍有未完成边界
 
-早期机器缺少 `/dev/kvm`；当前机器虽然存在设备并暴露 VT-x，但用户不在 `kvm` 组，仍不能完成真实 Firecracker / MicroVM 路径验证。继续在同一环境反复调试不会产生可靠结果。
+#7697 已完成 17 项检查和真实证书恢复，但自动重启、HA 操作手册、CA / external-etcd rotation 以及 Helm / operator 支持不在第一版范围。#7492 PR 栈已完成职责重构和部分验证，但还没有完整运行 Flink quota / no-fit live E2E。
 
-改进：在 benchmark 计划开始前把 kernel、glibc、CPU virtualization flags、`/dev/kvm` 权限和容器 runtime 列为硬前置；不满足时及时切换到源码 / 官方数据研究，并明确“官方数据、工程推断、本机实测”的证据等级。
+改进方向是保持第一版边界，不为追求“看起来完整”加入未经维护者确认的功能；在 PR 栈稳定后补真实多集群 E2E，并把“如何记录资源要求来自哪个 workload 版本”作为明确的后续设计问题。
 
-### 7.3 调研与文档投入一度过大
+### 7.3 调研和文档投入一度偏多
 
-69 份 Day 报告保留了完整证据，但部分阶段的调研面过宽，导致社区任务选择和 open PR 收敛速度下降。高质量记录有价值，但不能替代可交付的代码、Review decision 或测试结果。
+两个仓库保存了较完整的 Day 和周总结，但早期存在同一任务拆成多份调研、CI 和 rebase 记录的问题。文档能够保存证据，却不能代替代码交付、Review 结论和测试结果。
 
-改进：后半段开始使用 weekly priority、stop condition、contribution value gate 和 reviewer-visible concise-first 规则。今后每个调研任务开始前先写清“要支持哪个决策”，达到决策证据后停止扩展。
-
-### 7.4 AgentCube Go 自动升级 PR #429 长期处于开放状态
-
-工作流实现已完成，但 Go baseline 后续连续变化，上游 main 和 PR base 多次前进，且自动升级工具本身属于长期治理能力，需要维护者确认 ownership 和 review 方式。单纯继续叠加提交不能解决决策问题。
-
-改进：将新 toolchain 兼容性先在基于最新 upstream/main 的临时 fork 分支验证，再以最小差异更新 open PR；若维护者更倾向其他方案，应及时收敛或关闭，而不是把 sunk cost 当成继续维护的理由。
+后续改为按任务维护一份主要记录，每个调研开始前先写明要支持的决定，证据足以回答后停止扩展。
 
 ## 八、困难、对策与解决方法
 
-| 困难 | 现象 | 原因判断 | 采取的对策 | 结果 |
-| --- | --- | --- | --- | --- |
-| Kubernetes 环境差异 | standard kind 在 kubelet / cgroup / QoS 初始化失败 | 主机 cgroup / runtime 条件与项目默认假设不匹配 | 使用可工作的 k3s / k3d；记录 host 信息；三次同类失败后停止硬调 | 完成 AgentCube 与 v0.5.3 focused E2E，同时保留 kind 限制 |
-| KVM 不可用 | forkd / Firecracker 无法运行 | `/dev/kvm` 缺失或当前用户无权限 | 运行前置检查；不伪造 MicroVM 数据；切换源码与官方证据研究 | 避免错误性能比较，形成 benchmark host checklist |
-| CI 绿色但目标未执行 | AgentCube 兼容 PR #387 原 E2E 安装旧 runtime，目标 case 在 mTLS 下 skip | runtime version skew 与 test selection 同时存在 | 检查安装日志和 test filter；加入强制目标 job 与版本门禁 | v0.4.6 真实生命周期实际执行并通过 |
-| timeout 不能取消请求 | timer 到时后同步 GET 仍阻塞并返回迟到 success | timer channel 没有进入 HTTP context | 把 deadline 传入 client-go GET context，并在 success 前复核 | 形成可复现反例和 regression test |
-| API / CRD 版本变化 | v1alpha1 / v1beta1 package、字段和 owner 语义变化 | 版本升级同时改变编译、storage 与 lifecycle | 将兼容分为 compile、storage、lifecycle、auth、cleanup、E2E 六层 | v0.4.6 合入，v0.5.x 独立验证可复用 |
-| Review 信息量大 | 短评论缺少上下文，长评论又难扫描 | finding 没有稳定的 trigger -> consequence -> evidence 结构 | 使用 code locator、最小反例、Mermaid 和 concise-first；作者修改后复核 exact head | Review 更易理解，减少重复解释 |
-| 多任务时间冲突 | 调研、PR、Review、周报同时推进 | 缺少明确优先级和停止条件 | 用 TODO、周目标、active thread 和 stop conditions；已有 assignee / PR 时转向 Review | 减少重复认领和无效实现 |
-| 开源沟通边界 | bot、AI reviewer、作者回复和 maintainer decision 容易混淆 | 不同角色的决定权不同 | 区分作者修正、CI 结果、human review 与 maintainer approval；上游文本先确认 exact target / body | 状态表达更准确，避免把建议写成社区共识 |
+| 困难 | 具体表现 | 采取的对策 | 结果 |
+| --- | --- | --- | --- |
+| Kubernetes 环境差异 | standard kind 在 kubelet / cgroup / QoS 初始化失败 | 使用可工作的 k3s / k3d；记录主机条件；同类环境错误连续出现后停止重复调试 | 完成 AgentCube focused E2E，并保留 kind 环境限制 |
+| KVM 权限不足 | 无法运行真实 Firecracker / MicroVM 路径 | 运行前检查 CPU virtualization、`/dev/kvm` 和用户权限；不伪造性能数据 | 把不能实测的内容降为源码或公开资料分析 |
+| CI 绿色但目标未执行 | 兼容 PR 的 E2E 安装旧 runtime，目标 case 还可能被筛选条件跳过 | 检查安装日志、运行版本和 test filter；增加目标 job 与版本门禁 | v0.4.6 真实生命周期测试实际执行并通过 |
+| 同名对象替换 | ownership 检查后按名称删除，可能删除后来创建的新对象 | 使用 UID / resourceVersion precondition，并增加 replacement regression | AgentCube #450 修复该窗口并补回归测试 |
+| 多个组件写同一状态 | Karmada controller、scheduler 和 Policy 可能同时改 Binding | 先定义 desired、accepted、delivered state 和唯一写入者，再决定 API 与重试 | #7492 收敛为多个边界清楚的 PR |
+| E2E 最终失败位置误导排查 | 最终失败的 spec 不一定是留下残留的测试 | 同时记录资源创建、清理、共享状态、后续测试和断言的时间线 | #7827 使用独立集群隔离前一测试残留 |
+| 多任务和 PR 依赖 | 调研、代码、Review、周总结并行，多个专项 PR 又有提交顺序 | 用周目标、依赖图、唯一职责和停止条件；先合数据结构 / accepted result，再提交使用方和 failure guard | 减少重复实现，也让每个 PR 可以独立说明和验证 |
+| Review 难以被作者理解 | 评论技术正确，但需要读完整本地报告才能理解 | 写清代码位置、触发条件、具体后果、证据和最小修改方向 | 作者可以直接复现问题并判断是否修改 |
 
-## 九、完成任务过程中的感受与收获
+## 九、完成任务过程中的收获
 
-第一，开源工程的完成标准不是“代码写完”。一个改动从需求到合入，还需要 scope、兼容、测试、CI、文档、DCO、review 和维护者决策。本人逐步学会把“我完成的工作”和“社区尚未完成的外部状态”分开表达。
+1. **先明确状态由谁负责。** 控制器和分布式系统的问题往往来自多个组件同时写状态、对象被替换、缓存过期或失败后部分提交。先确认唯一数据来源，再设计状态变化和重试。
+2. **测试必须经过真实调用路径。** 手工构造对象可能绕过 webhook、API validation、controller 默认值和生命周期事件；CI job 名称也不能证明目标测试实际执行。
+3. **一个 PR 只做一件边界清楚的事。** PR 需要说明数据由谁使用、必须满足什么规则、违反后会发生什么问题，不能把所有“感觉更安全”的保护逻辑都放进去。
+4. **Agent 生成的防御性代码需要多方验证。** 实现新特性时先从现有接口、调用方、测试和维护者要求确认保护逻辑是否必要，不能在假想风险上不断增加绕行代码。
+5. **Review 的输出是可执行决定。** 有价值的 Review 应让作者看懂触发条件、后果和最小修正方向，而不是堆技术名词或评论数量。
+6. **本人完成与社区接受是两种状态。** 可以完成代码、测试和 Review，但 maintainer approval、合入和发布仍由社区负责，对外汇报时必须分开。
 
-第二，控制器和分布式系统最容易出问题的地方不是 happy path，而是状态所有权、对象替换、缓存 freshness、重试、部分失败和 cleanup。只有把 producer、state store、reconcile、delete 和 recovery 串起来，Review 才能发现真实风险。
-
-第三，benchmark 的价值主要在口径。p50 数字只有和样本数、并发、warm hit、pool size、运行环境、失败率和 cleanup 一起出现才有意义；不同隔离等级、不同操作和不同硬件的数据不能为了展示效果而直接比较。
-
-第四，AI 工具可以加速资料检索、脚本执行、测试矩阵和文档整理，但不能替代工程判断。最终需要由人确认需求边界、证据等级、社区状态和对外表达。实习后半段把 AI 从“生成代码”更多地用于“恢复上下文、检查遗漏、保存证据和执行回归门禁”。
-
-第五，本次实习让我明确了后续方向：继续深耕 Agent 基础设施中的 runtime lifecycle、Kubernetes control plane、请求路由、sandbox 安全和可观测性，同时保持跨项目 Review 能力。相比只完成一个功能，更希望具备判断一个设计是否能长期维护、一个测试是否真正覆盖风险、一个 PR 是否适合进入社区主线的能力。
-
-## 十、可复用的工程方法总结
-
-1. **先恢复系统边界，再看 diff**：明确入口、状态所有者、控制面、数据面和外部依赖。
-2. **先拆前置，再做功能**：通用 toolchain / compatibility prerequisite 独立验证，feature PR 只保留自身语义。
-3. **把风险映射到测试**：成功、失败、并发、重试、对象替换、cleanup 和真实 E2E 分层覆盖。
-4. **冻结版本与证据**：Review 和测试绑定 exact head；绿色 check 名称不等于目标命令实际执行。
-5. **区分事实等级**：本机实测、源码支持、上游官方数据、工程推断分别陈述。
-6. **让评论推动一个决定**：给出触发条件、后果、证据和最小下一步，不把完整实习报告粘贴到上游。
-7. **把失败也作为输出**：记录失败命令、现象、根因、绕过和停止条件，避免下一轮重复消耗。
-
-## 十一、答辩陈述建议（8-10 分钟）
+## 十、答辩陈述建议（10 分钟）
 
 | 时间 | 内容 | 建议重点 |
 | ---: | --- | --- |
-| 1 分钟 | 项目与职责 | AgentCube 是 Kubernetes 上的 Agent sandbox / session runtime 基础设施；本人聚焦 Workload Manager、CodeInterpreter 生命周期、CI 与 Review |
-| 1 分钟 | 两个月路线 | 从跑通系统、benchmark，到版本兼容、CI / release，再到架构 Review 和跨项目验证 |
-| 2 分钟 | 代表工作一 | AgentCube 兼容 PR #387：为什么依赖升级不只是改版本；如何补 deadline、E2E 和 cleanup 证据 |
-| 1.5 分钟 | 代表工作二 | AgentCube 构建 PR #420：用 A/B benchmark 将 1610 秒降到 331 秒，并保持 3 行最小 scope |
-| 1.5 分钟 | 代表工作三 | AgentCube SandboxPool #431、agent-sandbox #446、ownership #450：如何从 diff Review 推进到状态所有权、对象替换和 exact-head 门禁 |
-| 1 分钟 | 输出数据 | 23 PR、19 合入、5 issue、至少 12 个他人 PR Review、60 个日报主题和完整测试资产 |
-| 1 分钟 | 困难与改进 | KVM / kind 环境、CI 假绿、调研过宽；分别用前置检查、目标测试门禁和 stop condition 处理 |
-| 1 分钟 | 收获与方向 | 形成 Agent runtime + Kubernetes control plane + evidence-driven Review 的能力闭环 |
+| 1 分钟 | 项目与职责 | AgentCube 负责 Agent Sandbox 生命周期，Karmada 负责多集群资源调度与交付；说明本人位于两条链路的哪些模块 |
+| 1 分钟 | 学习与工作安排 | 从运行基线、代码实现、CI / E2E 到状态所有权和跨组件 Review 的阶段变化 |
+| 2 分钟 | AgentCube 代表工作 | #387 为什么不只是升级依赖；#420 如何用 A/B 测量将构建从 1610 秒降到 331 秒 |
+| 2 分钟 | Karmada 代表工作 | #7697 如何保护证书身份；#7732/#7777 如何从偶发失败找到真正产生问题的环节 |
+| 2 分钟 | 多组件调度 | desired、accepted、delivered 三层是什么；#7830/#7833/#7835/#7841 为什么需要拆开 |
+| 1 分钟 | 输出数据 | 两个主仓 26 PR、18 合入、7 open、1 closed；7 Issue、至少 16 个实质 Review；文档和测试资产 |
+| 1 分钟 | 不足与收获 | open PR、live E2E、环境权限和文档投入边界；说明后续如何改进 |
 
-## 十二、证据索引
+## 十一、证据索引
+
+AgentCube 证据：
 
 - [Week 1：AgentCube 调研、测评与协作](week1-summary.md)
 - [Week 2：从写代码转向审代码与工程判断](week2-summary.md)
@@ -290,9 +278,19 @@ AgentCube release 慢的直觉解法可能是增加 cache 或并行 matrix。实
 - [Week 7：版本升级 Review、运行时安全与 Karmada 调度修复](week7-summary.md)
 - [Week 8：MCP SDK v2 合入、v0.5.3 独立验证与 Final-Head Review](week8-summary.md)
 - [Week 9：Ownership 修复验收、升级实证与实习收尾](week9-summary.md)
-- [Day 57：Agent Review harness 评估](day57-agent-autoharness-trajectory-evaluation.md)
-- [Day 58：CodeInterpreter child ownership Review](day58-pr450-codeinterpreter-child-ownership-review.md)
-- [Day 59：AgentENV Kubernetes 边界研究](day59-kvcache-ai-agentenv-kubernetes-boundary-study.md)
-- [Day 60：Volcano / Kthena 架构研究](day60-volcano-kthena-architecture-and-project-study.md)
 
-> 最终结论：本次实习完成了从项目入门、功能开发、版本兼容、测试与 CI，到架构 Review、开源协作和方法沉淀的完整训练。可量化结果以 19 个已合入 PR 为代表，可复用能力则体现在对 Agent sandbox 生命周期、Kubernetes 控制面、失败路径、测试证据和社区状态的系统判断。
+Karmada 证据：
+
+- [Karmada 实习专项：主要工作输出与总结](https://github.com/ranxi2001/karmada/blob/intern/internship-reports/final-karmada-internship-work-summary.md)
+- [Week 3：进入 Karmada](https://github.com/ranxi2001/karmada/blob/intern/internship-reports/week3-summary.md)
+- [Week 4：证书轮换](https://github.com/ranxi2001/karmada/blob/intern/internship-reports/week4-summary.md)
+- [Week 5：CI / Flake](https://github.com/ranxi2001/karmada/blob/intern/internship-reports/week5-summary.md)
+- [Week 6：证书、Review 与 Remedy](https://github.com/ranxi2001/karmada/blob/intern/internship-reports/week6-summary.md)
+- [Week 7：Scheduler Review 与回归提交](https://github.com/ranxi2001/karmada/blob/intern/internship-reports/week7-summary.md)
+- [Week 8：Waiting Store、Queue 与 Descheduler](https://github.com/ranxi2001/karmada/blob/intern/internship-reports/week8-summary.md)
+- [Week 9：Descheduler 与 Binding Update Review](https://github.com/ranxi2001/karmada/blob/intern/internship-reports/week9-summary.md)
+- [Week 10：#7492 API 与 E2E causality](https://github.com/ranxi2001/karmada/blob/intern/internship-reports/week10-summary.md)
+- [Week 11：Accepted result 与 failure safety](https://github.com/ranxi2001/karmada/blob/intern/internship-reports/week11-summary.md)
+- [Week 12：Phase IV 重构与收尾](https://github.com/ranxi2001/karmada/blob/intern/internship-reports/week12-summary.md)
+
+> 最终结论：本次实习完成了从项目入门、代码实现、版本兼容和测试，到跨组件 Review、CI / E2E 定位和开源交付的完整训练。AgentCube 让我理解 Agent Sandbox 的生命周期和交付链路，Karmada 让我理解多集群调度中 desired、accepted、delivered 状态的分工。相比单个技术名词或提交数量，更重要的输出是能够说明改动解决什么问题、证据是否覆盖真实路径、失败后系统会留下什么状态，以及当前结果仍由谁负责。

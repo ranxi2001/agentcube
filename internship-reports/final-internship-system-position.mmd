@@ -1,27 +1,59 @@
-%% AgentCube internship focus in the end-to-end request path.
+%% Parallel internship workstreams. This diagram does not claim a production integration between AgentCube and Karmada.
 flowchart TB
-    USER["Agent / 用户"] -->|"Session 与代码请求"| SDK["Python SDK / CLI"]
-    SDK -->|"HTTP 请求"| ROUTER["Router<br/>认证、路由、代理<br/>架构 Review"]
-    ROUTER -->|"创建 / 查询 / 删除 Session"| WM["Workload Manager<br/>Session 生命周期编排<br/>主要实现"]
-    ROUTER -->|"执行代码"| PICO["PicoD<br/>Sandbox 数据面<br/>架构 Review"]
-    ROUTER <-->|"Session 与认证状态"| REDIS[("Redis 状态存储")]
-    WM -->|"创建并协调 CR"| KAPI["Kubernetes API Server"]
-    KAPI -->|"监听期望状态"| ASCTRL["agent-sandbox controller"]
-    ASCTRL -->|"分配或接管"| POOL["SandboxWarmPool / SandboxClaim<br/>主要实现"]
-    POOL -->|"拥有生命周期"| SANDBOX["Sandbox / Pod<br/>E2E / benchmark"]
-    PICO -->|"进程与文件操作"| SANDBOX
+    ROOT["华为实习主要工作<br/>AgentCube + Karmada"]
 
-    classDef entry fill:#e8f1fb,stroke:#4472c4,color:#17365d;
-    classDef control fill:#e2f0d9,stroke:#70ad47,color:#255423;
-    classDef state fill:#fff2cc,stroke:#bf9000,color:#664d00;
-    classDef runtime fill:#f2f2f2,stroke:#666666,color:#262626;
+    subgraph AC["AgentCube：Agent Sandbox 生命周期"]
+        direction TB
+        ACUSER["Agent / 用户"] -->|"Session 与代码请求"| SDK["Python SDK / MCP"]
+        SDK -->|"HTTP 请求"| ROUTER["Router<br/>认证、路由、代理"]
+        ROUTER -->|"创建 / 查询 / 删除 Session"| WM["Workload Manager / CodeInterpreter<br/>生命周期编排"]
+        WM -->|"创建并协调 CR"| KAPI["Kubernetes API Server"]
+        KAPI -->|"监听期望状态"| ASCTRL["agent-sandbox controller"]
+        ASCTRL -->|"分配或接管"| POOL["SandboxWarmPool / SandboxClaim"]
+        POOL -->|"拥有生命周期"| SANDBOX["Sandbox / Pod"]
+        ROUTER -->|"执行代码"| PICO["PicoD<br/>Sandbox 数据面"]
+        PICO -->|"进程与文件操作"| SANDBOX
+    end
+
+    subgraph KM["Karmada：多集群调度与资源交付"]
+        direction TB
+        KMUSER["用户 / Source Workload"] -->|"创建或更新资源"| API["Karmada API Server"]
+        API -->|"资源与策略事件"| DETECTOR["ResourceDetector<br/>生成调度意图"]
+        DETECTOR -->|"ResourceBinding"| BINDING[("Binding<br/>desired / accepted state")]
+        BINDING -->|"待调度或已变化"| SCHED["karmada-scheduler<br/>集群与副本决策"]
+        SCHED -->|"accepted result"| BINDING
+        BINDING -->|"已接受的分配"| BC["Binding Controller<br/>生成 Work"]
+        BC -->|"Work"| EC["Execution Controller"]
+        EC -->|"应用资源"| MEMBER["Member Cluster"]
+        OP["运维人员"] -->|"karmadactl init"| CERT["Certificate Rotation<br/>身份与 Secret 安全"]
+        CERT -->|"证书、Secret、kubeconfig"| API
+    end
+
+    ROOT -->|"主线一"| ACUSER
+    ROOT -->|"主线二"| KMUSER
+
+    VERIFY["横向验证<br/>unit / race / E2E / CI / benchmark"] -.-> WM
+    VERIFY -.-> SANDBOX
+    VERIFY -.-> SCHED
+    VERIFY -.-> MEMBER
+
+    REVIEW["跨组件 Review<br/>状态所有权、对象替换、失败与 cleanup"] -.-> ROUTER
+    REVIEW -.-> POOL
+    REVIEW -.-> DETECTOR
+    REVIEW -.-> BC
+
+    classDef summary fill:#f2f2f2,stroke:#595959,color:#262626,stroke-width:2px;
+    classDef entry fill:#dae8fc,stroke:#6c8ebf,color:#172554;
+    classDef control fill:#d5e8d4,stroke:#82b366,color:#14532d;
+    classDef state fill:#fff2cc,stroke:#d6b656,color:#713f12;
     classDef focus fill:#fce4d6,stroke:#c65911,color:#7f3000,stroke-width:3px;
     classDef review fill:#e4dfec,stroke:#8064a2,color:#403152,stroke-width:3px;
     classDef verify fill:#d9e1f2,stroke:#5b9bd5,color:#1f4e79,stroke-width:3px;
 
-    class USER entry;
-    class KAPI,ASCTRL control;
-    class REDIS state;
-    class WM,POOL focus;
-    class ROUTER,PICO review;
-    class SDK,SANDBOX verify;
+    class ROOT summary;
+    class ACUSER,KMUSER,OP entry;
+    class KAPI,ASCTRL,API,DETECTOR,BC,EC control;
+    class BINDING state;
+    class WM,POOL,SCHED,CERT focus;
+    class ROUTER,PICO,REVIEW review;
+    class SDK,SANDBOX,MEMBER,VERIFY verify;

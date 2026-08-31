@@ -6,7 +6,7 @@
 
 ## 日报列表
 
-- [华为实习最终总结：AgentCube 开源工程、Agent Sandbox 与云原生控制面](final-internship-defense-summary.md)
+- [华为实习主要工作输出及总结：AgentCube 与 Karmada](final-internship-defense-summary.md)
 - [最终总结系统位置图（Mermaid source）](final-internship-system-position.mmd)
 - [实习任务 TODO](todo.md)
 - [开源贡献与社区讨论格式标准](open-source-contribution-format-standard.md)
