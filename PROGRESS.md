@@ -10,7 +10,8 @@
 
 - Branch/workflow：当前本地在 `intern`，该分支是本地记录专用分支，只跟踪 `.agents/`、`internship-reports/`、`PROGRESS.md`、`AGENTS.md`、`README-ZH.md`；不要在 `intern` 跟踪 AgentCube 源码、charts、client-go、workflow 或 `internship-reports/` 外的 benchmark/source 工具。代码工作切到 `main` 或 clean topic branch from `upstream/main`。记录类 commit 完成后默认 push `origin intern:intern`。
 - Intern branch cleanup：用户要求精简 `intern` 后，已在 `bceff94 chore: prune intern branch to local records [skip ci]` 删除上游源码/CI/SDK/docs 等 tracked 文件并保留 `.agents/`；该 commit 已 push 到 `origin/intern`。`.agents/.gitignore` 会忽略 `.agents/.env`、`__pycache__` 和 `*.pyc`。
-- Community freshness scan：最近一次只读复核到 `2026-09-02 11:31 CST`。#437、#446、#453 exact head 未变；#429 已从 `8bfb7bf0` 扩成 head `31a3373`、2 commits / 4 files，新增独立的 MCP command-error 修复与测试，exact-head 普通 E2E、CodeInterpreter E2E 和其余非 Tide checks 均通过。#429 当前 scope 已超出 Go toolchain workflow 主题，下一步先判断新增 MCP commit 应移除还是拆分，不因 CI 转绿宣告 ready；不自动更新公开分支或发布 upstream 内容。
+- Community freshness scan：最近一次只读复核到 `2026-09-04 16:59 CST`。#453/#435/#431/#413/#437 的新时间戳均来自 Codecov bot 更新既有评论，exact head 未变；#371 只有作者再次 `cc` maintainer，head 仍为 `ea1beb9`。#429/#446/#450 等既有主线没有新的 decision-relevant change；不自动评论、认领或请求 review。
+- Day62 Agent Infra 调研：`internship-reports/day62-current-agent-infra-agentic-rl-enterprise-runtime-study.md` 已固定 25 个开源仓库和 AWS/Microsoft/Google/Manus/Grok Bot 官方资料，拆分 Agentic RL 训推、企业 Runtime、Sandbox 与 persistent-agent 产品边界，并形成 AgentCube Harbor/Uni-Agent rollout provider PoC 及两张 Mermaid 图。`agent-sandbox v1.0.1` 已于 2026-09-03 发布；AgentCube main 仍为 `v0.4.6`，#446 仍以 `v0.5.3` 为目标，不自动 retarget。
 - Day61 Agent Harness 调研：`internship-reports/day61-learn-cn-agent-sandbox.md` 已从产品介绍改成实习生视角的证据分级调研，保留原文全部性能/规模数字但标记为来源主张或未来目标，并补充 AgentCube 四层对照与分阶段验证计划。
 - Final internship summary：`internship-reports/final-internship-defense-summary.md` 已合并 AgentCube 核心两个月证据与 Karmada 截至 2026-08-27 的专项收尾，升级为双项目“主要工作输出及总结”；2026-08-31 状态只校正 merged/open。配套 `final-internship-system-position.mmd/.png` 展示两条并行系统链路，不表示生产集成；制作答辩 PPT 时直接从最终总结、两个分支周总结和系统图提炼，不重新统计。
 - Huawei coaching feedback：`internship-reports/反馈华为辅导学习结果.md` 保留三阶段辅导计划，并填写可直接提交的 1300 字以内结果反馈；正文以 AgentCube 源码、模块开发和验证为主，Karmada 仅作为能力迁移证据。
@@ -72,6 +73,8 @@
 - #447 / #448：已完成并合入，不再追踪 review；仅在发现 merged regression 时重新打开调查。
 - #429：current `31a3373` 已把 MCP command-error 修复混入 Go toolchain PR；先从 exact head 重建 scope closure，并把该 commit 判定为 remove 或 separate，再让用户确认任何 open PR branch update。
 - #446：等待作者按 RainbowMango 的 scope/decomposition 意见更新或解释；不自动回复、撤销/重发 `/lgtm` 或追加评论。新 head 到来后先做 anchor-free scope closure，再复核 correctness 与 acceptance；任何已知 `remove/separate/unresolved` 项仍在时不得宣告 review complete。
+- agent-sandbox v1.0.1：先独立做 `v0.4.6 -> v0.5.3 -> v1.0.1` API/behavior/migration 差异矩阵，并读取新 `AgentSandboxWorkspace` 与 OpenHands workspace contract；不把该新版本直接塞进 active #446。
+- Agentic RL integration：若用户继续，优先做 local-only Harbor environment provider smoke，再接 Uni-Agent token trajectory；先闭环 create/exec/verify/delete 和 residue，不启动 trainer 或发布 upstream 内容。
 - #385：公开更新和 exact-head CI 已完成；不自动评论、请求 reviewer 或添加标签。等待 maintainer review / #446 / #450 merge；任一前置合入后先在本地重算 rebase，再单独请求用户确认新的 force-with-lease 更新。
 - Agent harness：下一次真实 Review 用 `agent-autoharness` 直接采集 normalized events、model/environment/budget/seed context 与 token/time/tool telemetry；先扩成至少 3 个 frozen labeled tasks、每个 3 attempts，再判断 task achievement、reliability、finding recall 和 efficiency 是否真实改善。不要用 Day57 单任务 post-hoc reconstruction 训练后再当 held-out 证据。
 - AgentENV：把它作为“node-local fast plane + optional Kubernetes fleet adapter”的架构证据，不直接转化成 AgentCube 去 Kubernetes 结论。若进入设计阶段，先量化 per-sandbox API Server / etcd / informer 成本，再定义 intent、node-local truth、route binding 和 committed snapshot 的故障恢复合同。

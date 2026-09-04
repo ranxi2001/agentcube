@@ -1,6 +1,6 @@
 # 实习任务 TODO
 
-更新时间：2026-08-10
+更新时间：2026-09-04
 
 这个文档用于管理实习期间的后续任务。日报记录每天做了什么，TODO 记录“现在还要做什么、优先级是什么、做到哪里、卡在哪里”。
 
@@ -63,6 +63,7 @@
 | P0 | 补多轮 p50/p95/p99 benchmark | DOING | 不适用 | 中 | 低 | 0.5-1 天 | 已有 AgentCube sandbox p50/p95 和 warmPoolSize 曲线 | 增加 p99；统一输出格式；补 Agent/math-agent 多轮统计 |
 | P0 | 补冷启动 vs warm pool 对比 | TODO | 不适用 | 中 | 低 | 0.5 天 | 已测 warmPoolSize=2/5/10/20 | 增加 `warmPoolSize=0` 或无 warm pool 场景 |
 | P0 | 补并发 5/10/20 sandbox 测试 | DOING | 不适用 | 中 | 中 | 0.5-1 天 | 已测 concurrent=10，warmPoolSize=2/5/10/20 | 增加 concurrent=5 和 concurrent=20；记录失败率和资源压力 |
+| P1 | 验证 AgentCube 作为 Harbor / Uni-Agent rollout execution provider | TODO | #267/#365 无 assignee；#366 `@lyuyun` 已有 SnapStart proposal | 高 | 中 | 1-2 天 | [Day 62](day62-current-agent-infra-agentic-rl-enterprise-runtime-study.md) 已拆出 trainer/harness/environment/Sandbox narrow waist，并定义 create/exec/verify/delete、group reset、failure taxonomy、cleanup 和 burst acceptance matrix | 先做 `agent-sandbox v1.0.1` 与 OpenHands workspace contract 审计；再在 fork/local 用一条无 LLM Harbor oracle task 验证 provider，不开竞争 PR |
 | P1 | 检查 sandbox 删除后的资源残留 | TODO | 不适用 | 中 | 低 | 0.5 天 | 部分测试后人工恢复过 warm pool 和 port-forward | 固化检查项：Pod、Sandbox CR、SandboxWarmPool、Redis 状态 |
 | P1 | 验证 `math-agent` session 自动清理 | TODO | 待查 | 中 | 低 | 0.5-1 天 | 第一周计划中已标记风险 | 检查 `CodeInterpreterClient().stop()` 或等价清理逻辑，并做回归验证 |
 | P1 | 构建数学 benchmark 专用镜像 | TODO | 不适用 | 中 | 中 | 1-2 天 | 高考数学测试已暴露 `sympy/numpy/scipy/pandas` 依赖问题 | 构建包含常用数学库的 sandbox 镜像，并复测高考数学题 |
@@ -161,6 +162,7 @@
 | 完成 Day56 sandbox-operator / agent-sandbox-platform 新旧对照 | [Day 56](day56-sandbox-operator-agent-sandbox-platform-study.md) 固定两个仓库当前提交，拆分传统 agent-sandbox warm path、aggregated API / NodeInventory / sandboxd fast path，以及 Lease / tenant / SDK product plane；按 Day5/8/11/12/21/28/35 回溯证明基础原语大多已有，真正增量是 node-local transaction 实现参照与租约产品化。两仓 Go tests 与后者 npm tests 通过；33 ms、50k live fleet 与 3000 Sandbox in-process L3 口径已校准，KVM runtime 和 fleet benchmark 未独立复现 |
 | 完成 Day57 Agent AutoHarness 轨迹评估闭环 | [Day 57](day57-agent-autoharness-trajectory-evaluation.md) 已把任务达成、finding 查全查准、资源效率、轨迹合理性和 harness-layer 归因拆成独立指标；scorer 现有 18 个单测，built-in reference-coverage 会把 #446 自报 `7/7` 判回 `7/10` strict failure。PR Review harness 新增 15-item exact-head ledger/closure、exported signature/codegen leads，timeline script 保留 latest comments 与 immutable provenance；comparison context/效率仍缺失，不作 promotion claim |
 | 完成 Day58 AgentCube PR #450 child ownership Review | [Day 58](day58-pr450-codeinterpreter-child-ownership-review.md) 对 exact head `f722b51` 从 Issue #449 contract 重建 create/update/delete 并发边界；确认 update 的 ResourceVersion 与 create `AlreadyExists` retry 方向正确，但两处 name-only DELETE 未携带 UID/resourceVersion preconditions，GET 后并发 ownerRef 修改或同名替换仍可删除未归属对象。记录 1 个 High reachable latent bug；本地 Go test 因共享主机 linker contention 中止，exact-head coverage/race CI 全绿；未发布 upstream comment |
+| 完成 Day62 当前 Agent Infra、Agentic RL 与企业 Runtime 调研 | [Day 62](day62-current-agent-infra-agentic-rl-enterprise-runtime-study.md) 固定 25 个开源仓库，比较 trainer-owned 与 harness-owned rollout、企业 Runtime 十项能力、Manus task Sandbox 与 Grok Bot user computer，并形成 AgentCube Harbor/Uni-Agent provider PoC、验收矩阵及两张 Mermaid 图 |
 | 完成实习周报邮件私有工作流与 Week 5 验收 | `/home/intern-week-mail` 已成为唯一 skill/template/report-source 仓库；skill validation、author-date Git filtering、HTML escaping、隐私扫描和五段表格结构检查均通过；Week 5 HTML 仅版本化到 private repo 的 `output/week5/`，未发送 |
 | 完成 Week 6 双层总结与邮件周报草稿 | [Week 6](week6-summary.md) 已按 2026-07-13 至 07-17 汇总 AgentCube、Karmada 与通用工具贡献；`/home/intern-week-mail/reports/week6/` 保存去身份数据、三仓 Git 证据和 claim matrix，HTML 内容/布局/隐私校验与 44 个 workflow tests 通过；邮件未发送 |
 | 完成 PR #387 warm pool adoption 数据流 review | [Day 30](day30-pr387-warm-pool-dataflow-review.md) 已从运行时对象流、claim status 观测、Pod 查找、Store/Router 语义和 delete/GC identity 拆解 #387，不再停留在 API import / interface 适配层面 |

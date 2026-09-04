@@ -1,0 +1,80 @@
+---
+config:
+  theme: base
+  flowchart:
+    htmlLabels: false
+  themeVariables:
+    fontFamily: Arial, sans-serif
+    fontSize: 17px
+    primaryTextColor: '#172554'
+    lineColor: '#475569'
+---
+flowchart TB
+    subgraph ENTRY["Ingress and triggers"]
+        direction LR
+        USER["User or application"]
+        EVENT["Schedule, event, or agent handoff"]
+        GATEWAY["Agent ingress gateway\nauthentication, rate limit, routing"]
+        USER -->|"request or approval"| GATEWAY
+        EVENT -->|"background invocation"| GATEWAY
+    end
+
+    subgraph CONTROL["Agent control plane"]
+        direction LR
+        IDENTITY["Identity and policy\nuser, agent, tenant, action"]
+        RUNTIME["Agent runtime and harness\nplan, invoke, suspend, resume"]
+        SESSION[("Session and execution state")]
+        MEMORY[("Long-term memory and artifacts")]
+        HITL["Human-in-the-loop gate\napprove, edit, deny"]
+
+        IDENTITY -->|"authorized principal and policy"| RUNTIME
+        RUNTIME <-->|"checkpointed progress"| SESSION
+        MEMORY -->|"retrieved context"| RUNTIME
+        RUNTIME -->|"consequential action"| HITL
+        HITL -->|"decision"| RUNTIME
+    end
+
+    subgraph ACTION["Tools and isolated execution"]
+        direction LR
+        TOOLGW["Tool and MCP gateway\nschema, allowlist, policy"]
+        CREDS["Credential broker\nscoped token or delegated identity"]
+        SANDBOXMGR["Sandbox lifecycle\ncreate, claim, pause, resume, delete"]
+        SANDBOX["Isolated workspace\nbrowser, terminal, files, code"]
+        SYSTEMS["Enterprise APIs, SaaS, web, data"]
+
+        TOOLGW -->|"authorized outbound call"| CREDS
+        CREDS -->|"short-lived or delegated credential"| SYSTEMS
+        SANDBOXMGR -->|"ready endpoint"| SANDBOX
+        SANDBOX -->|"policy-controlled network action"| SYSTEMS
+    end
+
+    subgraph OPERATE["Operations and improvement"]
+        direction LR
+        TELEMETRY[("Traces, metrics, logs, cost")]
+        AUDIT[("Immutable audit record")]
+        EVAL["Online and offline evaluation"]
+
+        TELEMETRY -->|"security and compliance events"| AUDIT
+        TELEMETRY -->|"tool, turn, session, system signals"| EVAL
+    end
+
+    GATEWAY -->|"authenticated invocation"| IDENTITY
+    RUNTIME -->|"structured tool call"| TOOLGW
+    RUNTIME -->|"workspace command"| SANDBOXMGR
+    RUNTIME -.->|"spans and state transitions"| TELEMETRY
+    TOOLGW -.->|"decision and outcome"| TELEMETRY
+    SANDBOX -.->|"execution and resource signals"| TELEMETRY
+
+    classDef source fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef control fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef state fill:#fef3c7,stroke:#d97706,color:#713f12;
+    classDef runtime fill:#e0e7ff,stroke:#4f46e5,color:#312e81;
+    classDef external fill:#f8fafc,stroke:#64748b,color:#334155,stroke-dasharray:6 4;
+    classDef review fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+
+    class USER,EVENT,GATEWAY source;
+    class IDENTITY,RUNTIME,TOOLGW,CREDS,SANDBOXMGR,EVAL control;
+    class SESSION,MEMORY,TELEMETRY,AUDIT state;
+    class SANDBOX runtime;
+    class SYSTEMS external;
+    class HITL review;

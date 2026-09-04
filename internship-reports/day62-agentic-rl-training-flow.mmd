@@ -1,0 +1,80 @@
+---
+config:
+  theme: base
+  flowchart:
+    htmlLabels: false
+  themeVariables:
+    fontFamily: Arial, sans-serif
+    fontSize: 17px
+    primaryTextColor: '#172554'
+    lineColor: '#475569'
+---
+flowchart TB
+    subgraph INPUT["Versioned inputs"]
+        direction LR
+        TASKS[("Task dataset\nprompt, image, seed, oracle metadata")]
+        SPEC[("Harness and environment spec\nimage, tools, limits, reward")]
+    end
+
+    subgraph ROLLOUT["Rollout control plane"]
+        direction LR
+        SCHED["Rollout scheduler\nsample groups, concurrency, retries"]
+        RUNNER["Production-like agent harness\ncontext, tools, control flow"]
+        GATEWAY["Session-scoped model gateway\nprotocol and token capture"]
+        MATERIALIZE["Trajectory materializer\ntokens, masks, logprobs, metadata"]
+    end
+
+    subgraph INFERENCE["GPU inference pool"]
+        direction LR
+        ENGINE["Rollout engine\nvLLM or SGLang"]
+        POLICY["Current policy weights"]
+        POLICY -->|"serve generation"| ENGINE
+    end
+
+    subgraph ENVIRONMENT["Isolated environment pool"]
+        direction LR
+        LIFECYCLE["Sandbox lifecycle\nallocate, reset, snapshot, delete"]
+        ENV["Stateful task environment\nterminal, browser, simulator, APIs"]
+        VERIFIER["Verifier or reward service\ntests, rules, judge, outcome"]
+        LIFECYCLE -->|"clean task instance"| ENV
+        ENV -->|"artifacts and final state"| VERIFIER
+    end
+
+    subgraph LEARNING["Training and durable evidence"]
+        direction LR
+        BUFFER[("Trajectory and reward store")]
+        CREDIT["Credit assignment and advantage"]
+        TRAINER["Policy trainer\nFSDP2, Megatron, or other backend"]
+        CHECKPOINT[("Versioned checkpoint and run manifest")]
+        BUFFER -->|"completed samples"| CREDIT
+        CREDIT -->|"training batch"| TRAINER
+        TRAINER -->|"checkpoint plus provenance"| CHECKPOINT
+    end
+
+    TASKS -->|"task instances"| SCHED
+    SPEC -->|"pinned runtime contract"| SCHED
+    SCHED -->|"rollout assignment"| RUNNER
+    RUNNER -->|"OpenAI or Anthropic-compatible request"| GATEWAY
+    GATEWAY -->|"generate"| ENGINE
+    ENGINE -->|"model tokens and logprobs"| GATEWAY
+    GATEWAY -->|"model response"| RUNNER
+    RUNNER -->|"create or reset"| LIFECYCLE
+    RUNNER -->|"action"| ENV
+    ENV -->|"observation"| RUNNER
+    GATEWAY -->|"token-level trace"| MATERIALIZE
+    RUNNER -->|"turn and outcome metadata"| MATERIALIZE
+    VERIFIER -->|"reward and completion state"| MATERIALIZE
+    MATERIALIZE -.->|"asynchronous finalized trajectory"| BUFFER
+    TRAINER -.->|"bounded-staleness weight update"| POLICY
+
+    classDef source fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef process fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef state fill:#fef3c7,stroke:#d97706,color:#713f12;
+    classDef runtime fill:#e0e7ff,stroke:#4f46e5,color:#312e81;
+    classDef verify fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+
+    class TASKS,SPEC source;
+    class SCHED,RUNNER,GATEWAY,MATERIALIZE,CREDIT,TRAINER process;
+    class BUFFER,CHECKPOINT state;
+    class ENGINE,POLICY,LIFECYCLE,ENV runtime;
+    class VERIFIER verify;

@@ -75,3 +75,5 @@
 - [Day 50：agent-sandbox v0.5.2 独立适配](day50-agent-sandbox-v052-independent-adaptation.md)
 - [Day 51：社区动向与 PR #385 Warm Pool 健康状态回溯](day51-community-movement-and-pr385-warm-pool-health-retrospective.md)
 - [Day 52：PR #442 agent-sandbox v0.5.2 Diff-to-Diff Review](day52-pr442-agent-sandbox-v052-diff-to-diff-review.md)
+- [Day 61：云原生 Agent Harness Infrastructure 调研](day61-learn-cn-agent-sandbox.md)
+- [Day 62：当前 Agent Infra 开源生态、Agentic RL 与企业 Runtime 调研](day62-current-agent-infra-agentic-rl-enterprise-runtime-study.md)
